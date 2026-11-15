@@ -62,7 +62,7 @@ def main() -> int:
     agent = "-agentpath:" + str(library) + "=" + str(bridge)
     profile = [java, "-XX:+DisableAttachMechanism", "-XX:+UnlockDiagnosticVMOptions", "-XX:-InlineUnsafeOps",
                "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED", agent, "-cp", str(output / "tests")]
-    for name in ("InstalledDefinitionProbe", "ProductionAccessProbe", "PublicationRaceProbe", "NestedCallbackProbe", "FrozenValueProbe"):
+    for name in ("InstalledDefinitionProbe", "ProductionAccessProbe", "PublicationRaceProbe", "NestedCallbackProbe", "FrozenValueProbe", "AccessorEntryProbe"):
         extra = [str(output / "tests/ProductionAccessProbe$HiddenWriter.class")] if name == "ProductionAccessProbe" else []
         commands.append((name, [*profile, name, *extra]))
     commands += [
