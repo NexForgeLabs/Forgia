@@ -11035,6 +11035,16 @@ public final class RegionThreadingEngine implements RegionThreading {
                 alreadyActive.add(region);
                 return;
             }
+            // Admission precedes the asynchronous runner, but the runner checks this same timer again.
+            // Avoid submitting a task that is already known to have no due drain. Keep the active-worker
+            // checks above this test: an accepted task must still be physically awaited, even if another
+            // drain advanced the deadline in the meantime. The timer is guarded by the same monitor as
+            // RegionTickRunner, and no deadline is consumed until the original runner actually starts.
+            synchronized (region) {
+                if (!region.tickTimer().isDue(nowNanos)) {
+                    return;
+                }
+            }
             if (region.tryMarkWorkerSubmitted()) {
                 submissions.add("region drain " + region.coordinate(), () -> this.runSubmittedRegionTick(region, nowNanos));
             } else if (region.isWorkerSubmitted() || region.isRunning()) {

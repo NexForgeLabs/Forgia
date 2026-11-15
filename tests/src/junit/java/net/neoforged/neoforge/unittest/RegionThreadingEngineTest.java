@@ -1081,6 +1081,36 @@ class RegionThreadingEngineTest {
     }
 
     @Test
+    void levelDrainDoesNotSubmitWorkBeforeTheRegionDeadline() throws ReflectiveOperationException {
+        this.engine = new RegionThreadingEngine(1, true, false);
+        final ServerLevel level = mock(ServerLevel.class);
+        this.engine.addRegionSection(level, 0, 0);
+        final AtomicInteger runs = new AtomicInteger();
+        this.engine.regionScheduler().execute(level, BlockPos.ZERO, runs::incrementAndGet);
+        final Object region = regionState(this.engine, RegionCoordinate.fromBlock(level, BlockPos.ZERO));
+        final Method timerGetter = region.getClass().getDeclaredMethod("tickTimer");
+        timerGetter.setAccessible(true);
+        final Object timer = timerGetter.invoke(region);
+        final Method markStarted = timer.getClass().getDeclaredMethod("markTickStarted", long.class);
+        markStarted.setAccessible(true);
+        synchronized (region) {
+            markStarted.invoke(timer, System.nanoTime() + TimeUnit.MINUTES.toNanos(1));
+        }
+        final long submissions = this.engine.diagnostics().workerDispatch().submissions();
+        for (int attempt = 0; attempt < 20; ++attempt) this.engine.drainLevelRegionTasks(level);
+        assertEquals(submissions, this.engine.diagnostics().workerDispatch().submissions());
+        assertEquals(0, runs.get());
+        assertEquals(0, regionQueueTick(this.engine, RegionCoordinate.fromBlock(level, BlockPos.ZERO)));
+        synchronized (region) {
+            markStarted.invoke(timer, System.nanoTime() - TimeUnit.SECONDS.toNanos(1));
+        }
+        this.engine.drainLevelRegionTasks(level);
+        assertEquals(1, runs.get());
+        assertEquals(submissions + 1, this.engine.diagnostics().workerDispatch().submissions());
+        assertEquals(1, regionQueueTick(this.engine, RegionCoordinate.fromBlock(level, BlockPos.ZERO)));
+    }
+
+    @Test
     void levelDrainReturnsOnlyAfterItsWorkerFinished() throws InterruptedException {
         this.engine = new RegionThreadingEngine(1, true, false);
         final ServerLevel level = mock(ServerLevel.class);
