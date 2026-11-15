@@ -1,0 +1,28 @@
+# Player worker execution audit
+
+No full player tick or authoritative movement update is moved to workers by this session. The measured production soak has no connected network players, so player-main-thread cost, packet latency and a multiplayer speedup are N/A. A worker feature without a real workload and a lifecycle/ordering oracle would not satisfy the requested performance or correctness standard.
+
+The actual call graph has two important entrances. `ServerLevel.tickNonPassenger` includes the always-ticking/player entity path. Separately, `ServerGamePacketListenerImpl.tick` calls `player.doTick`; `ServerPlayer.doTick` calls `super.tick`, updates criteria/experience/health and sends packets. `ServerPlayer.tick` handles game mode/block breaking, warden tracking, menus/broadcast, spectator camera behavior and location criteria. Moving just one of these methods would leave the same live player reachable from the other entrance.
+
+| Operation | Current execution | Potential future boundary / blocker |
+|---|---|---|
+| Network packet handling | Server thread, original packet order and validation | Keep serial. `handleMovePlayer` uses ensureRunningOnSameThread and reads teleport/session/vehicle state before movement checks |
+| Position/velocity and collision commit | Original server movement/world calls | A result needs original packet sequence, player identity epoch, dimension, teleport/death/disconnect generation and collision neighborhood validation; no current player-result commit protocol exists |
+| Movement arithmetic | In original handlers/entity code | Can be pure only after capturing immutable scalar inputs. Individual arithmetic is too small to justify a new task without batching/profile evidence |
+| Collision candidates | Existing leased region queries and published player AABBs for worker AI | Existing snapshot broad phase is worker-side, but is not authoritative player movement. A movement result additionally needs block/entity snapshot completeness across region boundaries |
+| Environment evaluation | Player/entity tick and arbitrary block/fluid callbacks | Unknown callbacks/world reads remain serial. Pure scalar evaluation could use immutable snapshots after a measured use case is identified |
+| Inventory/equipment/menus | Server player tick, packet handlers and shared containers | Remain serial; handlers/capabilities can alias inventories or trigger events. No duplication/conservation proof exists for worker commit |
+| Block interaction, breaking/placement | ServerGamePacketListenerImpl / ServerPlayerGameMode | Ordered packets, world changes and mod hooks; existing region ownership alone is insufficient |
+| Vehicle/mount/dismount | Packet/player/entity interaction paths | Riding graphs can span regions and lifecycle boundaries; ordered coordination is required |
+| Pickup/drops/interactions | World/entity/inventory paths and mod events | Cross-region target and inventory authority must be reserved together, without adding an independent lock system |
+| Combat/damage/effects/attributes | Serial player mutation with callbacks | Preserve combat order, RNG, event effects and death; immutable computation alone cannot authorize mutations |
+| Teleport/dimension/death/disconnect | Original server lifecycle and existing PlayerRegionTransitions | Original transition accounting is not permission to apply a stale worker result |
+| Player snapshots for region AI | `RegionPlayerSnapshots.publish` on server; AABB/key intersection on existing region workers | Already implemented before this session. Immutable UUID/id/AABB surround a **live ServerPlayer reference**; the whole snapshot is not an immutable player-state model |
+
+The existing `RegionEntityTickPolicy`/always-ticking index keeps player mutation on the server. `PlayerRegionTransitions`, entity identity/transfer tracking, mailbox/fence boundaries and player snapshot retirement are reused and unchanged. Packet handling, connection/session state, global mutations and unknown event callbacks stay serialized. There is no new player worker pool, ticket, effect queue or interaction-lock authority.
+
+A useful first implementation would be batched immutable collision/environment preparation tied to original packet/identity epochs, followed by authoritative validation and commit. It must discard results after every teleport/dimension/death/disconnect or newer movement packet, revalidate the complete cross-region footprint, preserve authoritative collision checks, and invoke unknown callbacks only once on their original thread. That protocol is missing, and the current block-entity Ticket descriptor cannot certify arbitrary player computation or commits.
+
+No new player computation is advertised as delivered. Existing snapshot intersections already occur on workers and remain useful, but their existence is not player tick parallelization. New movement/collision/packet-order/inventory/combat/lifecycle/event tests for an expanded player implementation were **not executed**. Existing unit and GameTest regressions are reported separately in the performance report; they do not establish multiplayer correctness.
+
+Assessments: additional player worker-side computation **NOT YET**; moving the entire current player tick to a worker **UNSAFE under the current ownership/packet/callback contract**. A future constrained pure preparation path remains feasible, conditional on the missing epoch/commit protocol and measured batching benefit.
