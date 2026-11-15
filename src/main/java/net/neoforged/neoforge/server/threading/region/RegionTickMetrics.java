@@ -58,6 +58,11 @@ public final class RegionTickMetrics {
     private final AtomicLong tickCount = new AtomicLong();
     private final AtomicLong lastTickDurationNanos = new AtomicLong();
     private final AtomicLong currentTickDurationNanos = new AtomicLong();
+    private final java.util.concurrent.atomic.LongAdder mainThreadNanos = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder workerNanos = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder serialGroups = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder workerGroups = new java.util.concurrent.atomic.LongAdder();
+    private long overrunTicks;
     private volatile boolean currentTickOpen;
 
     private long[] windowBeginNanos = new long[WINDOW_TICKS];
@@ -119,6 +124,13 @@ public final class RegionTickMetrics {
     public void recordTick(long durationNanos) {
         this.tickCount.incrementAndGet();
         this.lastTickDurationNanos.set(durationNanos);
+        if (RegionWorkerScope.isNativeWorkerThread()) {
+            this.workerNanos.add(durationNanos);
+            this.workerGroups.increment();
+        } else {
+            this.mainThreadNanos.add(durationNanos);
+            this.serialGroups.increment();
+        }
         if (this.currentTickOpen) {
             this.currentTickDurationNanos.addAndGet(durationNanos);
         }
@@ -217,7 +229,20 @@ public final class RegionTickMetrics {
         LIVE_WINDOWS.decrementAndGet();
     }
 
+    /** Command-only statistics; no aggregation or percentile calculation is done by recordTick. */
+    synchronized RuntimeRegionSnapshot runtimeSnapshot(String dimension, int x, int z, int chunks, int entities,
+            int players, int pendingWork, String lifecycle, boolean running, boolean submitted) {
+        final var tick = this.snapshot(dimension, x, z);
+        final long[] sorted = this.released ? new long[0] : Arrays.copyOf(this.windowDurationNanos, this.windowSize);
+        Arrays.sort(sorted);
+        final double median = sorted.length == 0 ? Double.NaN : percentile(sorted, 0.5) / 1e6;
+        return new RuntimeRegionSnapshot(tick, median, this.tickCount.get(), this.overrunTicks,
+                this.mainThreadNanos.sum(), this.workerNanos.sum(), this.serialGroups.sum(), this.workerGroups.sum(),
+                chunks, entities, players, -1, -1, pendingWork, lifecycle, running, submitted);
+    }
+
     private void push(long tickIndex, long beginNanos, long durationNanos) {
+        if (durationNanos > 50_000_000L) ++this.overrunTicks;
         this.windowBeginNanos[this.windowCursor] = beginNanos;
         this.windowTickIndex[this.windowCursor] = tickIndex;
         this.windowDurationNanos[this.windowCursor] = durationNanos;

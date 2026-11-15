@@ -33,6 +33,16 @@ public final class ForgiaConfig {
     }
 
     public static final class Server {
+        public final BooleanValue enableRuntimeDiagnostics;
+        public final BooleanValue enableRuntimeJvmSampling;
+        public final IntValue runtimeHighRegionMspt;
+        public final IntValue runtimeWorkerSaturationPercent;
+        public final IntValue runtimeQueuePerWorker;
+        public final IntValue runtimeSerialFallbackPercent;
+        public final IntValue runtimeRegionImbalanceRatio;
+        public final IntValue runtimeMainCpuPercent;
+        public final IntValue runtimeHighServerMspt;
+
         public final BooleanValue enableRegionThreadingBridge;
 
         public final BooleanValue enableRegionThreadingWorkers;
@@ -87,6 +97,26 @@ public final class ForgiaConfig {
         public final IntValue regionThreadingMaxScheduledTasksPerDrain;
 
         Server(ModConfigSpec.Builder builder) {
+            enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
+                    .define("runtimeDiagnosticsEnabled", true);
+            enableRuntimeJvmSampling = builder.comment("Sample local JVM CPU, allocation and GC counters once per wall second. No profiler, disk I/O or region scan. Unsupported/disabled JVM counters display N/A.")
+                    .define("runtimeJvmSamplingEnabled", true);
+            runtimeHighRegionMspt = builder.comment("HIGH_REGION_MSPT threshold for the latest recorded region tick, milliseconds; coverage is instrumented leased groups.")
+                    .defineInRange("runtimeHighRegionMspt", 50, 1, 10000);
+            runtimeWorkerSaturationPercent = builder.comment("WORKER_SATURATION threshold: aggregate sampled worker CPU divided by configured workers, percent.")
+                    .defineInRange("runtimeWorkerSaturationPercent", 90, 1, 100);
+            runtimeQueuePerWorker = builder.comment("QUEUE_CONGESTION threshold: observed pending tasks per configured worker. Snapshot evidence, not a root-cause diagnosis.")
+                    .defineInRange("runtimeQueuePerWorker", 2, 1, 10000);
+            runtimeSerialFallbackPercent = builder.comment("HIGH_SERIAL_FALLBACK threshold: lifetime entity and BE fallback bodies as a percent of those completed on workers or fallback, after at least 100 bodies.")
+                    .defineInRange("runtimeSerialFallbackPercent", 50, 1, 100);
+            runtimeRegionImbalanceRatio = builder.comment("REGION_LOAD_IMBALANCE threshold: largest mean region load divided by mean of sampled active regions, with a minimum 1ms largest region.")
+                    .defineInRange("runtimeRegionImbalanceRatio", 4, 2, 1000);
+
+            runtimeMainCpuPercent = builder.comment("MAIN_THREAD_BOTTLENECK requires main CPU at least this percent of one core and mean server MSPT at least runtimeHighServerMspt.")
+                    .defineInRange("runtimeMainCpuPercent", 90, 1, 100);
+            runtimeHighServerMspt = builder.comment("MAIN_THREAD_BOTTLENECK server mean MSPT threshold, milliseconds. A correlation warning, not a root-cause diagnosis.")
+                    .defineInRange("runtimeHighServerMspt", 50, 1, 10000);
+
             enableRegionThreadingBridge = builder
                     .comment("EXPERIMENTAL: Enables the temporary single-thread region threading bridge. This exposes the region scheduler API before the full Folia-style tick scheduler is ported.")
                     .translation("neoforge.configgui.enableRegionThreadingBridge")

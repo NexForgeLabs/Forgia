@@ -10588,6 +10588,22 @@ public final class RegionThreadingEngine implements RegionThreading {
         });
     }
 
+    /** Value-only command observation of the existing regionizer; never grants execution authority. */
+    @ApiStatus.Internal
+    public List<RuntimeRegionSnapshot> runtimeRegionSnapshots() {
+        return this.regionizer.runtimeRegionSnapshots();
+    }
+
+    @ApiStatus.Internal
+    public WorkerRuntimeSnapshot workerRuntimeSnapshot() {
+        return this.workerPool.runtimeSnapshot();
+    }
+
+    @ApiStatus.Internal
+    public void setRuntimeTimingEnabled(boolean enabled) {
+        this.workerPool.setRuntimeTimingEnabled(enabled);
+    }
+
     /**
      * {@return a snapshot of internal runtime diagnostics}
      * <p>

@@ -874,6 +874,31 @@ final class ThreadedRegionizer {
         return List.copyOf(snapshots);
     }
 
+    List<RuntimeRegionSnapshot> runtimeRegionSnapshots() {
+        final Set<RegionState> live = this.uniqueRegions();
+        final var players = new java.util.IdentityHashMap<RegionState, Integer>();
+        final var levels = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<ServerLevel, Boolean>());
+        for (final RegionState region : live) levels.add(region.coordinate().level());
+        for (final ServerLevel level : levels) {
+            final var snapshot = RegionPlayerSnapshots.of(level);
+            if (snapshot != null) for (final var player : snapshot.players()) {
+                final var region = this.regionFor(player);
+                if (region != null) players.merge(region, 1, Integer::sum);
+            }
+        }
+        final var snapshots = new ArrayList<RuntimeRegionSnapshot>(live.size());
+        for (final RegionState region : live) {
+            final var coordinate = region.coordinate();
+            if (region.isDead()) continue;
+            snapshots.add(region.tickMetrics().runtimeSnapshot(dimensionName(coordinate.level()), coordinate.regionX(), coordinate.regionZ(),
+                    region.chunkCount(), region.entityTickEntryCount(),
+                    RegionPlayerSnapshots.of(coordinate.level()) == null ? -1 : players.getOrDefault(region, 0),
+                    region.taskQueue().pendingCount(), region.isRunning() ? "TICKING" : "READY",
+                    region.isRunning(), region.isWorkerSubmitted()));
+        }
+        return List.copyOf(snapshots);
+    }
+
     /**
      * {@return the dimension id the per-region metrics are labelled with}
      * <p>

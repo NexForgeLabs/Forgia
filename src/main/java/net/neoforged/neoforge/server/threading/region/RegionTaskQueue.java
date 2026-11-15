@@ -27,6 +27,8 @@ final class RegionTaskQueue {
     @Nullable
     private final Runnable beforeScheduledInsertHook;
     private volatile long cappedDrainCount;
+    private volatile int pendingImmediate;
+    private volatile int pendingScheduled;
     private volatile long currentTick;
     private volatile boolean closed;
 
@@ -53,6 +55,7 @@ final class RegionTaskQueue {
                 this.beforeImmediateInsertHook.run();
             }
             this.tasks.add(task);
+            ++this.pendingImmediate;
         }
     }
 
@@ -119,6 +122,7 @@ final class RegionTaskQueue {
                                 scheduledTask.cancel();
                             } else {
                                 this.scheduledTasks.add(scheduledTask);
+                                this.pendingScheduled = this.scheduledTasks.size();
                             }
                         }
                     }
@@ -151,9 +155,15 @@ final class RegionTaskQueue {
         return this.currentTick;
     }
 
+    /** O(1), nonblocking observation; cancelled scheduled entries remain counted until normal pruning. */
+    int pendingCount() {
+        return this.pendingImmediate + this.pendingScheduled;
+    }
+
     boolean isEmpty() {
         synchronized (this.scheduledTasks) {
             this.scheduledTasks.removeIf(RegionScheduledTask::isCancelled);
+            this.pendingScheduled = this.scheduledTasks.size();
             return this.tasks.isEmpty() && this.scheduledTasks.isEmpty();
         }
     }
@@ -162,8 +172,10 @@ final class RegionTaskQueue {
         synchronized (this.scheduledTasks) {
             this.closed = true;
             this.tasks.clear();
+            this.pendingImmediate = 0;
             this.scheduledTasks.forEach(RegionScheduledTask::cancel);
             this.scheduledTasks.clear();
+            this.pendingScheduled = 0;
         }
     }
 
@@ -177,6 +189,7 @@ final class RegionTaskQueue {
             }
             final RegionScheduledTask scheduledTask = new RegionScheduledTask(this, task, deadlineTick(this.currentTick, delayTicks), periodTicks);
             this.scheduledTasks.add(scheduledTask);
+            this.pendingScheduled = this.scheduledTasks.size();
             return scheduledTask;
         }
     }
@@ -205,6 +218,7 @@ final class RegionTaskQueue {
             }
             Runnable task;
             while ((task = this.tasks.poll()) != null) {
+                --this.pendingImmediate;
                 batch.add(task);
                 if (maxImmediateTasks > 0 && batch.size() >= maxImmediateTasks && !this.tasks.isEmpty()) {
                     ++this.cappedDrainCount;
@@ -236,6 +250,7 @@ final class RegionTaskQueue {
                     }
                 }
             }
+            this.pendingScheduled = this.scheduledTasks.size();
         }
         return dueTasks;
     }

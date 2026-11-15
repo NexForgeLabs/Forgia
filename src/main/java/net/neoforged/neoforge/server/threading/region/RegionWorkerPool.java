@@ -5,6 +5,10 @@
 
 package net.neoforged.neoforge.server.threading.region;
 
+import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -73,6 +77,23 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
     private final Set<Thread> workerThreads = ConcurrentHashMap.newKeySet();
     private final int threadCount;
     private final AtomicInteger nextWorker = new AtomicInteger();
+    private final AtomicInteger pendingTasks = new AtomicInteger();
+    private final java.util.concurrent.atomic.LongAdder completedTasks = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder failedTasks = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder rejectedTasks = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder queueWaitNanos = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder executionNanos = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder timedTasks = new java.util.concurrent.atomic.LongAdder();
+    private final Map<Thread, RuntimeCounters> runtimeByThread = new ConcurrentHashMap<>();
+    private final ThreadLocal<RuntimeCounters> localRuntime = ThreadLocal.withInitial(() -> {
+        // Fixed executors can replace a failed worker. Retain only live per-worker rows; pool lifetime
+        // totals above are independent of those rows and are never reset by replacement.
+        this.runtimeByThread.keySet().removeIf(thread -> !thread.isAlive());
+        final RuntimeCounters counters = new RuntimeCounters();
+        this.runtimeByThread.put(Thread.currentThread(), counters);
+        return counters;
+    });
+    private volatile boolean timingEnabled = true;
     /**
      * Counts every task a submitter offered to a worker.
      * <p>
@@ -160,6 +181,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
     @Override
     public boolean execute(String description, Runnable task) {
         if (this.closed) {
+            this.rejectedTasks.increment();
             LOGGER.warn("Rejected region worker task after shutdown: {}", description);
             return false;
         }
@@ -170,16 +192,21 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
         this.admissions.incrementAndGet();
         try {
             if (this.closed) {
+                this.rejectedTasks.increment();
                 LOGGER.warn("Rejected region worker task after shutdown: {}", description);
                 return false;
             }
             try {
-                this.executor.execute(() -> this.runTask(description, task));
+                this.pendingTasks.incrementAndGet();
+                final long queuedAt = this.timingEnabled ? start : 0L;
+                this.executor.execute(() -> this.runTask(description, task, queuedAt, false));
                 this.submissions.incrementAndGet();
                 return true;
             } catch (RejectedExecutionException exception) {
                 // close() may race with an admission that already observed the open flag; the caller runs the
                 // rejected work on its own thread instead of losing it.
+                this.pendingTasks.decrementAndGet();
+                this.rejectedTasks.increment();
                 LOGGER.warn("Rejected region worker task after shutdown: {}", description);
                 return false;
             }
@@ -203,6 +230,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
         this.admissions.incrementAndGet();
         try {
             if (this.closed) {
+                this.rejectedTasks.increment();
                 LOGGER.warn("Rejected region worker task after shutdown: {}", description);
                 return false;
             }
@@ -217,6 +245,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
             // counter report, so it is not counted as a wake-up. The submission time travels with the task, so the
             // wake-up latency of one task is measurable even when several tasks wait in the same deque.
             final SubmittedTask submitted = new SubmittedTask(description, task, start, target.isIdle(), target.index);
+            this.pendingTasks.incrementAndGet();
             target.tasks.offerLast(submitted);
             target.published.incrementAndGet();
             // Publish the offer before the wake-up: the epoch covers a worker that is deciding to park, and the
@@ -298,35 +327,72 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
     /**
      * Runs one accepted task on the calling worker thread with the native worker scope installed.
      */
-    private void runTask(String description, Runnable task) {
-        // The origin scope belongs to the pool, so it stays valid when the manager or engine is
-        // removed while this task is still unwinding. It is cleared in finally for every exit.
+    private void runTask(String description, Runnable task, long queuedAt, boolean swallowFailure) {
+        final RuntimeCounters counters = this.localRuntime.get();
+        final long start = queuedAt == 0L ? 0L : System.nanoTime();
+        this.pendingTasks.decrementAndGet();
+        counters.busy = true;
+        final long wait = start == 0L ? 0L : Math.max(0L, start - queuedAt);
         RegionWorkerScope.enter();
         try {
             task.run();
         } catch (Throwable throwable) {
+            ++counters.failed;
+            this.failedTasks.increment();
             LOGGER.error("Region worker task failed: {}", description, throwable);
-            throw throwable;
+            if (!swallowFailure) throw throwable;
         } finally {
             RegionWorkerScope.exit();
+            if (start != 0L) {
+                final long duration = System.nanoTime() - start;
+                counters.executionNanos += duration;
+                counters.queueWaitNanos += wait;
+                this.queueWaitNanos.add(wait);
+                this.executionNanos.add(duration);
+                this.timedTasks.increment();
+            }
+            ++counters.completed;
+            this.completedTasks.increment();
+            counters.busy = false;
         }
     }
 
-    /**
-     * Runs one accepted task on a persistent worker and keeps the worker alive when the task fails.
-     * <p>
-     * A failing task must not retire the worker: the worker owns a deque the pool dispatches to, so its failure
-     * is logged here and the loop continues with the next task of the deques.
-     */
-    private void runPersistentTask(String description, Runnable task) {
-        RegionWorkerScope.enter();
-        try {
-            task.run();
-        } catch (Throwable throwable) {
-            LOGGER.error("Region worker task failed: {}", description, throwable);
-        } finally {
-            RegionWorkerScope.exit();
+    void setRuntimeTimingEnabled(boolean enabled) {
+        this.timingEnabled = enabled;
+    }
+
+    WorkerRuntimeSnapshot runtimeSnapshot() {
+        final var bean = ManagementFactory.getThreadMXBean();
+        final var rows = new ArrayList<WorkerRuntimeSnapshot.Worker>();
+        int busy = 0;
+        boolean joined = this.closed;
+        int started = 0;
+        for (final Thread thread : this.workerThreads) {
+            final RuntimeCounters counters = this.runtimeByThread.get(thread);
+            final boolean alive = thread.isAlive();
+            if (alive) ++started;
+            joined &= !alive;
+            if (counters != null && counters.busy) ++busy;
+            if (!alive) continue;
+            rows.add(new WorkerRuntimeSnapshot.Worker(thread.getName(), thread.threadId(), true,
+                    thread.getState().name(), counters != null && counters.busy,
+                    counters == null ? 0 : counters.completed, counters == null ? 0 : counters.failed,
+                    counters == null ? 0 : counters.queueWaitNanos, counters == null ? 0 : counters.executionNanos,
+                    bean.isThreadCpuTimeSupported() && bean.isThreadCpuTimeEnabled() ? bean.getThreadCpuTime(thread.threadId()) : -1L));
         }
+        rows.sort(Comparator.comparingLong(WorkerRuntimeSnapshot.Worker::id));
+        return new WorkerRuntimeSnapshot(this.threadCount, started, busy, this.submissions.get(),
+                this.completedTasks.sum(), this.rejectedTasks.sum(), this.failedTasks.sum(),
+                Math.max(0, this.pendingTasks.get()), this.queueWaitNanos.sum(), this.executionNanos.sum(), this.timedTasks.sum(),
+                this.closed, joined, rows);
+    }
+
+    private static final class RuntimeCounters {
+        volatile boolean busy;
+        volatile long completed;
+        volatile long failed;
+        volatile long queueWaitNanos;
+        volatile long executionNanos;
     }
 
     void recordBatchDispatch(int tasks, int runners) {
@@ -418,6 +484,20 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                 // remove tasks whose batch permits and region leases still have to be released.
                 interrupted = true;
                 for (final Thread worker : this.workerThreads) worker.interrupt();
+            }
+        }
+        // Executor termination is published by the last worker just before its Thread actually returns.
+        // Join the original platform threads as well: a diagnostic or lifecycle consumer must not observe
+        // a supposedly joined pool whose final worker is still unwinding.
+        for (final Thread worker : this.workerThreads) {
+            while (true) {
+                try {
+                    worker.join();
+                    break;
+                } catch (InterruptedException exception) {
+                    interrupted = true;
+                    worker.interrupt();
+                }
             }
         }
         if (interrupted) {
@@ -602,7 +682,8 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
         private void runTask(SubmittedTask task) {
             this.busy = true;
             try {
-                RegionWorkerPool.this.runPersistentTask(task.description(), task.work());
+                RegionWorkerPool.this.runTask(task.description(), task.work(),
+                        RegionWorkerPool.this.timingEnabled ? task.submittedNanos() : 0L, true);
             } finally {
                 this.busy = false;
             }

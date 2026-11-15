@@ -13,6 +13,7 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public class NeoForgeCommand {
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        ForgiaCommand.register(dispatcher);
         dispatcher.register(
                 LiteralArgumentBuilder.<CommandSourceStack>literal("neoforge")
                         .then(TPSCommand.register())

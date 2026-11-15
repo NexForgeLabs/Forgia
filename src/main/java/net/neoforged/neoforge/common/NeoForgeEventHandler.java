@@ -87,6 +87,12 @@ public class NeoForgeEventHandler {
     @SubscribeEvent
     public void postServerTick(ServerTickEvent.Post event) {
         WorldWorkerManager.tick(false);
+        net.neoforged.neoforge.server.threading.region.RuntimeObservability.recordServerTick(event.getServer());
+    }
+
+    @SubscribeEvent
+    public void onRuntimeDiagnosticsStopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        net.neoforged.neoforge.server.threading.region.RuntimeObservability.clear(event.getServer());
     }
 
     @SubscribeEvent

@@ -190,7 +190,7 @@ final class RegionThreadingCommand {
      * operator looking for the one number that moved. {@code status raw} keeps the unchanged machine-readable
      * lines for scripts, logs and bug reports.
      */
-    private static void sendStatus(CommandSourceStack source, RegionThreadingDiagnostics diagnostics) {
+    static void sendStatus(CommandSourceStack source, RegionThreadingDiagnostics diagnostics) {
         final boolean enabled = ForgiaConfig.SERVER.enableRegionThreadingBridge.get();
         statusLine("Region threading", ChatFormatting.GOLD)
                 .add(enabled ? "on" : "off", enabled ? ChatFormatting.GREEN : ChatFormatting.RED)
