@@ -87,7 +87,11 @@ final class CoreModTickerVerifier {
             final var sourceCode = RuntimeProof.definition(source.getClass());
             if (sourceCode == null) return refuse("actual source definition unavailable");
             for (final var method : sourceCode.methods()) {
-                if (Set.of("getLevel", "getBlockPos", "getBlockState", "getType", "isRemoved", "hasLevel", "hasAttachments")
+                // Read-only accessors are not method-entry guarded (they are on every block entity's
+                // hot path). A source class that declares one could hide a side effect behind that
+                // name, so such a source is refused instead of being admitted with a gap.
+                if (Set.of("getLevel", "getBlockPos", "getBlockState", "getType", "isRemoved", "hasLevel", "hasAttachments",
+                        "getPos", "getDelegate", "toString", "hashCode", "equals")
                         .contains(method.name()))
                     return refuse("source reaches live world accessor " + method.name());
             }
