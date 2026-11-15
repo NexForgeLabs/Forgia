@@ -202,7 +202,7 @@ class Installed:
         (self.root/'config/forgia.toml').write_text(f'''enableRegionThreadingFurnaceWorkWaves = true
  enableRegionThreadingBlockEntityResources = {str(self.enabled).lower()}
  enableRegionThreadingPersistentWorkers = {str(getattr(self.args, 'persistent_workers', True)).lower()}
- enableRegionThreadingBridge = true
+ enableRegionThreadingBridge = {str(getattr(self.args, 'bridge_enabled', True)).lower()}
  enableRegionThreadingWorkers = true
  enableRegionThreadingEntityTicks = false
  enableRegionThreadingBlockEntityTicks = true
@@ -213,6 +213,11 @@ class Installed:
  regionThreadingFixedRegionChunks = 3
  regionThreadingWorkerThreads = {self.workers}
 ''')
+        diagnostic_sampling = getattr(self.args, 'diagnostic_sampling', None)
+        if diagnostic_sampling is not None:
+            with (self.root/'config/forgia.toml').open('a') as config:
+                config.write(f'runtimeDiagnosticsEnabled = {str(diagnostic_sampling).lower()}\n')
+                config.write(f'runtimeJvmSamplingEnabled = {str(diagnostic_sampling).lower()}\n')
         self.port, game_port = free_port(), free_port()
         self.password = secrets.token_hex(24)
         (self.root/'server.properties').write_text(f'''server-ip=127.0.0.1

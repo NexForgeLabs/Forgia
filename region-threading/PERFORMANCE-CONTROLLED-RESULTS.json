@@ -1,0 +1,684 @@
+{
+  "schemaVersion": 1,
+  "exactNbtAndOutputEquivalence": true,
+  "workload": {
+    "count": 64,
+    "warmupTicks": 400,
+    "measuredTicksPerWindow": 400,
+    "windowsPerJvm": 2,
+    "seed": 813584,
+    "layout": "regions",
+    "configuredWorkers": 4,
+    "heap": "2GiB fixed G1",
+    "java": "Temurin 21.0.13+9"
+  },
+  "caveats": [
+    "Consecutive windows are not independent JVM repeats.",
+    "Ring TPS uses conservative active-interval reconstruction and can miss an equal-valued endpoint.",
+    "Stock baseline is NeoForge 21.1.249; both Forgia builds use Minecraft 1.21.1 with their declared upstream revision.",
+    "GC collection time is not pause duration; monitor entrances exclude other forms of contention.",
+    "No connected players, modpack, chunk loading throughput or new generation throughput."
+  ],
+  "runs": [
+    {
+      "evidence": "tmp/performance-session/installed-r0-forgia-monitored/result.json",
+      "evidenceSha256": "d48afd3ce865b31508cae3e1523dfc2ee300ca6252db620a60d196a082aeadb8",
+      "version": "21.1.250.98-beta",
+      "universalSha256": "75fb5ff1ed3784b08bbdfead340ea35fc2bc54792b6590fdcecf908c35b829ac",
+      "bridge": true,
+      "diagnostics": true,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 386,
+            "mean": 14.081655287564768,
+            "p50": 10.4106,
+            "p95": 24.247201,
+            "p99": 35.359301,
+            "maximum": 42.8294
+          },
+          "observedRingTps": 19.976110090722866,
+          "allocationMiBPerSecond": 252.86640589857083,
+          "allocationObservationSeconds": 18.019139623,
+          "mainCpuSeconds": 5.7713509,
+          "workerCpuSeconds": 0.8444277,
+          "threadObservationSeconds": 18.019139623,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 80
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 387,
+            "mean": 10.568825896640826,
+            "p50": 10.2733,
+            "p95": 11.2401,
+            "p99": 28.995201,
+            "maximum": 32.0447
+          },
+          "observedRingTps": 20.02750620862745,
+          "allocationMiBPerSecond": 253.4890186717134,
+          "allocationObservationSeconds": 19.021217093,
+          "mainCpuSeconds": 4.7320927,
+          "workerCpuSeconds": 0.8204378,
+          "threadObservationSeconds": 19.021217093,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 76
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r0-forgia-serial/result.json",
+      "evidenceSha256": "9596d580a49e6194e959c1f38736987d25fd799f18b0748b1ab5754e52ac3e20",
+      "version": "21.1.250.98-beta",
+      "universalSha256": "75fb5ff1ed3784b08bbdfead340ea35fc2bc54792b6590fdcecf908c35b829ac",
+      "bridge": false,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 0.26832346354166664,
+            "p50": 0.2464,
+            "p95": 0.3253,
+            "p99": 0.7096,
+            "maximum": 2.824701
+          },
+          "observedRingTps": 19.976774177259127,
+          "allocationMiBPerSecond": 0.42394293508221154,
+          "allocationObservationSeconds": 18.018700454,
+          "mainCpuSeconds": 1.0929456,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 18.018700454,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 0.24756975,
+            "p50": 0.2315,
+            "p95": 0.3126,
+            "p99": 0.685399,
+            "maximum": 0.829699
+          },
+          "observedRingTps": 19.977747262835933,
+          "allocationMiBPerSecond": 0.39744621096903604,
+          "allocationObservationSeconds": 19.019516127,
+          "mainCpuSeconds": 1.1441534,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 19.019516127,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r0-forgia-workers/result.json",
+      "evidenceSha256": "76fb326583c19b1403cde251c344e7a957886f63adea436cd72cb271f1dc1103",
+      "version": "21.1.250.98-beta",
+      "universalSha256": "75fb5ff1ed3784b08bbdfead340ea35fc2bc54792b6590fdcecf908c35b829ac",
+      "bridge": true,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 10.376174638020833,
+            "p50": 10.1298,
+            "p95": 10.869301,
+            "p99": 25.049801,
+            "maximum": 26.090902
+          },
+          "observedRingTps": 19.977344598714023,
+          "allocationMiBPerSecond": 252.81588977274177,
+          "allocationObservationSeconds": 18.018437003,
+          "mainCpuSeconds": 4.4230729,
+          "workerCpuSeconds": 0.7896526,
+          "threadObservationSeconds": 18.018437003,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 58
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 10.431777815104168,
+            "p50": 10.109999,
+            "p95": 11.491701,
+            "p99": 24.181499,
+            "maximum": 26.800301
+          },
+          "observedRingTps": 19.975933062432823,
+          "allocationMiBPerSecond": 253.39716778010646,
+          "allocationObservationSeconds": 19.020848203,
+          "mainCpuSeconds": 4.6846855,
+          "workerCpuSeconds": 0.818389,
+          "threadObservationSeconds": 19.020848203,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 61
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r0-stock/result.json",
+      "evidenceSha256": "d5bfe956cad5ec8e9437bd04acc9f58f1a2de476e21c4d0436127cc793dbaa25",
+      "version": "21.1.249",
+      "universalSha256": "63ba902edcae4476d49ffc28b18d566b0fcc5bf12edebcce1a2033f254f28155",
+      "bridge": false,
+      "diagnostics": false,
+      "stock": true,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 385,
+            "mean": 0.2168716883116883,
+            "p50": 0.1989,
+            "p95": 0.2683,
+            "p99": 0.5278,
+            "maximum": 3.065
+          },
+          "observedRingTps": 20.027740788947916,
+          "allocationMiBPerSecond": 0.40034605410647056,
+          "allocationObservationSeconds": 18.019726966,
+          "mainCpuSeconds": 1.0555351,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 18.019726966,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 382,
+            "mean": 0.1927002670157068,
+            "p50": 0.1819,
+            "p95": 0.2392,
+            "p99": 0.5703,
+            "maximum": 0.6549
+          },
+          "observedRingTps": 19.77064822179022,
+          "allocationMiBPerSecond": 0.3724136795335399,
+          "allocationObservationSeconds": 19.019808035,
+          "mainCpuSeconds": 1.0965534,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 19.019808035,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r1-forgia-monitored/result.json",
+      "evidenceSha256": "ee61c0fa55323cdd6354ab62d9f3e5b7df1322e1a9a368a9bd2a43c47c7f8b1a",
+      "version": "21.1.250.98-beta",
+      "universalSha256": "75fb5ff1ed3784b08bbdfead340ea35fc2bc54792b6590fdcecf908c35b829ac",
+      "bridge": true,
+      "diagnostics": true,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 10.377958302083334,
+            "p50": 10.0431,
+            "p95": 11.1963,
+            "p99": 24.741,
+            "maximum": 25.4059
+          },
+          "observedRingTps": 19.97662543069813,
+          "allocationMiBPerSecond": 252.8338017049313,
+          "allocationObservationSeconds": 18.018821746,
+          "mainCpuSeconds": 4.4166119,
+          "workerCpuSeconds": 0.7995352,
+          "threadObservationSeconds": 18.018821746,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 5,
+          "gcCollectionMillis": 71
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 10.380154947916667,
+            "p50": 10.0177,
+            "p95": 11.3166,
+            "p99": 25.2572,
+            "maximum": 27.044
+          },
+          "observedRingTps": 19.97724207565673,
+          "allocationMiBPerSecond": 253.46825754249312,
+          "allocationObservationSeconds": 19.019289296,
+          "mainCpuSeconds": 4.6803616,
+          "workerCpuSeconds": 0.8273595,
+          "threadObservationSeconds": 19.019289296,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 60
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r1-forgia-serial/result.json",
+      "evidenceSha256": "f36a8f147166e951009aef58a9ca5ae621cd2ad81ae961723f745a25185c9b90",
+      "version": "21.1.250.98-beta",
+      "universalSha256": "75fb5ff1ed3784b08bbdfead340ea35fc2bc54792b6590fdcecf908c35b829ac",
+      "bridge": false,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 383,
+            "mean": 0.2673837832898172,
+            "p50": 0.2525,
+            "p95": 0.2958,
+            "p99": 0.4776,
+            "maximum": 2.896
+          },
+          "observedRingTps": 19.923362186388935,
+          "allocationMiBPerSecond": 0.45921819841369055,
+          "allocationObservationSeconds": 18.019576818,
+          "mainCpuSeconds": 1.0838165,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 18.019576818,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 0.26445605208333334,
+            "p50": 0.2494,
+            "p95": 0.3199,
+            "p99": 0.6728,
+            "maximum": 0.7692
+          },
+          "observedRingTps": 19.97696276838606,
+          "allocationMiBPerSecond": 0.43571732880313346,
+          "allocationObservationSeconds": 19.019620042,
+          "mainCpuSeconds": 1.1350736,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 19.019620042,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r1-forgia-workers/result.json",
+      "evidenceSha256": "bbd2ee584ecb7d0b4c06bd0f253ea49ecea413b9a19e8356d87e769135305241",
+      "version": "21.1.250.98-beta",
+      "universalSha256": "75fb5ff1ed3784b08bbdfead340ea35fc2bc54792b6590fdcecf908c35b829ac",
+      "bridge": true,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 10.346751588541666,
+            "p50": 10.111699,
+            "p95": 11.2469,
+            "p99": 17.239299,
+            "maximum": 18.0439
+          },
+          "observedRingTps": 19.97668537073348,
+          "allocationMiBPerSecond": 253.16384826261853,
+          "allocationObservationSeconds": 18.018742194,
+          "mainCpuSeconds": 4.455907,
+          "workerCpuSeconds": 0.802667,
+          "threadObservationSeconds": 18.018742194,
+          "monitorBlockedEntrances": 1,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 26
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 385,
+            "mean": 10.282730376623377,
+            "p50": 10.0899,
+            "p95": 11.1122,
+            "p99": 17.308902,
+            "maximum": 18.73
+          },
+          "observedRingTps": 20.02539173171061,
+          "allocationMiBPerSecond": 252.95321518026552,
+          "allocationObservationSeconds": 19.023366022,
+          "mainCpuSeconds": 4.6727606,
+          "workerCpuSeconds": 0.8257298,
+          "threadObservationSeconds": 19.023366022,
+          "monitorBlockedEntrances": 2,
+          "gcCollectionCount": 4,
+          "gcCollectionMillis": 28
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/installed-r1-stock/result.json",
+      "evidenceSha256": "eb32a698234743a1c935ae5f2db400ff01a8dbcd14ebfb9446a7fcd48f20883c",
+      "version": "21.1.249",
+      "universalSha256": "63ba902edcae4476d49ffc28b18d566b0fcc5bf12edebcce1a2033f254f28155",
+      "bridge": false,
+      "diagnostics": false,
+      "stock": true,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 382,
+            "mean": 0.2598350785340314,
+            "p50": 0.2405,
+            "p95": 0.3131,
+            "p99": 0.5306,
+            "maximum": 2.8534
+          },
+          "observedRingTps": 19.87295337233474,
+          "allocationMiBPerSecond": 0.40036535011777025,
+          "allocationObservationSeconds": 18.019068104,
+          "mainCpuSeconds": 1.0830308,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 18.019068104,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 0.24614661197916665,
+            "p50": 0.2305,
+            "p95": 0.3208,
+            "p99": 0.615,
+            "maximum": 1.051
+          },
+          "observedRingTps": 19.977255244602745,
+          "allocationMiBPerSecond": 0.37517612763660013,
+          "allocationObservationSeconds": 19.019570426,
+          "mainCpuSeconds": 1.1327042,
+          "workerCpuSeconds": 0.0,
+          "threadObservationSeconds": 19.019570426,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/optimized-r0-monitored/server-run/result.json",
+      "evidenceSha256": "b4be16e0164a5b9af416ba31e9a83256333ece46dd1e4d0292ea03797ab1f251",
+      "version": "21.1.250.99-beta",
+      "universalSha256": "aa473f0ff0205a4ac6569577ca84f0f1179b5c7c7fc5c34b36571c120f4fd057",
+      "bridge": true,
+      "diagnostics": true,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.3507011067708334,
+            "p50": 2.331201,
+            "p95": 2.708,
+            "p99": 3.0877,
+            "maximum": 5.116001
+          },
+          "observedRingTps": 19.97630295143769,
+          "allocationMiBPerSecond": 18.703946219420025,
+          "allocationObservationSeconds": 18.01896973,
+          "mainCpuSeconds": 1.7522307,
+          "workerCpuSeconds": 0.7730532,
+          "threadObservationSeconds": 18.01896973,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.9493919817708334,
+            "p50": 2.9419,
+            "p95": 3.6287,
+            "p99": 4.1407,
+            "maximum": 18.4974
+          },
+          "observedRingTps": 19.9774866367607,
+          "allocationMiBPerSecond": 18.66889308746643,
+          "allocationObservationSeconds": 19.019156784,
+          "mainCpuSeconds": 2.0480663,
+          "workerCpuSeconds": 0.8232447,
+          "threadObservationSeconds": 19.019156784,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 1,
+          "gcCollectionMillis": 15
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/optimized-r0-workers/server-run/result.json",
+      "evidenceSha256": "a4afd9edfe032171bab384ec3599ce13ec3ae9f4709a38656d2f8fbe6d00f760",
+      "version": "21.1.250.99-beta",
+      "universalSha256": "aa473f0ff0205a4ac6569577ca84f0f1179b5c7c7fc5c34b36571c120f4fd057",
+      "bridge": true,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 385,
+            "mean": 2.3753706727272728,
+            "p50": 2.3629,
+            "p95": 2.7312,
+            "p99": 3.5799,
+            "maximum": 4.9206
+          },
+          "observedRingTps": 20.028594787321786,
+          "allocationMiBPerSecond": 18.716871136731566,
+          "allocationObservationSeconds": 18.019193986,
+          "mainCpuSeconds": 1.7501544,
+          "workerCpuSeconds": 0.7798184,
+          "threadObservationSeconds": 18.019193986,
+          "monitorBlockedEntrances": 2,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 3.0898743750000004,
+            "p50": 3.0513,
+            "p95": 3.633,
+            "p99": 4.6585,
+            "maximum": 17.211401
+          },
+          "observedRingTps": 19.977924146175457,
+          "allocationMiBPerSecond": 18.63901048951504,
+          "allocationObservationSeconds": 19.018874227,
+          "mainCpuSeconds": 2.0909199,
+          "workerCpuSeconds": 0.8275772,
+          "threadObservationSeconds": 19.018874227,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 1,
+          "gcCollectionMillis": 14
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/optimized-r1-monitored/server-run/result.json",
+      "evidenceSha256": "f691bf48a54065c70979f125fc9833793b549fa8a570cd8cd85a9d1d1009d2d6",
+      "version": "21.1.250.99-beta",
+      "universalSha256": "aa473f0ff0205a4ac6569577ca84f0f1179b5c7c7fc5c34b36571c120f4fd057",
+      "bridge": true,
+      "diagnostics": true,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.286257328125,
+            "p50": 2.2446,
+            "p95": 2.5747,
+            "p99": 3.2917,
+            "maximum": 5.0077
+          },
+          "observedRingTps": 19.976713859445837,
+          "allocationMiBPerSecond": 18.701620997003655,
+          "allocationObservationSeconds": 18.018777041,
+          "mainCpuSeconds": 1.7286836,
+          "workerCpuSeconds": 0.7779449,
+          "threadObservationSeconds": 18.018777041,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.298360421875,
+            "p50": 2.1992,
+            "p95": 2.6815,
+            "p99": 3.0052,
+            "maximum": 23.972401
+          },
+          "observedRingTps": 19.977898245149316,
+          "allocationMiBPerSecond": 18.71597577110416,
+          "allocationObservationSeconds": 19.018951158,
+          "mainCpuSeconds": 1.8056421,
+          "workerCpuSeconds": 0.7961492,
+          "threadObservationSeconds": 19.018951158,
+          "monitorBlockedEntrances": 1,
+          "gcCollectionCount": 1,
+          "gcCollectionMillis": 21
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/optimized-r1-workers/server-run/result.json",
+      "evidenceSha256": "5d63f54b8daa95c7e4a9c9b63f728de4814ff4de3ad525fadceb33081aab25d8",
+      "version": "21.1.250.99-beta",
+      "universalSha256": "aa473f0ff0205a4ac6569577ca84f0f1179b5c7c7fc5c34b36571c120f4fd057",
+      "bridge": true,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.335429919270833,
+            "p50": 2.2973,
+            "p95": 2.6818,
+            "p99": 3.2966,
+            "maximum": 4.6516
+          },
+          "observedRingTps": 19.97776476654399,
+          "allocationMiBPerSecond": 18.704550705514226,
+          "allocationObservationSeconds": 18.018066391,
+          "mainCpuSeconds": 1.7614343,
+          "workerCpuSeconds": 0.7715294,
+          "threadObservationSeconds": 18.018066391,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 385,
+            "mean": 2.981282324675325,
+            "p50": 2.9311,
+            "p95": 3.5933,
+            "p99": 4.2336,
+            "maximum": 27.4034
+          },
+          "observedRingTps": 20.02867584386729,
+          "allocationMiBPerSecond": 18.720360635763257,
+          "allocationObservationSeconds": 19.019928118,
+          "mainCpuSeconds": 2.0610144,
+          "workerCpuSeconds": 0.8245339,
+          "threadObservationSeconds": 19.019928118,
+          "monitorBlockedEntrances": 1,
+          "gcCollectionCount": 1,
+          "gcCollectionMillis": 24
+        }
+      ]
+    }
+  ]
+}
