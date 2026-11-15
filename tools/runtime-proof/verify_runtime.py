@@ -41,7 +41,8 @@ def main() -> int:
     redefine_agent = fixture / "redefine_test_agent.c"
     jni_agent = fixture / "jni_access_test_agent.c"
     modified = fixture / "RedefinitionVictim.modified.java.txt"
-    sources = [*native_sources, *bridge_sources, *tests, control, redefine_agent, jni_agent, modified]
+    evidence_agent = fixture / "malformed_evidence_test_agent.c"
+    sources = [Path(__file__).resolve(), *native_sources, *bridge_sources, *tests, control, redefine_agent, jni_agent, evidence_agent, modified]
     hashes = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
     for source in sources:
         retained = output / "sources" / source.relative_to(repo)
@@ -96,7 +97,20 @@ def main() -> int:
                                                       "-agentpath:" + str(jni_library) + "=" + str(bridge), "-cp", str(output / "tests"),
                                                       "JniAccessProbe"]),
     ]
+    evidence_library = output / "libforgia_evidence_test.so"
+    commands += [
+        ("compile-evidence-fault-test-service", [*compile_native, "-I" + str(repo / "projects/runtime-proof/src/main/native"),
+                                                "-o", str(evidence_library), str(evidence_agent),
+                                                str(repo / "projects/runtime-proof/src/main/native/access_enforcement.c"), "-ldl"]),
+        ("reject-malformed-vm-evidence", [java, "-XX:+DisableAttachMechanism", "-XX:+UnlockDiagnosticVMOptions", "-XX:-InlineUnsafeOps",
+                                          "-agentpath:" + str(evidence_library) + "=" + str(bridge), "-cp", str(output / "tests"),
+                                          "MalformedEvidenceProbe"]),
+    ]
     record = {"startedAt": datetime.now(timezone.utc).isoformat(), "sourceHashes": hashes,
+              "gitSha": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip(),
+              "gitStatus": subprocess.check_output(["git", "status", "--short"], cwd=repo, text=True),
+              "javaHome": str(java_home),
+              "javaVersion": subprocess.run([java, "-version"], capture_output=True, text=True, check=True).stderr,
               "scope": "Actual VM component controls; these fixtures issue no production Core Ticket or Lease.", "commands": []}
     status = 0
     for index, (name, command) in enumerate(commands):
@@ -135,7 +149,7 @@ def main() -> int:
     record["finishedAt"] = datetime.now(timezone.utc).isoformat()
     record["outcome"] = "VM_COMPONENT_CONTROLS_PASS_NO_CORE_MOD_PERMISSION_ISSUED" if status == 0 else "VM_COMPONENT_CONTROL_FAILED"
     record["exitCode"] = status
-    record["artifactHashes"] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (library, bridge, native_control, test_library, jni_library) if p.exists()}
+    record["artifactHashes"] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (library, bridge, native_control, test_library, jni_library, evidence_library) if p.exists()}
     (output / "result.json").write_text(json.dumps(record, indent=2) + "\n")
     print(record["outcome"], flush=True)
     return status
