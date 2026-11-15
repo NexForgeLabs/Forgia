@@ -31,6 +31,8 @@ import org.objectweb.asm.util.TraceMethodVisitor;
  */
 final class CoreModRuntimeIntegrity {
     private static String refusal;
+    private static long verifiedEpoch = Long.MIN_VALUE;
+    private static int verifiedDefinitions = -1;
 
     private static boolean refuse(String reason) {
         if (!reason.equals(refusal)) System.err.println("FORGIA_CORE_INTEGRITY_REFUSAL " + reason);
@@ -47,6 +49,10 @@ final class CoreModRuntimeIntegrity {
             return false;
         }
         final long epoch = RuntimeProof.epoch();
+        final int definitions = RuntimeProof.definitionCount();
+        // The per-class match is cached by actual Class identity. The aggregate scan enumerates the
+        // loader's core classes, so it is only repeated when the definition set actually changes.
+        if (verifiedEpoch == epoch && verifiedDefinitions == definitions) return true;
         try {
             for (final Class<?> type : List.of(LevelChunk.class, net.minecraft.world.level.chunk.ChunkAccess.class,
                     net.minecraft.core.BlockPos.class, net.minecraft.core.Vec3i.class, net.minecraft.world.level.block.state.BlockState.class,
@@ -69,7 +75,10 @@ final class CoreModRuntimeIntegrity {
             final Class<?>[] loaded = RuntimeProof.capturedCoreTypes(RegionThreadingEngine.class);
             if (loaded == null) return false;
             for (final Class<?> type : loaded) if (!type.isHidden() && !matches(type)) return false;
-            return RuntimeProof.available() && RuntimeProof.epoch() == epoch;
+            if (!RuntimeProof.available() || RuntimeProof.epoch() != epoch || RuntimeProof.definitionCount() != definitions) return false;
+            verifiedEpoch = epoch;
+            verifiedDefinitions = definitions;
+            return true;
         } catch (IllegalArgumentException | LinkageError unavailable) {
             return refuse(unavailable.toString());
         }

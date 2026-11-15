@@ -222,9 +222,19 @@ public final class RuntimeProof {
         return available() && root != null && freezeRoot(root);
     }
 
+    private static volatile Boolean profileSupported;
+
     /** Descriptive bridge readiness; semantic verification and the original kernel are still required. */
     public static boolean enforcementAvailable() {
         if (!available() || !enforcementReady()) return false;
+        final Boolean cached = profileSupported;
+        if (cached != null) return cached;
+        final boolean supported = profileSupported();
+        profileSupported = supported;
+        return supported;
+    }
+
+    private static boolean profileSupported() {
         try {
             final var diagnostic = ManagementFactory.getPlatformMXBean(com.sun.management.HotSpotDiagnosticMXBean.class);
             if (!Boolean.parseBoolean(diagnostic.getVMOption("DisableAttachMechanism").getValue())
@@ -264,7 +274,14 @@ public final class RuntimeProof {
         endReservation();
     }
 
+    /** Monotonic count of audited Core definitions; changes after every newly observed named definition. */
+    public static int definitionCount() {
+        return available() ? definitions() : -1;
+    }
+
     public static native long epoch();
+
+    private static native int definitions();
 
     private static native boolean protectRoot(Object root, AccessCheck check);
 

@@ -35,6 +35,7 @@ static jobject bridge_module;
 #define MAX_DEFINITION_BYTES (32 * 1024 * 1024)
 static struct { jweak loader; int bootstrap; char *name; unsigned char *bytes; jint length; } named_definitions[MAX_DEFINITIONS];
 static int named_count;
+static atomic_int stable_definitions;
 static size_t named_bytes;
 static pthread_mutex_t definition_monitor = PTHREAD_MUTEX_INITIALIZER;
 static int core_name(const char *name) {
@@ -70,6 +71,10 @@ static void record_definition(JNIEnv *jni, jobject loader, const char *name, jin
     named_definitions[named_count].bootstrap = loader == NULL;
     named_definitions[named_count].name = name_copy; named_definitions[named_count].bytes = copy;
     named_definitions[named_count++].length = length; named_bytes += (size_t)length;
+    /* Hidden lambda/defined classes are not audited by the aggregate Core scan. Counting them would
+       invalidate that scan on every generated lambda and turn the coordinator check into a per-tick
+       full class-loader enumeration. */
+    if (!strstr(name, "$$Lambda") && !strstr(name, "/0x")) atomic_fetch_add(&stable_definitions, 1);
     pthread_mutex_unlock(&definition_monitor);
 }
 static jbyteArray JNICALL definition_bytes(JNIEnv *jni, jclass caller, jclass actual) {
@@ -189,6 +194,10 @@ static jlong JNICALL native_epoch(JNIEnv *jni, jclass caller) {
     (void)jni; (void)caller;
     return atomic_load(&definition_epoch);
 }
+static jint JNICALL definition_count(JNIEnv *jni, jclass caller) {
+    (void)jni; (void)caller;
+    return atomic_load(&stable_definitions);
+}
 static jbyteArray JNICALL describe(JNIEnv *jni, jclass caller, jclass actual) {
     (void)caller;
     if (!atomic_load(&healthy) || !actual || snapshot_thread) return NULL;
@@ -290,6 +299,7 @@ static void JNICALL vm_init(jvmtiEnv *env, JNIEnv *jni, jthread thread) {
     bridge_module = (*jni)->NewGlobalRef(jni, (*jni)->GetModule(jni, bridge));
     JNINativeMethod methods[] = {
         {"ready", "()I", (void *)native_ready}, {"epoch", "()J", (void *)native_epoch},
+        {"definitions", "()I", (void *)definition_count},
         {"describe", "(Ljava/lang/Class;)[B", (void *)describe},
         {"findLoaded", "(Ljava/lang/Class;Ljava/lang/String;)Ljava/lang/Class;", (void *)find_loaded},
         {"protectRoot", "(Ljava/lang/Object;Lnet/neoforged/forgia/runtimeproof/RuntimeProof$AccessCheck;)Z", (void *)proof_protect},
