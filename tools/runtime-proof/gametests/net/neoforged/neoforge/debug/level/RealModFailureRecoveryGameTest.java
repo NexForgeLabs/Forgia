@@ -32,14 +32,14 @@ public final class RealModFailureRecoveryGameTest {
     @TestHolder(description = "A complete original Mod body followed by an injected failure is never replayed, leaves no running authority, and the same real Level can run a fresh original phase")
     static void startedOriginalModIsNeverReplayedAndFreshPhaseRecovers(final DynamicTest test) {
         test.onGameTest(helper -> {
-            var level = helper.getLevel();
+            final var level = helper.getLevel().getServer().getLevel(net.minecraft.world.level.Level.END);
+            helper.assertTrue(level != null, "The C6 End level must exist");
             var engine = (RegionThreadingEngine) RegionThreadingManager.currentOrNull();
             helper.assertTrue(engine != null, "Real engine missing");
             var block = BuiltInRegistries.BLOCK.get(ResourceLocation.parse("piq_fc_arcade:furniture/oak_stool"));
             helper.assertTrue(block != Blocks.AIR, "Original upstream missing");
             int width = engine.diagnostics().regionChunkSize() * 16;
-            var base = helper.absolutePos(BlockPos.ZERO);
-            var a = new BlockPos(Math.floorDiv(base.getX(), width) * width + 10, 100, Math.floorDiv(base.getZ(), width) * width + 10);
+            var a = new BlockPos(20010, 100, 20010);
             var b = a.offset(width, 0, 0);
             var positions = List.of(a, b);
             long keyA = a.asLong(), keyB = b.asLong();

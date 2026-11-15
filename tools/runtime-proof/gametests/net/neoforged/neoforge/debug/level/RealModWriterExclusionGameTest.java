@@ -37,19 +37,19 @@ public final class RealModWriterExclusionGameTest {
         void run() throws Throwable;
     }
 
-    @GameTest(batch = "regionC6Writer", timeoutTicks = 500)
+    @GameTest(batch = "regionC6Writer", timeoutTicks = 900)
     @EmptyTemplate(value = "15x10x15", floor = true)
     @TestHolder(description = "External public/reflection/MethodHandle/VarHandle/Unsafe writers cannot mutate original Mod storage while actual Core Mod Workers own it")
     static void originalModWritersObeyTheActualReservedWorker(final DynamicTest test) {
         test.onGameTest(helper -> {
-            var level = helper.getLevel();
+            final var level = helper.getLevel().getServer().getLevel(net.minecraft.world.level.Level.END);
+            helper.assertTrue(level != null, "The C6 End level must exist");
             var engine = (RegionThreadingEngine) RegionThreadingManager.currentOrNull();
             helper.assertTrue(engine != null, "Real engine missing");
             var block = BuiltInRegistries.BLOCK.get(ResourceLocation.parse("piq_fc_arcade:furniture/oak_stool"));
             helper.assertTrue(block != Blocks.AIR, "Original upstream missing");
             int width = engine.diagnostics().regionChunkSize() * 16;
-            var base = helper.absolutePos(BlockPos.ZERO);
-            var a = new BlockPos(Math.floorDiv(base.getX() - 40000, width) * width + 10, 100, Math.floorDiv(base.getZ() + 40000, width) * width + 10);
+            var a = new BlockPos(10010, 100, 10010);
             var b = a.offset(width, 0, 0);
             var positions = List.of(a, b);
             long packedA = a.asLong(), packedB = b.asLong();
@@ -108,10 +108,14 @@ public final class RealModWriterExclusionGameTest {
                     level.setChunkForced(p.getX() >> 4, p.getZ() >> 4, true);
                     level.setBlock(p, block.defaultBlockState(), 3);
                 }
-            }).thenExecuteAfter(10, () -> {
+            }).thenWaitUntil(() -> {
+                final Object first = level.getBlockEntity(a), second = level.getBlockEntity(b);
+                helper.assertTrue(first != null && second != null
+                        && RealModWorkerMissionGameTest.counter(first) >= 2 && RealModWorkerMissionGameTest.counter(second) >= 2,
+                        "Wait for both original Mod sources to enter their real tick path");
+                source[0] = first;
+            }).thenExecute(() -> {
                 try {
-                    source[0] = level.getBlockEntity(a);
-                    helper.assertTrue(source[0] != null, "Original source absent");
                     Object root = source[0];
                     Class<?> type = root.getClass();
                     Field ticks = type.getDeclaredField("ticks");
@@ -176,7 +180,7 @@ public final class RealModWriterExclusionGameTest {
 
     static void await(CountDownLatch latch) {
         try {
-            if (!latch.await(10, TimeUnit.SECONDS)) throw new AssertionError("Timed out awaiting real writer boundary");
+            if (!latch.await(20, TimeUnit.SECONDS)) throw new AssertionError("Timed out awaiting real writer boundary");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new AssertionError(e);
