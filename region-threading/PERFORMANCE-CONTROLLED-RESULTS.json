@@ -679,6 +679,116 @@
           "gcCollectionMillis": 24
         }
       ]
+    },
+    {
+      "evidence": "tmp/performance-session/v100-monitored/server-run/result.json",
+      "evidenceSha256": "d9096fc9f1911f7ddf41bdd6bfab5b54f59131472977b959e2a79880c175bb72",
+      "version": "21.1.250.100-beta",
+      "universalSha256": "ac03ed3085d690e2017a63cb5f2e50e5d0ee40826dc9459df2efd7050061d5c9",
+      "bridge": true,
+      "diagnostics": true,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.3930487578124997,
+            "p50": 2.3139,
+            "p95": 2.7657,
+            "p99": 3.328,
+            "maximum": 19.202
+          },
+          "observedRingTps": 19.976882736730577,
+          "allocationMiBPerSecond": 18.67236743064124,
+          "allocationObservationSeconds": 18.018527317,
+          "mainCpuSeconds": 1.763047,
+          "workerCpuSeconds": 0.7829451,
+          "threadObservationSeconds": 18.018527317,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 1,
+          "gcCollectionMillis": 16
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 386,
+            "mean": 2.2727754430051816,
+            "p50": 2.2382,
+            "p95": 2.539,
+            "p99": 3.0321,
+            "maximum": 6.4905
+          },
+          "observedRingTps": 19.97798752461464,
+          "allocationMiBPerSecond": 18.647306525449558,
+          "allocationObservationSeconds": 19.01859654,
+          "mainCpuSeconds": 1.8311212,
+          "workerCpuSeconds": 0.8059317,
+          "threadObservationSeconds": 19.01859654,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        }
+      ]
+    },
+    {
+      "evidence": "tmp/performance-session/v100-workers/server-run/result.json",
+      "evidenceSha256": "d76d47cea347b3d4ba0f0b97477166dec7c0d5d60e72003d5d46799aeacef70a",
+      "version": "21.1.250.100-beta",
+      "universalSha256": "ac03ed3085d690e2017a63cb5f2e50e5d0ee40826dc9459df2efd7050061d5c9",
+      "bridge": true,
+      "diagnostics": false,
+      "stock": false,
+      "windows": [
+        {
+          "window": 0,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.3242223880208335,
+            "p50": 2.3234,
+            "p95": 2.618,
+            "p99": 3.2687,
+            "maximum": 5.367
+          },
+          "observedRingTps": 19.9767994123283,
+          "allocationMiBPerSecond": 18.671656897824796,
+          "allocationObservationSeconds": 18.018488533,
+          "mainCpuSeconds": 1.7375468,
+          "workerCpuSeconds": 0.7753763,
+          "threadObservationSeconds": 18.018488533,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 0,
+          "gcCollectionMillis": 0
+        },
+        {
+          "window": 1,
+          "ticks": 400,
+          "outputItems": 128,
+          "mspt": {
+            "samples": 384,
+            "mean": 2.6237781119791665,
+            "p50": 2.5052,
+            "p95": 3.2791,
+            "p99": 3.7276,
+            "maximum": 13.6562
+          },
+          "observedRingTps": 19.978322255059517,
+          "allocationMiBPerSecond": 18.687385174794628,
+          "allocationObservationSeconds": 19.018754017,
+          "mainCpuSeconds": 1.9329087,
+          "workerCpuSeconds": 0.8224479,
+          "threadObservationSeconds": 19.018754017,
+          "monitorBlockedEntrances": 0,
+          "gcCollectionCount": 1,
+          "gcCollectionMillis": 10
+        }
+      ]
     }
   ]
 }

@@ -5,6 +5,36 @@ fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured tic
 means the same build with region threading disabled. These are not new C6/canary performance results;
 the accepted optional-service profile uses its separately recorded G1/compressed-pointer configuration.
 
+## Measured performance work and runtime commands — bounded implementation
+
+The [performance report](PERFORMANCE-OPTIMIZATION-REPORT.md), [controlled measurements](PERFORMANCE-BENCHMARKS.md),
+[regression analysis](PERFORMANCE-REGRESSION-ANALYSIS.md) and [runtime command guide](RUNTIME-OBSERVABILITY.md)
+record this engineering session. It removes pre-deadline drain submissions, reuses furnace catalog lookahead only
+inside an unexecuted canonical prefix, preserves fresh proof/fence/alias boundaries, and adds native tick history,
+region rankings, Worker/pool counters and `/forgia` administration commands. Fixed-pool close physically joins its
+original Threads; history is confined to each owning server thread with weak server identity.
+
+The equivalent installed64-furnace fixture verifies full before/after NBT/output equality across14JVMs/28windows.
+The optimized worker path's four unsampled mean windows fall from10.28–10.43ms to2.34–3.09ms; allocation falls
+about253→19MiB/s. Stock NeoForge and Forgia serial remain substantially faster on this light workload. This is
+removal of a measured regression, not a general faster-than-vanilla or modpack claim. Original failures remain
+retained and distinct from later successful attempts. Exact final validation and source/artifact receipts are in
+the performance report; the frozen C6/lifecycle certificates are unchanged.
+
+Final source validation includes1,424JUnit passes independently for Fixed and Persistent, four original-Mod
+GameTests per profile, and actual stopped-server Level GC certification for both. The selected15-batch Fixed
+GameTest run passes; Persistent attempts retain13/15and14/15results with chunk-load/timeout prerequisites.
+A later unmonitored6000tick soak also fails a live-bat region mapping invariant; its timing is excluded from
+passing comparisons. This leaves the current mixed-world correctness gate open. Complete commands, actual
+exits, source identities, measurements and failed evidence are bound in the [session receipt](PERFORMANCE-SESSION-RECEIPT.json).
+
+[Generation](CHUNK-GENERATION-PARALLELISM-AUDIT.md), [loading](CHUNK-LOADING-PARALLELISM-AUDIT.md) and
+[player execution](PLAYER-WORKER-EXECUTION-AUDIT.md) have explicit safety matrices/boundaries. No new generation,
+reconstruction or player tick admission is claimed. Existing vanilla noise/biome/I/O futures and player snapshot
+queries are distinguished from newly implemented work. Unknown callbacks/Create remain serial. Region metrics
+explicitly disclose omitted canonical BE/serial-fallback coverage and unavailable values; no alternate scheduler,
+pool, Ticket/resource authority, effect queue or mod hot-unload support is introduced.
+
 ## Controlled canary preparation — source preserved; installed-server gates remain open
 
 The [production readiness report](PRODUCTION-READINESS.md), [complete configuration matrix](PRODUCTION-CONFIGURATION.md),
