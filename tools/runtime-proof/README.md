@@ -1,12 +1,16 @@
 # Optional VM evidence and original Mod integration
 
-**Implementation checkpoint; final C6 acceptance is pending.** The latest nested-callback/frozen-value boundary has standalone controls, but its renewed real-Mod lifecycle tests and two full unfiltered GameTest profiles have not yet completed. Earlier complete real-Mod runs belong to earlier source revisions. See the [checkpoint design and evidence](../../region-threading/MOD-WORKER-RUNTIME-DESIGN.md).
+`C6 FINAL ARCHITECTURE ACCEPTANCE: NOT ACCEPTED`
 
-This opt-in Linux/JDK 21 runtime supplies actual installed-method evidence and object-access checks for the existing Core invocation Kernel. It creates no scheduler, invocation Ticket, resource reservation or execution permission. Ordinary startup does not load it, and an absent or unsupported service leaves Mod invocations serial.
+The [2026-11-15 recovery report](../../region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) and [machine receipt](../../region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json) distinguish current targeted results from complete-profile acceptance. The operator narrowed continuation to fixes and associated cases. Eleven final-source associated GameTests passed, but the required final unfiltered profile pair was not rerun. Earlier full-profile failures, aborted runs, logical skips and framework Not Processed rows remain recorded.
 
-The first integration fixture uses the original 方块电玩 / `piq_fc_arcade` 0.31.0-alpha.61 artifact, SHA-256 `d4cb3a41cd3d98c99a0118b1e97475b5781106711ac1d4e321d87c4c2506c510`. Supply that jar locally. It is All Rights Reserved and is not redistributed here. The fixture pin establishes a reproducible test input; Core authorization uses the actual installed function's semantics, original storage and binding, enforced access and the original resource/Kernel authority. Neither a Mod id nor this hash grants Worker permission.
+This opt-in Linux/HotSpot JDK21 runtime supplies actual installed-method evidence and object-access checks for the existing Core invocation Kernel. It creates no scheduler, invocation Ticket, resource reservation or execution permission. Ordinary startup does not load the service, and an absent/unsupported startup service leaves Mod invocations serial. A bridge jar on the ordinary JUnit classpath does not install a bootstrap/native service; a dedicated control verifies that distinction.
 
-The standalone component controls need a C compiler and the JDK 21 headers:
+The integration fixture uses the original 方块电玩 / `piq_fc_arcade`0.31.0-alpha.61 artifact, SHA256 `d4cb3a41cd3d98c99a0118b1e97475b5781106711ac1d4e321d87c4c2506c510`. Supply it locally. It is All Rights Reserved and is not redistributed here. This pin establishes a reproducible input. Core authorization instead uses installed function semantics, actual storage/binding, enforced access and original Kernel/resource authority. Neither Mod identity nor this hash grants Worker permission.
+
+## VM component controls
+
+Use JDK21 and its headers, a C compiler and a **new** output directory:
 
 ```sh
 export JAVA_HOME=/path/to/jdk-21
@@ -16,24 +20,52 @@ python3 tools/runtime-proof/verify_runtime.py \
   --output tmp/runtime-proof-components-new
 ```
 
-The output directory must be new. Every command, real exit code, raw log, own-source revision and built artifact hash is retained. Controls cover installed hidden bytecodes and handlers, defensive copies, foreign writers through direct/reflection/MethodHandle/VarHandle/Unsafe routes, actual JNI field writes and JNI method entry, method entry before earlier side effects, publication races, reentrant access callbacks, enforced instance-field immutability, native memory/header boundaries, normal XML/thread creation, absent/unsupported environments, unknown native-library refusal before initialization, FFI/JMX native-agent routes, and an actual JVMTI redefinition request refused before installation. The redefinition and JNI variants are test-only translation units; the production library exposes neither code replacement nor JNI mutation helpers. These component fixtures do not claim to acquire a Core Mod Permit or Lease.
+The runner retains exact commands/exits/logs, Git SHA/dirty status, JDK identity, source copies/hashes and artifact hashes. The final recovery executed28 command steps:18 runtime controls and10 build/preparation steps. It covers:
 
-The opt-in real Mod tests load the untouched upstream artifact through the normal Mod loader and run in a real ServerLevel. To execute the three integration batches on a fresh world:
+- Actual installed hidden bytecodes/handlers, defensive copies and loaded-class identity.
+- Direct/reflection/MethodHandle/VarHandle/Unsafe stores, actual JNI field/method calls, accessor entry before earlier effects, nested callbacks and immutable-value enforcement.
+- Publication races, concurrent registration of33 retained roots, platform and JDK21 virtual-thread writers, and repeated native binding observations.
+- Missing/truncated/negative/overflow/stale evidence:96 rejection cases through a test-only service fault injector, followed by restoration of real VM evidence.
+- Native/header bounds, XML/thread creation, absent/unsupported profiles, refusal of unknown native libraries before initialization, FFI/JMX native-agent routes and actual JVMTI redefinition refusal.
+
+Controls check protected values and earlier-effect counters, including after native calls. An exception alone is insufficient. Authorized positive controls must still work. Test-only translation units add evidence faults or exercise JNI/repeated observations; the production library exposes no evidence-injection or mutation API. These components issue no production Core Mod Permit or Lease.
+
+## Associated original-Mod tests
+
+All run directories must be new. Preserve stdout, raw XML and the real process exit code. Existing canonical preparation resets the world in its selected run directory, so never point it at retained evidence.
 
 ```sh
 ./gradlew --offline --no-configuration-cache --no-parallel --console=plain \
   --max-workers=1 -PforgiaVersion=21.1.250.60-beta \
   -I tools/runtime-proof/real_mod.gradle \
   -PtrustedModJar=/local/game_console-0.31.0-alpha.61.jar \
-  -PtrustedModRun=tmp/runtime-proof-real-mod-new/server \
-  -PgameTestFilter=regionC6Worker,regionC6Writer,regionC6Failure \
+  -PtrustedModRun=tmp/runtime-proof-associated-new/server \
+  -PgameTestFilter=saveReload,regionC6Worker,regionC6Writer,regionC6Failure \
   :tests:runCanonicalGameTestServer
 ```
 
-The existing canonical GameTest profile enables its required slices and resource ownership. Keep that profile's resources enabled for positive Mod Worker tests. Omit `gameTestFilter` to run the entire required GameTest registration set, including these opt-in tests; use `-PcanonicalPersistent=false` to exercise the fixed worker pool. The init script builds and copies the effective native service and verified Core bootstrap bundle into the run's local artifact directory. World, properties, logs, raw XML and artifacts remain local. Default test runs do not load the upstream jar or these opt-in integration fixtures.
+The four selected cases passed on final production revision `0ede20061`:148 complete original bodies/counter delta148, Worker72/Serial76, overlap2; ten foreign writer routes rejected with counter delta0; actual original Lease/Ticket/Claims identity and retirement; failed-body no-replay plus a fresh same-Level phase; disk reconstruction of25 chunks,13 BEs and9 entities. These are new run data, not the historical76 Worker/4 Serial pilot. This selected command is not a complete-profile pass.
 
-The production proof path accepts a small structurally verified counter-return closure. The entire original third-party function runs once; the periodic/unknown branch receives a complete serial invocation before body start. Core wrapper preconditions are verified on the coordinator and passed through the original wrapper, so this Mod Worker body reads no live Chunk. Only the actual source, wrapper/delegate and position storage it reaches become resource Claims. Exact Core BlockPos instance fields are permanently frozen by the VM, with writes refused even for an owner; mutable roots retain access/entry checks. Access-check callbacks cannot recursively enter other protected mutable roots and do not bypass native bounds. Existing main-thread light-completion tasks retain their original behavior.
+The opt-in fixture stably puts deliberate failure injection last while asserting identical batch membership. Unrelated zero-failure assertions are unchanged. Diagnostics must be0 before injection,1 afterward and still1 after fresh recovery; counters are never reset.
 
-The supported profile requires disabled attach, the single startup native service, disabled Unsafe intrinsic inlining, compressed object/class pointers, and no enabled JVMCI, WhiteBox or native FFI downcalls. Unknown JNI/JNA libraries are refused before loading. This deliberately restricts the runtime; it is not general Modpack certification or a hostile JVM/Core memory-corruption sandbox. A missing or invalid code snapshot, changed function/binding, uncontrolled access, unsupported dynamic closure or stale original Ticket cannot receive Worker authority. Physical join and original resource/Region cleanup still precede release.
+For an isolated lifecycle case, use the common command above with a fresh directory and replace its filter/configuration with:
 
-The GameTest observers run only after production admission. They count complete original bodies, check actual storage deltas and function identity, use real latches for overlap, and inspect the actual original Kernel/Lease for lifecycle assertions. They never fabricate Claims, invoke a replacement ticker, call an unknown factory during preparation, skip a started body's effects or replay it after failure. Tests using the native profile can run substantially slower than ordinary startup; no MSPT or performance improvement is inferred from passing them.
+```sh
+-PcanonicalPersistent=false \
+-PruntimeProofLifecycleCase=queued-unload \
+-PgameTestFilter=regionC6Lifecycle
+```
+
+Run each of `queued-unload`, `queued-shutdown`, `running-unload`, `running-shutdown`, `releasing-unload`, `releasing-shutdown` in a separate fresh process/world. The destructive lifecycle controls use the existing fixed executor, actual original Region guards and production phase waits. They create no second pool or authority. All six final-source runs passed: two original Worker bodies/delta2, four wrong-Region refusals and four outside-thread refusals per case, actual cleanup wait, physical join and no replay.
+
+The separate original-object binding preflight uses `-PcanonicalPersistent=false -PruntimeProofLifecycleCase=binding -PgameTestFilter=regionC6Binding`, again with a fresh directory. It verifies same-delegate rebind/version invalidation, normal block replacement, inconsistent Level, refusal of foreign replacement callbacks, and actual frozen coordinates against independent primitive x/y/z values. It creates no Ticket/Lease and is not another Worker E2E result.
+
+Omit `gameTestFilter` for the complete required GameTest registration set; `-PcanonicalPersistent=false` selects the fixed-pool variant. The final unfiltered pair remains an open acceptance gate. Report Passed/Failed/Skipped/Not Processed/Aborted and exit separately: disabled soak/benchmark/hard-kill bodies that call `helper.succeed()` are still logical skips, and duplicate XML group rows are not additional executed tests.
+
+## Boundary and limits
+
+Only a structurally verified counter-return path runs as the entire original third-party function. Periodic/unknown paths receive a complete serial invocation before body start. Core captures wrapper prerequisites and claims actual source/wrapper/delegate/position storage; the Mod Worker reads no live Chunk. Exact Core BlockPos fields remain frozen even for an owner. Mutable-root callback recursion cannot bypass access/entry/native checks. Native binding metadata is serialized, its first-root count is atomic and stable repeated bindings reuse published wrappers without rewriting function targets.
+
+The supported profile disables attach/Unsafe intrinsic inlining and requires the sole startup service, compressed object/class pointers, no JVMCI/WhiteBox and no native FFI downcalls. Unknown JNI/JNA libraries are refused before loading. This restrictive profile is not general Modpack certification or a hostile JVM/Core memory-corruption sandbox. Source/binding/evidence/lifecycle/Claims must remain current; physical join and original resource/Region cleanup precede release. No started body is serially replayed after its effects.
+
+Weak-owner unit controls strongly retain the actual Core callback while a real shutdown Engine and an unstubbed mocked Level collect; they check original-thread serial compatibility and deny foreign/running-home/entered-Scope fallback. This does not certify whole-server real-Level GC or runtime Mod hot-unload. See the final report for explicit remaining gates. No production deployment, second Worker-enabled Adapter, C7 or performance improvement is claimed.
