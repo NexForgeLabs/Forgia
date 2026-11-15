@@ -52,3 +52,7 @@ build
 **/out/
 
 docs/
+
+# local run artifacts
+nohup.out
+*.jar.log

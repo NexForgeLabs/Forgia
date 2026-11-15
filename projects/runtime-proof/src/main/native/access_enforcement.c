@@ -352,17 +352,17 @@ void JNICALL proof_method_entry(jvmtiEnv *env, JNIEnv *jni, jthread thread, jmet
     }
     (*jni)->DeleteLocalRef(jni, receiver);
 }
-/* Read-only accessors are called for every block entity of the level, not only for a protected
-   root. A breakpoint on them would make the whole server pay for one Mod root. They cannot cause an
-   earlier effect or a store, and the semantic verifier refuses a source class that declares them, so
-   the inherited Core implementations stay outside the method-entry boundary. Writes remain covered by
-   the field watches; wrapper.tick, rebind and every source method are still guarded. */
-static int read_only_entry(const char *name) {
-    static const char *names[] = {"getPos", "getBlockPos", "getType", "isRemoved", "getLevel", "getBlockState",
-                                  "hasLevel", "hasAttachments", "getDelegate", "toString", "hashCode", "equals"};
-    for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); ++index)
-        if (strcmp(name, names[index]) == 0) return 1;
-    return 0;
+/* Only an actual installed aload_0/getfield/xreturn body has no instruction before the
+   intercepted field read that could perform an earlier effect. Names, declarations and final
+   modifiers are not evidence. Every other concrete instance method keeps its entry breakpoint.
+   Redefinition is refused by the sole VM agent before any replacement can be installed. */
+static int scalar_field_reader(jmethodID method) {
+    unsigned char *code = NULL; jint length = 0;
+    if ((*access_vm)->GetBytecodes(access_vm, method, &length, &code) != JVMTI_ERROR_NONE) return 0;
+    int scalar = length == 5 && code && code[0] == 0x2a && code[1] == 0xb4
+            && code[4] >= 0xac && code[4] <= 0xb0;
+    if (code) (*access_vm)->Deallocate(access_vm, code);
+    return scalar;
 }
 static int protect_method_entries(JNIEnv *jni, jclass klass, int depth) {
     if (depth > 16) return 0;
@@ -374,7 +374,7 @@ static int protect_method_entries(JNIEnv *jni, jclass klass, int depth) {
         if ((*access_vm)->GetMethodModifiers(access_vm, methods[index], &access) != 0) { okay = 0; break; }
         if (access & (0x0008 | 0x0100 | 0x0400)) continue;
         if ((*access_vm)->GetMethodName(access_vm, methods[index], &name, NULL, NULL) != 0) { okay = 0; break; }
-        if (name[0] != '<' && !read_only_entry(name)) {
+        if (name[0] != '<' && !scalar_field_reader(methods[index])) {
             jvmtiError result = (*access_vm)->SetBreakpoint(access_vm, methods[index], 0);
             if (result != 0 && result != JVMTI_ERROR_DUPLICATE) okay = 0;
         }

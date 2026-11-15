@@ -206,14 +206,16 @@ public class SaveReloadGameTests {
                         saveNanos.set(System.nanoTime() - start);
                     })
                     .thenExecute(() -> releaseChunks(level, grid))
-                    .thenWaitUntil(() -> helper.assertTrue(
-                            grid.stream().noneMatch(chunk -> level.getChunkSource().getChunk(chunk.x, chunk.z, ChunkStatus.FULL, false) != null
-                                    || level.getChunkSource().getChunkNow(chunk.x, chunk.z) != null),
-                            "the save/reload chunk grid never unloaded, so the reload would read memory"))
-                    // A chunk that the source no longer returns can still sit in the chunk map's pending
-                    // unload queue; requesting it again would revive that exact holder instead of reading
-                    // the saved chunk from disk. Let the queue drain before the test re-forces the grid.
-                    .thenIdle(60)
+                    .thenWaitUntil(() -> {
+                        // Inaccessible is not unloaded: ChunkMap may still revive a pending holder.
+                        // Exercise its normal unload service with a real budget, then require the
+                        // original objects to have passed the physical unload and entity detach.
+                        level.getChunkSource().tick(() -> true, false);
+                        helper.assertTrue(originalChunks.values().stream().noneMatch(LevelChunk::isLoaded)
+                                && grid.stream().noneMatch(chunk -> level.areEntitiesLoaded(chunk.toLong())
+                                        || level.getChunkSource().getChunkNow(chunk.x, chunk.z) != null),
+                                "the original save/reload chunks have not physically unloaded");
+                    })
                     .thenExecute(() -> {
                         final long start = System.nanoTime();
                         forceChunks(level, grid);
