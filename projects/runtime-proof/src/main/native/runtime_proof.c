@@ -300,7 +300,13 @@ static void JNICALL vm_init(jvmtiEnv *env, JNIEnv *jni, jthread thread) {
         {"definitionBytes", "(Ljava/lang/Class;)[B", (void *)definition_bytes},
         {"knownCoreTypes", "(Ljava/lang/Class;)[Ljava/lang/Class;", (void *)known_core_types}
     };
-    if ((*jni)->RegisterNatives(jni, bridge, methods, 10) != 0) { fprintf(stderr, "FORGIA_VM_NATIVE_PUBLICATION_FAILED\n"); return; }
+    /* Every declared bridge method must be published; a silently omitted entry turns the
+       corresponding proof into an UnsatisfiedLinkError at the first admission attempt. */
+    if ((*jni)->RegisterNatives(jni, bridge, methods, (jint)(sizeof(methods) / sizeof(methods[0]))) != 0) {
+        fprintf(stderr, "FORGIA_VM_NATIVE_PUBLICATION_FAILED\n");
+        atomic_store(&healthy, 0);
+        return;
+    }
     proof_access_init(env, jni);
     fprintf(stderr, "FORGIA_VM_INITIALIZED healthy=%d\n", atomic_load(&healthy));
 }
