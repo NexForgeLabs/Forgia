@@ -83,6 +83,36 @@ class CanonicalBlockEntityFurnaceIntegrationTest {
     }
 
     @Test
+    void anIneligibleFurnaceNeverProbesInventoryAliasesBeforeItsCompleteSerialBody() {
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            f.furnace("F", A, 1);
+            final var source = f.furnaces.get("F");
+            CanonicalBlockEntityTestSupport.set(net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class,
+                    source, "litTime", 1);
+            final var items = org.mockito.Mockito.spy((net.minecraft.core.NonNullList<ItemStack>)
+                    get(net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class, source, "items"));
+            final var started = new java.util.concurrent.atomic.AtomicBoolean();
+            org.mockito.Mockito.doAnswer(call -> {
+                assertTrue(started.get(), "an ineligible source must reach its serial body before inventory probing");
+                return call.callRealMethod();
+            }).when(items).get(org.mockito.ArgumentMatchers.anyInt());
+            CanonicalBlockEntityTestSupport.set(net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.class,
+                    source, "items", items);
+            f.enable(true);
+            f.engine.setBlockEntityBodyObserverForTesting((ticker, body) -> {
+                started.set(true);
+                body.run();
+            });
+            f.levelPhase();
+            assertTrue(started.get());
+            assertEquals(0, f.engine.furnaceWorkMetrics().nativeCompletions());
+            assertEquals(1, f.engine.furnaceWorkMetrics().serialInvocations());
+            f.clean();
+            f.probes();
+        }
+    }
+
+    @Test
     void nativeAndFurnacePrefixesOverlapOnRealWorkersAndShareExactlyOnePhaseKernel() {
         final Consumer<CanonicalBlockEntityTestSupport> input = f -> {
             f.script("N0", A, "minecraft:hopper", () -> {});

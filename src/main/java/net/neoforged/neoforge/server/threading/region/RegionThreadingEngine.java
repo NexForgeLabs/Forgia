@@ -5968,9 +5968,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                             final long started = System.nanoTime();
                             if (this.furnaceLookahead == null) {
                                 this.furnaceLookahead = new FurnaceWorkPreparation(level, layout, resources != null);
-                                this.furnaceAliases = FurnaceWorkPreparation.aliased(ordered);
                             }
                             final var candidate = this.furnaceLookahead.prepare(admission);
+                            if (candidate != null && this.furnaceAliases == null)
+                                this.furnaceAliases = FurnaceWorkPreparation.aliased(ordered);
                             if (candidate == null) furnaceWorkMetrics.refused(this.furnaceLookahead.refusal());
                             if (candidate == null || this.furnaceAliases.contains(candidate.source())) {
                                 if (candidate != null) furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SHARED_INVENTORY);
