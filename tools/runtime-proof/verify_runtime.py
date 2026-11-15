@@ -39,8 +39,9 @@ def main() -> int:
     tests = sorted(fixture.glob("*.java"))
     control = fixture / "native_library_control.c"
     redefine_agent = fixture / "redefine_test_agent.c"
+    jni_agent = fixture / "jni_access_test_agent.c"
     modified = fixture / "RedefinitionVictim.modified.java.txt"
-    sources = [*native_sources, *bridge_sources, *tests, control, redefine_agent, modified]
+    sources = [*native_sources, *bridge_sources, *tests, control, redefine_agent, jni_agent, modified]
     hashes = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
     for source in sources:
         retained = output / "sources" / source.relative_to(repo)
@@ -86,6 +87,15 @@ def main() -> int:
                                              "-agentpath:" + str(test_library) + "=" + str(bridge), "-cp", str(output / "tests"),
                                              "RedefinitionAttemptProbe", str(output / "replacement/RedefinitionVictim.class")]),
     ]
+    jni_library = output / "libforgia_jni_test.so"
+    commands += [
+        ("compile-jni-test-service", [*compile_native, "-I" + str(repo / "projects/runtime-proof/src/main/native"),
+                                      "-o", str(jni_library), str(jni_agent),
+                                      str(repo / "projects/runtime-proof/src/main/native/access_enforcement.c"), "-ldl"]),
+        ("reject-actual-jni-field-and-method-access", [java, "-XX:+DisableAttachMechanism", "-XX:+UnlockDiagnosticVMOptions", "-XX:-InlineUnsafeOps",
+                                                      "-agentpath:" + str(jni_library) + "=" + str(bridge), "-cp", str(output / "tests"),
+                                                      "JniAccessProbe"]),
+    ]
     record = {"startedAt": datetime.now(timezone.utc).isoformat(), "sourceHashes": hashes,
               "scope": "Actual VM component controls; these fixtures issue no production Core Ticket or Lease.", "commands": []}
     status = 0
@@ -117,11 +127,15 @@ def main() -> int:
             status = 1
             item["validationError"] = "Refused native initializer nevertheless executed"
             break
+        if name == "reject-actual-jni-field-and-method-access" and "JNI_ACCESS_REFUSED value=0 earlierEffects=0" not in text:
+            status = 1
+            item["validationError"] = "JNI access control did not prove the original authority boundary"
+            break
         print(name, "PASS", flush=True)
     record["finishedAt"] = datetime.now(timezone.utc).isoformat()
     record["outcome"] = "VM_COMPONENT_CONTROLS_PASS_NO_CORE_MOD_PERMISSION_ISSUED" if status == 0 else "VM_COMPONENT_CONTROL_FAILED"
     record["exitCode"] = status
-    record["artifactHashes"] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (library, bridge, native_control, test_library) if p.exists()}
+    record["artifactHashes"] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (library, bridge, native_control, test_library, jni_library) if p.exists()}
     (output / "result.json").write_text(json.dumps(record, indent=2) + "\n")
     print(record["outcome"], flush=True)
     return status
