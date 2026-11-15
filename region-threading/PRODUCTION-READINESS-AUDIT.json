@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-11-15T16:44:25.543420+00:00",
+  "scope": "Repository/source preservation only; not installed-server, compatibility or deployment certification",
+  "verdict": "PASS",
+  "repository": "/home/yc/Minecraft/Forgia",
+  "head": "a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1",
+  "branch": "main",
+  "originMain": "a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1",
+  "fetchPerformedByThisTool": false,
+  "workingTree": "M .gitignore\n M README.md\n M region-threading/STATUS.md\n?? region-threading/CONTROLLED-CANARY.md\n?? region-threading/PRODUCTION-CONFIGURATION.md\n?? region-threading/PRODUCTION-READINESS.md\n?? tools/production-readiness/",
+  "productionRevision": "0ede200610867aea46d5473c7f6ec4fccdd063e0",
+  "productionInventoryPaths": [
+    "src/main",
+    "patches",
+    "projects/runtime-proof/src/main"
+  ],
+  "productionFileCount": 1955,
+  "expectedProductionFingerprint": "f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787",
+  "actualProductionFingerprint": "f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787",
+  "additionalPreservationPaths": [
+    "src/main",
+    "patches",
+    "projects/runtime-proof/src",
+    "coremods/src",
+    "adapters/create/src",
+    "adapters/mobspawncontroller/src",
+    "build.gradle",
+    "settings.gradle",
+    "gradle.properties",
+    "projects/runtime-proof/build.gradle",
+    "adapters/create/build.gradle",
+    "adapters/mobspawncontroller/build.gradle",
+    "buildSrc"
+  ],
+  "changedProductionPaths": [],
+  "untrackedProductionInputs": [],
+  "checks": {
+    "certifiedProductionFingerprint": true,
+    "receiptFingerprintConsistent": true,
+    "productionDiffEmpty": true,
+    "noUntrackedProductionInputs": true,
+    "canonicalDefinitionsPreserved": true,
+    "frozenCertificatesPreserved": true,
+    "localBuildArtifactsMatchCertifiedPins": true,
+    "retainedEvidenceVerified": true
+  },
+  "canonicalDefinitions": [
+    {
+      "path": "tests/build.gradle",
+      "expectedSha256": "e672adec30746ae9a466f671cc57cda8efc82404b77e8d32a6232c44afecf94f",
+      "actualSha256": "e672adec30746ae9a466f671cc57cda8efc82404b77e8d32a6232c44afecf94f",
+      "status": "MATCH"
+    },
+    {
+      "path": "tools/runtime-proof/real_mod.gradle",
+      "expectedSha256": "3e877eccfefc6aff937c82f8e37d45d784e833280c875138a418efd9f3f8cd21",
+      "actualSha256": "3e877eccfefc6aff937c82f8e37d45d784e833280c875138a418efd9f3f8cd21",
+      "status": "MATCH"
+    },
+    {
+      "path": "tools/runtime-proof/gametests/net/neoforged/neoforge/debug/level/RealModSuiteOrdering.java",
+      "expectedSha256": "9018c502e4e3b863295b73cdc137b058996b0d01d127db127b8a59510b45a7d2",
+      "actualSha256": "9018c502e4e3b863295b73cdc137b058996b0d01d127db127b8a59510b45a7d2",
+      "status": "MATCH"
+    }
+  ],
+  "frozenCertificates": [
+    {
+      "path": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md",
+      "expectedSha256": "1797c48268e2110217770d9cd285546a3a09e8e41ebd340e39f388af35b8b221",
+      "actualSha256": "1797c48268e2110217770d9cd285546a3a09e8e41ebd340e39f388af35b8b221",
+      "status": "MATCH"
+    },
+    {
+      "path": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json",
+      "expectedSha256": "374326a6eaa378e57760bfcfd64869110e0dbbc2f5e3745479cb62199696e336",
+      "actualSha256": "374326a6eaa378e57760bfcfd64869110e0dbbc2f5e3745479cb62199696e336",
+      "status": "MATCH"
+    },
+    {
+      "path": "region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.md",
+      "expectedSha256": "fa4309a87af8c6405a1e048b954b2d64fb6b2a87f75c0227ce8e6461c5a284f7",
+      "actualSha256": "fa4309a87af8c6405a1e048b954b2d64fb6b2a87f75c0227ce8e6461c5a284f7",
+      "status": "MATCH"
+    },
+    {
+      "path": "region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.json",
+      "expectedSha256": "5b08c2bf5f051a2e0d7242dfb06bea4499bf3cb3f1cb5f80425d24b71fa16f41",
+      "actualSha256": "5b08c2bf5f051a2e0d7242dfb06bea4499bf3cb3f1cb5f80425d24b71fa16f41",
+      "status": "MATCH"
+    }
+  ],
+  "localBuildArtifacts": [
+    {
+      "path": "projects/runtime-proof/build/native/libforgia_runtime_proof.so",
+      "expectedSha256": "4c59ec052f086ac1cbdc0c1919504e5870a4043bf563d1da275d5112a89da2df",
+      "actualSha256": "4c59ec052f086ac1cbdc0c1919504e5870a4043bf563d1da275d5112a89da2df",
+      "status": "MATCH"
+    },
+    {
+      "path": "projects/runtime-proof/build/libs/runtime-proof-21.1.250.60-beta-verified-core.jar",
+      "expectedSha256": "914f4715293ec3dbc24bfd6159edc17fc727c3f4e0b6fa2f435c358bad15d602",
+      "actualSha256": "914f4715293ec3dbc24bfd6159edc17fc727c3f4e0b6fa2f435c358bad15d602",
+      "status": "MATCH"
+    }
+  ],
+  "localBuildArtifactsRequired": true,
+  "retainedEvidenceRequested": true,
+  "retainedEvidence": {
+    "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json": {
+      "uniqueReferences": 123,
+      "verified": 123,
+      "failures": [],
+      "passed": true
+    },
+    "region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.json": {
+      "uniqueReferences": 372,
+      "verified": 372,
+      "failures": [],
+      "passed": true
+    }
+  },
+  "runtimeTestsExecuted": false,
+  "serverStarted": false,
+  "deploymentPerformed": false
+}

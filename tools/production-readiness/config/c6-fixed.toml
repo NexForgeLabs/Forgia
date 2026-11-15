@@ -1,0 +1,29 @@
+# Exact final C6 Fixed TOML values. C6 native service/VM conditions are separate requirements.
+# Copy only into an isolated, stopped server after reviewing CONTROLLED-CANARY.md.
+# Inspect both instance config/ and the selected world/serverconfig/ override.
+# These templates do not install a service, certify a Mod pack or authorize live changes.
+
+enableRegionThreadingBridge = true
+enableRegionThreadingWorkers = true
+enableGlobalRegionThreadingWorker = false
+enableRegionThreadingEntityTicks = true
+enableRegionThreadingBlockEntityTicks = true
+enableRegionThreadingFurnaceWorkWaves = true
+enableRegionThreadingBlockEntityResources = true
+enableRegionThreadingScheduledTicks = true
+enableRegionThreadingRandomTicks = true
+enableRegionThreadingSpawning = false
+enableRegionThreadingPoi = true
+enableRegionThreadingBorderUpdates = false
+regionThreadingForceWithKnownConflicts = false
+enableRegionThreadingGameEvents = false
+enableRegionThreadingPersistentWorkers = false
+enableRegionThreadingPackedRegionLeases = false
+regionThreadingWorkerThreads = 4
+regionThreadingMode = "FIXED_3X3"
+regionThreadingFixedRegionChunks = 3
+regionThreadingOwnershipViolationMode = "WARN"
+defaultRegionThreadingSupport = "UNKNOWN"
+regionThreadingLongTickWarningNanos = 0
+regionThreadingMaxImmediateTasksPerDrain = 10000
+regionThreadingMaxScheduledTasksPerDrain = 10000

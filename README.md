@@ -14,11 +14,17 @@ ownership are exposed through native NeoForge API, and mods keep running as mods
 
 ---
 
+For the first controlled deployment, use the [production readiness audit](region-threading/PRODUCTION-READINESS.md),
+[complete configuration matrix](region-threading/PRODUCTION-CONFIGURATION.md) and
+[canary/rollback procedure](region-threading/CONTROLLED-CANARY.md). C6 and stopped-server real-Level GC have
+passed within their documented scopes; an installed canary pack still needs its own compatibility and recovery
+rehearsal. Runtime Mod hot-unload remains unsupported and NOT CERTIFIED.
+
 ## What works today
 
-Everything below is implemented, tested and measured on this repository. All region threading is **off by
-default** and every slice fails closed: work that cannot be proven safe runs on the server thread and is
-counted.
+The tables below include historical workload measurements; they are not performance results for a C6 canary.
+All region-threading switches are **off by default**. Pre-body admission can keep unsupported work on the server
+thread; a refusal or failure after effects begin is reported without replaying the whole ticker.
 
 | Area | What it does | Measured |
 |---|---|---|
@@ -26,7 +32,7 @@ counted.
 | **Chunk ticks** | Random ticks, ice/snow, thunder on the region that owns the chunk, including chunks on a region border | 1.24–1.27× (100 % of dispatched chunks on workers) |
 | **Natural spawning** | Per-region spawn bodies against the vanilla level-wide mob cap | spawn slice 4.6 → 2.8–3.9 ms |
 | **Points of interest** | Region-partitioned storage with published snapshots; queries identical to vanilla | villagers **2.1–2.4×**, zombies **3.4×** |
-| **Block entities** | Furnace/hopper family with a per-chunk admission cache; furnace-family boundary chunks can use border propagation when neighbors are loaded | historical parity; new boundary admission not benchmarked |
+| **Block entities** | One canonical phase: narrow original Hopper branches, verified burning Furnace prefixes and complete Unknown/Create Serial Fences | C6 correctness accepted; no current whole-server speedup claim |
 | **Redstone** | Cross-region updates converge in the **same tick** through a fixpoint | 98 layouts, 5 880 tick comparisons, identical to vanilla |
 | **Cross-region reads** | Seqlock chunk versions; a stale read re-runs the region that made it | 0 torn reads, 0 stale takes |
 | **Cross-region mod operations** | Public two-owner block entity operations, bounded sided Container transfers and explicit task outcomes | experimental; operations serialize after workers return |
@@ -55,12 +61,14 @@ Forgia is not a finished Folia replacement. The honest list:
   [block entity implementation and next steps](region-threading/BLOCK-ENTITY-PARALLELISM.md).
 - **Structures are not region-aware.** A piston that moves blocks across a border, and Create-style
   contraptions, still run on the server thread.
-- **Cross-region game events (sculk) are not regionized.**
-- **Players are not regionized.** Teleport, portals and player entities stay on the server thread.
-- **No long-run or multiplayer validation yet**, and **no mod-pack validation yet** — a 170-mod pack is
-  prepared for that stage.
-- **Region size is static.** Dynamic regions (split/merge by load) and continuous region ticking (a tick clock
-  instead of a per-tick barrier) are designed but not built.
+- **Cross-region game-event capture (sculk) is implemented and off by default.** The inline baseline with
+  worker callbacks can reach foreign listeners; validate the target configuration explicitly.
+- **Players tick on the server thread.** Region membership, riding, teleport and dimension handoffs have
+  bounded tests; this does not establish multiplayer load certification.
+- **Long-run and multiplayer acceptance remain open.** Historical installed-server soaks and pack smoke tests
+  cover bounded workloads and older configurations; they do not certify an arbitrary C6 canary pack.
+- **Region size is static in the accepted fixed layout.** Load-adaptive splitting is unimplemented; continuous
+  region ticking was investigated and rejected under the current ordering contract.
 
 The full remaining plan is in [region-threading/STATUS.md](region-threading/STATUS.md#roadmap).
 The complete Forgia API inventory, including public types, method signatures, schedulers, operation handles,
@@ -92,7 +100,9 @@ under the normal SERVER-config rules. Legacy source files are not changed by mig
 file retains the settings, Forgia uses its default-off configuration; previously erased values cannot be recovered.
 Change engine switches while the server is stopped; they take effect on the next start.
 
-A server that wants the full stack sets:
+The following is a historical all-slice example. It differs from the accepted C6 profile (which keeps spawning,
+border updates and game events off); use the [audited templates and limits](tools/production-readiness/README.md)
+when preparing a canary:
 
 ```toml
 enableRegionThreadingBridge = true
@@ -199,16 +209,16 @@ entries, separately documented; the report keeps all failed attempts and legacy 
 Production source/patches/admission/defaults/budgets/API are unchanged. That C4.2 checkpoint stopped before
 C5/Create protocol work, performance tuning or repeated long installed soak.
 
-The [C6 optional runtime implementation checkpoint](region-threading/MOD-WORKER-RUNTIME-DESIGN.md)
-adds an opt-in Linux/JDK21 VM evidence/access service, a narrow Core closure verifier, fresh manifests
-and conversion into the existing Claims/Lease/Kernel path. Earlier real upstream Mod runs execute the
-complete original ticker on two Region Workers with physical overlap2; foreign writers and failure replay
-are checked separately. The latest native boundary also rejects reentrant access-callback bypasses and
-can freeze exact Core coordinate values. **C6 acceptance is still incomplete:** the final boundary revision
-needs renewed real-Mod/lifecycle coverage and two full unfiltered GameTest profiles. Defaults stay off;
-there is no installed-server or MSPT claim. Reproducible opt-in tools and source-only fixtures are in
-[tools/runtime-proof](tools/runtime-proof/README.md). See the [checkpoint receipt](region-threading/MOD-WORKER-RUNTIME-CHECKPOINT.json)
-for which result belongs to which source revision.
+The [C6 runtime implementation](region-threading/MOD-WORKER-RUNTIME-DESIGN.md) adds an opt-in Linux/HotSpot21
+VM evidence/access service, a narrow Core closure verifier and fresh manifests converted into the existing
+Claims/Lease/Kernel path. [Final C6 acceptance](region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) is **PASS**:
+complete unfiltered Fixed and Persistent profiles each record170 Passed,0 Failed and10 logical Skipped, with
+Gradle/server exits0. Four framework-only IDs remain Not Processed in their separate overlapping population.
+The [separate lifecycle certificate](region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.md) passes real-Level
+GC through stopped-server retirement with both pools; genuine runtime Mod hot-unload remains unsupported
+and NOT CERTIFIED. Unknown/periodic paths and Create remain full Serial Fences. Defaults stay off; these
+results establish neither general Modpack compatibility nor an installed canary or MSPT improvement.
+[Reproduction tools](tools/runtime-proof/README.md) preserve each evidence layer's exact scope and inputs.
 
 The published [C6.2 investigation](region-threading/MOD-CLOSURE-LINKAGE-AND-WRITER-BOUNDARY.md) and
 [first target audit](region-threading/FIRST-TRUSTED-MOD-EXECUTION-CLOSURE.md) remain historical evidence
@@ -265,8 +275,8 @@ Worker lookup compatibility for loaded mod subworld chunks and Sable plot gaps i
 ```
 ./gradlew --offline :neoforge:setup          # apply patches into projects/
 ./gradlew --offline build                    # build the loader
-./gradlew --offline :tests:junitTest         # 676 unit tests
-./gradlew --offline :tests:runGameTestServer # 166 in-game tests
+./gradlew --offline :tests:junitTest         # current registered JUnit suite
+./gradlew --offline :tests:runGameTestServer # default GameTest profile; distinct from opt-in C6 acceptance
 ```
 
 JDK 21 is required. The repository is a patched-source NeoForge tree: vanilla sources live in
@@ -282,8 +292,10 @@ Benchmarks and soaks:
 ./gradlew --offline :tests:runSoakGameTestServerReference
 ```
 
-Measure with a low-pause collector (`-XX:+UseZGC -XX:+ZGenerational`): the default G1 on a 2 GiB heap spends
-seconds in pauses on this workload and hides every effect.
+Historical non-service benchmarks used a low-pause collector (`-XX:+UseZGC -XX:+ZGenerational`); G1 on a
+2 GiB heap can hide effects in that workload. The C6 optional native-service profile was accepted with
+G1 and compressed pointers; preserve its [VM restrictions](region-threading/PRODUCTION-CONFIGURATION.md)
+when reproducing that evidence. Collector changes require a separate validation.
 
 ## Architecture in one page
 

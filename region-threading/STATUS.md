@@ -1,8 +1,27 @@
 # Forgia status
 
-Measured on a 4-core/8-thread machine, JDK 21, ZGC generational, fixed 3×3-chunk regions unless stated,
-4 workers, 200 warmup + 600 measured ticks, two repeats. "Off" means the same build with region threading
-disabled, which is the vanilla code path.
+Historical workload tables below were measured on a 4-core/8-thread machine, JDK 21, ZGC generational,
+fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off"
+means the same build with region threading disabled. These are not new C6/canary performance results;
+the accepted optional-service profile uses its separately recorded G1/compressed-pointer configuration.
+
+## Controlled canary preparation — source preserved; installed-server gates remain open
+
+The [production readiness report](PRODUCTION-READINESS.md), [complete configuration matrix](PRODUCTION-CONFIGURATION.md),
+[canary/rollback procedure](CONTROLLED-CANARY.md) and [read-only audit tools/templates](../tools/production-readiness/README.md)
+cover the first controlled deployment. A fresh fetch leaves `origin/main` at
+`a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1`. All1955 certified production files match fingerprint
+`f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787`;123 C6 and372 lifecycle evidence
+references verify locally, and both optional runtime artifact pins match. The
+[machine re-audit](PRODUCTION-READINESS-AUDIT.json) records these checks without claiming new runtime tests.
+
+The matrix covers all24 TOML keys (16 default-false switches), compiled budgets, native-service restrictions,
+proof/fence gates and retirement/recovery. Fixed and Persistent templates preserve the exact C6 values;
+a separate explicit serial template supports baseline and rollback. The queue-drain Worker switch is not a
+master tick-slice switch; instance/world config precedence and native-agent removal require stopped-server,
+new-JVM rollback. No installed canary pack, multiplayer/long soak, restore drill or hard-kill workload was
+executed in this preparation. These remain launch gates. C6/lifecycle certificates and production defaults,
+authority and admission are unchanged. No deployment, C7 or new Worker-enabled Adapter occurred.
 
 ## Lifecycle certification — real-Level GC certified; runtime Mod hot-unload not certified
 
@@ -59,9 +78,10 @@ The28 VM command steps (18 runtime controls),419-case Java authority baseline,3 
 they were not rerun separately. Historical failed/aborted profiles and the new observer-only prelaunch failure
 are retained. Final raw evidence: `tmp/c6-profile-pair-20261115-2205/`.
 
-Whole-server real-Level GC and independent real runtime Mod hot-unload remain unverified. Level clear/shutdown,
-binding preflight, callback-retention unit tests and VM components retain their separate scopes. Core remains
-the sole coordinator/Kernel/Ticket/Claims/reservation/Lease/Scope/pool authority; physical join and ordered cleanup,
+At the frozen C6 checkpoint, whole-server real-Level GC and independent runtime Mod hot-unload were unverified.
+The separate lifecycle result above now certifies stopped-server real-Level GC; Mod hot-unload stays unsupported.
+Level clear/shutdown, binding preflight, callback-retention unit tests and VM components retain their separate
+scopes. Core remains the sole coordinator/Kernel/Ticket/Claims/reservation/Lease/Scope/pool authority; physical join and ordered cleanup,
 unknown/Create Serial Fences, default-off service and Native/Furnace/v1 admission are unchanged. No production
 deployment, second Worker-enabled Mod Adapter or C7 occurred.
 
@@ -698,7 +718,7 @@ per pair, of which 600 ticks at 20 TPS dominate.
 | D1 | Mod compatibility declarations (policy registry, conflict detection) | planned |
 | D2 | 170-mod pack bring-up (bare → all mods off → all mods on → one at a time) | planned |
 | D3 | Automated performance regression baselines | planned |
-| D4 | Documentation and production configuration guide | planned |
+| D4 | Documentation and production configuration guide | Initial source audit, configuration matrix, templates and canary/rollback procedure prepared; installed-server gates remain open. See [readiness](PRODUCTION-READINESS.md). |
 
 Dependency spine: A1 → A2 → A2b → A4, then B1 → B2 → B3 → B4, then C1 → C2 → C3, then D1 → D2 → D3 → D4.
 A3 was removed from the spine by its phase-1 measurement (see "Barrier accounting" below): the remaining lever is
