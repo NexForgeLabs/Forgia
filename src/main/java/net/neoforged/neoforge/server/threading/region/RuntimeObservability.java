@@ -16,7 +16,11 @@ import org.jetbrains.annotations.ApiStatus;
 /** Observes native tick boundaries. Holds no strong server/Level reference and creates no executor. */
 @ApiStatus.Internal
 public final class RuntimeObservability {
-    private static State current;
+    // A JVM can have overlapping server threads during lifecycle tests or integrated-server replacement.
+    // Tick events and commands run on their owning server thread; sharing one process-wide mutable slot
+    // allowed another server to replace it between the identity check and history read. Thread confinement
+    // needs no global metrics lock and retains no strong server/Level reference after retirement.
+    private static final ThreadLocal<State> CURRENT = new ThreadLocal<>();
 
     public static boolean enabled() {
         return ForgiaConfig.isServerConfigLoaded() ? ForgiaConfig.SERVER.enableRuntimeDiagnostics.get()
@@ -31,39 +35,46 @@ public final class RuntimeObservability {
     private RuntimeObservability() {}
 
     public static void recordServerTick(MinecraftServer server) {
+        State state = CURRENT.get();
         if (!enabled()) {
-            if (current != null) current = null;
+            CURRENT.remove();
             if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)
                 engine.setRuntimeTimingEnabled(false);
             return;
         }
-        if (current == null || current.server.get() != server) current = new State(server);
+        if (state == null || state.server.get() != server) {
+            state = new State(server);
+            CURRENT.set(state);
+        }
         final long now = System.nanoTime();
-        current.history.record(now, server.getTickTimesNanos()[Math.floorMod(server.getTickCount(), 100)]);
+        state.history.record(now, server.getTickTimesNanos()[Math.floorMod(server.getTickCount(), 100)]);
         if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)
             engine.setRuntimeTimingEnabled(true);
         if (jvmSamplingEnabled()) {
-            if (now - current.lastJvmSample >= 1_000_000_000L) current.sampleJvm(server, now);
+            if (now - state.lastJvmSample >= 1_000_000_000L) state.sampleJvm(server, now);
         } else {
-            current.lastJvmSample = 0;
-            current.jvm = JvmSample.UNAVAILABLE;
+            state.lastJvmSample = 0;
+            state.jvm = JvmSample.UNAVAILABLE;
         }
     }
 
     /** Commands call on the authoritative server thread, exactly like native tick-ring access. */
     public static RuntimeTickHistory.Summary history(MinecraftServer server, int seconds) {
-        if (current == null || current.server.get() != server)
+        final State state = CURRENT.get();
+        if (state == null || state.server.get() != server)
             return new RuntimeTickHistory.Summary(seconds, 0, Double.NaN, Double.NaN, Double.NaN, Double.NaN,
                     Double.NaN, Double.NaN, Double.NaN, 0, 0, 0, 0, false);
-        return current.history.snapshot(System.nanoTime(), seconds);
+        return state.history.snapshot(System.nanoTime(), seconds);
     }
 
     public static JvmSample jvmSample(MinecraftServer server) {
-        return !enabled() || !jvmSamplingEnabled() || current == null || current.server.get() != server ? JvmSample.UNAVAILABLE : current.jvm;
+        final State state = CURRENT.get();
+        return !enabled() || !jvmSamplingEnabled() || state == null || state.server.get() != server ? JvmSample.UNAVAILABLE : state.jvm;
     }
 
     public static void clear(MinecraftServer server) {
-        if (current != null && current.server.get() == server) current = null;
+        final State state = CURRENT.get();
+        if (state != null && state.server.get() == server) CURRENT.remove();
     }
 
     public record JvmSample(double intervalSeconds, double mainCpuPercent, double workerCpuPercentOfOneCore,

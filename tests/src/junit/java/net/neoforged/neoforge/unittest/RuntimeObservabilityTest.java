@@ -97,18 +97,95 @@ class RuntimeObservabilityTest {
     }
 
     @Test
+    void regionMedianOverrunsAndExecutionDistributionMatchKnownGroupInputs() throws Exception {
+        final var metrics = new net.neoforged.neoforge.server.threading.region.RegionTickMetrics();
+        try {
+            for (int tick = 1; tick <= 100; ++tick) {
+                metrics.beginTick(tick, tick * 50_000_000L);
+                metrics.recordTick(tick * 1_000_000L);
+            }
+            metrics.beginTick(101, 101 * 50_000_000L);
+            final var snapshot = metrics.getClass().getDeclaredMethod("runtimeSnapshot", String.class,
+                    int.class, int.class, int.class, int.class, int.class, int.class, String.class, boolean.class, boolean.class);
+            snapshot.setAccessible(true);
+            final var region = (net.neoforged.neoforge.server.threading.region.RuntimeRegionSnapshot) snapshot.invoke(metrics,
+                    "test:dimension", 0, 0, 2, 3, -1, 4, "READY", false, false);
+            assertEquals(50, region.p50Ms());
+            assertEquals(50, region.overruns());
+            assertEquals(100, region.serialGroups());
+            assertEquals(0, region.workerGroups());
+            assertEquals(5_050_000_000L, region.mainThreadNanos());
+            assertEquals(0, region.workerNanos());
+            assertEquals(-1, region.blockEntities());
+            assertEquals(4, region.pendingWork());
+        } finally {
+            metrics.release();
+        }
+    }
+
+    @Test
     void tickBoundaryReadsTheNativeRingSlotRatherThanTimingThePostEvent() {
         final var server = mock(MinecraftServer.class);
         final var ring = new long[100];
         ring[7] = 123_456_789L;
         when(server.getTickCount()).thenReturn(7);
         when(server.getTickTimesNanos()).thenReturn(ring);
+        assertTrue(RuntimeObservability.enabled(), "native-ring accuracy fixture requires collection enabled");
+        final long started = System.nanoTime();
         RuntimeObservability.recordServerTick(server);
         final var result = RuntimeObservability.history(server, 1);
-        assertEquals(1, result.samples());
+        assertEquals(1, result.samples(), () -> "Native sample missing after " + (System.nanoTime() - started)
+                + "ns; enabled=" + RuntimeObservability.enabled() + "; 10s=" + RuntimeObservability.history(server, 10));
         assertEquals(123.456789, result.averageMs(), 1e-9);
         RuntimeObservability.clear(server);
         assertEquals(0, RuntimeObservability.history(server, 1).samples());
+    }
+
+    @Test
+    void differentServerThreadsCannotReplaceOrClearEachOthersHistory() throws Exception {
+        final var first = mock(MinecraftServer.class);
+        final var second = mock(MinecraftServer.class);
+        final var firstRing = new long[100];
+        final var secondRing = new long[100];
+        firstRing[0] = 1_000_000;
+        secondRing[0] = 9_000_000;
+        when(first.getTickTimesNanos()).thenReturn(firstRing);
+        when(second.getTickTimesNanos()).thenReturn(secondRing);
+        RuntimeObservability.recordServerTick(first);
+        final var recorded = new CountDownLatch(1);
+        final var release = new CountDownLatch(1);
+        final var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        final var other = new Thread(() -> {
+            try {
+                RuntimeObservability.recordServerTick(second);
+                recorded.countDown();
+                assertTrue(release.await(5, TimeUnit.SECONDS));
+                final var history = RuntimeObservability.history(second, 10);
+                assertEquals(1, history.samples());
+                assertEquals(9, history.averageMs());
+                RuntimeObservability.clear(first);
+                assertEquals(1, RuntimeObservability.history(second, 10).samples());
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            } finally {
+                RuntimeObservability.clear(second);
+            }
+        }, "independent-server-observer-control");
+        other.start();
+        try {
+            assertTrue(recorded.await(5, TimeUnit.SECONDS));
+            final var history = RuntimeObservability.history(first, 10);
+            assertEquals(1, history.samples());
+            assertEquals(1, history.averageMs());
+            RuntimeObservability.clear(second);
+            assertEquals(1, RuntimeObservability.history(first, 10).samples());
+        } finally {
+            release.countDown();
+            other.join(5_000);
+            RuntimeObservability.clear(first);
+        }
+        assertFalse(other.isAlive());
+        assertEquals(null, failure.get());
     }
 
     @ParameterizedTest
@@ -151,6 +228,87 @@ class RuntimeObservabilityTest {
             assertTrue(done.queueWaitNanos() > 0);
             assertEquals(false, execute.invoke(pool, "refused", (Runnable) () -> fail("Rejected task ran")));
             assertEquals(1, ((WorkerRuntimeSnapshot) snapshot.invoke(pool)).rejected());
+        } finally {
+            release.countDown();
+            close.invoke(pool);
+        }
+    }
+
+    @Test
+    void disabledTaskTimingRetainsExactSchedulerCounters() throws Exception {
+        final var type = Class.forName("net.neoforged.neoforge.server.threading.region.RegionWorkerPool");
+        final var constructor = type.getDeclaredConstructor(int.class, boolean.class);
+        constructor.setAccessible(true);
+        final Object pool = constructor.newInstance(1, true);
+        final Method execute = type.getDeclaredMethod("execute", String.class, Runnable.class);
+        final Method close = type.getDeclaredMethod("close");
+        final Method timing = type.getDeclaredMethod("setRuntimeTimingEnabled", boolean.class);
+        final Method snapshot = type.getDeclaredMethod("runtimeSnapshot");
+        execute.setAccessible(true);
+        close.setAccessible(true);
+        timing.setAccessible(true);
+        snapshot.setAccessible(true);
+        timing.invoke(pool, false);
+        try {
+            final var finished = new CountDownLatch(1);
+            execute.invoke(pool, "untimed", (Runnable) finished::countDown);
+            assertTrue(finished.await(5, TimeUnit.SECONDS));
+            close.invoke(pool);
+            final var result = (WorkerRuntimeSnapshot) snapshot.invoke(pool);
+            assertEquals(1, result.submitted());
+            assertEquals(1, result.completed());
+            assertEquals(0, result.timedTasks());
+            assertEquals(0, result.executionNanos());
+            assertEquals(0, result.queueWaitNanos());
+            assertTrue(result.joined());
+        } finally {
+            close.invoke(pool);
+        }
+    }
+
+    @Test
+    void workerCpuReadIsBracketedByIndependentMxBeanReadsWhileBlockedTimeIsWallOnly() throws Exception {
+        final var type = Class.forName("net.neoforged.neoforge.server.threading.region.RegionWorkerPool");
+        final var constructor = type.getDeclaredConstructor(int.class, boolean.class);
+        constructor.setAccessible(true);
+        final Object pool = constructor.newInstance(1, true);
+        final Method execute = type.getDeclaredMethod("execute", String.class, Runnable.class);
+        final Method close = type.getDeclaredMethod("close");
+        final Method snapshot = type.getDeclaredMethod("runtimeSnapshot");
+        execute.setAccessible(true);
+        close.setAccessible(true);
+        snapshot.setAccessible(true);
+        final var started = new CountDownLatch(1);
+        final var release = new CountDownLatch(1);
+        try {
+            execute.invoke(pool, "blocked", (Runnable) () -> {
+                started.countDown();
+                try {
+                    assertTrue(release.await(5, TimeUnit.SECONDS));
+                } catch (InterruptedException exception) {
+                    throw new AssertionError(exception);
+                }
+            });
+            assertTrue(started.await(5, TimeUnit.SECONDS));
+            final var first = (WorkerRuntimeSnapshot) snapshot.invoke(pool);
+            assertEquals(1, first.busy());
+            final var bean = java.lang.management.ManagementFactory.getThreadMXBean();
+            assertTrue(bean.isThreadCpuTimeSupported());
+            assertTrue(bean.isThreadCpuTimeEnabled());
+            final long id = first.workers().getFirst().id();
+            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+            while (bean.getThreadInfo(id).getThreadState() != Thread.State.TIMED_WAITING) {
+                assertTrue(System.nanoTime() < deadline, "worker did not enter its controlled wait");
+                Thread.onSpinWait();
+            }
+            final long before = bean.getThreadCpuTime(id);
+            final var observed = ((WorkerRuntimeSnapshot) snapshot.invoke(pool)).workers().getFirst();
+            final long after = bean.getThreadCpuTime(id);
+            assertTrue(observed.cpuNanos() >= before && observed.cpuNanos() <= after);
+            assertTrue(observed.busy());
+            assertEquals("TIMED_WAITING", observed.state());
+            assertEquals(0, observed.completed());
+            assertEquals(0, observed.executionNanos(), "unfinished task wall time is not misreported as completed CPU");
         } finally {
             release.countDown();
             close.invoke(pool);
