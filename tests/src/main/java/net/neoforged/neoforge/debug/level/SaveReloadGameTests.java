@@ -207,8 +207,13 @@ public class SaveReloadGameTests {
                     })
                     .thenExecute(() -> releaseChunks(level, grid))
                     .thenWaitUntil(() -> helper.assertTrue(
-                            grid.stream().noneMatch(chunk -> level.getChunkSource().getChunk(chunk.x, chunk.z, ChunkStatus.FULL, false) != null),
+                            grid.stream().noneMatch(chunk -> level.getChunkSource().getChunk(chunk.x, chunk.z, ChunkStatus.FULL, false) != null
+                                    || level.getChunkSource().getChunkNow(chunk.x, chunk.z) != null),
                             "the save/reload chunk grid never unloaded, so the reload would read memory"))
+                    // A chunk that the source no longer returns can still sit in the chunk map's pending
+                    // unload queue; requesting it again would revive that exact holder instead of reading
+                    // the saved chunk from disk. Let the queue drain before the test re-forces the grid.
+                    .thenIdle(60)
                     .thenExecute(() -> {
                         final long start = System.nanoTime();
                         forceChunks(level, grid);
