@@ -293,7 +293,7 @@
          }
      }
  
-@@ -368,42 +_,66 @@
+@@ -368,42 +_,69 @@
      }
  
      boolean isTicking(BlockPos p_156411_) {
@@ -301,6 +301,9 @@
 +    }
 +
 +    private boolean isTicking(BlockPos p_156411_, @Nullable TickingBlockEntity ticker) {
++        if (net.neoforged.neoforge.server.threading.region.CoreModWorkScope.active()) {
++            return net.neoforged.neoforge.server.threading.region.CoreModWorkScope.admitted(ticker, p_156411_);
++        }
          if (!this.level.getWorldBorder().isWithinBounds(p_156411_)) {
              return false;
          } else {
@@ -512,7 +515,7 @@
          BlockState blockstate = p_156407_.getBlockState();
          BlockEntityTicker<T> blockentityticker = blockstate.getTicker(this.level, (BlockEntityType<T>)p_156407_.getType());
          if (blockentityticker == null) {
-@@ -656,33 +_,208 @@
+@@ -656,33 +_,275 @@
                      }
                  );
          }
@@ -573,6 +576,63 @@
 +    public static boolean furnaceWorkMatchesChunk(TickingBlockEntity ticker, LevelChunk chunk) {
 +        if (ticker instanceof LevelChunk.RebindableTickingBlockEntityWrapper wrapper) return furnaceWorkMatchesChunk(wrapper.ticker, chunk);
 +        return ticker instanceof LevelChunk.BoundTickingBlockEntity<?> bound && bound.isBoundToChunk(chunk);
++    }
++
++    /** Exact Core wrapper classes only; a subclass must independently prove its own complete body. */
++    public static boolean exactCoreBlockEntityBinding(TickingBlockEntity ticker) {
++        if (ticker == null) return false;
++        if (ticker.getClass() == LevelChunk.RebindableTickingBlockEntityWrapper.class) {
++            ticker = ((LevelChunk.RebindableTickingBlockEntityWrapper) ticker).ticker;
++        }
++        return ticker.getClass() == LevelChunk.BoundTickingBlockEntity.class;
++    }
++
++    /** Immutable descriptive snapshot of exact Core wrapper storage; it grants no execution permission. */
++    public record CapturedTickerBinding(TickingBlockEntity ticker, TickingBlockEntity delegate, BlockEntity source,
++                                       net.minecraft.world.level.block.entity.BlockEntityTicker<?> function,
++                                       LevelChunk chunk, Level level, long version, String typeName) {
++        public boolean current() {
++            if (!exactCoreBlockEntityBinding(this.ticker)) return false;
++            TickingBlockEntity actual = this.ticker;
++            if (actual instanceof LevelChunk.RebindableTickingBlockEntityWrapper wrapper) {
++                if (wrapper.bindingVersion != this.version) return false;
++                actual = wrapper.ticker;
++            }
++            if (actual != this.delegate || !(actual instanceof LevelChunk.BoundTickingBlockEntity<?> bound)) return false;
++            return bound.blockEntity == this.source && bound.ticker == this.function && bound.typeName == this.typeName
++                && bound.isBoundToChunk(this.chunk);
++        }
++    }
++
++    @org.jetbrains.annotations.Nullable
++    public static CapturedTickerBinding captureCoreTickerFrame(TickingBlockEntity ticker) {
++        if (!exactCoreBlockEntityBinding(ticker)) return null;
++        TickingBlockEntity actual = ticker;
++        long version = 0;
++        if (actual instanceof LevelChunk.RebindableTickingBlockEntityWrapper wrapper) {
++            version = wrapper.bindingVersion;
++            actual = wrapper.ticker;
++        }
++        final var bound = (LevelChunk.BoundTickingBlockEntity<?>) actual;
++        if (bound.typeName == null) return null;
++        return new CapturedTickerBinding(ticker, actual, bound.blockEntity, bound.ticker,
++            bound.containingChunk(), bound.containingChunk().level, version, bound.typeName);
++    }
++
++    /** Exact original Mod function in this captured original wrapper/delegate; never invokes its factory. */
++    @org.jetbrains.annotations.Nullable
++    public static net.minecraft.world.level.block.entity.BlockEntityTicker<?> actualBlockEntityFunction(TickingBlockEntity ticker) {
++        if (ticker instanceof LevelChunk.RebindableTickingBlockEntityWrapper wrapper) return actualBlockEntityFunction(wrapper.ticker);
++        if (ticker instanceof LevelChunk.BoundTickingBlockEntity<?> bound) return bound.ticker;
++        return null;
++    }
++
++    /** Exact original source in this captured original wrapper/delegate. */
++    @org.jetbrains.annotations.Nullable
++    public static BlockEntity actualBlockEntitySource(TickingBlockEntity ticker) {
++        if (ticker instanceof LevelChunk.RebindableTickingBlockEntityWrapper wrapper) return actualBlockEntitySource(wrapper.ticker);
++        if (ticker instanceof LevelChunk.BoundTickingBlockEntity<?> bound) return bound.blockEntity;
++        return null;
 +    }
 +
 +    /** Neo: exact source identity for a captured bound ticker; a same-position replacement is not its source. */
@@ -693,32 +753,45 @@
              this.ticker = p_156434_;
          }
  
++        private LevelChunk containingChunk() {
++            return LevelChunk.this;
++        }
++
 +        private boolean isBoundToChunk(LevelChunk chunk) {
 +            return LevelChunk.this == chunk;
 +        }
 +
 +        private net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAdmission.Binding captureBinding(ServerLevel level) {
 +            return new net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAdmission.Binding(
-+                this, () -> LevelChunk.this.level == level && this.blockEntity.getLevel() == level);
++                this, () -> LevelChunk.this.level == level && this.blockEntity.getLevel() == level,
++                new net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAdmission.CoreBinding(level, this, this, 0));
 +        }
 +
          @Override
          public void tick() {
++            final Level capturedModLevel = net.neoforged.neoforge.server.threading.region.CoreModWorkScope.level(this, this.blockEntity);
++            final Level tickLevel = capturedModLevel == null ? LevelChunk.this.level : capturedModLevel;
              if (!this.blockEntity.isRemoved() && this.blockEntity.hasLevel()) {
                  BlockPos blockpos = this.blockEntity.getBlockPos();
 -                if (LevelChunk.this.isTicking(blockpos)) {
 +                if (LevelChunk.this.isTicking(blockpos, this)) {
                      try {
-                         ProfilerFiller profilerfiller = LevelChunk.this.level.getProfiler();
-+                        net.neoforged.neoforge.server.timings.TimeTracker.BLOCK_ENTITY_UPDATE.trackStart(blockEntity);
+-                        ProfilerFiller profilerfiller = LevelChunk.this.level.getProfiler();
++                        ProfilerFiller profilerfiller = net.neoforged.neoforge.server.threading.region.CoreModWorkScope.profiler(this, this.blockEntity);
++                        if (profilerfiller == null) profilerfiller = tickLevel.getProfiler();
++                        if (!net.neoforged.neoforge.server.threading.region.CoreModWorkScope.active()) net.neoforged.neoforge.server.timings.TimeTracker.BLOCK_ENTITY_UPDATE.trackStart(blockEntity);
                          profilerfiller.push(this::getType);
-                         BlockState blockstate = LevelChunk.this.getBlockState(blockpos);
-                         if (this.blockEntity.getType().isValid(blockstate)) {
+-                        BlockState blockstate = LevelChunk.this.getBlockState(blockpos);
+-                        if (this.blockEntity.getType().isValid(blockstate)) {
 -                            this.ticker.tick(LevelChunk.this.level, this.blockEntity.getBlockPos(), blockstate, this.blockEntity);
-+                            if (LevelChunk.this.level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-+                                net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockTickTask(serverLevel, this.blockEntity.getBlockPos(), () -> this.ticker.tick(LevelChunk.this.level, this.blockEntity.getBlockPos(), blockstate, this.blockEntity));
++                        final BlockState capturedModState = net.neoforged.neoforge.server.threading.region.CoreModWorkScope.state(this, this.blockEntity);
++                        BlockState blockstate = capturedModState == null ? LevelChunk.this.getBlockState(blockpos) : capturedModState;
++                        if (net.neoforged.neoforge.server.threading.region.CoreModWorkScope.prevalidated(this, this.blockEntity, blockstate)
++                            || this.blockEntity.getType().isValid(blockstate)) {
++                            if (tickLevel instanceof net.minecraft.server.level.ServerLevel serverLevel) {
++                                net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockTickTask(serverLevel, this.blockEntity.getBlockPos(), () -> this.ticker.tick(tickLevel, this.blockEntity.getBlockPos(), blockstate, this.blockEntity));
 +                            } else {
-+                                this.ticker.tick(LevelChunk.this.level, this.blockEntity.getBlockPos(), blockstate, this.blockEntity);
++                                this.ticker.tick(tickLevel, this.blockEntity.getBlockPos(), blockstate, this.blockEntity);
 +                            }
                              this.loggedInvalidBlockState = false;
                          } else if (!this.loggedInvalidBlockState) {
@@ -730,7 +803,7 @@
 +                        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
 +                            // Preserve the block-entity report/removal policy, but build and apply it only after
 +                            // the worker barrier. A chunk refusal cannot restart a partially applied machine tick.
-+                            throw new net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickFailure(LevelChunk.this.level, this.blockEntity, throwable);
++                            throw new net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickFailure(tickLevel, this.blockEntity, throwable);
 +                        }
 +                        // Main-thread callers of the legacy bounded-read seam retain its explicit refusal.
 +                        if (net.neoforged.neoforge.server.threading.region.RegionWorkerChunkUnavailableException.mustNotReplay(throwable)) {
@@ -747,7 +820,7 @@
 +                        } else
                          throw new ReportedException(crashreport);
 +                    } finally {
-+                        net.neoforged.neoforge.server.timings.TimeTracker.BLOCK_ENTITY_UPDATE.trackEnd(blockEntity);
++                        if (!net.neoforged.neoforge.server.threading.region.CoreModWorkScope.active()) net.neoforged.neoforge.server.timings.TimeTracker.BLOCK_ENTITY_UPDATE.trackEnd(blockEntity);
                      }
                  }
              }
@@ -770,7 +843,7 @@
          }
  
          @Override
-@@ -740,13 +_,29 @@
+@@ -740,13 +_,30 @@
  
      class RebindableTickingBlockEntityWrapper implements TickingBlockEntity {
          private TickingBlockEntity ticker;
@@ -796,7 +869,8 @@
 +            final long version = this.bindingVersion;
 +            final var binding = captureBlockEntityTickBinding(this.ticker, level);
 +            return new net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAdmission.Binding(
-+                binding.delegate(), () -> LevelChunk.this.level == level && this.bindingVersion == version && binding.isCurrent().getAsBoolean());
++                binding.delegate(), () -> LevelChunk.this.level == level && this.bindingVersion == version && binding.isCurrent().getAsBoolean(),
++                new net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAdmission.CoreBinding(level, this, binding.delegate(), version));
          }
  
          @Override

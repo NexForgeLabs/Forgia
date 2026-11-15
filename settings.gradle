@@ -37,6 +37,10 @@ project(':neoforge').projectDir = file('projects/neoforge')
 include ':tests'
 project(":tests").projectDir = file("tests")
 
+// Optional bootstrap VM evidence and access enforcement; absent by default.
+include ':runtime-proof'
+project(':runtime-proof').projectDir = file('projects/runtime-proof')
+
 include ':testframework'
 include ':mobspawncontroller-adapter'
 project(':mobspawncontroller-adapter').projectDir = file('adapters/mobspawncontroller')

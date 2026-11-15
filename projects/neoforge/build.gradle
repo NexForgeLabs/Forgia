@@ -76,6 +76,8 @@ minecraft {
 }
 
 dependencies {
+    // Compile against the optional bootstrap bridge. Its absence never enables Mod Worker execution.
+    compileOnly project(':runtime-proof')
     // For an overview of what the nonstandard configurations do,
     // have a look at NeoDevConfigurations.java in the buildSrc folder.
 

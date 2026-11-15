@@ -1,0 +1,48 @@
+// Opt-in original third-party Mod/real-Level integration. The upstream artifact remains local.
+// Its SHA pin makes the fixture reproducible; Core authorization comes from installed-code semantics,
+// fresh original storage/binding, enforced access and the existing Kernel/resource ownership.
+gradle.projectsEvaluated {
+    def tests = rootProject.findProject(':tests')
+    if (tests == null) return
+    def runtime = rootProject.findProject(':runtime-proof')
+    def jarProperty = rootProject.providers.gradleProperty('trustedModJar')
+    def runProperty = rootProject.providers.gradleProperty('trustedModRun')
+    if (!jarProperty.isPresent() || !runProperty.isPresent()) {
+        throw new GradleException('Provide -PtrustedModJar=/local/game_console-0.31.0-alpha.61.jar and -PtrustedModRun=/new/private/evidence/server')
+    }
+    def upstream = rootProject.file(jarProperty.get())
+    def expected = 'd4cb3a41cd3d98c99a0118b1e97475b5781106711ac1d4e321d87c4c2506c510'
+    def actual = java.security.MessageDigest.getInstance('SHA-256').digest(upstream.bytes).encodeHex().toString()
+    if (actual != expected) throw new GradleException('Original integration artifact differs from the fixture input pin: ' + actual)
+    def unpack = tests.tasks.register('unpackTrustedModOriginalForRuntimeProof', Sync) {
+        from(rootProject.zipTree(upstream))
+        into(tests.layout.buildDirectory.dir('runtime-proof-original'))
+    }
+    def original = tests.sourceSets.create('runtimeProofOriginal') {
+        java.srcDirs = []
+        resources.srcDir(unpack)
+    }
+    tests.sourceSets.main.java.srcDir(rootProject.file('tools/runtime-proof/gametests'))
+    tests.neoDev.mods.create('runtimeProofOriginal') { sourceSet original }
+    tests.neoDev.runs.named('canonicalGameTestServer') {
+        loadedMods.add(tests.neoDev.mods.runtimeProofOriginal)
+        gameDirectory = rootProject.layout.projectDirectory.dir(runProperty.get())
+    }
+    tests.tasks.named('runCanonicalGameTestServer') {
+        dependsOn runtime.tasks.named('verifiedCoreJar'), runtime.tasks.named('compileNativeProof')
+        def bridge = runtime.tasks.named('verifiedCoreJar').get().archiveFile.get().asFile
+        def nativeService = runtime.layout.buildDirectory.file('native/libforgia_runtime_proof.so').get().asFile
+        jvmArgs('-XX:+DisableAttachMechanism', '-XX:+UnlockDiagnosticVMOptions', '-XX:-InlineUnsafeOps',
+                '-XX:+UseG1GC', '-XX:+UseCompressedOops', '-XX:+UseCompressedClassPointers',
+                '-agentpath:' + nativeService.absolutePath + '=' + bridge.absolutePath)
+        doFirst {
+            def output = new File(rootProject.file(runProperty.get()).parentFile, 'artifacts')
+            output.mkdirs()
+            rootProject.copy {
+                from bridge, nativeService
+                into output
+            }
+            new File(output, 'original-mod-input.sha256').text = actual + '\n'
+        }
+    }
+}

@@ -30,7 +30,7 @@ public final class BlockEntityExecutionContract {
     }
 
     public enum Resources {
-        UNPROVEN, REGION_LOCAL, FURNACE_LOCAL, FURNACE_CLAIMS
+        UNPROVEN, REGION_LOCAL, FURNACE_LOCAL, FURNACE_CLAIMS, MOD_CLAIMS
     }
 
     /** Candidate means more core validation is required; it never means permission to run. */

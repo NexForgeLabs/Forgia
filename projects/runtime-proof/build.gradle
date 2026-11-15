@@ -1,0 +1,67 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.licenser'
+    id 'neoforge.formatting-conventions'
+}
+
+license {
+    header = rootProject.file('codeformat/HEADER.txt')
+    include '**/*.java'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.register('verifiedCoreJar', Jar) {
+    group = 'build'
+    description = 'Builds the optional VM bridge with trusted Core integrity evidence from this exact compiled build'
+    dependsOn tasks.named('classes'), project(':neoforge').tasks.named('compileJava')
+    archiveClassifier = 'verified-core'
+    from(sourceSets.main.output)
+    from(project(':neoforge').sourceSets.main.output.classesDirs) {
+        include 'net/neoforged/neoforge/server/threading/**'
+        include 'net/neoforged/neoforge/server/timings/TimeTracker*.class'
+        include 'net/minecraft/world/level/chunk/LevelChunk*.class'
+        include 'net/minecraft/world/level/chunk/ChunkAccess*.class'
+        include 'net/minecraft/core/BlockPos*.class'
+        include 'net/minecraft/core/Vec3i*.class'
+        include 'net/minecraft/world/level/block/state/BlockState*.class'
+        include 'net/minecraft/server/MinecraftServer*.class'
+        include 'net/minecraft/server/level/ChunkHolder*.class'
+        include 'net/minecraft/server/level/GenerationChunkHolder*.class'
+        include 'net/minecraft/server/level/ChunkLevel*.class'
+        include 'net/minecraft/util/profiling/InactiveProfiler*.class'
+        include 'net/minecraft/util/profiling/ProfilerFiller*.class'
+        include 'net/minecraft/resources/ResourceLocation*.class'
+        include 'net/minecraft/world/level/Level*.class'
+        include 'net/minecraft/server/level/ServerLevel*.class'
+        include 'net/minecraft/world/level/block/entity/BlockEntity*.class'
+        include 'net/minecraft/world/level/storage/PrimaryLevelData*.class'
+        include 'net/minecraft/world/level/border/WorldBorder*.class'
+        include 'net/minecraft/world/level/block/state/StateHolder*.class'
+        include 'net/minecraft/world/level/block/state/BlockBehaviour*.class'
+        includeEmptyDirs = false
+        eachFile { details ->
+            details.path = 'META-INF/forgia/trusted-core/' + details.path.replaceAll(/\.class$/, '.bin')
+        }
+    }
+}
+
+tasks.register('compileNativeProof', Exec) {
+    def javaHome = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }.map { it.metadata.installationPath.asFile }
+    def source = layout.projectDirectory.file('src/main/native/runtime_proof.c')
+    def accessSource = layout.projectDirectory.file('src/main/native/access_enforcement.c')
+    def target = layout.buildDirectory.file('native/libforgia_runtime_proof.so')
+    inputs.files(source, accessSource)
+    outputs.file(target)
+    onlyIf { System.getProperty('os.name').toLowerCase().contains('linux') }
+    doFirst {
+        target.get().asFile.parentFile.mkdirs()
+        commandLine 'gcc', '-std=c11', '-O2', '-fPIC', '-shared', '-pthread', '-Wall', '-Wextra',
+                '-I' + new File(javaHome.get(), 'include'), '-I' + new File(javaHome.get(), 'include/linux'),
+                '-o', target.get().asFile, source.asFile, accessSource.asFile, '-ldl'
+    }
+}

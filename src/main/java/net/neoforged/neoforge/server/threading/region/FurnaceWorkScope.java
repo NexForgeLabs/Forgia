@@ -59,6 +59,13 @@ public final class FurnaceWorkScope implements AutoCloseable {
         return new FurnaceWorkScope(admission, source, chunk, bodyObserver, bodyEndObserver, resources);
     }
 
+    /** Pure identity/lifetime check for VM metadata access; it invokes no protected ticker/getter. */
+    static boolean ownsWrapperReference(Level level, Object root, boolean write) {
+        final var scope = CURRENT.get();
+        return scope != null && !scope.closed && scope.admission.level() == level
+                && (root == scope.admission.ticker() && !write || root == scope.admission.binding().delegate());
+    }
+
     public static boolean active() {
         return CURRENT.get() != null;
     }

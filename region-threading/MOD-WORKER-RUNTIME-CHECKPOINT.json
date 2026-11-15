@@ -1,0 +1,990 @@
+{
+  "schemaVersion": 1,
+  "state": "IMPLEMENTATION_CHECKPOINT_C6_ARCHITECTURE_NOT_ACCEPTED",
+  "baselineCommit": "2fe7ff74aa63f7fcc9fe34efeaadb14aa5243f0f",
+  "createdAt": "2026-11-15T05:01:03.955457+00:00",
+  "disposition": "User requested organization, commit and GitHub publication before further C6 acceptance work. This is an opt-in implementation checkpoint; final real-Level and complete architecture acceptance remain unfinished.",
+  "implemented": [
+    "Optional bootstrap actual-installed-method/CP/handler evidence, including hidden classes",
+    "Closed counter-return semantics; periodic/unknown original invocation serial before body start",
+    "Fresh original binding/storage manifest attached to original unstarted Ticket and exact Claims",
+    "Existing canonical prefix/planner/reservation/Lease/Scope/pool/Kernel execution and physical join",
+    "Mutable root field/method/Unsafe/JNI access participation and bounded native profile",
+    "Nested access callback refusal, including method entry before earlier effects and native bounds",
+    "Enforced frozen exact Core BlockPos fields; four-root model with no live Chunk access/Claim by Mod Worker",
+    "Repository-owned source-only component and opt-in original Mod integration tools"
+  ],
+  "defaultAndScope": {
+    "serviceLoadedByDefault": false,
+    "resourceOwnershipDefaultChanged": false,
+    "existingTestsOrAdaptersChanged": false,
+    "gitignoreChanged": false,
+    "oneCanonicalCursorAndKernel": true,
+    "newSchedulerOrReservationAuthority": false,
+    "registrationLimit": 128,
+    "phaseUnits": 2048,
+    "resourcesPerUnit": 512,
+    "logicalUsesPerPhase": 131072,
+    "singleModPrefixStillSerial": true,
+    "v1ApiMajor": 1,
+    "v1Protocol": 1,
+    "noInstalledServerOrPerformanceClaim": true,
+    "noSecondWorkerAdapterOrC7": true
+  },
+  "currentSourceHashes": {
+    "patches/net/minecraft/world/level/chunk/LevelChunk.java.patch": "5320554cc0f1d05763b5a8d15e843471dfb02c74d4178c4becf5672977e03bfa",
+    "projects/neoforge/build.gradle": "c49f30cdb2f4a1739e6e3730966153eaaf6e2967b6ebfb5f67cf6ca25f2556b5",
+    "projects/runtime-proof/build.gradle": "c85e7fd38fe172afb750b229fab56b5d9552a2f210b3c7a52dccfaaae71572f9",
+    "projects/runtime-proof/src/main/java/net/neoforged/forgia/runtimeproof/RuntimeProof.java": "03e4bce64f76416965c6cb59ef41daa711f6c6b53434595ba54f8231ed720573",
+    "projects/runtime-proof/src/main/java/net/neoforged/forgia/runtimeproof/package-info.java": "22b76e592f62ac3e84f2f5afa49b5813e564e245b6e44804bd7e31391d893e8c",
+    "projects/runtime-proof/src/main/native/access_enforcement.c": "37bf2e2482e8b1fd0c1e5c419e2a0a9db3d3ee1ae0bee0403a9d69b2330d72df",
+    "projects/runtime-proof/src/main/native/runtime_proof.c": "e8b81d7bb0af0859653052685ea741264abc4b8fa3132e5018f3b5ed85725d8f",
+    "settings.gradle": "37f2a37a9e68308aa231c223ea3d5b799377f7bcf5eef128977b5f7ed6e95cab",
+    "src/main/java/net/neoforged/neoforge/server/threading/RegionThreadingHooks.java": "6348380f319135ecc77fa1539fd74b1e54c79eca2f9b017ee4066f44b974afd4",
+    "src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityExecutionContract.java": "7c74257c4073e5be0c4e32d08ac7925026da000d85d80ffdf2d5a4c4f459e9ab",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/BlockEntityExecutionEngine.java": "e4609ce8c698a3edc376b46fc500748ffab7e37e9835e190d69062e794b427bd",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/BlockEntityResourceOwnership.java": "a77c071b93396905827889f5551d428128d741bb14cd97f80046adebe1b0969b",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/CoreModContextVerifier.java": "c3f97b07d327db8204e6f9f802f869f7d0bb673b4512bfe832e8fe12ef5cf49f",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/CoreModPreparation.java": "e7a637fcd2a32e29c9e098b00147d43411c5dd3096369154eee0deccee4c53a3",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/CoreModRuntimeIntegrity.java": "2c31b509934fd53a0089eff5e154c5d7d55557d9d5ac190d08ecb98ef766b403",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/CoreModTickerVerifier.java": "ef091418140e2592446b3631e09509169f98ba2798b2f6ecb3726e4de1ca5fef",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/CoreModWorkScope.java": "5a8557941d66b57c71d362be686ed2a0c0e52e15366f6e181b4c199b2587ebce",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/FurnaceResourcePreparation.java": "13b2403170985fd1cefbfa220bbfd228534544da9b90f7c923a3fbe29a5249a9",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/FurnaceWorkScope.java": "8f027d5c2ae6b2ed3d71e1c789d722eb560a424ac24e8c7f58ddfd2066f77a73",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/RegionBlockEntityTickAdmission.java": "bdf281ea9cce53877622fb8ff63297d2df2176a9271c3f05014ecad8bc719a02",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java": "9086874c7da94111eb36cf0e9a389ee662066a6ae104c9b39869f08c7c154f63",
+    "tools/runtime-proof/README.md": "aa42810cab27c38fdf6360b8548938abcea7d9110efc545afeef3b206626e59d",
+    "tools/runtime-proof/fixtures/FrozenValueProbe.java": "e58c17ea601d74829820ce23585a7506cecb747b392e932b9248a81463f63bf5",
+    "tools/runtime-proof/fixtures/InstalledDefinitionProbe.java": "1af05efa33bc8518705d81ead716ccc69b9f16299cbd281353796e154b5f6141",
+    "tools/runtime-proof/fixtures/NestedCallbackProbe.java": "0925ff1b8b8aaa01e729fb9fd16703392eacc5199c8b4159f8956b730adc2bd5",
+    "tools/runtime-proof/fixtures/ProductionAccessProbe.java": "686c245c30b880d6a30df159efb547cdc3b01d42b2915416a925f40b135b45c6",
+    "tools/runtime-proof/fixtures/PublicationRaceProbe.java": "0c0fee3009da960e266f2cdf10c2fb09df78686db0dd265f5679c61183d68d35",
+    "tools/runtime-proof/fixtures/RedefinitionAttemptProbe.java": "f5eb4a29b919cb4c13a136b7abc25799d06e2f9be0600be3b864ea15c3b49e3e",
+    "tools/runtime-proof/fixtures/RedefinitionVictim.java": "f82c0a49dcd4968aeef5fbc57d4a9b6e990fcda886e887fddba5310270584e66",
+    "tools/runtime-proof/fixtures/RedefinitionVictim.modified.java.txt": "e9c4df813d626384072a786708de3f314d28fe29e700de7f95f471c3d8f62157",
+    "tools/runtime-proof/fixtures/RuntimeEnvironmentProbe.java": "91df739e627cc81856aab31b98a290b01354016272ad3fe63a60b30d28777fcb",
+    "tools/runtime-proof/fixtures/RuntimeNativeLibraryProbe.java": "006c0f80f9debae7c7183c7c4805a3d3c5128c64d1201ff8ac546600006a296f",
+    "tools/runtime-proof/fixtures/native_library_control.c": "af54e8c34e105b9a551eedb71829fcd35deddb9dce8052a2b32f0f793b97bfda",
+    "tools/runtime-proof/fixtures/redefine_test_agent.c": "d1d998f7e2144f11f4718a7a7c2ca16f03a4256e1c45ed0e3f18c8a3d13902ff",
+    "tools/runtime-proof/gametests/net/neoforged/neoforge/debug/level/RealModFailureRecoveryGameTest.java": "a8cb052c2afe0bd5f79dc52948aa1b525812fe4b40bbbee3b03f2d06ce9911fb",
+    "tools/runtime-proof/gametests/net/neoforged/neoforge/debug/level/RealModLeaseAssertions.java": "e174901f9b0f9851683bb80569d14f6cc5052da39b55fd6401ef786ac126e1bd",
+    "tools/runtime-proof/gametests/net/neoforged/neoforge/debug/level/RealModWorkerMissionGameTest.java": "fad5ae4adb323a3f067d64ea11490fcb9ee63a8048fbdf312324ae1220ab89d2",
+    "tools/runtime-proof/gametests/net/neoforged/neoforge/debug/level/RealModWriterExclusionGameTest.java": "9277ee5a85cc95d7459e84ae6e1f0d9adfd3dcb7289e2e27bb717421201ef5d7",
+    "tools/runtime-proof/real_mod.gradle": "6d490873a2150dde752dcad14e59f7edc0613c24d7d78e1c5a8467a029edc559",
+    "tools/runtime-proof/verify_runtime.py": "aacfbc4eb043c57782e5653123e4cabb4d80247c3780b5f4ba4353d681dbcbbd"
+  },
+  "submissionValidation": {
+    "fullCore": {
+      "name": "checkpoint-full-core-v1",
+      "command": [
+        "./gradlew",
+        "--offline",
+        "--no-configuration-cache",
+        "--no-parallel",
+        "--console=plain",
+        "--max-workers=1",
+        "-PforgiaVersion=21.1.250.60-beta",
+        "-I",
+        "tools/runtime-proof/real_mod.gradle",
+        "-PtrustedModJar=tmp/msc-v3/runs/ordered-e/mods/game_console-0.31.0-alpha.61.jar",
+        "-PtrustedModRun=tmp/be-mod-worker-mission/checkpoint-full-core-v1/server",
+        ":runtime-proof:compileNativeProof",
+        ":runtime-proof:verifiedCoreJar",
+        ":tests:junitTest"
+      ],
+      "actualExitCode": 0,
+      "testsExecuted": true,
+      "junit": {
+        "tests": 1400,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "rawReceipt": {
+        "path": "tmp/be-mod-worker-mission/checkpoint-full-core-v1.result.json",
+        "sha256": "41506a53c04112101bc304197efc8272346ba988911e726ec2216325aaaf2430"
+      },
+      "log": {
+        "path": "tmp/be-mod-worker-mission/checkpoint-full-core-v1.log",
+        "sha256": "eedd52bd8b4025c28e4b9a57fcdf27f1011471bae16dd193e00d0f98ba98ef64"
+      },
+      "inputHashesSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa",
+      "inputHashesAfterSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa"
+    },
+    "all1400CaseOutcomesAndMultiplicitiesMatch": {
+      "path": "tmp/be-mod-worker-mission/checkpoint-core-comparison.json",
+      "sha256": "f672210289f3a871bea71bcf76527d9537e2629b00efbcefd49ace0071d8e98b"
+    },
+    "canonicalCases": 84,
+    "vmControls": {
+      "outcome": "VM_COMPONENT_CONTROLS_PASS_NO_CORE_MOD_PERMISSION_ISSUED",
+      "actualExitCode": 0,
+      "commandCount": 19,
+      "noCoreTicketOrLeaseIssued": true,
+      "receipt": {
+        "path": "tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/result.json",
+        "sha256": "7c18bceb0d73e8e231346db7d36c8df2a6e2b63c1c633e4d6d731fcbe50cf781"
+      },
+      "commands": [
+        {
+          "name": "compile-service",
+          "command": [
+            "gcc",
+            "-std=c11",
+            "-shared",
+            "-fPIC",
+            "-O2",
+            "-pthread",
+            "-Wall",
+            "-Wextra",
+            "-I/home/yc/.local/opt/jdk-21.0.13+9/include",
+            "-I/home/yc/.local/opt/jdk-21.0.13+9/include/linux",
+            "-o",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so",
+            "/home/yc/Minecraft/Forgia/projects/runtime-proof/src/main/native/access_enforcement.c",
+            "/home/yc/Minecraft/Forgia/projects/runtime-proof/src/main/native/runtime_proof.c",
+            "-ldl"
+          ],
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "compile-bridge",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/javac",
+            "--release",
+            "21",
+            "-d",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/classes",
+            "/home/yc/Minecraft/Forgia/projects/runtime-proof/src/main/java/net/neoforged/forgia/runtimeproof/RuntimeProof.java",
+            "/home/yc/Minecraft/Forgia/projects/runtime-proof/src/main/java/net/neoforged/forgia/runtimeproof/package-info.java"
+          ],
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "bridge-jar",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/jar",
+            "cf",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-C",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/classes",
+            "."
+          ],
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "compile-fixtures",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/javac",
+            "--release",
+            "21",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-d",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/FrozenValueProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/InstalledDefinitionProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/NestedCallbackProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/ProductionAccessProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/PublicationRaceProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/RedefinitionAttemptProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/RedefinitionVictim.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/RuntimeEnvironmentProbe.java",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/RuntimeNativeLibraryProbe.java"
+          ],
+          "exitCode": 0,
+          "logSha256": "145b7d98bf463190005542f4a8f46c73ab0a3788056c50f8bc2755c2bf61ba8a"
+        },
+        {
+          "name": "InstalledDefinitionProbe",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "InstalledDefinitionProbe"
+          ],
+          "exitCode": 0,
+          "logSha256": "6b85b8e5263fd911a9a8970547b29e03a689e12f2268716ceccaca353a159abf"
+        },
+        {
+          "name": "ProductionAccessProbe",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "ProductionAccessProbe",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests/ProductionAccessProbe$HiddenWriter.class"
+          ],
+          "exitCode": 0,
+          "logSha256": "2d88387951690e864a8f8042e017efbc08f8bab72f5cb90b8c0cf1afb0893822"
+        },
+        {
+          "name": "PublicationRaceProbe",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "PublicationRaceProbe"
+          ],
+          "exitCode": 0,
+          "logSha256": "4afce9e6205d40ac36838c7c56a22a5db66e4b5613b396fac0f98250767a5129"
+        },
+        {
+          "name": "NestedCallbackProbe",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "NestedCallbackProbe"
+          ],
+          "exitCode": 0,
+          "logSha256": "86275c6073f868c3d5d69152866312cff1519f03fd4f2387ef83eac8f5612466"
+        },
+        {
+          "name": "FrozenValueProbe",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "FrozenValueProbe"
+          ],
+          "exitCode": 0,
+          "logSha256": "34f674bd02e69f6292f34ee94b2f043e6afe7f0342a3c2ad66c8329d34459321"
+        },
+        {
+          "name": "compile-unknown-native",
+          "command": [
+            "gcc",
+            "-std=c11",
+            "-shared",
+            "-fPIC",
+            "-O2",
+            "-pthread",
+            "-Wall",
+            "-Wextra",
+            "-I/home/yc/.local/opt/jdk-21.0.13+9/include",
+            "-I/home/yc/.local/opt/jdk-21.0.13+9/include/linux",
+            "-o",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/unknown-native.so",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/native_library_control.c"
+          ],
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "verified-environment-and-jmx-refusal",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "RuntimeEnvironmentProbe",
+            "true"
+          ],
+          "exitCode": 0,
+          "logSha256": "d514ab21bec34398a6c0e96675217a6232d08db7e9a89eed25c93f9131379290"
+        },
+        {
+          "name": "absent-service",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "RuntimeEnvironmentProbe",
+            "false"
+          ],
+          "exitCode": 0,
+          "logSha256": "3f3c0d0285f0f391149774a69facaf62023b6b028fba88b89073250f5f1b8d63"
+        },
+        {
+          "name": "unsafe-intrinsics-refusal",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "RuntimeEnvironmentProbe",
+            "false"
+          ],
+          "exitCode": 0,
+          "logSha256": "4956177fe2bf9e614d2777dfba2c450e681b3e3720c4927385cfb425a32dfefd"
+        },
+        {
+          "name": "attach-enabled-refusal",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "RuntimeEnvironmentProbe",
+            "false"
+          ],
+          "exitCode": 0,
+          "logSha256": "b3702277607b69c5145575deb26a2cb3e1063a8424fc5166b1874518bfb5e5eb"
+        },
+        {
+          "name": "native-library-unprotected-control",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "RuntimeNativeLibraryProbe",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/unknown-native.so",
+            "false"
+          ],
+          "exitCode": 0,
+          "logSha256": "57717ef57718fe9fa03ca52420008dac969e35f6b9838a7db96d4e63d254be60"
+        },
+        {
+          "name": "native-library-before-initialization-refusal",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_runtime_proof.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "RuntimeNativeLibraryProbe",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/unknown-native.so",
+            "true"
+          ],
+          "exitCode": 0,
+          "logSha256": "b4a9768ec63e4898e1f11bfd2c9f402b620af73ab1b6a1fba509b720371e89c1"
+        },
+        {
+          "name": "compile-redefinition-test-service",
+          "command": [
+            "gcc",
+            "-std=c11",
+            "-shared",
+            "-fPIC",
+            "-O2",
+            "-pthread",
+            "-Wall",
+            "-Wextra",
+            "-I/home/yc/.local/opt/jdk-21.0.13+9/include",
+            "-I/home/yc/.local/opt/jdk-21.0.13+9/include/linux",
+            "-I/home/yc/Minecraft/Forgia/projects/runtime-proof/src/main/native",
+            "-o",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_redefinition_test.so",
+            "/home/yc/Minecraft/Forgia/tools/runtime-proof/fixtures/redefine_test_agent.c",
+            "/home/yc/Minecraft/Forgia/projects/runtime-proof/src/main/native/access_enforcement.c",
+            "-ldl"
+          ],
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "compile-alternate-body",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/javac",
+            "--release",
+            "21",
+            "-d",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/replacement",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/replacement-source/RedefinitionVictim.java"
+          ],
+          "exitCode": 0,
+          "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "reject-actual-jvmti-redefinition",
+          "command": [
+            "/home/yc/.local/opt/jdk-21.0.13+9/bin/java",
+            "-XX:+DisableAttachMechanism",
+            "-XX:+UnlockDiagnosticVMOptions",
+            "-XX:-InlineUnsafeOps",
+            "-agentpath:/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/libforgia_redefinition_test.so=/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/runtime-proof.jar",
+            "-cp",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/tests",
+            "RedefinitionAttemptProbe",
+            "/home/yc/Minecraft/Forgia/tmp/be-mod-worker-mission/checkpoint-vm-controls-v1/replacement/RedefinitionVictim.class"
+          ],
+          "exitCode": 0,
+          "logSha256": "212351e37da2bf862d22c7274316a0234ed0b0169f658deaec9be7c559e83e69"
+        }
+      ]
+    },
+    "api": {
+      "facadeClasses": 60,
+      "neutralClasses": 20,
+      "unchangedFacadeClassCount": 59,
+      "additiveChangedClass": [
+        "net/neoforged/neoforge/server/threading/api/BlockEntityExecutionContract$Resources.class"
+      ],
+      "v1PublicDescriptorsMatch": true,
+      "receipt": {
+        "path": "tmp/be-mod-worker-mission/checkpoint-api-verification.json",
+        "sha256": "14809eae3cd0a0b9a6655c7fd0166a590b23fd9670ee425c30a751bfe2014a21"
+      }
+    },
+    "buildAndFormatting": [
+      {
+        "name": "checkpoint-format-v1",
+        "command": [
+          "./gradlew",
+          "--offline",
+          "--no-configuration-cache",
+          "--no-parallel",
+          "--console=plain",
+          "--max-workers=1",
+          "-PforgiaVersion=21.1.250.60-beta",
+          "-I",
+          "tmp/be-mod-worker-mission/format-selected.gradle",
+          ":immaculateApply",
+          ":runtime-proof:immaculateApply",
+          ":licenseCheck",
+          ":runtime-proof:licenseCheck",
+          ":checkFormatting",
+          ":runtime-proof:checkFormatting",
+          ":tests:licenseCheck",
+          ":tests:checkFormatting"
+        ],
+        "actualExitCode": 0,
+        "testsExecuted": false,
+        "junit": null,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-format-v1.result.json",
+          "sha256": "8fe42e97ef36c7837213c5687f3dc8530a25964f301fd5fbea9b4c1fef23520d"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-format-v1.log",
+          "sha256": "4e568b3802b1a1310a8d78bd6ac947660d2580bc44d61a79a183fa907a83ff90"
+        },
+        "inputHashesSha256": "5c7854c461679897f63c5de272fc0c26035f5b9e0e5253959b6bb156432b9062",
+        "inputHashesAfterSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa"
+      },
+      {
+        "name": "checkpoint-gen-patches-v1",
+        "command": [
+          "./gradlew",
+          "--offline",
+          "--no-configuration-cache",
+          "--no-parallel",
+          "--console=plain",
+          "--max-workers=1",
+          "-PforgiaVersion=21.1.250.60-beta",
+          ":neoforge:genPatches"
+        ],
+        "actualExitCode": 0,
+        "testsExecuted": false,
+        "junit": null,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-gen-patches-v1.result.json",
+          "sha256": "d8a1d2f4f604d01257c595dd2700762e6cdcbeaf4a0d9de3e1b0529a5e27a41e"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-gen-patches-v1.log",
+          "sha256": "a39d1150e74a451a213979d6da06e7f4bbfd8374e11d67d963447616d44ea0eb"
+        },
+        "inputHashesSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa",
+        "inputHashesAfterSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa"
+      },
+      {
+        "name": "checkpoint-apply-patches-v1",
+        "command": [
+          "./gradlew",
+          "--offline",
+          "--no-configuration-cache",
+          "--no-parallel",
+          "--console=plain",
+          "--max-workers=1",
+          "-PforgiaVersion=21.1.250.60-beta",
+          ":neoforge:applyPatches"
+        ],
+        "actualExitCode": 0,
+        "testsExecuted": false,
+        "junit": null,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-apply-patches-v1.result.json",
+          "sha256": "3d997077f543524503c43390c7f1852ed83b0112e83873e140b9d9ef5125ef03"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-apply-patches-v1.log",
+          "sha256": "98783ace095b65279f356e4679eed689ee76f235008f53e86a4fc6b0ec7da0d9"
+        },
+        "inputHashesSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa",
+        "inputHashesAfterSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa"
+      },
+      {
+        "name": "checkpoint-default-build-v1",
+        "command": [
+          "./gradlew",
+          "--offline",
+          "--no-configuration-cache",
+          "--no-parallel",
+          "--console=plain",
+          "--max-workers=1",
+          "-PforgiaVersion=21.1.250.60-beta",
+          "-I",
+          "tmp/be-mod-worker-mission/format-selected.gradle",
+          ":neoforge:compileJava",
+          ":tests:compileJava",
+          ":neoforge:parallelApiJar",
+          ":licenseCheck",
+          ":runtime-proof:licenseCheck",
+          ":tests:licenseCheck",
+          ":checkFormatting",
+          ":runtime-proof:checkFormatting",
+          ":tests:checkFormatting"
+        ],
+        "actualExitCode": 0,
+        "testsExecuted": false,
+        "junit": null,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-default-build-v1.result.json",
+          "sha256": "67e9442beea7203056221a44ad55d8e980954de405858d4b07d4c10d95654f7c"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/checkpoint-default-build-v1.log",
+          "sha256": "6678ce93bf197102a435260729231ff6bebf1963a92a33ca8b773dc55ec7512b"
+        },
+        "inputHashesSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa",
+        "inputHashesAfterSha256": "57afa8f2ea77b117d8a81f16c3f110573cad8b108c8d7e4b7f84178ad88b1dfa"
+      }
+    ],
+    "patchGenerationWasUpToDate": true,
+    "patchApplicationActuallyExecuted": true,
+    "normalCompileRemovesOptInTestClasses": true
+  },
+  "earlierImplementationValidation": {
+    "completeRealModCheckpoints": [
+      {
+        "name": "real-mod-workers-v10-filtered-access",
+        "actualExitCode": 0,
+        "validXml": true,
+        "crashReports": 0,
+        "belongsToEarlierCandidate": true,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/real-mod-workers-v10-filtered-access.result.json",
+          "sha256": "3001f58a3fdcf819ebb9840fc3c525c21970e8664991d4602444bbb4e1e45fdd"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/real-mod-workers-v10-filtered-access.log",
+          "sha256": "b8de51b729f11df2620770b5144aaa5510da84808913349596ba41b6ef909407"
+        }
+      },
+      {
+        "name": "real-mod-writer-v1",
+        "actualExitCode": 0,
+        "validXml": true,
+        "crashReports": 0,
+        "belongsToEarlierCandidate": true,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/real-mod-writer-v1.result.json",
+          "sha256": "c0046465f50f6963d8ed67f58eb660ba21cf3138a4e71e579165753ad543217e"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/real-mod-writer-v1.log",
+          "sha256": "b358331b36b43af59691d67dd31aa6e2518f77bd6605389f99a3d5d22eb87fea"
+        }
+      },
+      {
+        "name": "real-mod-failure-v6-no-live-chunk",
+        "actualExitCode": 0,
+        "validXml": true,
+        "crashReports": 0,
+        "belongsToEarlierCandidate": true,
+        "rawReceipt": {
+          "path": "tmp/be-mod-worker-mission/real-mod-failure-v6-no-live-chunk.result.json",
+          "sha256": "dbb75fe06e1c6855b9113ffe66331fee1e1f8aeaf89b662086467b0206ef0793"
+        },
+        "log": {
+          "path": "tmp/be-mod-worker-mission/real-mod-failure-v6-no-live-chunk.log",
+          "sha256": "96864680da6be74873ab31c953b41fd4dfc42a287005bbaeee4e803d23f9bbbb"
+        }
+      }
+    ],
+    "positive": {
+      "completeOriginalBodies": 107,
+      "counterDelta": 107,
+      "workerBodies": 72,
+      "serialBodies": 35,
+      "overlap": 2
+    },
+    "writer": {
+      "foreignRoutesRefused": 10,
+      "foreignCounterDelta": 0,
+      "followingOriginalBodyDelta": 1
+    },
+    "failure": {
+      "failedOriginalBodyCounterDelta": 1,
+      "suffixAfterFailure": 0,
+      "freshOriginalWorkerBodies": 2,
+      "freshCounterDelta": 2,
+      "freshUnknownSuffixSerialBodies": 1,
+      "sameRealLevel": true,
+      "noReplay": true
+    },
+    "configurationAndLegacyAdapterRegressions": {
+      "belongsToEarlierCandidate": true,
+      "receipt": {
+        "path": "tmp/be-mod-worker-mission/regression-state.json",
+        "sha256": "796bb4b6c0b5ec91155b033071b0f95c6ff765ece83b83ca860fd9df322e3790"
+      },
+      "completed": [
+        {
+          "name": "regression-fixed-resource-on",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PfurnaceResourceOwnership=true",
+            ":tests:junitTest",
+            "--tests",
+            "*CoreMod*Test",
+            "--tests",
+            "*CanonicalBlockEntity*Test",
+            "--tests",
+            "*GeneralBlockEntityAdapter*Test",
+            "--tests",
+            "*BlockEntityTickAdapterTest",
+            "--tests",
+            "*FurnaceWorkWavesTest",
+            "--tests",
+            "*BlockEntityResource*Test",
+            "--tests",
+            "*BlockEntityExecutionEngineTest",
+            "--tests",
+            "*RegionBlockEntityTick*Test",
+            "--tests",
+            "*RegionTaskBatchTest",
+            "--tests",
+            "*RegionPoi*Test",
+            "--tests",
+            "*RegionEntityTickPolicyTest",
+            "--tests",
+            "*CustomFeatureFlagsTest",
+            "--tests",
+            "*ParallelApiTest"
+          ],
+          "junit": {
+            "tests": 419,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-persistent-resource-off",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PfurnacePersistentWorkers=true",
+            ":tests:junitTest",
+            "--tests",
+            "*CoreMod*Test",
+            "--tests",
+            "*CanonicalBlockEntity*Test",
+            "--tests",
+            "*GeneralBlockEntityAdapter*Test",
+            "--tests",
+            "*BlockEntityTickAdapterTest",
+            "--tests",
+            "*FurnaceWorkWavesTest",
+            "--tests",
+            "*BlockEntityResource*Test",
+            "--tests",
+            "*BlockEntityExecutionEngineTest",
+            "--tests",
+            "*RegionBlockEntityTick*Test",
+            "--tests",
+            "*RegionTaskBatchTest",
+            "--tests",
+            "*RegionPoi*Test",
+            "--tests",
+            "*RegionEntityTickPolicyTest",
+            "--tests",
+            "*CustomFeatureFlagsTest",
+            "--tests",
+            "*ParallelApiTest"
+          ],
+          "junit": {
+            "tests": 419,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-persistent-resource-on",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PfurnacePersistentWorkers=true",
+            "-PfurnaceResourceOwnership=true",
+            ":tests:junitTest",
+            "--tests",
+            "*CoreMod*Test",
+            "--tests",
+            "*CanonicalBlockEntity*Test",
+            "--tests",
+            "*GeneralBlockEntityAdapter*Test",
+            "--tests",
+            "*BlockEntityTickAdapterTest",
+            "--tests",
+            "*FurnaceWorkWavesTest",
+            "--tests",
+            "*BlockEntityResource*Test",
+            "--tests",
+            "*BlockEntityExecutionEngineTest",
+            "--tests",
+            "*RegionBlockEntityTick*Test",
+            "--tests",
+            "*RegionTaskBatchTest",
+            "--tests",
+            "*RegionPoi*Test",
+            "--tests",
+            "*RegionEntityTickPolicyTest",
+            "--tests",
+            "*CustomFeatureFlagsTest",
+            "--tests",
+            "*ParallelApiTest"
+          ],
+          "junit": {
+            "tests": 419,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-unknown-furnace",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PfurnaceUnverifiedHookControl=true",
+            ":tests:junitTest"
+          ],
+          "junit": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-create",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PcreateJar=/home/yc/Minecraft/Forgia/tmp/create-adapter/final-server/mods/[机械动力] create-1.21.1-6.0.10.jar",
+            ":create-adapter:junitTest"
+          ],
+          "junit": {
+            "tests": 16,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-unknown-create",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PcreateJar=/home/yc/Minecraft/Forgia/tmp/create-adapter/final-server/mods/[机械动力] create-1.21.1-6.0.10.jar",
+            "-PcreateAdapterUnverifiedHookControl=true",
+            ":create-adapter:junitTest"
+          ],
+          "junit": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-msc",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PmobSpawnControllerJar=/home/yc/Minecraft/Forgia/tmp/msc-v3/pack/mods/mobspawncontroller-neoforge-1.21.1-1.2.3.jar",
+            ":mobspawncontroller-adapter:junitTest"
+          ],
+          "junit": {
+            "tests": 25,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        },
+        {
+          "name": "regression-unknown-msc",
+          "command": [
+            "./gradlew",
+            "--offline",
+            "--no-configuration-cache",
+            "--no-parallel",
+            "--console=plain",
+            "--max-workers=1",
+            "-PforgiaVersion=21.1.250.60-beta",
+            "-PmobSpawnControllerJar=/home/yc/Minecraft/Forgia/tmp/msc-v3/pack/mods/mobspawncontroller-neoforge-1.21.1-1.2.3.jar",
+            "-PmscUnverifiedHookControl=true",
+            ":mobspawncontroller-adapter:junitTest"
+          ],
+          "junit": {
+            "tests": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0
+          },
+          "exitCode": 0
+        }
+      ]
+    }
+  },
+  "retainedFailuresAndIncompletePilots": {
+    "nestedCallbackRed": {
+      "actualExitCode": 1,
+      "protectedValueChangedTo": 1,
+      "earlierEffectsChangedTo": 1,
+      "receipt": {
+        "path": "tmp/be-mod-worker-mission/nested-callback-red-v1/result.json",
+        "sha256": "56d4c3ea17f9332dc71c268b961207c336845cee999c1c02bc06d7bf3ff29ca8"
+      },
+      "fixedCurrentControlsIncludeSameCounterexample": true
+    },
+    "shippedModMultiBatchPilot": {
+      "actualExitCode": 1,
+      "aborted": true,
+      "isFullSuitePass": false,
+      "positiveBodiesAndDelta": 80,
+      "workerBodies": 76,
+      "serialBodies": 4,
+      "overlap": 2,
+      "writerRoutesRefused": 10,
+      "actualClaimsLeaseTicketIdentityAndRetirementAssertionsPassed": true,
+      "thirdBatchIncomplete": true,
+      "receipt": {
+        "path": "tmp/be-mod-worker-mission/shipped-mod-controls-v1-abort.json",
+        "sha256": "3dffe939bbf21786618249fbcfc7e998dff47df5fa4cb28c5fa87b5631540c31"
+      },
+      "processReceipt": {
+        "path": "tmp/be-mod-worker-mission/shipped-mod-controls-v1.process.json",
+        "sha256": "cf70c2af9c7ee2636058525b84a64d3f44ca9bf29bf7c53a874755fb17849447"
+      }
+    },
+    "apiComparisonHarnessMistake": {
+      "path": "tmp/be-mod-worker-mission/checkpoint-api-wrong-baseline-failure.json",
+      "sha256": "f75b155a4afae7f13e396bb5f39ae9a9c35a23f4416f24d491e53883bd15c30a"
+    },
+    "additionalRetainedEvidence": [
+      "Field-watch-only JNI mutation despite thrown exception",
+      "Native binding/profile/JDK compatibility failures",
+      "Hidden-definition observer limitations",
+      "Malformed XML and original driver parse failures",
+      "Actual Core/native/default-linkage regressions and fixes",
+      "Wrong context assumptions and observer cross-resource access",
+      "Isolated pilot aborts and progress dumps; never counted as complete passes"
+    ]
+  },
+  "remainingAcceptance": [
+    "Renew positive, writer, failure and actual Lease tests on the final nested-callback/frozen-value revision",
+    "Accepted-but-not-started/running/releasing states and unload/shutdown/phase-close physical join",
+    "Rebind/replacement, alias and inconsistent home/Level cases",
+    "Old Engine/Level garbage collection and serial weak-owner compatibility",
+    "Additional writer/native/bounds, missing/truncated/overflow/runtime evidence controls and complete closure audit",
+    "Two complete unfiltered required GameTest profiles, with framework NotProcessed rows accounted separately",
+    "Final C6 architecture acceptance; no readiness claim from earlier epochs"
+  ],
+  "upstreamIntegrationInput": {
+    "id": "piq_fc_arcade",
+    "version": "0.31.0-alpha.61",
+    "sha256": "d4cb3a41cd3d98c99a0118b1e97475b5781106711ac1d4e321d87c4c2506c510",
+    "originalArtifactUnmodified": true,
+    "pinGrantsNoAuthority": true,
+    "license": "All Rights Reserved",
+    "binaryClassOrDecompiledSourceRedistributed": false
+  },
+  "privateEvidenceRoot": "tmp/be-mod-worker-mission",
+  "preservedUserLogs": {
+    "neoforge-21.1.250.49-beta-installer.jar.log": {
+      "sha256": "1b767dc980e83f3f39940a05cd34c1a3381bf8c991258146f7a9d44540470871",
+      "bytes": 482232
+    },
+    "nohup.out": {
+      "sha256": "2cec3f6aad5b7fc8762d897dea755aec288e6fb7f096d09903adb788baa39bfe",
+      "bytes": 1576
+    }
+  },
+  "noPrivateLogsWorldsNativeBinariesOrGeneratedVanillaSourcesCommitted": true
+}

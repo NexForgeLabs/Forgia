@@ -4,7 +4,33 @@ Measured on a 4-core/8-thread machine, JDK 21, ZGC generational, fixed 3×3-chun
 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off" means the same build with region threading
 disabled, which is the vanilla code path.
 
-## First trusted Mod closure — C6 blocked before authorization
+## Optional Mod runtime implementation checkpoint — C6 acceptance pending
+
+The [runtime design and checkpoint](MOD-WORKER-RUNTIME-DESIGN.md) now include production Core code,
+an optional Linux/JDK21 bootstrap/JVMTI service and repository-owned opt-in test tools. Actual installed
+hidden code is read from the VM. A small semantic closure is converted into original Claims, reservation,
+Lease, Scope and Kernel authority; neither Mod identity nor Adapter declarations certify it. Unknown and
+periodic paths retain full Serial Fences. Startup without the optional service keeps Mod tickers serial.
+
+Earlier complete real-Mod checkpoints demonstrate two actual Region Workers/overlap2, ten rejected
+foreign-writer paths and failure cleanup followed by fresh Worker execution without replay. A subsequent
+multi-batch pilot also checks original Ticket/Claims/Lease identity and retirement, but was aborted before
+its final batch completed and is not a full pass. The latest boundary fixes a separately reproduced nested
+callback bypass and freezes exact Core BlockPos storage instead of watching all coordinate reads. Its
+component controls do not substitute for a renewed real-Mod run. See the [machine receipt](MOD-WORKER-RUNTIME-CHECKPOINT.json)
+for source/result hashes, real exits and earlier-candidate boundaries.
+
+**This is an implementation checkpoint, not completed C6 architecture acceptance.** Remaining work includes
+renewed final-revision Mod tests, queued/releasing/unload/rebind/alias cases, weak-owner lifecycle controls,
+two full unfiltered GameTest profiles and final Mod architecture acceptance. Existing default switches, phase budgets,
+registration limits and Native/Furnace admission remain. No second Worker Adapter/C7, installed-server
+validation or MSPT improvement is claimed. [Reproduction instructions](../tools/runtime-proof/README.md)
+require the original upstream jar locally and preserve private raw evidence.
+
+## Earlier C6.2 investigation checkpoint — before the optional runtime implementation
+
+The following section records published baseline `2fe7ff74a`; its missing-verifier/zero-Worker state is
+superseded for current code by the implementation checkpoint above.
 
 [The C6.2 continuation](MOD-CLOSURE-LINKAGE-AND-WRITER-BOUNDARY.md) develops a private original-JVM-factory
 linkage experiment and observes the exact hidden ticker inside real LevelChunk bindings. The original
@@ -33,7 +59,7 @@ counterexample, alternate candidates and initial serial/regression results. The 
 bridge, audit tests, jars and raw evidence remain local; no production API/build/patch/admission/default/
 budget or existing-test bytes changed. No installed-server verification,second Adapter/C7 or MSPT claim.
 
-## Core-controlled Mod execution proof — C5.1–C5.5
+## Earlier Core-controlled Mod execution proof — C5.1–C5.5
 
 [Core proof readiness](CORE-MOD-EXECUTION-PROOF-READINESS.md) audits the existing authority chain and adds
 a Core refusal gate on each original invocation Ticket. Inspection and every validator remain inside the
@@ -42,7 +68,7 @@ registration lifecycle after callbacks. Pending/failed checks cannot succeed or 
 authority; retirement follows the original kernel. A post-audit freeze race was reproduced before its small
 publication-lock correction. Every actual registered test-Mod body asserts the original kernel refusal.
 
-There is **no positive Mod closure backend**: declarations, CURRENT, Dedicated metadata and copied resource
+At that C5 checkpoint there was **no positive Mod closure backend**: declarations, CURRENT, Dedicated metadata and copied resource
 identities never become Claims, Reservations or Leases. Existing Native/Furnace proofs and actual ownership
 remain the sole Worker paths. Arbitrary JVM closures, dynamic/shared handlers, asynchronous writers and
 in-flight Mod version protection are not certified. A first serial Dedicated Adapter can be developed;

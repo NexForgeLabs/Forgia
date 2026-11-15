@@ -199,20 +199,27 @@ entries, separately documented; the report keeps all failed attempts and legacy 
 Production source/patches/admission/defaults/budgets/API are unchanged. That C4.2 checkpoint stopped before
 C5/Create protocol work, performance tuning or repeated long installed soak.
 
-[C6 closure and writer-boundary investigation](region-threading/MOD-CLOSURE-LINKAGE-AND-WRITER-BOUNDARY.md)
-continues from the published [first target audit](region-threading/FIRST-TRUSTED-MOD-EXECUTION-CLOSURE.md).
-A private JVM linkage experiment observes the actual original furniture ticker in its real LevelChunk
-binding. A controlled external writer still updates the original source while a canonical Serial Permit
-is paused. Core writer exclusion, Closure Verifier, trusted Manifest and Mod Claims remain unimplemented;
-**zero Mod Worker authority**, C6.3–C6.5 incomplete. New Core1400/1400 and two private observer+original-Mod
-full profiles179/179required each pass, retaining4NotProcessed. The normal shipped test suite is unchanged;
-the two added audit tests and optional observer/bootstrap bridge remain local and are not shipped.
+The [C6 optional runtime implementation checkpoint](region-threading/MOD-WORKER-RUNTIME-DESIGN.md)
+adds an opt-in Linux/JDK21 VM evidence/access service, a narrow Core closure verifier, fresh manifests
+and conversion into the existing Claims/Lease/Kernel path. Earlier real upstream Mod runs execute the
+complete original ticker on two Region Workers with physical overlap2; foreign writers and failure replay
+are checked separately. The latest native boundary also rejects reentrant access-callback bypasses and
+can freeze exact Core coordinate values. **C6 acceptance is still incomplete:** the final boundary revision
+needs renewed real-Mod/lifecycle coverage and two full unfiltered GameTest profiles. Defaults stay off;
+there is no installed-server or MSPT claim. Reproducible opt-in tools and source-only fixtures are in
+[tools/runtime-proof](tools/runtime-proof/README.md). See the [checkpoint receipt](region-threading/MOD-WORKER-RUNTIME-CHECKPOINT.json)
+for which result belongs to which source revision.
 
-[C5.1–C5.5 Core execution proof readiness](region-threading/CORE-MOD-EXECUTION-PROOF-READINESS.md) adds
+The published [C6.2 investigation](region-threading/MOD-CLOSURE-LINKAGE-AND-WRITER-BOUNDARY.md) and
+[first target audit](region-threading/FIRST-TRUSTED-MOD-EXECUTION-CLOSURE.md) remain historical evidence
+from before the production runtime implementation. Their zero-Worker and missing-verifier statements
+describe that earlier checkpoint.
+
+The earlier [C5.1–C5.5 Core execution proof readiness](region-threading/CORE-MOD-EXECUTION-PROOF-READINESS.md) adds
 an independent binding/lifecycle refusal gate on the original kernel Ticket. It rechecks the exact source
 and registration after adapter callbacks; refused work remains a complete Serial Fence with no replay.
-There is no positive Mod closure backend or adapter-declaration-to-Claims converter yet. Existing
-Native/Furnace authority is retained. The report separates actual final tests, existing resource reservation
+At that C5 checkpoint there was no positive Mod closure backend or adapter-declaration-to-Claims converter.
+Existing Native/Furnace authority was retained. The report separates actual final tests, existing resource reservation
 coverage and design-only prerequisites for a first Worker-enabled Dedicated Adapter. Final Core1400/1400,
 three related419/419 configurations and two complete parallel GameTest suites177/177required each pass,
 retaining four framework NotProcessed entries per full suite. No MSPT claim follows.
@@ -299,5 +306,5 @@ and in the task records under `.pi/tasks/`, which document the design and the ev
 
 Forgia is a fork of NeoForge (LGPL-2.1) and of the earlier Forgia port; the regionized runtime added here is
 under the same licence. Upstream NeoForge attribution is kept in the source headers and in
-[NOTICE](NOTICE) where present. This repository no longer tracks the upstream Forgia project, which stopped
+[NOTICE](NOTICE.md) where present. This repository no longer tracks the upstream Forgia project, which stopped
 updating.

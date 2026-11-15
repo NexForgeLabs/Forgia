@@ -70,7 +70,14 @@ public record RegionBlockEntityTickAdmission(
                 || this.decision == Decision.ADAPTER_GUARDED;
     }
     /** The bound delegate is distinct from the level's wrapper; rebinding invalidates this capture. */
-    public record Binding(TickingBlockEntity delegate, BooleanSupplier isCurrent) {}
+    public record Binding(TickingBlockEntity delegate, BooleanSupplier isCurrent, CoreBinding core) {
+        public Binding(TickingBlockEntity delegate, BooleanSupplier isCurrent) {
+            this(delegate, isCurrent, null);
+        }
+    }
+
+    /** Immutable original Core capture, not an adapter certificate or execution permission. */
+    public record CoreBinding(ServerLevel level, TickingBlockEntity wrapper, TickingBlockEntity delegate, long version) {}
 
     /**
      * The server-thread admission decision of one block-entity ticker.

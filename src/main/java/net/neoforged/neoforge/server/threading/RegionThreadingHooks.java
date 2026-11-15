@@ -181,7 +181,9 @@ public final class RegionThreadingHooks {
      * another level, another position, another region - keeps the guarded read.
      */
     public static boolean isAdmittedBlockEntityTick(ServerLevel level, @Nullable TickingBlockEntity ticker, BlockPos pos) {
-        return FurnaceWorkScope.admitted(level, ticker, pos) || RegionBlockEntityTickScope.isAdmitted(level, ticker, pos);
+        return FurnaceWorkScope.admitted(level, ticker, pos)
+                || net.neoforged.neoforge.server.threading.region.CoreModWorkScope.admitted(level, ticker, pos)
+                || RegionBlockEntityTickScope.isAdmitted(level, ticker, pos);
     }
 
     /**
@@ -1840,7 +1842,9 @@ public final class RegionThreadingHooks {
      * {@link Optional} of {@link RegionThreadingManager#get()}.
      */
     public static void runBlockTickTask(ServerLevel level, BlockPos pos, Runnable task) {
-        if (FurnaceWorkScope.runTask(level, pos, task)) return;
+        if (FurnaceWorkScope.runTask(level, pos, task)
+                || net.neoforged.neoforge.server.threading.region.CoreModWorkScope.runTask(level, pos, task))
+            return;
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         if (threading instanceof RegionThreadingEngine engine) {
             engine.runInBlockRegion(level, pos, task);

@@ -34,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
  */
 final class BlockEntityExecutionEngine implements AutoCloseable {
     private static final ThreadLocal<Permit> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<AdmissionRead> ADMISSION_READ = new ThreadLocal<>();
     private final ServerLevel level;
     private final Thread coordinator = Thread.currentThread();
     private final BooleanSupplier live;
@@ -99,6 +100,48 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         return ready;
     }
 
+    static boolean isAdmissionRead(ServerLevel level, Object root) {
+        final var read = ADMISSION_READ.get();
+        if (read == null || read.closed || read.phase.level != level || !read.phase.open
+                || read.ticket.state != State.INSPECTED || read.guard.closed || read.guard.sealed
+                || !read.guard.region.isRunning() || read.guard.region.hasOwner())
+            return false;
+        for (final Object allowed : read.roots) if (root == allowed) return true;
+        return false;
+    }
+
+    AdmissionRead admissionRead(InvocationTicket ticket, RegionGuard guard, List<?> roots) {
+        if (ADMISSION_READ.get() != null || ticket.phase != this || guard.phase != this || ticket.state != State.INSPECTED
+                || guard.mode != Mode.RESOURCE_SCOPED || guard.closed || guard.sealed
+                || guard.region.blockEntityExecution != guard || !guard.region.isRunning() || guard.region.hasOwner()
+                || ticket.inspection.resources() != Resources.FURNACE_LOCAL && ticket.inspection.resources() != Resources.FURNACE_CLAIMS)
+            throw new IllegalStateException("Admission read requires the original unstarted furnace proof and held region");
+        return new AdmissionRead(this, ticket, guard, roots);
+    }
+
+    static final class AdmissionRead implements AutoCloseable {
+        private final BlockEntityExecutionEngine phase;
+        private final InvocationTicket ticket;
+        private final RegionGuard guard;
+        private final List<?> roots;
+        private boolean closed;
+
+        private AdmissionRead(BlockEntityExecutionEngine phase, InvocationTicket ticket, RegionGuard guard, List<?> roots) {
+            this.phase = phase;
+            this.ticket = ticket;
+            this.guard = guard;
+            this.roots = List.copyOf(roots);
+            ADMISSION_READ.set(this);
+        }
+
+        @Override
+        public void close() {
+            if (this.closed || ADMISSION_READ.get() != this) throw new IllegalStateException("Admission read closed on a foreign thread");
+            this.closed = true;
+            ADMISSION_READ.remove();
+        }
+    }
+
     enum EffectKind {
         INVOCATION_SERVER_TASK
     }
@@ -157,8 +200,23 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
             ticket.inspection = inspection;
             ++ticket.generation;
             ticket.ownsEffects = false;
+            ticket.modManifest = null;
+            ticket.modClaims = null;
             ticket.state = State.INSPECTED;
             return ticket;
+        }
+    }
+
+    /** Attach a Core-created manifest to the same unstarted Ticket, never to an already running Serial Permit. */
+    void proveMod(RegionBlockEntityTickAdmission admission, CoreModPreparation.Manifest manifest, BlockEntityResourceOwnership.Claims claims) {
+        this.requireCoordinator();
+        final var ticket = this.ticket(admission);
+        synchronized (ticket) {
+            if (ticket.state != State.INSPECTED || ticket.adapterProof != AdapterProof.UNCHECKED
+                    || ticket.inspection.resources() != Resources.MOD_CLAIMS || manifest.admission() != admission)
+                throw new IllegalStateException("Mod proof requires this exact unstarted inspected invocation");
+            ticket.modManifest = manifest;
+            ticket.modClaims = java.util.Objects.requireNonNull(claims);
         }
     }
 
@@ -184,7 +242,9 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                 throw new IllegalStateException("Foreign, stale or already started block-entity authorization");
             final var inspection = ticket.inspection;
             if (refresh.outcome() != Outcome.CANDIDATE || inspection.outcome() != Outcome.CANDIDATE
-                    || !this.live.getAsBoolean() || !ticket.admission.isCurrent()
+                    || !this.live.getAsBoolean() || !(inspection.resources() == Resources.MOD_CLAIMS
+                            ? ticket.modManifest != null && ticket.modManifest.workerCurrent()
+                            : ticket.admission.isCurrent())
                     || this.home.apply(ticket.admission.position()) != guard.region)
                 return null;
             final var descriptor = inspection.descriptor();
@@ -195,8 +255,14 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
             if (guard.mode == Mode.RESOURCE_SCOPED
                     && ticket.admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED)
                 return null;
-            if (inspection.resources() == Resources.FURNACE_CLAIMS) {
-                if (resources == null || !resources.isReservedFor(this.level, guard.resourceHome))
+            if (inspection.resources() == Resources.MOD_CLAIMS
+                    && (ticket.modManifest == null || ticket.modManifest.admission() != ticket.admission
+                            || ticket.modManifest.home() != guard.region))
+                return null;
+            if (inspection.resources() == Resources.FURNACE_CLAIMS || inspection.resources() == Resources.MOD_CLAIMS) {
+                if (resources == null || !(inspection.resources() == Resources.MOD_CLAIMS
+                        ? resources.isEnteredFor(this.level, guard.resourceHome, ticket.modClaims)
+                        : resources.isReservedFor(this.level, guard.resourceHome)))
                     throw new IllegalStateException("Invocation lacks its actual resource lease");
             } else if (resources != null) {
                 throw new IllegalStateException("Unexpected resource lease on a different execution path");
@@ -296,6 +362,8 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
             synchronized (ticket) {
                 if (ticket.state == State.CAPTURED || ticket.state == State.INSPECTED) ticket.state = State.CANCELLED;
                 ticket.adapterProof = AdapterProof.RETIRED;
+                ticket.modManifest = null;
+                ticket.modClaims = null;
                 ticket.effects.clear();
             }
         }
@@ -315,6 +383,10 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         private AdapterProof adapterProof = AdapterProof.UNCHECKED;
         @Nullable
         private Refusal adapterRefusal;
+        @Nullable
+        private CoreModPreparation.Manifest modManifest;
+        @Nullable
+        private BlockEntityResourceOwnership.Claims modClaims;
         private final BlockEntityExecutionEngine phase;
         private final RegionBlockEntityTickAdmission admission;
         private volatile State state = State.CAPTURED;

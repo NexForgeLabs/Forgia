@@ -637,6 +637,13 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
                     && this.state.get() == RESERVED && this.boundary.getAsBoolean();
         }
 
+        boolean isEnteredFor(Object domain, Object home, Claims expected) {
+            final Scope scope = CURRENT.get();
+            return this.claims == expected && this.domain == domain && this.claims.home == home && this.owner.open && this.owner.reserved
+                    && this.state.get() == ENTERED && scope != null && scope.lease == this && !scope.closed
+                    && this.boundary.getAsBoolean();
+        }
+
         boolean entered() {
             return this.state.get() == ENTERED;
         }

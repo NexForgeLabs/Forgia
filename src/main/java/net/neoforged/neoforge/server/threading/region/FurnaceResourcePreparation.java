@@ -33,6 +33,10 @@ final class FurnaceResourcePreparation {
         this.layout = layout;
     }
 
+    Object homeFor(net.minecraft.core.BlockPos position) {
+        return this.home(this.layout.regionAt(this.level, position));
+    }
+
     Claims fence(RegionBlockEntityTickAdmission admission) {
         return Claims.fence(this.level, this.home(this.layout.regionAt(this.level, admission.position())));
     }
@@ -41,14 +45,19 @@ final class FurnaceResourcePreparation {
         return this.budgetExceeded;
     }
 
+    boolean charge(int uses) {
+        if (uses < 0 || this.budgetExceeded || uses > BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE - this.bindings) {
+            this.budgetExceeded = true;
+            return false;
+        }
+        this.bindings += uses;
+        return true;
+    }
+
     Claims captureForPlan(FurnaceWorkPreparation.Candidate candidate) {
         if (this.budgetExceeded) return this.fence(candidate.admission());
         final Claims claims = this.capture(candidate);
-        this.bindings += claims.resourceCount();
-        if (this.bindings > BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE) {
-            this.budgetExceeded = true;
-            return this.fence(candidate.admission());
-        }
+        if (!this.charge(claims.resourceCount())) return this.fence(candidate.admission());
         return claims;
     }
 
