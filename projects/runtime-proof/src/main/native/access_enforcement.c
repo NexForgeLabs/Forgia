@@ -200,6 +200,7 @@ static _Thread_local int rebinding;
 static pthread_mutex_t native_bind_monitor = PTHREAD_MUTEX_INITIALIZER;
 static jmethodID guarded_methods[256];
 static void *guarded_addresses[256];
+static void *guarded_replacements[256];
 static int guarded_count;
 
 static atomic_int denied_diagnostics;
@@ -474,6 +475,10 @@ static void *replacement_for(JNIEnv *jni, jmethodID method, void *address) {
             if (root_count) (*jni)->FatalError(jni, "A guarded native method changed while original roots exist");
             goto finished_binding;
         }
+        /* A repeated stable binding must not rewrite an original function pointer while its guard
+           is executing on another thread. Publish once, then reuse the exact recorded wrapper. */
+        result = guarded_replacements[index];
+        goto finished_binding;
     }
     if (class_name && strcmp(class_name, "Ljdk/internal/perf/Perf;") == 0) {
         if (strcmp(name, "createLong") == 0) { original_perf_long = address; result = (void *)guarded_perf_long; }
@@ -512,7 +517,11 @@ static void *replacement_for(JNIEnv *jni, jmethodID method, void *address) {
     }
     if (result && !observed) {
         if (guarded_count == 256) { atomic_store(&access_ready, 0); result = NULL; }
-        else { guarded_methods[guarded_count] = method; guarded_addresses[guarded_count++] = address; }
+        else {
+            guarded_methods[guarded_count] = method;
+            guarded_addresses[guarded_count] = address;
+            guarded_replacements[guarded_count++] = result;
+        }
     }
 finished_binding:
     if (name) (*access_vm)->Deallocate(access_vm, (unsigned char *)name);

@@ -42,7 +42,8 @@ def main() -> int:
     jni_agent = fixture / "jni_access_test_agent.c"
     modified = fixture / "RedefinitionVictim.modified.java.txt"
     evidence_agent = fixture / "malformed_evidence_test_agent.c"
-    sources = [Path(__file__).resolve(), *native_sources, *bridge_sources, *tests, control, redefine_agent, jni_agent, evidence_agent, modified]
+    binding_agent = fixture / "repeated_binding_test_agent.c"
+    sources = [Path(__file__).resolve(), *native_sources, *bridge_sources, *tests, control, redefine_agent, jni_agent, evidence_agent, binding_agent, modified]
     hashes = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
     for source in sources:
         retained = output / "sources" / source.relative_to(repo)
@@ -106,6 +107,16 @@ def main() -> int:
                                           "-agentpath:" + str(evidence_library) + "=" + str(bridge), "-cp", str(output / "tests"),
                                           "MalformedEvidenceProbe"]),
     ]
+    binding_library = output / "libforgia_repeated_binding_test.so"
+    commands += [
+        ("compile-repeated-binding-test-service", [*compile_native, "-I" + str(repo / "projects/runtime-proof/src/main/native"),
+                                                  "-o", str(binding_library), str(binding_agent),
+                                                  str(repo / "projects/runtime-proof/src/main/native/access_enforcement.c"), "-ldl"]),
+        ("repeat-bindings-preserve-actual-access-guards", [java, "-XX:+DisableAttachMechanism", "-XX:+UnlockDiagnosticVMOptions", "-XX:-InlineUnsafeOps",
+                                                          "--add-opens=java.base/jdk.internal.foreign.abi=ALL-UNNAMED",
+                                                          "-agentpath:" + str(binding_library) + "=" + str(bridge), "-cp", str(output / "tests"),
+                                                          "ProductionAccessProbe", str(output / "tests/ProductionAccessProbe$HiddenWriter.class")]),
+    ]
     record = {"startedAt": datetime.now(timezone.utc).isoformat(), "sourceHashes": hashes,
               "gitSha": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip(),
               "gitStatus": subprocess.check_output(["git", "status", "--short"], cwd=repo, text=True),
@@ -149,7 +160,7 @@ def main() -> int:
     record["finishedAt"] = datetime.now(timezone.utc).isoformat()
     record["outcome"] = "VM_COMPONENT_CONTROLS_PASS_NO_CORE_MOD_PERMISSION_ISSUED" if status == 0 else "VM_COMPONENT_CONTROL_FAILED"
     record["exitCode"] = status
-    record["artifactHashes"] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (library, bridge, native_control, test_library, jni_library, evidence_library) if p.exists()}
+    record["artifactHashes"] = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (library, bridge, native_control, test_library, jni_library, evidence_library, binding_library) if p.exists()}
     (output / "result.json").write_text(json.dumps(record, indent=2) + "\n")
     print(record["outcome"], flush=True)
     return status
