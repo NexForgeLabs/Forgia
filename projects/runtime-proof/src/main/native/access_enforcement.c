@@ -74,7 +74,8 @@ static jboolean JNICALL guarded_library_load(JNIEnv *jni, jclass caller, jobject
 static jvmtiEnv *access_vm;
 static pthread_mutex_t access_monitor;
 static struct { jweak root; jobject check; int frozen; } roots[MAX_ROOTS];
-static int root_count;
+/* The first-root fast paths also run outside access_monitor on arbitrary JVM threads. */
+static atomic_int root_count;
 static atomic_int access_ready;
 static jclass refusal_class;
 static jmethodID allowed_method;
@@ -193,7 +194,10 @@ static void JNICALL guarded_free_memory(JNIEnv *jni, jobject self, jlong address
 static struct JNINativeInterface_ original_jni;
 static jmethodID early_methods[MAX_EARLY];
 static void *early_addresses[MAX_EARLY];
-static int early_count, vm_started, rebinding;
+static int early_count, vm_started;
+static _Thread_local int rebinding;
+/* NativeMethodBind can arrive concurrently for unrelated JDK native methods. */
+static pthread_mutex_t native_bind_monitor = PTHREAD_MUTEX_INITIALIZER;
 static jmethodID guarded_methods[256];
 static void *guarded_addresses[256];
 static int guarded_count;
@@ -519,15 +523,27 @@ finished_binding:
 void JNICALL proof_native_bind(jvmtiEnv *env, JNIEnv *jni, jthread thread, jmethodID method, void *address, void **replacement) {
     (void)env; (void)thread;
     if (rebinding) return;
+    pthread_mutex_lock(&native_bind_monitor);
     if (!vm_started) {
-        if (early_count == MAX_EARLY) { atomic_store(&access_ready, 0); (*jni)->FatalError(jni, "Native observation overflow"); return; }
-        early_methods[early_count] = method; early_addresses[early_count++] = address; return;
+        if (early_count == MAX_EARLY) {
+            atomic_store(&access_ready, 0);
+            pthread_mutex_unlock(&native_bind_monitor);
+            (*jni)->FatalError(jni, "Native observation overflow");
+            return;
+        }
+        early_methods[early_count] = method;
+        early_addresses[early_count++] = address;
+    } else {
+        void *guard = replacement_for(jni, method, address);
+        if (guard) *replacement = guard;
     }
-    void *guard = replacement_for(jni, method, address);
-    if (guard) *replacement = guard;
+    pthread_mutex_unlock(&native_bind_monitor);
 }
 void JNICALL proof_vm_start(jvmtiEnv *env, JNIEnv *jni) {
-    (void)env; vm_started = 1; rebinding = 1;
+    (void)env;
+    pthread_mutex_lock(&native_bind_monitor);
+    vm_started = 1;
+    rebinding = 1;
     for (int index = 0; index < early_count; ++index) {
         void *guard = replacement_for(jni, early_methods[index], early_addresses[index]);
         if (!guard) continue;
@@ -539,6 +555,7 @@ void JNICALL proof_vm_start(jvmtiEnv *env, JNIEnv *jni) {
         (*access_vm)->Deallocate(access_vm, (unsigned char *)name); (*access_vm)->Deallocate(access_vm, (unsigned char *)descriptor);
     }
     rebinding = 0;
+    pthread_mutex_unlock(&native_bind_monitor);
 }
 void proof_access_init(jvmtiEnv *env, JNIEnv *jni) {
     access_vm = env;
