@@ -4,6 +4,33 @@ Measured on a 4-core/8-thread machine, JDK 21, ZGC generational, fixed 3×3-chun
 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off" means the same build with region threading
 disabled, which is the vanilla code path.
 
+## Lifecycle certification — real-Level GC certified; runtime Mod hot-unload not certified
+
+This is a separate result from the frozen C6 acceptance below. The
+[lifecycle report](LIFECYCLE-CERTIFICATION-2026-11-15.md),
+[machine receipt](LIFECYCLE-CERTIFICATION-2026-11-15.json) and
+[ownership/transition audit](LIFECYCLE-AUDIT.md) record:
+
+- **Real-Level GC: CERTIFIED** with the existing Fixed and Persistent pools. Both use the original Mod
+  Worker path and normal server Level unload/close/shutdown. All28 tracked references, including all three
+  actual Levels, clear and enqueue; four actual collections give three consecutive complete observations.
+  The shutdown engine and six actual access callbacks stay strongly reachable; twelve foreign callback
+  read/write checks are refused per profile.
+- **Runtime Mod hot-unload: NOT CERTIFIED.** Installed FML4.0.42/ModLauncher11.0.5 has no supported runtime
+  Mod unload/reload boundary. The same original Mod container and defining classloader remain loaded after
+  server retirement. Four genuine hot-unload/reload scenarios are Not Processed, never passed coverage.
+- New deterministic component races cover queued/rebind/running/releasing work, the production unload
+  callback, repeated unload, shutdown during cleanup and every retained old callback attempted with zero
+  forbidden state changes. Exact selected regression counts and real exits are in the separate receipt.
+
+Production code, native/verified-Core artifacts, canonical profile definitions and both C6 documents are
+unchanged; all123 frozen receipt references verify. No C6 evidence is invalidated. Another complete
+unfiltered C6 profile pair was not required or run for these opt-in test, diagnostic and documentation
+changes. Original prelaunch, compilation, integrity-refusal and failed-GC evidence remains preserved,
+including the heap-identified observer Thread/startup-lambda retention path. The stopped-server graph is
+certified; live-server dimension detachment and Mod class unloading are not. No production deployment,
+second Worker Adapter, compatibility expansion or C7 occurred.
+
 ## C6 acceptance — complete unfiltered Persistent and Fixed profiles PASS
 
 `C6 FINAL ARCHITECTURE ACCEPTANCE: PASS`
