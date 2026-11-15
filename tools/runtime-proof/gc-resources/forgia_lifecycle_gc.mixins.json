@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.neoforged.neoforge.debug.level.lifecycle.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["GcExitMixin"],
+  "injectors": {"defaultRequire": 1}
+}

@@ -62,6 +62,50 @@ The separate original-object binding preflight uses `-PcanonicalPersistent=false
 
 Omit `gameTestFilter` for the complete required GameTest registration set; `-PcanonicalPersistent=false` selects the fixed-pool variant. Both final unfiltered profiles have completed; the receipt records exact commands/configs and verifies identical complete membership. Resources remain enabled for both profiles; persistent Workers are the only config difference. Report Passed/Failed/Skipped/Not Processed/Aborted and exit separately: disabled soak/benchmark/hard-kill bodies that call `helper.succeed()` are still logical skips, and duplicate XML group rows are not additional executed tests.
 
+## Whole-server lifecycle certification (separate from C6)
+
+The [lifecycle report](../../region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.md),
+[machine receipt](../../region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.json) and
+[ownership/transition audit](../../region-threading/LIFECYCLE-AUDIT.md) separately certify real-Level GC
+through normal whole-server retirement with both existing pool configurations. The shutdown Core engine
+and six actual access callbacks remain strongly retained while all three actual Levels and their tracked
+runtime authorities collect. Genuine runtime Mod hot-unload remains **NOT CERTIFIED**: this pinned FML/game
+layer has no supported runtime Mod unload/reload lifecycle. Unregister/disable and Level retirement are
+different boundaries.
+
+Use a new private output directory and the original local artifact:
+
+```sh
+python3 tools/runtime-proof/run_lifecycle.py \
+  --java-home /path/to/jdk-21 \
+  --output tmp/lifecycle-new-fixed \
+  -- -I tools/runtime-proof/real_mod.gradle -I tools/runtime-proof/level_gc.gradle \
+  -PtrustedModJar=/local/game_console-0.31.0-alpha.61.jar \
+  -PtrustedModRun=tmp/lifecycle-new-fixed/server \
+  -PcanonicalPersistent=false -PgameTestFilter=regionLifecycleGc \
+  :tests:runCanonicalGameTestServer
+```
+
+Repeat with a different new directory and `-PcanonicalPersistent=true`. The extra init script includes only
+opt-in test sources/resources, preserves the original exit status, releases the GameTest runner through
+its public stop API and permits a post-shutdown observer to join the original server thread. It does not
+transform any integrity-checked Level method. The test records bounded GC requests, actual collector counts,
+weak clearing, reference-queue notifications and repeated observations independently; it never forces
+finalization or clears server/Core world references. Both pre-shutdown GameTest success and the independent
+`level-gc.json` certification verdict/actual exit are required. A passed GameTest alone is insufficient.
+
+A failed collection can emit a **private** HPROF. Analyze it read-only with
+`python3 tools/runtime-proof/retained_heap.py /private/dump.hprof --output /private/retention-path.json`.
+The analyzer excludes `Reference.referent` edges when reporting a strong root path. The preserved failure
+identified an observer-held stopped Thread/startup lambda retaining the actual server; releasing only that
+temporary observer reference after physical join resolved collection. Do not clear a server map or weaken
+integrity to hide a failed collection. All failed/aborted attempts and their exits remain in the receipt.
+
+The new four-case `LifecycleRetirementRaceTest` is a component suite using actual Core and the production
+unload callback with JUnit world seams. It covers repeated unload, shutdown during pending cleanup,
+queued/running/releasing states, same-delegate rebind, every retained old callback attempted after retirement
+and zero forbidden state changes. It is not presented as real-Level GC or platform Mod hot-unload.
+
 ## Boundary and limits
 
 Only a structurally verified counter-return path runs as the entire original third-party function. Periodic/unknown paths receive a complete serial invocation before body start. Core captures wrapper prerequisites and claims actual source/wrapper/delegate/position storage; the Mod Worker reads no live Chunk. Exact Core BlockPos fields remain frozen even for an owner. Mutable-root callback recursion cannot bypass access/entry/native checks. Native binding metadata is serialized, its first-root count is atomic and stable repeated bindings reuse published wrappers without rewriting function targets.

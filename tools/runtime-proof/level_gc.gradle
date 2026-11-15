@@ -1,0 +1,34 @@
+// Opt-in whole-server GC observer. Use together with real_mod.gradle; production is unchanged.
+import groovy.json.JsonOutput
+
+gradle.projectsEvaluated {
+    def tests = rootProject.findProject(':tests')
+    if (tests == null) return
+    def run = rootProject.providers.gradleProperty('trustedModRun').get()
+    tests.sourceSets.main.java.srcDir(rootProject.file('tools/runtime-proof/gc-gametests'))
+    tests.sourceSets.main.resources.srcDir(rootProject.file('tools/runtime-proof/gc-resources'))
+    tests.tasks.named('processResources') {
+        inputs.property('wholeServerLevelGc', true)
+        doLast {
+            def metadata = new File(destinationDir, 'META-INF/neoforge.mods.toml')
+            metadata.append('\n[[mixins]]\n    config="forgia_lifecycle_gc.mixins.json"\n')
+        }
+    }
+    def server = tests.tasks.named('runCanonicalGameTestServer').get()
+    def evidence = rootProject.file(run).parentFile
+    server.systemProperty('forgia.lifecycle.gc.result', new File(evidence, 'level-gc.json').absolutePath)
+    server.jvmArgs('-Xlog:gc+ref=debug:file=' + new File(evidence, 'gc.log').absolutePath + ':time,uptime,level,tags')
+    server.doFirst {
+        new File(evidence, 'server-launch.json').text = JsonOutput.prettyPrint(JsonOutput.toJson([
+            task: server.path, executable: server.executable, jvmArgs: server.allJvmArgs,
+            args: server.args, workingDir: server.workingDir.absolutePath, ignoreExitValue: server.ignoreExitValue]))
+    }
+    gradle.taskGraph.afterTask { task, state ->
+        if (task.path == server.path) {
+            def receipt = [task: task.path, taskFailure: state.failure?.toString(), exitCode: null]
+            try { receipt.exitCode = task.executionResult.getOrNull()?.exitValue }
+            catch (Throwable unavailable) { receipt.captureError = unavailable.toString() }
+            new File(evidence, 'server-execution.json').text = JsonOutput.prettyPrint(JsonOutput.toJson(receipt))
+        }
+    }
+}
