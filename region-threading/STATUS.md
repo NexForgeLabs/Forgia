@@ -4,33 +4,39 @@ Measured on a 4-core/8-thread machine, JDK 21, ZGC generational, fixed 3×3-chun
 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off" means the same build with region threading
 disabled, which is the vanilla code path.
 
-## C6 recovery — associated tests verified; final acceptance NOT ACCEPTED
+## C6 acceptance — complete unfiltered Persistent and Fixed profiles PASS
 
-`C6 FINAL ARCHITECTURE ACCEPTANCE: NOT ACCEPTED`
+`C6 FINAL ARCHITECTURE ACCEPTANCE: PASS`
 
-The [2026-11-15 final recovery report](C6-FINAL-ACCEPTANCE-2026-11-15.md) and
-[machine receipt](C6-FINAL-ACCEPTANCE-2026-11-15.json) supersede the earlier checkpoint's pending-result summary.
-Final production revision `0ede20061` and test-source revision `39352097f` passed28 VM command steps
-(18 runtime controls),3 new Core weak-owner/default-off unit controls and11 associated original-Mod GameTests.
-Actual original bodies/counter delta148 comprise72 Worker and76 Serial executions with overlap2;
-these are current targeted data, not the earlier76 Worker/4 Serial pilot. Actual writer values/earlier effects,
-JNI/nested callbacks, platform/virtual threads, six lifecycle windows and binding preflight are recorded by layer.
-The unchanged Java authority baseline's419-case unit selection is retained separately.
+The [final acceptance report](C6-FINAL-ACCEPTANCE-2026-11-15.md) and
+[machine receipt](C6-FINAL-ACCEPTANCE-2026-11-15.json) record both complete profiles on clean `main`
+at source HEAD `afa7e4bc781257a756a3d0f6040cc64eebc84d62`. Persistent finished before Fixed started;
+both naturally completed saving, reports and server shutdown. Actual Gradle and server exits are0 for each.
 
-The previous agent's final full A and this recovery's old-native full A both completed and failed.
-The latter verified25 new chunk instances,13 BEs and9 entities but detected the earlier deliberate fault in
-its unchanged zero-tick-failure assertion. The opt-in fixture now moves injection last without changing batch
-membership, assertions or diagnostic counters; the final four related cases pass with diagnostics0→1→1.
-Raw A success counts include10 explicitly skipped soak/benchmark/hard-kill scenarios, and four framework
-Not Processed IDs are not passes. Original failed/aborted evidence is retained.
+| Complete GameTest profile | Passed | Failed | Skipped | Not Processed | Aborted |
+|---|---:|---:|---:|---:|---:|
+| Persistent —180 functions /74 batches |170|0|10|0|0|
+| Fixed —180 functions /74 batches |170|0|10|0|0|
 
-The operator narrowed continuation to fixes and associated cases. No new full persistent/fixed profile was
-started afterward, so the required final full pair remains open. Real shutdown-Engine/mocked-Level callback
-GC is not whole-server real-Level GC; Level clear/shutdown is not an independent runtime Mod hot-unload
-certificate. Component controls are not original-Mod Worker E2E results. Source review retains the sole Core
-coordinator/Kernel/Ticket/Claims/reservation/Lease/Scope, physical join and ordered cleanup; unknown/Create
-paths remain Serial Fences, the VM service remains default-off, and Native/Furnace/v1 admission is unchanged.
-No production deployment, second Worker-enabled Adapter or C7 occurred.
+The overlapping framework population is independently **168 Passed /0 Failed /10 Skipped /4 Not Processed
+/0 Aborted** per profile. The ten unchanged disabled soak/benchmark/hard-kill workloads and four framework-only
+manual/registration/event IDs remain excluded from Passed. Raw tracker180 successes, framework178 successes
+and234 duplicate XML rows are not acceptance pass totals. Exact IDs and diagnostics are in the receipt.
+Both profiles retain identical complete batch membership, the same test-definition hashes and the existing
+failure-injection-last invariant; resources remain ON for both, with persistent Workers the only config difference.
+
+No production or test fixture changed. Production revision `0ede20061`, test-source revision `39352097f` and
+production fingerprint `f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787` are unchanged.
+The28 VM command steps (18 runtime controls),419-case Java authority baseline,3 weak-owner/default-off tests,
+11 associated original-Mod cases and their148-body/counter delta (72 Worker/76 Serial, overlap2) remain valid;
+they were not rerun separately. Historical failed/aborted profiles and the new observer-only prelaunch failure
+are retained. Final raw evidence: `tmp/c6-profile-pair-20261115-2205/`.
+
+Whole-server real-Level GC and independent real runtime Mod hot-unload remain unverified. Level clear/shutdown,
+binding preflight, callback-retention unit tests and VM components retain their separate scopes. Core remains
+the sole coordinator/Kernel/Ticket/Claims/reservation/Lease/Scope/pool authority; physical join and ordered cleanup,
+unknown/Create Serial Fences, default-off service and Native/Furnace/v1 admission are unchanged. No production
+deployment, second Worker-enabled Mod Adapter or C7 occurred.
 
 ## Historical optional Mod runtime implementation checkpoint — C6 acceptance pending
 

@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "state": "C6_FINAL_ARCHITECTURE_NOT_ACCEPTED_TARGETED_RECOVERY_VERIFIED",
+  "state": "C6_FINAL_ARCHITECTURE_PASS_COMPLETE_UNFILTERED_PROFILE_PAIR",
   "baselineCommit": "2fe7ff74aa63f7fcc9fe34efeaadb14aa5243f0f",
   "createdAt": "2026-11-15T05:01:03.955457+00:00",
-  "disposition": "Interrupted-run recovery completed. Final associated fixes/tests verified; operator narrowed reruns to fixes and related cases. Two complete final-source unfiltered profiles remain unrun, and scoped coverage limits are explicit. No C6 PASS or production deployment.",
+  "disposition": "Both unchanged complete unfiltered canonical profiles finished sequentially with actual Gradle/server exits0, no unresolved scenario failures, and independent Passed/Failed/Skipped/Not Processed/Aborted counts. C6 PASS within the documented supported-runtime scope; explicit coverage limits and all historical failures remain retained. No production deployment.",
   "implemented": [
     "Optional bootstrap actual-installed-method/CP/handler evidence, including hidden classes",
     "Closed counter-return semantics; periodic/unknown original invocation serial before body start",
@@ -981,13 +981,7 @@
       "Isolated pilot aborts and progress dumps; never counted as complete passes"
     ]
   },
-  "remainingAcceptance": [
-    "Two complete final-source unfiltered GameTest profiles; count disabled-scenario helper successes as skips and framework Not Processed separately.",
-    "Independently establish any required runtime Mod hot-unload coverage beyond Level clear/shutdown.",
-    "Independently establish whole-server real-Level GC if required beyond the actual Core callback/shutdown-Engine/mocked-Level unit retention proof.",
-    "Do not substitute VM component JNI/nested controls or binding preflight for an original-Mod Worker E2E test; preserve the evidence layers and supported-runtime scope.",
-    "Final C6 architecture acceptance requires every mandatory gate; current disposition remains NOT ACCEPTED."
-  ],
+  "remainingAcceptance": [],
   "upstreamIntegrationInput": {
     "id": "piq_fc_arcade",
     "version": "0.31.0-alpha.61",
@@ -1083,11 +1077,95 @@
   "finalProductionCommit": "0ede200610867aea46d5473c7f6ec4fccdd063e0",
   "validatedTestSourcesCommit": "39352097ffef918c91ba82298dd2899b6dac8b94",
   "historicalValidationScope": "submissionValidation/earlierImplementationValidation and old pilots retain their original revisions. Updated currentSourceHashes do not relabel historical results as current acceptance evidence.",
+  "preProfilePairDisposition": {
+    "state": "C6_FINAL_ARCHITECTURE_NOT_ACCEPTED_TARGETED_RECOVERY_VERIFIED",
+    "disposition": "Interrupted-run recovery completed. Final associated fixes/tests verified; operator narrowed reruns to fixes and related cases. Two complete final-source unfiltered profiles remain unrun, and scoped coverage limits are explicit. No C6 PASS or production deployment.",
+    "remainingAcceptance": [
+      "Two complete final-source unfiltered GameTest profiles; count disabled-scenario helper successes as skips and framework Not Processed separately.",
+      "Independently establish any required runtime Mod hot-unload coverage beyond Level clear/shutdown.",
+      "Independently establish whole-server real-Level GC if required beyond the actual Core callback/shutdown-Engine/mocked-Level unit retention proof.",
+      "Do not substitute VM component JNI/nested controls or binding preflight for an original-Mod Worker E2E test; preserve the evidence layers and supported-runtime scope.",
+      "Final C6 architecture acceptance requires every mandatory gate; current disposition remains NOT ACCEPTED."
+    ],
+    "receiptSnapshot": {
+      "path": "tmp/c6-profile-pair-20261115-2205/preflight/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json",
+      "sha256": "0fd443dd1611265ad6843ffdc19ba8113f05224376a9676cc944b4f376ceadac"
+    }
+  },
+  "recoveryAcceptanceIsHistorical": true,
+  "finalProfilePairAcceptance": {
+    "status": "C6 FINAL ARCHITECTURE ACCEPTANCE: PASS",
+    "receipt": {
+      "path": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json",
+      "sha256": "374326a6eaa378e57760bfcfd64869110e0dbbc2f5e3745479cb62199696e336"
+    },
+    "report": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md",
+    "sourceHead": "afa7e4bc781257a756a3d0f6040cc64eebc84d62",
+    "productionCommit": "0ede200610867aea46d5473c7f6ec4fccdd063e0",
+    "validatedTestSourcesCommit": "39352097ffef918c91ba82298dd2899b6dac8b94",
+    "productionFingerprint": "f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787",
+    "rawEvidenceRoot": "tmp/c6-profile-pair-20261115-2205",
+    "profiles": {
+      "finalPersistent": {
+        "completeUnfiltered": true,
+        "gameTestCounts": {
+          "Passed": 170,
+          "Failed": 0,
+          "Skipped": 10,
+          "Not Processed": 0,
+          "Aborted": 0
+        },
+        "frameworkUniqueCounts": {
+          "Passed": 168,
+          "Failed": 0,
+          "Skipped": 10,
+          "Not Processed": 4,
+          "Aborted": 0
+        },
+        "gradleExitCode": 0,
+        "serverExitCode": 0
+      },
+      "finalFixed": {
+        "completeUnfiltered": true,
+        "gameTestCounts": {
+          "Passed": 170,
+          "Failed": 0,
+          "Skipped": 10,
+          "Not Processed": 0,
+          "Aborted": 0
+        },
+        "frameworkUniqueCounts": {
+          "Passed": 168,
+          "Failed": 0,
+          "Skipped": 10,
+          "Not Processed": 4,
+          "Aborted": 0
+        },
+        "gradleExitCode": 0,
+        "serverExitCode": 0
+      }
+    },
+    "noProductionOrTestFixtureChanges": true,
+    "noInvalidatedPriorEvidence": true,
+    "remainingCoverageLimitations": [
+      "Whole-server real-Level GC is not certified by shutdown-Engine/mocked-Level callback unit tests.",
+      "Independent real runtime Mod hot-unload is not certified by Level clear/shutdown controls.",
+      "Ten disabled opt-in workloads are Skipped and four framework-only manual/registration/event IDs remain Not Processed per profile.",
+      "VM components and binding preflight retain separate scopes from real-Mod Worker E2E; supported Linux/HotSpot21 scope only."
+    ]
+  },
+  "remainingCoverageLimitations": [
+    "Whole-server real-Level GC is not certified by shutdown-Engine/mocked-Level callback unit tests.",
+    "Independent real runtime Mod hot-unload is not certified by Level clear/shutdown controls.",
+    "Ten disabled opt-in workloads are Skipped and four framework-only manual/registration/event IDs remain Not Processed per profile.",
+    "VM components and binding preflight retain separate scopes from real-Mod Worker E2E; supported Linux/HotSpot21 scope only."
+  ],
   "recoveryAcceptance": {
     "status": "C6 FINAL ARCHITECTURE ACCEPTANCE: NOT ACCEPTED",
     "report": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md",
-    "receipt": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json",
+    "receipt": "tmp/c6-profile-pair-20261115-2205/preflight/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json",
     "receiptSha256": "0fd443dd1611265ad6843ffdc19ba8113f05224376a9676cc944b4f376ceadac",
+    "supersededBy": "finalProfilePairAcceptance",
     "rawEvidenceRoot": "tmp/c6-recovery-20261115",
     "vmComponentSteps": 28,
     "vmRuntimeControls": 18,

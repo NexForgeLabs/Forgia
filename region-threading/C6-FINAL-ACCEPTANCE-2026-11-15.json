@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
-  "acceptance": "C6 FINAL ARCHITECTURE ACCEPTANCE: NOT ACCEPTED",
-  "reason": "Operator narrowed reruns to fixes and associated cases; two complete final-source unfiltered profiles remain unverified. Other coverage limits are explicit below.",
+  "schemaVersion": 2,
+  "acceptance": "C6 FINAL ARCHITECTURE ACCEPTANCE: PASS",
+  "reason": "Both unchanged complete unfiltered canonical profiles genuinely completed sequentially on source HEAD afa7e4bc781257a756a3d0f6040cc64eebc84d62, with Gradle/server exits 0 and no unresolved scenario failures. Explicit logical skips, framework Not Processed and supported-runtime coverage limits are excluded from Passed.",
   "handoffCommit": "e136ff8bad96475e2402b3c8c10a549d9d13d7bb",
   "requestedImplementationCheckpoint": "5f47e4ad126444f2ff8825a4ee4d98e8c0a0a855",
   "productionCommit": "0ede200610867aea46d5473c7f6ec4fccdd063e0",
@@ -5229,8 +5229,546 @@
     }
   ],
   "fullProfiles": {
-    "finalPersistent": "NOT_RUN_USER_NARROWED_TO_ASSOCIATED_TESTS",
-    "finalFixed": "NOT_RUN_USER_NARROWED_TO_ASSOCIATED_TESTS",
+    "finalPersistent": {
+      "profile": "persistent",
+      "attempt": "persistent-r2",
+      "gitHead": "afa7e4bc781257a756a3d0f6040cc64eebc84d62",
+      "productionCommit": "0ede200610867aea46d5473c7f6ec4fccdd063e0",
+      "validatedTestSourcesCommit": "39352097ffef918c91ba82298dd2899b6dac8b94",
+      "startedAt": "2026-11-15T14:06:44.502799+00:00",
+      "finishedAt": "2026-11-15T14:21:11.351590+00:00",
+      "command": [
+        "./gradlew",
+        "--offline",
+        "--no-configuration-cache",
+        "--no-parallel",
+        "--console=plain",
+        "--max-workers=1",
+        "-PforgiaVersion=21.1.250.60-beta",
+        "-I",
+        "tools/runtime-proof/real_mod.gradle",
+        "-I",
+        "tmp/c6-profile-pair-20261115-2205/observe.gradle",
+        "-PtrustedModJar=/home/yc/Minecraft/SkyExplorer-forgia/mods/game_console-0.31.0-alpha.61.jar",
+        "-PtrustedModRun=tmp/c6-profile-pair-20261115-2205/persistent-r2/server",
+        "-PcanonicalPersistent=true",
+        ":tests:runCanonicalGameTestServer"
+      ],
+      "commandShell": "./gradlew --offline --no-configuration-cache --no-parallel --console=plain --max-workers=1 -PforgiaVersion=21.1.250.60-beta -I tools/runtime-proof/real_mod.gradle -I tmp/c6-profile-pair-20261115-2205/observe.gradle -PtrustedModJar=/home/yc/Minecraft/SkyExplorer-forgia/mods/game_console-0.31.0-alpha.61.jar -PtrustedModRun=tmp/c6-profile-pair-20261115-2205/persistent-r2/server -PcanonicalPersistent=true :tests:runCanonicalGameTestServer",
+      "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+      "javaVersion": "openjdk version \"21.0.13\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)\n",
+      "inputsUnchanged": true,
+      "productionFingerprint": "f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787",
+      "gradleExitCode": 0,
+      "serverExitCode": 0,
+      "completeUnfiltered": true,
+      "gameTestCompleted": 180,
+      "gameTestCounts": {
+        "Passed": 170,
+        "Failed": 0,
+        "Skipped": 10,
+        "Not Processed": 0,
+        "Aborted": 0
+      },
+      "rawTrackerPassed": 180,
+      "requiredPassed": 180,
+      "frameworkUniqueCounts": {
+        "Passed": 168,
+        "Failed": 0,
+        "Skipped": 10,
+        "Not Processed": 4,
+        "Aborted": 0
+      },
+      "frameworkRawCounts": {
+        "Passed": 178,
+        "Not Processed": 4
+      },
+      "notProcessedIds": [
+        "testAttachmentSyncManual",
+        "extendPoiTypeTest",
+        "testFeatureFlagPacks",
+        "customBoatType"
+      ],
+      "skippedScenarios": [
+        {
+          "batch": "productionSoak:0",
+          "activeIds": [
+            "soaksProductionRegionThreading"
+          ],
+          "diagnostic": "SOAK_NOTE skipped production soak: -Dneoforge.serverSoak=true is not set"
+        },
+        {
+          "batch": "benchmarkRandomTick:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderRandomTickLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped random tick workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "crashRecovery:0",
+          "activeIds": [
+            "recoversAfterAHardKill"
+          ],
+          "diagnostic": "SAVE_RELOAD_NOTE skipped the hard-kill recovery: -Dneoforge.crashRecovery is not set"
+        },
+        {
+          "batch": "benchmarkPiston:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderPistonLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped piston workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkHopper:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderHopperLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped hopper workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkEntity:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderEntityChurn"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped entity workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkEntityWorkers:0",
+          "activeIds": [
+            "diagnosesEntityTicksOnRegionWorkers"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped entity worker diagnostics: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkEntitySoak:0",
+          "activeIds": [
+            "soaksEntityTicksOnRegionWorkers"
+          ],
+          "diagnostic": "SERVER_SOAK_NOTE skipped entity worker soak: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkFurnace:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderFurnaceLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped furnace workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkSpawn:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderSpawnLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped spawning workload: -Dneoforge.serverBenchmark=true is not set"
+        }
+      ],
+      "logicalSkipIds": [
+        "soaksProductionRegionThreading",
+        "measuresServerTickTimeUnderRandomTickLoad",
+        "recoversAfterAHardKill",
+        "measuresServerTickTimeUnderPistonLoad",
+        "measuresServerTickTimeUnderHopperLoad",
+        "measuresServerTickTimeUnderEntityChurn",
+        "diagnosesEntityTicksOnRegionWorkers",
+        "soaksEntityTicksOnRegionWorkers",
+        "measuresServerTickTimeUnderFurnaceLoad",
+        "measuresServerTickTimeUnderSpawnLoad"
+      ],
+      "failures": [],
+      "rawFailureLines": [],
+      "signals": [
+        "C6_SUITE_ORDER completeBatchSetPreserved=true batches=74 injectedFailureBatches=1 last=regionC6Failure:0",
+        "C42_DISK_RECONSTRUCTION chunks=25 blockEntities=13 entities=9 allNewInstances=true",
+        "C6_MISSION_COUNTS bodies=83 workers=72 serial=11",
+        "C6_REAL_MOD_LEASE originalClaimsIdentity=true foreignEnterRefused=true foreignScopeCloseRefused=true foreignOwnerCloseRefused=true afterJoinReenterRefused=true duplicateReleaseRefused=true originalTicketSucceededAndRetired=true proofReferencesCleared=true",
+        "C6_FIRST_ORIGINAL_MOD_WORKERS sources=2 differentRegions=true completeBodies=83 counterDelta=83 actualWorkerBodies=72 serialMaintenanceBodies=11 overlap=2 originalKernel=true realResourceScope=true noReplacementTicker=true",
+        "C6_REAL_MOD_WRITER_EXCLUSION actualWorkerPermit=true actualResourceScope=true foreignAuthority=false rejectedRoutes=10 foreignCounterDelta=0 originalBodyCounterDelta=1 physicalActorExit=true noReplay=true",
+        "C6_FAILURE_INJECTION_OBSERVATION reported=java.lang.IllegalStateException A=1 B=1 suffix=0",
+        "C6_FAILURE_POST_STATE boundaryOwner=false activeBatches=0 vmAvailable=true enforcement=true",
+        "C6_BEFORE_FRESH_PHASE counterA=2 counterB=2",
+        "C6_FRESH_BODY key=5500306999910500 worker=true scope=true",
+        "C6_FRESH_BODY key=5513501139443812 worker=true scope=true",
+        "C6_EXPECTED_FAILURE_ACCOUNTING before=0 after=1 afterFresh=1 exactInjectedFailure=true countersNeverReset=true",
+        "C6_REAL_MOD_FAILURE_RECOVERY failedOriginalBody=1 failedCounterDelta=1 suffixAfterFailure=0 freshOriginalWorkerBodies=2 freshCounterDelta=2 suffixInFreshPhase=1 sameRealLevel=true noReplay=true"
+      ],
+      "resultReceipt": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/result.json",
+        "sha256": "60993e8196996cf3423e4b4c0cd4e4fb3de1e3c15e7ee586dd21aea4f97b5cbd",
+        "bytes": 1254938
+      },
+      "rawLog": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/output.log",
+        "sha256": "e0e1ece585447f7c4c998c84035dd284658248d3115375c4979248defcae29f1",
+        "bytes": 294141
+      },
+      "xml": [
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/server/tests/testframework-neotests-tests-20261115142108.junit.xml",
+          "sha256": "0873e8debc5659597ee6db71cec8815bdd1e893026189dd20eca274a51a48193",
+          "bytes": 109005,
+          "rawAttributes": {
+            "failures": "0",
+            "name": "neotests:tests",
+            "skipped": "4",
+            "tests": "234"
+          },
+          "rows": {
+            "passed": 230,
+            "skipped": 4
+          }
+        }
+      ],
+      "frameworkSummary": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/server/logs/tests/neotests_tests/log.log",
+        "sha256": "2e689348958c602790155edb8a0352e293549374c58c66d65d5b8685a999cca7",
+        "bytes": 81470
+      },
+      "serverConfig": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/server/config/forgia.toml",
+        "sha256": "fa14a5986024c67b6c379f1c9e75c892912aaf75e3455e9bf362798fd352a381",
+        "bytes": 12815,
+        "values": {
+          "enableRegionThreadingBridge": "true",
+          "enableRegionThreadingWorkers": "true",
+          "enableRegionThreadingBlockEntityTicks": "true",
+          "enableRegionThreadingFurnaceWorkWaves": "true",
+          "enableRegionThreadingBlockEntityResources": "true",
+          "enableRegionThreadingPersistentWorkers": "true",
+          "enableRegionThreadingEntityTicks": "true",
+          "enableRegionThreadingRandomTicks": "true",
+          "enableRegionThreadingPoi": "true",
+          "enableRegionThreadingScheduledTicks": "true",
+          "regionThreadingMode": "\"FIXED_3X3\"",
+          "regionThreadingFixedRegionChunks": "3",
+          "regionThreadingWorkerThreads": "4",
+          "regionThreadingOwnershipViolationMode": "\"WARN\"",
+          "enableGlobalRegionThreadingWorker": "false",
+          "enableRegionThreadingSpawning": "false",
+          "regionThreadingForceWithKnownConflicts": "false",
+          "enableRegionThreadingBorderUpdates": "false",
+          "enableRegionThreadingGameEvents": "false",
+          "enableRegionThreadingPackedRegionLeases": "false",
+          "defaultRegionThreadingSupport": "\"UNKNOWN\"",
+          "regionThreadingLongTickWarningNanos": "0",
+          "regionThreadingMaxImmediateTasksPerDrain": "10000",
+          "regionThreadingMaxScheduledTasksPerDrain": "10000"
+        }
+      },
+      "artifacts": [
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/artifacts/libforgia_runtime_proof.so",
+          "sha256": "4c59ec052f086ac1cbdc0c1919504e5870a4043bf563d1da275d5112a89da2df",
+          "bytes": 78240
+        },
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/artifacts/original-mod-input.sha256",
+          "sha256": "f244d2ade1a86eecbd10d5fceda71ceb95a48ea40e8810e1aabdc87fc372c586",
+          "bytes": 65
+        },
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/artifacts/runtime-proof-21.1.250.60-beta-verified-core.jar",
+          "sha256": "914f4715293ec3dbc24bfd6159edc17fc727c3f4e0b6fa2f435c358bad15d602",
+          "bytes": 1294845
+        }
+      ],
+      "crashReports": [],
+      "analysis": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/analysis.json",
+        "sha256": "eee1aad44b833800a497b472a7b49ed077acaa5e72ad8857b64809fd1eb775fe",
+        "bytes": 434768
+      },
+      "runtimeProcessCapture": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/live-java-processes.json",
+        "sha256": "b67f8dc39e086224d6ba9a85a34a509a26915f81e60ce827732d818b2d704f2b",
+        "bytes": 17369
+      },
+      "serverExecution": {
+        "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/server-execution.json",
+        "sha256": "7f752557a2c20b1bba537760833ac489ada4e7227e9af5bde9d1f7d8a0ff2667",
+        "bytes": 173
+      },
+      "generatedArguments": [
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/generated-arguments/neodev/canonicalGameTestServerRunProgramArgs.txt",
+          "sha256": "2af0aa9e1c59c97331cfd20e61c5b0d061b018b570b1a6da2efa707dad354622",
+          "bytes": 296
+        },
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/persistent-r2/generated-arguments/neodev/canonicalGameTestServerRunVmArgs.txt",
+          "sha256": "8406f9bff91e3baa1599e528a39d633cfb462a8dd8f985cb492aa5b088047b36",
+          "bytes": 1845
+        }
+      ]
+    },
+    "finalFixed": {
+      "profile": "fixed",
+      "attempt": "fixed",
+      "gitHead": "afa7e4bc781257a756a3d0f6040cc64eebc84d62",
+      "productionCommit": "0ede200610867aea46d5473c7f6ec4fccdd063e0",
+      "validatedTestSourcesCommit": "39352097ffef918c91ba82298dd2899b6dac8b94",
+      "startedAt": "2026-11-15T14:21:59.322478+00:00",
+      "finishedAt": "2026-11-15T14:35:57.424389+00:00",
+      "command": [
+        "./gradlew",
+        "--offline",
+        "--no-configuration-cache",
+        "--no-parallel",
+        "--console=plain",
+        "--max-workers=1",
+        "-PforgiaVersion=21.1.250.60-beta",
+        "-I",
+        "tools/runtime-proof/real_mod.gradle",
+        "-I",
+        "tmp/c6-profile-pair-20261115-2205/observe.gradle",
+        "-PtrustedModJar=/home/yc/Minecraft/SkyExplorer-forgia/mods/game_console-0.31.0-alpha.61.jar",
+        "-PtrustedModRun=tmp/c6-profile-pair-20261115-2205/fixed/server",
+        "-PcanonicalPersistent=false",
+        ":tests:runCanonicalGameTestServer"
+      ],
+      "commandShell": "./gradlew --offline --no-configuration-cache --no-parallel --console=plain --max-workers=1 -PforgiaVersion=21.1.250.60-beta -I tools/runtime-proof/real_mod.gradle -I tmp/c6-profile-pair-20261115-2205/observe.gradle -PtrustedModJar=/home/yc/Minecraft/SkyExplorer-forgia/mods/game_console-0.31.0-alpha.61.jar -PtrustedModRun=tmp/c6-profile-pair-20261115-2205/fixed/server -PcanonicalPersistent=false :tests:runCanonicalGameTestServer",
+      "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+      "javaVersion": "openjdk version \"21.0.13\" 2026-10-20 LTS\nOpenJDK Runtime Environment Temurin-21.0.13+9 (build 21.0.13+9-LTS)\nOpenJDK 64-Bit Server VM Temurin-21.0.13+9 (build 21.0.13+9-LTS, mixed mode, sharing)\n",
+      "inputsUnchanged": true,
+      "productionFingerprint": "f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787",
+      "gradleExitCode": 0,
+      "serverExitCode": 0,
+      "completeUnfiltered": true,
+      "gameTestCompleted": 180,
+      "gameTestCounts": {
+        "Passed": 170,
+        "Failed": 0,
+        "Skipped": 10,
+        "Not Processed": 0,
+        "Aborted": 0
+      },
+      "rawTrackerPassed": 180,
+      "requiredPassed": 180,
+      "frameworkUniqueCounts": {
+        "Passed": 168,
+        "Failed": 0,
+        "Skipped": 10,
+        "Not Processed": 4,
+        "Aborted": 0
+      },
+      "frameworkRawCounts": {
+        "Passed": 178,
+        "Not Processed": 4
+      },
+      "notProcessedIds": [
+        "testAttachmentSyncManual",
+        "extendPoiTypeTest",
+        "testFeatureFlagPacks",
+        "customBoatType"
+      ],
+      "skippedScenarios": [
+        {
+          "batch": "productionSoak:0",
+          "activeIds": [
+            "soaksProductionRegionThreading"
+          ],
+          "diagnostic": "SOAK_NOTE skipped production soak: -Dneoforge.serverSoak=true is not set"
+        },
+        {
+          "batch": "benchmarkRandomTick:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderRandomTickLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped random tick workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "crashRecovery:0",
+          "activeIds": [
+            "recoversAfterAHardKill"
+          ],
+          "diagnostic": "SAVE_RELOAD_NOTE skipped the hard-kill recovery: -Dneoforge.crashRecovery is not set"
+        },
+        {
+          "batch": "benchmarkPiston:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderPistonLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped piston workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkHopper:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderHopperLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped hopper workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkEntity:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderEntityChurn"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped entity workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkEntityWorkers:0",
+          "activeIds": [
+            "diagnosesEntityTicksOnRegionWorkers"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped entity worker diagnostics: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkEntitySoak:0",
+          "activeIds": [
+            "soaksEntityTicksOnRegionWorkers"
+          ],
+          "diagnostic": "SERVER_SOAK_NOTE skipped entity worker soak: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkFurnace:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderFurnaceLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped furnace workload: -Dneoforge.serverBenchmark=true is not set"
+        },
+        {
+          "batch": "benchmarkSpawn:0",
+          "activeIds": [
+            "measuresServerTickTimeUnderSpawnLoad"
+          ],
+          "diagnostic": "SERVER_BENCH_NOTE skipped spawning workload: -Dneoforge.serverBenchmark=true is not set"
+        }
+      ],
+      "logicalSkipIds": [
+        "soaksProductionRegionThreading",
+        "measuresServerTickTimeUnderRandomTickLoad",
+        "recoversAfterAHardKill",
+        "measuresServerTickTimeUnderPistonLoad",
+        "measuresServerTickTimeUnderHopperLoad",
+        "measuresServerTickTimeUnderEntityChurn",
+        "diagnosesEntityTicksOnRegionWorkers",
+        "soaksEntityTicksOnRegionWorkers",
+        "measuresServerTickTimeUnderFurnaceLoad",
+        "measuresServerTickTimeUnderSpawnLoad"
+      ],
+      "failures": [],
+      "rawFailureLines": [],
+      "signals": [
+        "C6_SUITE_ORDER completeBatchSetPreserved=true batches=74 injectedFailureBatches=1 last=regionC6Failure:0",
+        "C42_DISK_RECONSTRUCTION chunks=25 blockEntities=13 entities=9 allNewInstances=true",
+        "C6_MISSION_COUNTS bodies=82 workers=72 serial=10",
+        "C6_REAL_MOD_LEASE originalClaimsIdentity=true foreignEnterRefused=true foreignScopeCloseRefused=true foreignOwnerCloseRefused=true afterJoinReenterRefused=true duplicateReleaseRefused=true originalTicketSucceededAndRetired=true proofReferencesCleared=true",
+        "C6_FIRST_ORIGINAL_MOD_WORKERS sources=2 differentRegions=true completeBodies=82 counterDelta=82 actualWorkerBodies=72 serialMaintenanceBodies=10 overlap=2 originalKernel=true realResourceScope=true noReplacementTicker=true",
+        "C6_REAL_MOD_WRITER_EXCLUSION actualWorkerPermit=true actualResourceScope=true foreignAuthority=false rejectedRoutes=10 foreignCounterDelta=0 originalBodyCounterDelta=1 physicalActorExit=true noReplay=true",
+        "C6_FAILURE_INJECTION_OBSERVATION reported=java.lang.IllegalStateException A=1 B=1 suffix=0",
+        "C6_FAILURE_POST_STATE boundaryOwner=false activeBatches=0 vmAvailable=true enforcement=true",
+        "C6_BEFORE_FRESH_PHASE counterA=2 counterB=2",
+        "C6_FRESH_BODY key=5513501139443812 worker=true scope=true",
+        "C6_FRESH_BODY key=5500306999910500 worker=true scope=true",
+        "C6_EXPECTED_FAILURE_ACCOUNTING before=0 after=1 afterFresh=1 exactInjectedFailure=true countersNeverReset=true",
+        "C6_REAL_MOD_FAILURE_RECOVERY failedOriginalBody=1 failedCounterDelta=1 suffixAfterFailure=0 freshOriginalWorkerBodies=2 freshCounterDelta=2 suffixInFreshPhase=1 sameRealLevel=true noReplay=true"
+      ],
+      "resultReceipt": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/result.json",
+        "sha256": "3f913d0c8ff0bf9bdfa0421f82e512893d0d009ee67761063667b2adaf15b768",
+        "bytes": 1253895
+      },
+      "rawLog": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/output.log",
+        "sha256": "f4bae7af598314ca0f1e3724f62f2b503d5ed277dc74d7fb20f0e6d47b40e525",
+        "bytes": 297907
+      },
+      "xml": [
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/fixed/server/tests/testframework-neotests-tests-20261115143555.junit.xml",
+          "sha256": "0873e8debc5659597ee6db71cec8815bdd1e893026189dd20eca274a51a48193",
+          "bytes": 109005,
+          "rawAttributes": {
+            "failures": "0",
+            "name": "neotests:tests",
+            "skipped": "4",
+            "tests": "234"
+          },
+          "rows": {
+            "passed": 230,
+            "skipped": 4
+          }
+        }
+      ],
+      "frameworkSummary": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/server/logs/tests/neotests_tests/log.log",
+        "sha256": "b38dc8abb574d679be2394edb8fdc75b7834bd4e1c06a55037464e65b7cd345e",
+        "bytes": 81470
+      },
+      "serverConfig": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/server/config/forgia.toml",
+        "sha256": "d220ce41c38e293a016c5b7dd860c05cbff5ea92e845f894f91fe850754afcb2",
+        "bytes": 12816,
+        "values": {
+          "enableRegionThreadingBridge": "true",
+          "enableRegionThreadingWorkers": "true",
+          "enableRegionThreadingBlockEntityTicks": "true",
+          "enableRegionThreadingFurnaceWorkWaves": "true",
+          "enableRegionThreadingBlockEntityResources": "true",
+          "enableRegionThreadingPersistentWorkers": "false",
+          "enableRegionThreadingEntityTicks": "true",
+          "enableRegionThreadingRandomTicks": "true",
+          "enableRegionThreadingPoi": "true",
+          "enableRegionThreadingScheduledTicks": "true",
+          "regionThreadingMode": "\"FIXED_3X3\"",
+          "regionThreadingFixedRegionChunks": "3",
+          "regionThreadingWorkerThreads": "4",
+          "regionThreadingOwnershipViolationMode": "\"WARN\"",
+          "enableGlobalRegionThreadingWorker": "false",
+          "enableRegionThreadingSpawning": "false",
+          "regionThreadingForceWithKnownConflicts": "false",
+          "enableRegionThreadingBorderUpdates": "false",
+          "enableRegionThreadingGameEvents": "false",
+          "enableRegionThreadingPackedRegionLeases": "false",
+          "defaultRegionThreadingSupport": "\"UNKNOWN\"",
+          "regionThreadingLongTickWarningNanos": "0",
+          "regionThreadingMaxImmediateTasksPerDrain": "10000",
+          "regionThreadingMaxScheduledTasksPerDrain": "10000"
+        }
+      },
+      "artifacts": [
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/fixed/artifacts/libforgia_runtime_proof.so",
+          "sha256": "4c59ec052f086ac1cbdc0c1919504e5870a4043bf563d1da275d5112a89da2df",
+          "bytes": 78240
+        },
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/fixed/artifacts/original-mod-input.sha256",
+          "sha256": "f244d2ade1a86eecbd10d5fceda71ceb95a48ea40e8810e1aabdc87fc372c586",
+          "bytes": 65
+        },
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/fixed/artifacts/runtime-proof-21.1.250.60-beta-verified-core.jar",
+          "sha256": "914f4715293ec3dbc24bfd6159edc17fc727c3f4e0b6fa2f435c358bad15d602",
+          "bytes": 1294845
+        }
+      ],
+      "crashReports": [],
+      "analysis": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/analysis.json",
+        "sha256": "c330012b65e1ec7024bd18c20ef717b2f659db435ea63e91e5c4eda2e68f2692",
+        "bytes": 434678
+      },
+      "runtimeProcessCapture": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/live-java-processes.json",
+        "sha256": "377d5ecc6c0ad06ebc3ffbe800a0a6acad43bee651b1770636a35593302f1b1a",
+        "bytes": 17361
+      },
+      "serverExecution": {
+        "path": "tmp/c6-profile-pair-20261115-2205/fixed/server-execution.json",
+        "sha256": "7f752557a2c20b1bba537760833ac489ada4e7227e9af5bde9d1f7d8a0ff2667",
+        "bytes": 173
+      },
+      "generatedArguments": [
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/fixed/generated-arguments/neodev/canonicalGameTestServerRunProgramArgs.txt",
+          "sha256": "2af0aa9e1c59c97331cfd20e61c5b0d061b018b570b1a6da2efa707dad354622",
+          "bytes": 296
+        },
+        {
+          "path": "tmp/c6-profile-pair-20261115-2205/fixed/generated-arguments/neodev/canonicalGameTestServerRunVmArgs.txt",
+          "sha256": "8406f9bff91e3baa1599e528a39d633cfb462a8dd8f985cb492aa5b088047b36",
+          "bytes": 1845
+        }
+      ]
+    },
     "retainedRecoveryA": {
       "name": "profile-A",
       "startedAt": "2026-11-15T11:22:01.017203+00:00",
@@ -5386,6 +5924,14 @@
           "enableRegionThreadingPackedRegionLeases": "false"
         }
       }
+    },
+    "previousFinalProfileDisposition": {
+      "acceptance": "C6 FINAL ARCHITECTURE ACCEPTANCE: NOT ACCEPTED",
+      "finalPersistent": "NOT_RUN_USER_NARROWED_TO_ASSOCIATED_TESTS",
+      "finalFixed": "NOT_RUN_USER_NARROWED_TO_ASSOCIATED_TESTS",
+      "reason": "Operator narrowed reruns to fixes and associated cases; two complete final-source unfiltered profiles remain unverified. Other coverage limits are explicit below.",
+      "supersededBy": "finalProfilePair",
+      "receiptSnapshot": "tmp/c6-profile-pair-20261115-2205/preflight/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json"
     },
     "notProcessedCountsAreNotPasses": true,
     "logicalSkipCountsAreNotPasses": true
@@ -5803,6 +6349,141 @@
       ]
     }
   ],
+  "finalProfilePair": {
+    "acceptedAt": "2026-11-15T14:37:04.964112+00:00",
+    "executionSourceHead": "afa7e4bc781257a756a3d0f6040cc64eebc84d62",
+    "productionFingerprint": "f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787",
+    "evidenceRoot": "tmp/c6-profile-pair-20261115-2205",
+    "preflight": {
+      "path": "tmp/c6-profile-pair-20261115-2205/preflight/preflight.json",
+      "sha256": "bb83b07e45a32a8f1fb5a7f3e0cac189aa6a03fa00ceb8dee9808c74c49b5aee",
+      "bytes": 8846
+    },
+    "definitionHashes": {
+      "tests/build.gradle": "e672adec30746ae9a466f671cc57cda8efc82404b77e8d32a6232c44afecf94f",
+      "tools/runtime-proof/real_mod.gradle": "3e877eccfefc6aff937c82f8e37d45d784e833280c875138a418efd9f3f8cd21",
+      "tools/runtime-proof/gametests/net/neoforged/neoforge/debug/level/RealModSuiteOrdering.java": "9018c502e4e3b863295b73cdc137b058996b0d01d127db127b8a59510b45a7d2"
+    },
+    "acceptanceAudit": {
+      "path": "tmp/c6-profile-pair-20261115-2205/pair-acceptance-audit.json",
+      "sha256": "3480c0f8913f77ea4516a057d5efd90c48e64e1011d3a43d39e947574a486efa",
+      "bytes": 4650,
+      "criteria": {
+        "persistent": {
+          "completeUnfiltered": true,
+          "gradleExitZero": true,
+          "serverExitZero": true,
+          "unchangedSourcesDuringExecution": true,
+          "allGameTestsCompleted": true,
+          "noGameTestFailuresOrAborts": true,
+          "noFrameworkFailuresOrAborts": true,
+          "onlyExistingOptInWorkloadSkips": true,
+          "onlyExistingFrameworkRegistrationsNotProcessed": true,
+          "noScenarioFailureDiagnostics": true,
+          "membershipUnchangedFromHistoricalCompleteProfile": true,
+          "originalModWorkerSignalPresent": true,
+          "writerExclusionSignalPresent": true,
+          "expectedFailureAccountingIsUnchanged": true,
+          "freshPhysicalSaveReloadSignalPresent": true
+        },
+        "fixed": {
+          "completeUnfiltered": true,
+          "gradleExitZero": true,
+          "serverExitZero": true,
+          "unchangedSourcesDuringExecution": true,
+          "allGameTestsCompleted": true,
+          "noGameTestFailuresOrAborts": true,
+          "noFrameworkFailuresOrAborts": true,
+          "onlyExistingOptInWorkloadSkips": true,
+          "onlyExistingFrameworkRegistrationsNotProcessed": true,
+          "noScenarioFailureDiagnostics": true,
+          "membershipUnchangedFromHistoricalCompleteProfile": true,
+          "originalModWorkerSignalPresent": true,
+          "writerExclusionSignalPresent": true,
+          "expectedFailureAccountingIsUnchanged": true,
+          "freshPhysicalSaveReloadSignalPresent": true
+        },
+        "pair": {
+          "sequential": true,
+          "sameExecutionHead": true,
+          "sameProductionFingerprint": true,
+          "existingEvidenceStillApplicable": true,
+          "sameUnchangedProfileDefinitions": true,
+          "sameScenarioMembership": true,
+          "sameScenarioIds": true,
+          "persistentEnabled": true,
+          "fixedEnabled": true,
+          "resourcesEnabledForBoth": true,
+          "onlyIntendedConfigurationDifference": true
+        }
+      }
+    },
+    "historicalEvidenceAudit": {
+      "path": "tmp/c6-profile-pair-20261115-2205/historical-evidence-audit.json",
+      "sha256": "a6952a2d17be3e4cfab57d4a66aa49fc16b5e13c28bcb28e5eb0f88fbf007d6a",
+      "bytes": 8433
+    },
+    "privateEvidenceTools": {
+      "privateRunner": {
+        "path": "tmp/c6-profile-pair-20261115-2205/run.py",
+        "sha256": "36811c74f122a4f0c9cb671f19a4d36038730dcc21188b1571b513886f14d9e5",
+        "bytes": 4314
+      },
+      "exitObserver": {
+        "path": "tmp/c6-profile-pair-20261115-2205/observe.gradle",
+        "sha256": "8a31f425d46a1365138caa54433ba25ea00d3b9e224c8ed8f0d5d1577002e160",
+        "bytes": 1294
+      },
+      "collector": {
+        "path": "tmp/c6-profile-pair-20261115-2205/collect.py",
+        "sha256": "f212cb8056b5e18fdefcc28f9e5888aae3c0865b2d9dfa4f8a073700a57d6845",
+        "bytes": 7492
+      },
+      "acceptanceAuditScript": {
+        "path": "tmp/c6-profile-pair-20261115-2205/audit-pair.py",
+        "sha256": "e54ff31f20e83c1b042df28ab6601167f273d59a88994061ee08a3c6506f1628",
+        "bytes": 5595
+      }
+    },
+    "noProductionOrTestFixtureChanges": true,
+    "noInvalidatedPriorEvidence": true,
+    "architectureBoundariesUnchanged": true,
+    "sequential": true,
+    "gameTestPopulation": "180 functions per profile: 170 Passed, 0 Failed, 10 logical Skipped, 0 Not Processed, 0 Aborted.",
+    "frameworkPopulation": "182 distinct framework IDs per profile: 168 Passed, 0 Failed, 10 logical Skipped, 4 Not Processed, 0 Aborted. Overlaps GameTest functions; do not add populations or use 234 duplicate XML rows as executed tests.",
+    "rawTrackerPopulation": "180 successes includes the 10 disabled opt-in workloads; raw framework Passed=178 includes them too. Neither raw number is the acceptance Passed count.",
+    "coverageLimitations": [
+      "Eight benchmark/diagnostic/entity-soak workloads, production soak and hard-kill recovery retain their unchanged opt-in disabled gates and are Skipped, never Passed.",
+      "Four existing framework-only registration/manual/event tests have no GameTest body: testAttachmentSyncManual, customBoatType, extendPoiTypeTest, testFeatureFlagPacks. They remain Not Processed in both profiles, never Passed.",
+      "Whole-server real-Level GC and independent real runtime Mod hot-unload remain unverified; the scoped earlier unit/lifecycle evidence is unchanged."
+    ]
+  },
+  "profilePairRetainedInfrastructureAttempt": {
+    "status": "ABORTED_BEFORE_SERVER_LAUNCH",
+    "scenarioId": null,
+    "executedGameTests": 0,
+    "abortedRunAttempts": 1,
+    "gradleExitCode": 1,
+    "serverExitCode": null,
+    "serverLaunched": false,
+    "cause": "Evidence-only exit observer ran in the included build without a :tests project; Cannot get property tasks on null object. No production/test scenario executed.",
+    "correction": "Guard missing :tests in private observer; repeat complete Persistent from the beginning in a new directory. No production/fixture/assertion/selection changes.",
+    "receipt": {
+      "path": "tmp/c6-profile-pair-20261115-2205/persistent/result.json",
+      "sha256": "fc50fa474e9708a8846790a060ea017f3070ccb1020ec920deb1e8c10f16aa39",
+      "bytes": 1224517
+    },
+    "log": {
+      "path": "tmp/c6-profile-pair-20261115-2205/persistent/output.log",
+      "sha256": "5ed89ba60b40867d30dd28037037242f654083d6d9f599ccb44ec1127f3fc8e8",
+      "bytes": 449
+    },
+    "failedObserver": {
+      "path": "tmp/c6-profile-pair-20261115-2205/preflight/observe-v1.gradle",
+      "sha256": "6d902e111e58396f772ead14f284a7db301aca00e3de258e13f7255292e3a118",
+      "bytes": 1264
+    }
+  },
   "rawEvidenceRoot": "tmp/c6-recovery-20261115",
   "report": "region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md",
   "noProductionDeployment": true,

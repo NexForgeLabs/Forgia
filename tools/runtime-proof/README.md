@@ -1,8 +1,8 @@
 # Optional VM evidence and original Mod integration
 
-`C6 FINAL ARCHITECTURE ACCEPTANCE: NOT ACCEPTED`
+`C6 FINAL ARCHITECTURE ACCEPTANCE: PASS`
 
-The [2026-11-15 recovery report](../../region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) and [machine receipt](../../region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json) distinguish current targeted results from complete-profile acceptance. The operator narrowed continuation to fixes and associated cases. Eleven final-source associated GameTests passed, but the required final unfiltered profile pair was not rerun. Earlier full-profile failures, aborted runs, logical skips and framework Not Processed rows remain recorded.
+The [final acceptance report](../../region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) and [machine receipt](../../region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json) record both complete unfiltered profiles on unchanged source HEAD `afa7e4bc781257a756a3d0f6040cc64eebc84d62`. Each completed180 GameTests in74 batches:170 Passed /0 Failed /10 Skipped /0 GameTest Not Processed /0 Aborted, Gradle/server exits0. The overlapping framework population separately records168 Passed /0 Failed /10 Skipped /4 Not Processed /0 Aborted per profile. Earlier associated evidence, full-profile failures, aborted attempts and coverage limits remain explicit.
 
 This opt-in Linux/HotSpot JDK21 runtime supplies actual installed-method evidence and object-access checks for the existing Core invocation Kernel. It creates no scheduler, invocation Ticket, resource reservation or execution permission. Ordinary startup does not load the service, and an absent/unsupported startup service leaves Mod invocations serial. A bridge jar on the ordinary JUnit classpath does not install a bootstrap/native service; a dedicated control verifies that distinction.
 
@@ -60,7 +60,7 @@ Run each of `queued-unload`, `queued-shutdown`, `running-unload`, `running-shutd
 
 The separate original-object binding preflight uses `-PcanonicalPersistent=false -PruntimeProofLifecycleCase=binding -PgameTestFilter=regionC6Binding`, again with a fresh directory. It verifies same-delegate rebind/version invalidation, normal block replacement, inconsistent Level, refusal of foreign replacement callbacks, and actual frozen coordinates against independent primitive x/y/z values. It creates no Ticket/Lease and is not another Worker E2E result.
 
-Omit `gameTestFilter` for the complete required GameTest registration set; `-PcanonicalPersistent=false` selects the fixed-pool variant. The final unfiltered pair remains an open acceptance gate. Report Passed/Failed/Skipped/Not Processed/Aborted and exit separately: disabled soak/benchmark/hard-kill bodies that call `helper.succeed()` are still logical skips, and duplicate XML group rows are not additional executed tests.
+Omit `gameTestFilter` for the complete required GameTest registration set; `-PcanonicalPersistent=false` selects the fixed-pool variant. Both final unfiltered profiles have completed; the receipt records exact commands/configs and verifies identical complete membership. Resources remain enabled for both profiles; persistent Workers are the only config difference. Report Passed/Failed/Skipped/Not Processed/Aborted and exit separately: disabled soak/benchmark/hard-kill bodies that call `helper.succeed()` are still logical skips, and duplicate XML group rows are not additional executed tests.
 
 ## Boundary and limits
 
@@ -68,4 +68,4 @@ Only a structurally verified counter-return path runs as the entire original thi
 
 The supported profile disables attach/Unsafe intrinsic inlining and requires the sole startup service, compressed object/class pointers, no JVMCI/WhiteBox and no native FFI downcalls. Unknown JNI/JNA libraries are refused before loading. This restrictive profile is not general Modpack certification or a hostile JVM/Core memory-corruption sandbox. Source/binding/evidence/lifecycle/Claims must remain current; physical join and original resource/Region cleanup precede release. No started body is serially replayed after its effects.
 
-Weak-owner unit controls strongly retain the actual Core callback while a real shutdown Engine and an unstubbed mocked Level collect; they check original-thread serial compatibility and deny foreign/running-home/entered-Scope fallback. This does not certify whole-server real-Level GC or runtime Mod hot-unload. See the final report for explicit remaining gates. No production deployment, second Worker-enabled Adapter, C7 or performance improvement is claimed.
+Weak-owner unit controls strongly retain the actual Core callback while a real shutdown Engine and an unstubbed mocked Level collect; they check original-thread serial compatibility and deny foreign/running-home/entered-Scope fallback. This does not certify whole-server real-Level GC or runtime Mod hot-unload. See the final report for explicit remaining coverage limits. No production deployment, second Worker-enabled Adapter, C7 or performance improvement is claimed.
