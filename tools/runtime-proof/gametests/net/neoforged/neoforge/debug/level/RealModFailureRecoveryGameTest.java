@@ -107,6 +107,7 @@ public final class RealModFailureRecoveryGameTest {
                     }
                     bodiesB.incrementAndGet();
                 });
+                helper.assertTrue(recordedFailures(engine) == 0L, "No earlier unexpected tick failure may be excused by this deliberate injection");
                 Throwable reported = null;
                 try {
                     originalLevelPhase(level);
@@ -116,6 +117,7 @@ public final class RealModFailureRecoveryGameTest {
                 System.out.println("C6_FAILURE_INJECTION_OBSERVATION reported=" + (reported == null ? "null" : reported.getClass().getName()) + " A=" + bodiesA.get() + " B=" + bodiesB.get() + " suffix=" + suffixBodies.get());
                 if (reported != null) reported.printStackTrace(System.out);
                 helper.assertTrue(reported != null && contains(reported, injected), "Actual Core phase must report the original failure");
+                helper.assertTrue(recordedFailures(engine) == 1L, "Exactly the deliberate failure must be retained in diagnostics");
                 helper.assertTrue(bodiesA.get() == 1, "Failed started original body must not replay");
                 helper.assertTrue(RealModWorkerMissionGameTest.counter(sourceA) == 2, "Failed body effect retained once");
                 helper.assertTrue(bodiesB.get() <= 1 && RealModWorkerMissionGameTest.counter(sourceB) == 1 + bodiesB.get(), "Other started original body must be accounted once");
@@ -144,9 +146,19 @@ public final class RealModFailureRecoveryGameTest {
                 engine.setBlockEntityBodyObserverForTesting(null);
                 level.removeCollectedBlockEntityTickers(List.of(suffix[0]));
                 suffix[0] = null;
+                helper.assertTrue(recordedFailures(engine) == 1L, "Fresh original work must add no tick failure or erase the injected record");
+                System.out.println("C6_EXPECTED_FAILURE_ACCOUNTING before=0 after=1 afterFresh=1 exactInjectedFailure=true countersNeverReset=true");
                 System.out.println("C6_REAL_MOD_FAILURE_RECOVERY failedOriginalBody=1 failedCounterDelta=1 suffixAfterFailure=0 freshOriginalWorkerBodies=2 freshCounterDelta=2 suffixInFreshPhase=1 sameRealLevel=true noReplay=true");
             }).thenSucceed();
         });
+    }
+
+    private static long recordedFailures(RegionThreadingEngine engine) {
+        final var diagnostics = engine.diagnostics();
+        long failures = 0;
+        for (final var slice : net.neoforged.neoforge.server.threading.region.RegionTickSlice.values())
+            failures += diagnostics.tickFailures().recorded(slice);
+        return failures;
     }
 
     static String engineState(Object engine) {

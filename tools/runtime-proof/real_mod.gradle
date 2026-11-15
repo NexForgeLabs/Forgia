@@ -23,6 +23,16 @@ gradle.projectsEvaluated {
         resources.srcDir(unpack)
     }
     tests.sourceSets.main.java.srcDir(rootProject.file('tools/runtime-proof/gametests'))
+    def lifecycleCase = rootProject.providers.gradleProperty('runtimeProofLifecycleCase')
+    if (lifecycleCase.isPresent()) {
+        if (!['queued-unload', 'queued-shutdown', 'running-unload', 'running-shutdown', 'releasing-unload', 'releasing-shutdown', 'binding'].contains(lifecycleCase.get())) {
+            throw new GradleException('Unknown isolated runtime-proof lifecycle case: ' + lifecycleCase.get())
+        }
+        tests.sourceSets.main.java.srcDir(rootProject.file('tools/runtime-proof/lifecycle-gametests'))
+        tests.tasks.named('runCanonicalGameTestServer') {
+            systemProperty 'forgia.runtimeProof.lifecycleCase', lifecycleCase.get()
+        }
+    }
     tests.neoDev.mods.create('runtimeProofOriginal') { sourceSet original }
     tests.neoDev.runs.named('canonicalGameTestServer') {
         loadedMods.add(tests.neoDev.mods.runtimeProofOriginal)
