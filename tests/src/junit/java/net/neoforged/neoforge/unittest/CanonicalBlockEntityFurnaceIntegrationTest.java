@@ -37,6 +37,52 @@ class CanonicalBlockEntityFurnaceIntegrationTest {
     private static final BlockPos U = new BlockPos(116, 64, 20);
 
     @Test
+    void oneUnexecutedFurnacePrefixSharesItsCatalogAuditButStillReauditsBeforeBodies() {
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            for (int index = 0; index < 4; ++index) f.furnace("F" + index,
+                    (index < 2 ? A : B).east(3 * (index % 2)), 1);
+            final var observedRecipes = org.mockito.Mockito.spy(f.recipes);
+            org.mockito.Mockito.doReturn(observedRecipes).when(f.level).getRecipeManager();
+            f.enable(true);
+            f.levelPhase();
+            assertEquals(4, f.engine.furnaceWorkMetrics().nativeCompletions());
+            for (final var furnace : f.furnaces.values()) assertEquals(1, furnace.getItem(2).getCount());
+            // One read-only lookahead pass, then an independent fresh audit after original leases and
+            // mailboxes. Per-invocation catalogs accidentally repeat a complete recipe scan for each unit.
+            org.mockito.Mockito.verify(observedRecipes, org.mockito.Mockito.times(2))
+                    .getAllRecipesFor(net.minecraft.world.item.crafting.RecipeType.SMELTING);
+            f.clean();
+            f.probes();
+        }
+    }
+
+    @Test
+    void aCanonicalSerialFenceMutatingTheSameRecipeResultForcesFreshSuffixAudits() {
+        final Consumer<CanonicalBlockEntityTestSupport> input = f -> {
+            f.furnace("F0", A, 1);
+            f.furnace("F1", B, 1);
+            f.script("U", U, "test:recipe_change", () -> f.recipes
+                    .getAllRecipesFor(net.minecraft.world.item.crafting.RecipeType.SMELTING).getFirst().value()
+                    .getResultItem(f.level.registryAccess()).set(DataComponents.CUSTOM_NAME, Component.literal("changed after fence")));
+            f.furnace("F2", A.east(6), 1);
+            f.furnace("F3", B.east(6), 1);
+        };
+        final var oracle = CanonicalBlockEntitySequenceTest.serial(input).state();
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            input.accept(f);
+            f.enable(true);
+            f.levelPhase();
+            assertEquals(2, f.engine.furnaceWorkMetrics().nativeCompletions());
+            assertEquals(3, f.engine.furnaceWorkMetrics().serialInvocations());
+            assertEquals(oracle, f.state());
+            f.before("F1", "changed", "U", "body-start");
+            f.before("U", "body-end", "F2", "changed");
+            f.clean();
+            f.probes();
+        }
+    }
+
+    @Test
     void nativeAndFurnacePrefixesOverlapOnRealWorkersAndShareExactlyOnePhaseKernel() {
         final Consumer<CanonicalBlockEntityTestSupport> input = f -> {
             f.script("N0", A, "minecraft:hopper", () -> {});

@@ -5930,6 +5930,17 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final int[] modBindings = { 0 };
                 final boolean modRuntime = this.coreModPreparation != null && this.blockEntityResourcesEnabled && CoreModRuntimeIntegrity.verify();
                 new CanonicalBlockEntityCoordinator(ordered).execute(new CanonicalBlockEntityCoordinator.Driver() {
+                    // Only share the read-only lookahead of one still-unexecuted contiguous prefix.
+                    // Every execution/Serial Fence below discards it; the existing held-region fresh
+                    // preparation, whole-phase alias check and reservation still run before any body.
+                    private FurnaceWorkPreparation furnaceLookahead;
+                    private Set<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceAliases;
+
+                    private void discardLookahead() {
+                        this.furnaceLookahead = null;
+                        this.furnaceAliases = null;
+                    }
+
                     @Override
                     public CanonicalBlockEntityCoordinator.Unit prepare(int index) {
                         final var admission = ordered.get(index);
@@ -5955,10 +5966,13 @@ public final class RegionThreadingEngine implements RegionThreading {
                         }
                         if (furnaces && LevelChunk.furnaceWorkSource(admission.ticker()) != null) {
                             final long started = System.nanoTime();
-                            final var preparation = new FurnaceWorkPreparation(level, layout, resources != null);
-                            final var candidate = preparation.prepare(admission);
-                            if (candidate == null) furnaceWorkMetrics.refused(preparation.refusal());
-                            if (candidate == null || FurnaceWorkPreparation.aliased(ordered).contains(candidate.source())) {
+                            if (this.furnaceLookahead == null) {
+                                this.furnaceLookahead = new FurnaceWorkPreparation(level, layout, resources != null);
+                                this.furnaceAliases = FurnaceWorkPreparation.aliased(ordered);
+                            }
+                            final var candidate = this.furnaceLookahead.prepare(admission);
+                            if (candidate == null) furnaceWorkMetrics.refused(this.furnaceLookahead.refusal());
+                            if (candidate == null || this.furnaceAliases.contains(candidate.source())) {
                                 if (candidate != null) furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SHARED_INVENTORY);
                                 furnacePreparationNanos[0] += System.nanoTime() - started;
                                 return null;
@@ -6020,6 +6034,7 @@ public final class RegionThreadingEngine implements RegionThreading {
 
                     @Override
                     public int executePrefix(List<CanonicalBlockEntityCoordinator.Unit> prefix) {
+                        this.discardLookahead();
                         if (prefix.getFirst() instanceof ModInvocation)
                             return executeCanonicalModPrefix(phase, prefix, sample, barrier);
                         if (prefix.getFirst() instanceof FurnaceInvocation)
@@ -6029,6 +6044,7 @@ public final class RegionThreadingEngine implements RegionThreading {
 
                     @Override
                     public void serial(int index) {
+                        this.discardLookahead();
                         final var admission = ordered.get(index);
                         phase.execution().reinspectUnstarted(admission, Inspection.serialFence());
                         if (furnaces) furnaceWorkMetrics.serial();
