@@ -4,9 +4,9 @@ license="LGPL-2.1-only"
 
 [[mods]]
 modId="forgia_create"
-version="0.2.0"
+version="0.3.0"
 displayName="Forgia Create Adapter"
-description='''Experimental audited original-ticker integration for Create 6.0.10 through Forgia's public API. Stable transmission parts, clutches and gearshifts can use the canonical worker path. Initialization, topology, unknown behaviours and processing callbacks retain the complete original server tick. Requires AUDITED_BLOCK_ENTITY_TICKS; no mod-specific Core backend.'''
+description='''Experimental audited original-ticker integration for Create 6.0.10 through Forgia's public API. Stable transmission parts, clutches and gearshifts can use the canonical resource-scoped worker path, including independent machines in one region. Initialization, topology, unknown behaviours and processing callbacks retain the complete original server tick. Requires BLOCK_ENTITY_EXECUTION_ADAPTERS; no mod-specific Core backend.'''
 
 [[mixins]]
 config="forgia_create.mixins.json"
@@ -14,7 +14,7 @@ config="forgia_create.mixins.json"
 [[dependencies.forgia_create]]
 modId="neoforge"
 type="required"
-versionRange="[21.1.250.107-beta,)"
+versionRange="[21.1.250.108-beta,)"
 ordering="AFTER"
 side="BOTH"
 

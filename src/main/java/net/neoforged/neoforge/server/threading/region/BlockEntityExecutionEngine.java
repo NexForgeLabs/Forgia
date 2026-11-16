@@ -201,6 +201,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
             ++ticket.generation;
             ticket.ownsEffects = false;
             ticket.modManifest = null;
+            ticket.executionManifest = null;
             ticket.modClaims = null;
             ticket.state = State.INSPECTED;
             return ticket;
@@ -217,6 +218,21 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                 throw new IllegalStateException("Mod proof requires this exact unstarted inspected invocation");
             ticket.modManifest = manifest;
             ticket.modClaims = java.util.Objects.requireNonNull(claims);
+        }
+    }
+
+    /** Only the coordinator may bind a reviewed execution adapter to this still-unstarted Ticket. */
+    void proveExecution(RegionBlockEntityTickAdmission admission, ExecutionBlockEntityPreparation.Manifest manifest,
+            BlockEntityResourceOwnership.Claims claims) {
+        this.requireCoordinator();
+        final var ticket = this.ticket(admission);
+        synchronized (ticket) {
+            if (ticket.state != State.INSPECTED || ticket.adapterProof != AdapterProof.UNCHECKED
+                    || manifest.admission() != admission || ticket.inspection.descriptor() != manifest.binding().descriptor()
+                    || !manifest.binding().verified() || !claims.complete())
+                throw new IllegalStateException("Execution evidence requires its exact unstarted invocation");
+            ticket.executionManifest = manifest;
+            ticket.modClaims = claims;
         }
     }
 
@@ -242,9 +258,10 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                 throw new IllegalStateException("Foreign, stale or already started block-entity authorization");
             final var inspection = ticket.inspection;
             if (refresh.outcome() != Outcome.CANDIDATE || inspection.outcome() != Outcome.CANDIDATE
-                    || !this.live.getAsBoolean() || !(inspection.resources() == Resources.MOD_CLAIMS
-                            ? ticket.modManifest != null && ticket.modManifest.workerCurrent()
-                            : ticket.admission.isCurrent())
+                    || !this.live.getAsBoolean() || !(ticket.executionManifest != null ? ticket.executionManifest.workerCurrent()
+                            : inspection.resources() == Resources.MOD_CLAIMS
+                                    ? ticket.modManifest != null && ticket.modManifest.workerCurrent()
+                                    : ticket.admission.isCurrent())
                     || this.home.apply(ticket.admission.position()) != guard.region)
                 return null;
             final var descriptor = inspection.descriptor();
@@ -253,14 +270,21 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                 throw new IllegalStateException("Execution description does not cover this invocation");
             if (guard.mode == Mode.REGION_OWNER && !ticket.admission.isAdmitted()) return null;
             if (guard.mode == Mode.RESOURCE_SCOPED
-                    && ticket.admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED)
+                    && ticket.admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
+                    && ticket.executionManifest == null)
                 return null;
             if (inspection.resources() == Resources.MOD_CLAIMS
                     && (ticket.modManifest == null || ticket.modManifest.admission() != ticket.admission
                             || ticket.modManifest.home() != guard.region))
                 return null;
-            if (inspection.resources() == Resources.FURNACE_CLAIMS || inspection.resources() == Resources.MOD_CLAIMS) {
-                if (resources == null || !(inspection.resources() == Resources.MOD_CLAIMS
+            if (ticket.executionManifest != null && (ticket.executionManifest.home() != guard.region
+                    || ticket.executionManifest.binding().descriptor() != descriptor))
+                return null;
+            if (inspection.resources() == Resources.ADAPTER_CLAIMS && ticket.executionManifest == null)
+                throw new IllegalStateException("Adapter claims require Core-bound execution evidence");
+            if (inspection.resources() == Resources.FURNACE_CLAIMS || inspection.resources() == Resources.MOD_CLAIMS
+                    || inspection.resources() == Resources.ADAPTER_CLAIMS) {
+                if (resources == null || !(inspection.resources() == Resources.MOD_CLAIMS || inspection.resources() == Resources.ADAPTER_CLAIMS
                         ? resources.isEnteredFor(this.level, guard.resourceHome, ticket.modClaims)
                         : resources.isReservedFor(this.level, guard.resourceHome)))
                     throw new IllegalStateException("Invocation lacks its actual resource lease");
@@ -363,6 +387,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                 if (ticket.state == State.CAPTURED || ticket.state == State.INSPECTED) ticket.state = State.CANCELLED;
                 ticket.adapterProof = AdapterProof.RETIRED;
                 ticket.modManifest = null;
+                ticket.executionManifest = null;
                 ticket.modClaims = null;
                 ticket.effects.clear();
             }
@@ -385,6 +410,8 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         private Refusal adapterRefusal;
         @Nullable
         private CoreModPreparation.Manifest modManifest;
+        @Nullable
+        private ExecutionBlockEntityPreparation.Manifest executionManifest;
         @Nullable
         private BlockEntityResourceOwnership.Claims modClaims;
         private final BlockEntityExecutionEngine phase;

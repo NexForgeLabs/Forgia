@@ -167,7 +167,7 @@ final class CoreModPreparation {
     record Manifest(RegionBlockEntityTickAdmission admission, BlockEntity source, LevelChunk chunk,
             RegionState home, Object resourceHome, CoreModTickerVerifier.Code code, int counter,
             net.minecraft.world.level.block.entity.BlockEntityType<?> type, BlockState state, List<Object> storage,
-            LevelChunk.CapturedTickerBinding frame) {
+            LevelChunk.CapturedTickerBinding frame) implements BoundBlockEntityInvocation {
         Manifest {
             storage = List.copyOf(storage);
         }
@@ -186,7 +186,7 @@ final class CoreModPreparation {
         }
 
         /** Reads only already intercepted exact roots and immutable VM evidence, never world maps/callbacks. */
-        boolean workerCurrent() {
+        public boolean workerCurrent() {
             return frame.current() && frame.typeName().equals(admission.type())
                     && LevelChunk.actualBlockEntitySource(admission.ticker()) == source
                     && LevelChunk.actualBlockEntityFunction(admission.ticker()) == code.actualFunction()

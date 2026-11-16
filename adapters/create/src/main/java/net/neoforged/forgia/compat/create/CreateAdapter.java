@@ -9,6 +9,7 @@ import com.mojang.logging.LogUtils;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.RegisterParallelAdaptersEvent;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
 import net.neoforged.neoforge.server.threading.api.ParallelApi;
 
 /** Standalone server adapter. No changes to the installed Create jar or global engine switches. */
@@ -21,11 +22,11 @@ public final class CreateAdapter {
     }
 
     private static void register(RegisterParallelAdaptersEvent event) {
-        if (!event.registrar().capabilities().contains(ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS)) {
-            throw new IllegalStateException("Forgia Create requires the AUDITED_BLOCK_ENTITY_TICKS capability");
+        if (!event.registrar().capabilities().contains(ParallelApi.Capability.BLOCK_ENTITY_EXECUTION_ADAPTERS)) {
+            throw new IllegalStateException("Forgia Create requires the BLOCK_ENTITY_EXECUTION_ADAPTERS capability");
         }
-        event.registrar().registerBlockEntityTicks(ParallelApi.MAJOR_VERSION, CreateTickAdmission.ID,
+        event.registrar().registerBlockEntityExecutionAdapter(BlockEntityExecutionAdapter.PROTOCOL_VERSION, CreateTickAdmission.ID,
                 CreateTickAdmission.TYPES, new CreateTickAdmission());
-        LogUtils.getLogger().info("Forgia Create registered audited original kinetic ticks; initialization, topology, recipe and unknown behaviour callbacks retain full serial ticks");
+        LogUtils.getLogger().info("Forgia Create registered resource-scoped original kinetic ticks; initialization, topology, recipe and unknown behaviour callbacks retain full serial ticks");
     }
 }

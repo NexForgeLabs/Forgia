@@ -51,7 +51,9 @@ final class AuditedBlockEntityPreparation {
         if (!hasCandidate(admission)) return null;
         final var binding = ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission);
         final var frame = LevelChunk.captureCoreTickerFrame(admission.ticker());
-        if (binding == null || frame == null || !current(admission, frame)) return null;
+        if (binding == null || binding.adapter() instanceof net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter
+                || frame == null || !current(admission, frame))
+            return null;
         final var proof = binding.adapter().inspect(frame.source(), frame.function().getClass());
         final var storage = footprint(frame.source(), proof);
         if (storage == null || !current(admission, frame)
@@ -61,7 +63,7 @@ final class AuditedBlockEntityPreparation {
     }
 
     @Nullable
-    private static Map<Object, Access> footprint(BlockEntity source, @Nullable Proof proof) {
+    static Map<Object, Access> footprint(BlockEntity source, @Nullable Proof proof) {
         if (proof == null) return null;
         final Map<Object, Access> storage = new IdentityHashMap<>();
         for (final var entry : proof.storage()) {
@@ -75,7 +77,7 @@ final class AuditedBlockEntityPreparation {
         return storage.get(source) == Access.WRITE ? storage : null;
     }
 
-    private static boolean current(RegionBlockEntityTickAdmission admission, LevelChunk.CapturedTickerBinding frame) {
+    static boolean current(RegionBlockEntityTickAdmission admission, LevelChunk.CapturedTickerBinding frame) {
         final var source = frame.source();
         final var position = admission.position();
         return CORE_CURRENT && admission.isCurrent() && frame.current() && !source.isRemoved()

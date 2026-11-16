@@ -1,5 +1,7 @@
 # Create adapter 0.2.0 — audited steady-state kinetic ticks
 
+> Historical documentation for 0.2.0. Version 0.3.0 uses execution adapters, same-region resource scopes and bounded planning windows; see the [current source guide](../../adapters/create/README.md).
+
 English | [中文](create-adapter.zh.md) · [Adapter index](README.en.md)
 Source: [`adapters/create`](../../adapters/create) · Protocol: [`AUDITED_BLOCK_ENTITY_TICKS`](../api/block-entity-ticks.en.md)
 Evidence: [CREATE-ADAPTER-VALIDATION](../../region-threading/CREATE-ADAPTER-VALIDATION.md), [CREATE-OPTIMIZATION-PLAN](../../region-threading/CREATE-OPTIMIZATION-PLAN.md)

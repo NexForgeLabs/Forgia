@@ -142,7 +142,7 @@ record AdapterStatus(ResourceLocation id, long preparedUnits, long serialUnits, 
 
 用两次快照的差值算速率，不要跨窗口平均累计总量。
 
-## 6. `Registrar` 的四个注册方法
+## 6. `Registrar` 的注册方法
 
 ```java
 Set<Capability> capabilities();
@@ -150,6 +150,8 @@ Set<Capability> capabilities();
 void claimNaturalSpawning(DataKey<?> key, String modId, BooleanSupplier verified);
 void registerBlockEntityTicks(int apiMajorVersion, ResourceLocation id,
         Set<ResourceLocation> types, BlockEntityTickAdapter adapter);
+void registerBlockEntityExecutionAdapter(int protocolVersion, ResourceLocation id,
+        Set<ResourceLocation> types, BlockEntityExecutionAdapter adapter);
 BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
         BlockEntityAdapters.Descriptor descriptor, BlockEntityAdapter adapter);
 ```
@@ -159,6 +161,7 @@ BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
 | `register` | major `1`、唯一 key、准备回调 | 总数 ≤128；重复 id 使全部失败 | 一个数据槽 + 准备回调 |
 | `claimNaturalSpawning` | 已注册 key、非空 `modId`、启动时 `verified` 为 true | 不可重复 claim；key 不存在即失败 | **仅**替代该模组的刷怪限制 |
 | `registerBlockEntityTicks` | major `1`、唯一 id、1..128 个 type、adapter | 共用 128 预算/id 空间；type 重叠被拒 | 逐次准入检查（[tick](block-entity-ticks.zh.md)） |
+| `registerBlockEntityExecutionAdapter` | protocol `1`、唯一 id/type、完整 audited execution adapter | 同一预算/id/type 冲突规则 | 区域或资源 Scope 原 tick 执行（[协议](block-entity-execution.zh.md)） |
 | `registerBlockEntityAdapter` | protocol `1`、descriptor、adapter | 同一预算；C5 id/type 空间 | C5 保守申请诊断、串行 fence |
 
 注册只在 `RegisterParallelAdaptersEvent` 内、服务器线程上有效。即使捕获嵌套失败，事务仍然无效——不能“吞掉”坏注册。

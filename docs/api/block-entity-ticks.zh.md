@@ -236,7 +236,7 @@ public final class SteadyTicks implements AuditedBlockEntityTickAdapter {
 
 | 限制 | 影响 |
 |---|---|
-| canonical 阶段原始条目 > 2048 | 整个阶段保持串行（本合同的完整性不会提高该预算） |
+| 大 canonical 阶段 | 当前核心按至多 2048 个候选的窗口规划，整阶段资源与更新预算继续生效 |
 | 内部 chunk 规则 | 邻居 chunk 在 lease 外的 BE 保持串行，除非其协议允许边界准入 |
 | 未知类/子类/function | 串行；精确类阻止合同被继承 |
 | 动态新增 behaviour/lazy tick | 下次调用前拒绝 |

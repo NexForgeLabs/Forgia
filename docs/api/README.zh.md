@@ -94,6 +94,7 @@ dependencies {
 | `BLOCK_ENTITY_OPERATIONS` | 双 owner 操作与容器搬运 | 不是并行跨区 lease |
 | `GENERAL_BLOCK_ENTITY_ADAPTERS` | C5 保守申请/校验协议 | 申请不产生执行权限；目标仍是完整串行 fence |
 | `AUDITED_BLOCK_ENTITY_TICKS` | 带 READ/WRITE 足迹的完整原 ticker 分支审计 | 哈希 ≠ 语义证明 |
+| `BLOCK_ENTITY_EXECUTION_ADAPTERS` | [完整原 ticker 的区域/资源 Scope 执行](block-entity-execution.zh.md) | 需要完整 adapter 审计，不能自动认证未知代码 |
 | `SCHEDULED_TICK_DIAGNOSTICS` | scheduled 阶段计数/延迟 | 列表为空不能证明切片关闭 |
 
 | Phase | 含义 | 可否修改世界 |
@@ -125,7 +126,7 @@ dependencies {
 | `REJECTED / INVALID_CONTEXT` | 从网络/异步/服务线程提交 | 在静止服务器线程或已准入 ticker 内提交 |
 | `REJECTED / UNOWNED_SOURCE` | ticker 不是绑定的源实例 | 不能借用别的机器的权限 |
 | 适配器已注册但 worker 完成为 0 | 切片关闭、阶段超预算或 interior 规则 | 先看 `/neoforge regionthreading compat` 再改代码 |
-| 阶段超过 canonical 预算 | 核心把 >2048 项的 BE 阶段整体串行 | 需要通用有界窗口协调器，不要调大常量 |
+| 大 canonical 阶段 | 以至多 2048 个候选的窗口规划 | 整阶段资源/更新预算继续保留；预算不足后缀串行 |
 
 ## 7. 交付前检查清单
 

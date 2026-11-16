@@ -44,7 +44,8 @@ public final class ParallelApi {
         BLOCK_ENTITY_TICK_ADMISSION,
         SCHEDULED_TICK_DIAGNOSTICS,
         GENERAL_BLOCK_ENTITY_ADAPTERS,
-        AUDITED_BLOCK_ENTITY_TICKS
+        AUDITED_BLOCK_ENTITY_TICKS,
+        BLOCK_ENTITY_EXECUTION_ADAPTERS
     }
 
     /** Phase describes execution, not permission to mutate arbitrary objects. */
@@ -100,6 +101,12 @@ public final class ParallelApi {
 
     /** Registration is only valid inside the registration event, on its server thread. */
     public interface Registrar {
+        /** Explicit original-ticker execution contract; does not enable engine switches. */
+        default void registerBlockEntityExecutionAdapter(int protocolVersion, ResourceLocation id,
+                Set<ResourceLocation> types, BlockEntityExecutionAdapter adapter) {
+            throw new UnsupportedOperationException("Block entity execution adapters are unavailable");
+        }
+
         /** Available during registration; this describes protocols, never adapter activation. */
         default Set<Capability> capabilities() {
             return Set.of();

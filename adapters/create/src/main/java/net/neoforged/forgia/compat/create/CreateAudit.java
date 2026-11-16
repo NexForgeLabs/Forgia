@@ -111,7 +111,7 @@ public final class CreateAudit {
                 KineticBlockEntityAccessor.class, KineticEffectHandlerAccessor.class)) {
             implementations.add(new AuditedBlockEntityTickAdapter.Implementation(type, ownFingerprint(type), Set.of()));
         }
-        return new AuditedBlockEntityTickAdapter.Audit("region-threading/CREATE-OPTIMIZATION-PLAN.md", "create-6.0.10-local-kinetic-v1",
+        return new AuditedBlockEntityTickAdapter.Audit("region-threading/CREATE-OPTIMIZATION-PLAN.md", "create-6.0.10-local-resource-v1",
                 sources, Set.of(SmartBlockEntityTicker.class), implementations);
     }
 

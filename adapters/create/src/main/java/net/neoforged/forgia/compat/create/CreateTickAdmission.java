@@ -39,11 +39,12 @@ import net.neoforged.forgia.compat.create.mixin.KineticEffectHandlerAccessor;
 import net.neoforged.forgia.compat.create.mixin.SmartBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.TorquePropagatorAccessor;
 import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract;
 import org.jetbrains.annotations.Nullable;
 
 /** Original ticks only. Network inspection is quiescent; workers read their instance and frozen ids only. */
-public final class CreateTickAdmission implements AuditedBlockEntityTickAdapter {
+public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
     public static final ResourceLocation ID = ResourceLocation.parse("forgia_create:steady_ticks");
     public static final Set<ResourceLocation> TYPES = Set.of(
             type("simple_kinetic"), type("encased_shaft"), type("encased_cogwheel"),
@@ -128,6 +129,17 @@ public final class CreateTickAdmission implements AuditedBlockEntityTickAdapter 
         }
         stable.removeAll(aliasedNetworks);
         this.prepared = new Prepared(level.dimension(), level.getGameTime(), stable);
+    }
+
+    @Override
+    public BlockEntityExecutionContract.Mode executionMode() {
+        return BlockEntityExecutionContract.Mode.RESOURCE_SCOPED;
+    }
+
+    @Override
+    public void phaseClosed(boolean successful) {
+        this.prepared = null;
+        this.canonicalPreparation = false;
     }
 
     @Override

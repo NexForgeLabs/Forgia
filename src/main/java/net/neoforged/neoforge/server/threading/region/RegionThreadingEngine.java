@@ -69,6 +69,8 @@ import net.neoforged.neoforge.server.threading.RegionScheduler;
 import net.neoforged.neoforge.server.threading.RegionThreading;
 import net.neoforged.neoforge.server.threading.RegionThreadingContext;
 import net.neoforged.neoforge.server.threading.RegionThreadingHooks;
+import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter.Access;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.AdapterDescriptor;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Inspection;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
@@ -3088,6 +3090,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     /** Explicit original timing for entity additions and unfinished neighbor cascades, never a Fence commit. */
     @ApiStatus.Internal
     public boolean queueLevelEndServerTaskInCurrentBatch(Runnable task) {
+        BlockEntityResourceOwnership.Scope.rejectEffect("server task publication");
         final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
         if (group != null) {
             group.batch().queueServerTask(task);
@@ -5868,6 +5871,9 @@ public final class RegionThreadingEngine implements RegionThreading {
     private record FurnaceInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
             FurnaceWorkPreparation.Candidate candidate, @Nullable BlockEntityResourceOwnership.Claims claims) implements CanonicalBlockEntityCoordinator.Unit {}
 
+    private record ExecutionInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
+            ExecutionBlockEntityPreparation.Manifest manifest, BlockEntityResourceOwnership.Claims claims) implements CanonicalBlockEntityCoordinator.Unit {}
+
     private record ModInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
             CoreModPreparation.Manifest manifest, BlockEntityResourceOwnership.Claims claims) implements CanonicalBlockEntityCoordinator.Unit {}
 
@@ -5945,6 +5951,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         RegionBlockEntityWorkGraph.Phase graph = null;
         boolean published = false;
         BlockEntityAdapterPhase adapters = null;
+        final List<BlockEntityExecutionAdapter> executionCleanup = new ArrayList<>();
         final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isFixed();
         final long resourcePhaseStart = furnaces && this.blockEntityResourcesEnabled ? System.nanoTime() : 0L;
         final int[] furnaceCandidates = { 0 };
@@ -5970,8 +5977,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // await preparation too. Legacy adapter preparation still stays outside furnace waves;
                 // explicitly audited integrations use their own generic canonical preparation contract.
                 if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                    if (furnaces) ParallelAdapterRuntime.prepareAuditedBlockEntityTicks(level);
-                    else ParallelAdapterRuntime.prepareBlockEntityTicks(level, true);
+                    ParallelAdapterRuntime.prepareCanonicalBlockEntityTicks(level, furnaces, executionCleanup);
                 }
                 graph = this.blockEntityWorkGraph.begin(level, chunks);
                 batch.setWorkGraph(graph);
@@ -5985,6 +5991,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // prefix never resets logical uses or borrows an earlier successful resource proof.
                 final var resources = furnaces && this.blockEntityResourcesEnabled ? new FurnaceResourcePreparation(level, this.layout) : null;
                 final int[] modBindings = { 0 };
+                final var executionAdapters = new ExecutionBlockEntityPreparation(this, uses -> {
+                    if (modBindings[0] > BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE - uses) {
+                        modBindings[0] = BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE + 1;
+                        return false;
+                    }
+                    modBindings[0] += uses;
+                    return resources == null || resources.charge(uses);
+                });
                 final boolean modRuntime = this.coreModPreparation != null && this.blockEntityResourcesEnabled && CoreModRuntimeIntegrity.verify();
                 new CanonicalBlockEntityCoordinator(ordered).execute(new CanonicalBlockEntityCoordinator.Driver() {
                     // Only share the read-only lookahead of one still-unexecuted contiguous prefix.
@@ -5992,10 +6006,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                     // preparation, whole-phase alias check and reservation still run before any body.
                     private FurnaceWorkPreparation furnaceLookahead;
                     private Set<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceAliases;
+                    private java.util.IdentityHashMap<Object, Access> executionRoots;
 
                     private void discardLookahead() {
                         this.furnaceLookahead = null;
                         this.furnaceAliases = null;
+                        this.executionRoots = null;
                     }
 
                     @Override
@@ -6005,6 +6021,20 @@ public final class RegionThreadingEngine implements RegionThreading {
                         // Unknown C5 closure proofs refuse through this same phase's kernel. Do not
                         // invoke adapters during lookahead: inspect and body belong to this Serial Fence.
                         if (general != null && general.handles(admission)) return null;
+                        final var executionBinding = ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission);
+                        if (executionBinding != null && executionBinding.adapter() instanceof BlockEntityExecutionAdapter) {
+                            final var manifest = executionAdapters.prepare(admission);
+                            if (manifest == null) return null;
+                            final var claims = manifest.claims();
+                            if (!claims.complete()) return null;
+                            final var descriptor = executionBinding.descriptor();
+                            final var inspection = new Inspection(descriptor,
+                                    descriptor.mode() == Mode.RESOURCE_SCOPED ? Resources.ADAPTER_CLAIMS : Resources.REGION_LOCAL, Outcome.CANDIDATE);
+                            final var ticket = phase.execution().reinspectUnstarted(admission, inspection);
+                            phase.execution().proveExecution(admission, manifest, claims);
+                            if (descriptor.mode() == Mode.REGION_OWNER) phase.execution().enableInvocationEffects(ticket);
+                            return new ExecutionInvocation(admission, inspection, manifest, claims);
+                        }
                         if (modRuntime) {
                             final var manifest = coreModPreparation.prepare(admission, resources);
                             if (manifest != null) {
@@ -6063,7 +6093,32 @@ public final class RegionThreadingEngine implements RegionThreading {
                     }
 
                     @Override
+                    public int prefixLimit(CanonicalBlockEntityCoordinator.Unit first) {
+                        return first instanceof ModInvocation || first instanceof ExecutionInvocation execution
+                                && execution.inspection().descriptor().mode() == Mode.REGION_OWNER
+                                        ? workerPool.threadCount()
+                                        : RegionBlockEntityWorkGraph.MAX_UNITS;
+                    }
+
+                    @Override
                     public boolean mayAppend(List<CanonicalBlockEntityCoordinator.Unit> prefix, CanonicalBlockEntityCoordinator.Unit next) {
+                        if (prefix.getFirst() instanceof ExecutionInvocation first) {
+                            if (!(next instanceof ExecutionInvocation candidate)
+                                    || first.inspection().descriptor().mode() != candidate.inspection().descriptor().mode())
+                                return false;
+                            if (this.executionRoots == null) this.executionRoots = new java.util.IdentityHashMap<>(first.manifest().roots());
+                            for (final var entry : candidate.manifest().roots().entrySet()) {
+                                final var previous = this.executionRoots.get(entry.getKey());
+                                if (previous != null && (entry.getValue() == Access.WRITE
+                                        || previous == Access.WRITE))
+                                    return false;
+                            }
+                            if (first.inspection().descriptor().mode() == Mode.REGION_OWNER)
+                                for (final var unit : prefix)
+                                    if (((ExecutionInvocation) unit).manifest().home() == candidate.manifest().home()) return false;
+                            this.executionRoots.putAll(candidate.manifest().roots());
+                            return true;
+                        }
                         if (prefix.getFirst() instanceof ModInvocation) {
                             if (!(next instanceof ModInvocation)) return false;
                             final var claims = new ArrayList<BlockEntityResourceOwnership.Claims>();
@@ -6098,6 +6153,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                     @Override
                     public int executePrefix(List<CanonicalBlockEntityCoordinator.Unit> prefix) {
                         this.discardLookahead();
+                        if (prefix.getFirst() instanceof ExecutionInvocation)
+                            return executeCanonicalExecutionPrefix(phase, prefix, sample, barrier);
                         if (prefix.getFirst() instanceof ModInvocation)
                             return executeCanonicalModPrefix(phase, prefix, sample, barrier);
                         if (prefix.getFirst() instanceof FurnaceInvocation)
@@ -6134,6 +6191,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                     final boolean successful = failure == null;
                     failure = runBatchCompletion(failure, () -> closingAdapters.close(successful));
                 }
+                final boolean executionSuccessful = failure == null;
+                for (final var adapter : executionCleanup)
+                    failure = runBatchCompletion(failure, () -> adapter.phaseClosed(executionSuccessful));
+                executionCleanup.clear();
                 batch.closeOperations(BlockEntityOperations.Reason.BATCH_CLOSED);
                 failure = runBatchCompletion(failure, batch.execution()::close);
                 batch.completeExternalWaves();
@@ -6172,6 +6233,177 @@ public final class RegionThreadingEngine implements RegionThreading {
         // A directed plan may legally have holes; a canonical cursor may not. Cut before the first
         // dependent member instead of executing a later independent member around it.
         return plan.waves().size() == 1 && plan.waves().getFirst().size() == units.size();
+    }
+
+    private int executeCanonicalExecutionPrefix(RegionBlockEntityTickBatch batch, List<CanonicalBlockEntityCoordinator.Unit> units,
+            @Nullable RegionBlockEntityWorkGraph.Phase graph, RegionTickBarrier barrier) {
+        final var invocations = units.stream().map(unit -> (ExecutionInvocation) unit).toList();
+        final boolean scoped = invocations.getFirst().inspection().descriptor().mode() == Mode.RESOURCE_SCOPED;
+        final int groups = Math.min(invocations.size(), this.workerPool.threadCount());
+        final List<RegionState> leased = new ArrayList<>();
+        final Map<RegionState, BlockEntityExecutionEngine.RegionGuard> guards = new java.util.IdentityHashMap<>();
+        BlockEntityResourceOwnership ownership = null;
+        final var gate = new NativePrefixGate(groups, invocations.size());
+        Throwable failure = null;
+        boolean workPhase = false;
+        boolean submitted = false;
+        try {
+            final Set<RegionState> homes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            for (final var unit : invocations) homes.add(unit.manifest().home());
+            for (final var home : RegionLeasePack.canonicalOrder(homes)) {
+                if (!this.acquireRegionLease(home, barrier)) return 0;
+                leased.add(home);
+            }
+            batch.externalWaveActive(true);
+            this.beginRegionPhase(batch.level());
+            workPhase = true;
+            for (final var home : leased) this.deliverCanonicalMailbox(batch, home);
+            // All adapter callbacks finish while every participant is quiescent, before publishing
+            // any worker. A changed branch/footprint refuses this still-unstarted prefix.
+            for (final var unit : invocations)
+                if (!unit.manifest().fresh() || !batch.eligibleNow(unit.admission())) return 0;
+            final Map<RegionState, RandomSource> randoms = new java.util.IdentityHashMap<>();
+            if (!scoped) for (final var home : leased) randoms.put(home, batch.canonicalRandom(home));
+            final List<BlockEntityResourceOwnership.Lease> grants;
+            if (scoped) {
+                final Map<Object, java.util.function.BooleanSupplier> boundaries = new java.util.IdentityHashMap<>();
+                for (final var home : leased) {
+                    guards.put(home, batch.execution().subordinate(home));
+                    boundaries.put(home, () -> home.isRunning() && !home.hasOwner() && !home.isDead());
+                }
+                ownership = new BlockEntityResourceOwnership(batch.level(), boundaries,
+                        () -> !this.shutdown && !this.regionizer.isLevelClosed(batch.level()));
+                grants = ownership.tryAcquireAll(invocations.stream().map(ExecutionInvocation::claims).toList());
+                if (grants == null) return 0;
+            } else {
+                grants = List.of();
+            }
+            final var work = new RegionTaskBatch();
+            for (int group = 0; group < groups; ++group) {
+                final int first = group;
+                work.add("Audited original BE invocation group", batch.groupWork(() -> {
+                    if (!RegionWorkerScope.isNativeWorkerThread()) {
+                        gate.refuse(0);
+                        gate.checked.countDown();
+                        return;
+                    }
+                    try {
+                        // Check every original binding before any body. Each unit enters its own
+                        // one-shot resource Lease only when its actual original ticker starts.
+                        for (int index = first; index < invocations.size(); index += groups) {
+                            if (index >= gate.admitted.get()) break;
+                            if (!invocations.get(index).manifest().workerCurrent() || !batch.tryReserveBlockUpdates()) {
+                                gate.refuse(index);
+                                break;
+                            }
+                        }
+                    } catch (Throwable failed) {
+                        gate.failure.compareAndSet(null, failed);
+                        gate.refuse(0);
+                    } finally {
+                        gate.checked.countDown();
+                    }
+                    gate.awaitChecks();
+                    for (int index = first; index < gate.admitted.get(); index += groups) {
+                        if (gate.failure.get() != null) break;
+                        final var unit = invocations.get(index);
+                        final var home = unit.manifest().home();
+                        final var resources = scoped ? grants.get(index) : null;
+                        boolean owner = false;
+                        BlockEntityExecutionEngine.RegionGuard guard = null;
+                        BlockEntityResourceOwnership.Scope scope = null;
+                        BlockEntityExecutionEngine.Permit permit = null;
+                        boolean completed = false;
+                        try {
+                            if (scoped) {
+                                scope = resources.enter();
+                                guard = guards.get(home);
+                            } else {
+                                home.beginOwnership();
+                                owner = true;
+                                guard = batch.execution().regionOwner(home);
+                                this.currentBlockEntityTickRandom.set(randoms.get(home));
+                            }
+                            final var admission = unit.admission();
+                            permit = batch.execution().permit(batch.execution().ticket(admission), guard,
+                                    new Refresh(unit.inspection(), Outcome.CANDIDATE), resources);
+                            if (permit == null) throw new IllegalStateException("Execution adapter lost its original pre-start evidence");
+                            if (scoped) {
+                                try (final var wrapper = CoreModWorkScope.open(unit.manifest())) {
+                                    this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
+                                            batch.level(), home.coordinate(), home, null), () -> this.runBlockEntityBody(admission.ticker(), graph, true));
+                                }
+                            } else {
+                                try (final var wrapper = RegionBlockEntityTickScope.open(admission, home)) {
+                                    this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
+                                            batch.level(), home.coordinate(), home, null), () -> this.runBlockEntityBody(admission.ticker(), graph, true));
+                                }
+                            }
+                            completed = true;
+                            ParallelAdapterRuntime.completeBlockEntityTick(admission, unit.inspection().descriptor());
+                            this.blockEntityTicksOnWorkers.incrementAndGet();
+                        } catch (Throwable failed) {
+                            gate.failure.compareAndSet(null, failed);
+                            gate.refuse(0);
+                            this.recordWorkerTickFailure(batch, home.coordinate(), null, failed);
+                        } finally {
+                            try {
+                                if (scope != null) scope.close();
+                            } finally {
+                                try {
+                                    if (permit != null) {
+                                        if (completed) permit.succeeded();
+                                        permit.close();
+                                    }
+                                } finally {
+                                    if (owner) {
+                                        this.currentBlockEntityTickRandom.remove();
+                                        try {
+                                            if (guard != null) guard.close();
+                                        } finally {
+                                            home.endOwnership();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }));
+            }
+            final var joined = work.submit(this.workerPool);
+            submitted = true;
+            batch.activeCanonicalBarrier(joined);
+            try {
+                barrier.await(joined::isComplete);
+            } catch (Throwable failed) {
+                failure = failed;
+            } finally {
+                joined.awaitCompletion();
+                batch.activeCanonicalBarrier(null);
+            }
+            try {
+                joined.throwIfFailed();
+            } catch (Throwable failed) {
+                failure = accumulateFailure(failure, failed);
+            }
+            failure = accumulateFailure(failure, gate.failure.get());
+        } catch (Throwable failed) {
+            failure = accumulateFailure(failure, failed);
+        } finally {
+            for (final var guard : guards.values()) failure = runBatchCompletion(failure, guard::sealForCommit);
+            if (ownership != null) failure = runBatchCompletion(failure, ownership::close);
+            for (final var guard : guards.values()) failure = runBatchCompletion(failure, guard::close);
+            failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(batch, units.getLast().admission().sequence() + 1));
+            for (int index = leased.size() - 1; index >= 0; --index) {
+                final var home = leased.get(index);
+                failure = runBatchCompletion(failure, () -> this.releaseRegionLease(home));
+            }
+            if (workPhase) this.levelTickPhaseState(batch.level()).endRegionPhase();
+            batch.externalWaveActive(false);
+            failure = runBatchCompletion(failure, batch::reportTickFailures);
+            if (failure != null) throwUnchecked(failure);
+        }
+        return submitted ? gate.admitted.get() : 0;
     }
 
     private int executeCanonicalModPrefix(RegionBlockEntityTickBatch batch, List<CanonicalBlockEntityCoordinator.Unit> units,
@@ -6318,6 +6550,11 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SINGLE_UNIT);
             return 0;
         }
+        final var aliasOrder = ordered;
+        if (ordered.size() > RegionBlockEntityWorkGraph.MAX_UNITS) {
+            final int start = ordered.indexOf(units.getFirst().admission());
+            ordered = ordered.subList(start, Math.min(ordered.size(), start + RegionBlockEntityWorkGraph.MAX_UNITS));
+        }
         final List<FurnaceWorkPreparation.Candidate> candidates = new ArrayList<>(java.util.Collections.nCopies(ordered.size(), null));
         final List<BlockEntityResourceOwnership.Claims> claims = resources == null ? List.of() : new ArrayList<>();
         if (resources != null) for (final var admission : ordered) claims.add(resources.fence(admission));
@@ -6337,7 +6574,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         try {
             // The existing bridge still performs a whole-wave fresh audit, alias pass, every validator
             // and all-or-none reservation before any original body. It uses this phase's same kernel.
-            this.executeFurnaceWave(batch, ordered, candidates, wave, results, graph, barrier, resources, claims);
+            this.executeFurnaceWave(batch, ordered, candidates, wave, results, graph, barrier, resources, claims, aliasOrder);
             batch.reportTickFailures();
             if (results.isEmpty()) {
                 this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.REVALIDATION);
@@ -6632,7 +6869,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     try {
                         batch.externalWaveActive(true);
                         this.runRegionBatch(level, () -> this.executeFurnaceWave(batch, ordered, candidates, wave, results, sample, barrier,
-                                resources, resourcePlan == null ? List.of() : resourcePlan.claims()));
+                                resources, resourcePlan == null ? List.of() : resourcePlan.claims(), ordered));
                     } finally {
                         batch.externalWaveActive(false);
                     }
@@ -6662,7 +6899,8 @@ public final class RegionThreadingEngine implements RegionThreading {
     private void executeFurnaceWave(BlockEntityExecutionBatch batch, List<RegionBlockEntityTickAdmission> ordered,
             List<FurnaceWorkPreparation.Candidate> candidates, List<Integer> wave, List<FurnaceWorkResult> results,
             @Nullable RegionBlockEntityWorkGraph.Phase sample, RegionTickBarrier barrier,
-            @Nullable FurnaceResourcePreparation resources, List<BlockEntityResourceOwnership.Claims> claims) {
+            @Nullable FurnaceResourcePreparation resources, List<BlockEntityResourceOwnership.Claims> claims,
+            List<RegionBlockEntityTickAdmission> aliasOrder) {
         final ServerLevel level = batch.level();
         final List<RegionState> leased = new ArrayList<>();
         final Map<RegionState, BlockEntityExecutionEngine.RegionGuard> executionRegions = new java.util.IdentityHashMap<>();
@@ -6695,7 +6933,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             revalidationStart = resources == null ? 0L : System.nanoTime();
             boolean current = !this.shutdown && !this.regionizer.isLevelClosed(level);
             final var preparation = new FurnaceWorkPreparation(level, this.layout, resources != null);
-            final var aliases = FurnaceWorkPreparation.aliased(ordered);
+            final var aliases = FurnaceWorkPreparation.aliased(aliasOrder);
             final List<BlockEntityResourceOwnership.Claims> freshClaims = resources == null ? List.of() : new ArrayList<>();
             final Map<BlockEntityResourceOwnership.SharedReads, BlockEntityResourceOwnership.SharedReads> compared = resources == null ? Map.of() : new java.util.IdentityHashMap<>();
             for (final int index : wave) {

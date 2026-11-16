@@ -15,15 +15,15 @@ import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
-/** One original Mod invocation with already proved Core wrapper prerequisites and the original Lease. */
+/** Original wrapper context shared by VM proofs and trusted adapters, under the original entered Lease. */
 @ApiStatus.Internal
 public final class CoreModWorkScope implements AutoCloseable {
     private static final ThreadLocal<CoreModWorkScope> CURRENT = new ThreadLocal<>();
-    private final CoreModPreparation.Manifest manifest;
+    private final BoundBlockEntityInvocation manifest;
     private boolean taskStarted;
     private boolean closed;
 
-    private CoreModWorkScope(CoreModPreparation.Manifest manifest) {
+    private CoreModWorkScope(BoundBlockEntityInvocation manifest) {
         if (CURRENT.get() != null || !BlockEntityResourceOwnership.Scope.active()
                 || BlockEntityExecutionEngine.currentMode() != net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode.RESOURCE_SCOPED)
             throw new IllegalStateException("Invalid Mod resource scope");
@@ -32,6 +32,10 @@ public final class CoreModWorkScope implements AutoCloseable {
     }
 
     static CoreModWorkScope open(CoreModPreparation.Manifest manifest) {
+        return new CoreModWorkScope(manifest);
+    }
+
+    static CoreModWorkScope open(BoundBlockEntityInvocation manifest) {
         return new CoreModWorkScope(manifest);
     }
 

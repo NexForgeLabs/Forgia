@@ -26,6 +26,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.AdapterDescriptor;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
 import net.neoforged.neoforge.server.threading.api.BlockEntityOperations;
@@ -146,13 +147,24 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
 
     @Override
     public void registerBlockEntityTicks(int major, ResourceLocation id, Set<ResourceLocation> types, BlockEntityTickAdapter adapter) {
+        this.registerBlockEntityTicks(major, id, types, adapter, false);
+    }
+
+    @Override
+    public void registerBlockEntityExecutionAdapter(int protocol, ResourceLocation id, Set<ResourceLocation> types, BlockEntityExecutionAdapter adapter) {
+        this.registerBlockEntityTicks(protocol, id, types, adapter, true);
+    }
+
+    private void registerBlockEntityTicks(int major, ResourceLocation id, Set<ResourceLocation> types, BlockEntityTickAdapter adapter, boolean execution) {
         this.requireServerThread();
         if (this.frozen) throw new IllegalStateException("Parallel adapter registration is frozen");
         try {
             Objects.requireNonNull(id);
             Objects.requireNonNull(adapter);
+            if ((adapter instanceof BlockEntityExecutionAdapter) != execution)
+                throw new IllegalArgumentException("Execution adapters require their explicit registration protocol");
             final Set<ResourceLocation> registered = Set.copyOf(types);
-            if (major != ParallelApi.MAJOR_VERSION || registered.isEmpty() || registered.size() > 128
+            if (major != (execution ? BlockEntityExecutionAdapter.PROTOCOL_VERSION : ParallelApi.MAJOR_VERSION) || registered.isEmpty() || registered.size() > 128
                     || this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() >= MAX_ADAPTERS
                     || this.entries.containsKey(id) || this.tickEntries.containsKey(id) || this.blockEntityAdapters.containsId(id.toString())
                     || registered.stream().anyMatch(type -> this.tickTypes.containsKey(type) || this.blockEntityAdapters.containsType(type.toString()))) {
@@ -255,6 +267,16 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
     }
 
     private static void prepareBlockEntityTicks(ServerLevel level, boolean canonical, boolean auditedOnly) {
+        prepareBlockEntityTicks(level, canonical, auditedOnly, null);
+    }
+
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static void prepareCanonicalBlockEntityTicks(ServerLevel level, boolean auditedOnly, List<BlockEntityExecutionAdapter> cleanup) {
+        prepareBlockEntityTicks(level, true, auditedOnly, cleanup);
+    }
+
+    private static void prepareBlockEntityTicks(ServerLevel level, boolean canonical, boolean auditedOnly,
+            @Nullable List<BlockEntityExecutionAdapter> cleanup) {
         final ParallelAdapterRuntime runtime;
         synchronized (SERVERS) {
             runtime = SERVERS.get(level.getServer());
@@ -268,6 +290,7 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             if (auditedOnly && !(entry.adapter instanceof AuditedBlockEntityTickAdapter)) continue;
             final long start = System.nanoTime();
             try {
+                if (cleanup != null && entry.adapter instanceof BlockEntityExecutionAdapter execution) cleanup.add(execution);
                 if (canonical && entry.adapter instanceof AuditedBlockEntityTickAdapter audited) audited.prepareCanonical(level);
                 else entry.adapter.prepare(level);
             } finally {
@@ -349,6 +372,28 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
         }
     }
 
+    /** Read-only execution inspection under the published canonical coordinator boundary. */
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static BlockEntityExecutionAdapter.Inspection inspectBlockEntityExecution(RegionBlockEntityTickAdmission admission,
+            AuditedTickBinding binding, BlockEntity source, Class<?> function) {
+        final TickEntry entry = tickEntry(admission.level(), admission.type());
+        if (!admission.level().getServer().isSameThread() || entry == null || entry.audited != binding
+                || !(entry.adapter instanceof BlockEntityExecutionAdapter adapter))
+            throw new IllegalStateException("Execution inspection requires its original coordinator registration");
+        final long start = System.nanoTime();
+        entry.checks.increment();
+        try {
+            final var result = Objects.requireNonNull(adapter.inspectExecution(source, function));
+            if (result.decision() != BlockEntityTickAdapter.Decision.ADMITTED) {
+                entry.refusals.increment();
+                entry.reasons.get(result.decision()).increment();
+            }
+            return result;
+        } finally {
+            entry.nanos.add(System.nanoTime() - start);
+        }
+    }
+
     /** Submission/rejection/serial fallback never count as a successful native body. */
     public static void completeBlockEntityTick(RegionBlockEntityTickAdmission admission) {
         completeBlockEntityTick(admission, blockEntityTickDescriptor(admission));
@@ -356,7 +401,7 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
 
     public static void completeBlockEntityTick(RegionBlockEntityTickAdmission admission, @Nullable AdapterDescriptor inspected) {
         final TickEntry entry = tickEntry(admission.level(), admission.type());
-        if (entry != null && entry.descriptor == inspected) entry.completed.increment();
+        if (entry != null && (entry.descriptor == inspected || entry.audited != null && entry.audited.descriptor() == inspected)) entry.completed.increment();
     }
 
     @Override
@@ -400,7 +445,8 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 ParallelApi.Capability.NATURAL_SPAWN_PLAN_PREPARATION, ParallelApi.Capability.NATURAL_SPAWN_CLAIMS,
                 ParallelApi.Capability.ORDERED_SPAWN_FINALIZATION, ParallelApi.Capability.BLOCK_ENTITY_OPERATIONS,
                 ParallelApi.Capability.BLOCK_ENTITY_TICK_ADMISSION, ParallelApi.Capability.SCHEDULED_TICK_DIAGNOSTICS,
-                ParallelApi.Capability.GENERAL_BLOCK_ENTITY_ADAPTERS, ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS);
+                ParallelApi.Capability.GENERAL_BLOCK_ENTITY_ADAPTERS, ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS,
+                ParallelApi.Capability.BLOCK_ENTITY_EXECUTION_ADAPTERS);
     }
 
     @Override
@@ -701,7 +747,10 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             if (adapter instanceof AuditedBlockEntityTickAdapter audited) {
                 final var audit = Objects.requireNonNull(audited.audit(), "Null original-ticker audit");
                 final var verified = AuditedTickImplementation.verify(audited, audit);
-                this.audited = new AuditedTickBinding(audited, audit, this.descriptor, verified.valid(), verified.reason());
+                final var executionDescriptor = adapter instanceof BlockEntityExecutionAdapter execution
+                        ? new AdapterDescriptor(id, types, Objects.requireNonNull(execution.executionMode()))
+                        : this.descriptor;
+                this.audited = new AuditedTickBinding(audited, audit, executionDescriptor, verified.valid(), verified.reason());
             } else {
                 this.audited = null;
             }

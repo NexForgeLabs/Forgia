@@ -15,7 +15,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / 'tools/modpack-matrix'))
 from rcon import Rcon, RconError
 
-VERSION = '21.1.250.107-beta'
+VERSION = '21.1.250.108-beta'
 
 
 def arguments():
@@ -26,7 +26,7 @@ def arguments():
     parser.add_argument('--eula', type=Path, required=True, help='Existing eula.txt with eula=true; copied into the private instance')
     parser.add_argument('--java', type=Path, default=Path('/home/yc/.jdks/jdk-21.0.12.1+1/bin/java'))
     parser.add_argument('--installer', type=Path, default=REPO / f'projects/neoforge/build/libs/neoforge-{VERSION}-installer.jar')
-    parser.add_argument('--adapter', type=Path, default=REPO / 'adapters/create/build/libs/forgia-create-adapter-0.2.0.jar')
+    parser.add_argument('--adapter', type=Path, default=REPO / 'adapters/create/build/libs/forgia-create-adapter-0.3.0.jar')
     return parser.parse_args()
 
 
@@ -94,7 +94,7 @@ rcon.password={password}
                              '@' + str(vm_args), 'nogui'], cwd=root, stdout=log, stderr=subprocess.STDOUT)
     client = None
     commands = []
-    summary = {'outcome': 'STARTING', 'core': VERSION, 'create': '6.0.10', 'scope': 'two isolated real waterwheel/gearbox/millstone assemblies; no players/addons'}
+    summary = {'outcome': 'STARTING', 'core': VERSION, 'create': '6.0.10', 'scope': 'same-region transmission parts and two real waterwheel/gearbox/millstone assemblies; no players/addons'}
     try:
         deadline = time.monotonic() + 240
         while time.monotonic() < deadline:
@@ -130,6 +130,8 @@ rcon.password={password}
             command(f'data merge block {x} 101 21 {{InputInventory:{{Size:1,Items:[{{Slot:0,id:"minecraft:wheat",count:16}}]}}}}')
         before = command('neoforge regionthreading compat')
         (root / 'compat-before.txt').write_text(before)
+        command('setblock 20 105 20 create:clutch')
+        command('setblock 22 105 20 create:gearshift')
         start = int(re.search(r'(\d+)', command('time query gametime')).group(1))
         command('tick unfreeze')
         deadline = time.monotonic() + 120

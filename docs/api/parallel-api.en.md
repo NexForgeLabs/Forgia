@@ -149,7 +149,7 @@ record AdapterStatus(ResourceLocation id, long preparedUnits, long serialUnits, 
 
 Use differences between two snapshots for rates. Do not average cumulative totals across windows.
 
-## 6. `Registrar` — the four registration methods
+## 6. `Registrar` registration methods
 
 ```java
 Set<Capability> capabilities();
@@ -157,6 +157,8 @@ Set<Capability> capabilities();
 void claimNaturalSpawning(DataKey<?> key, String modId, BooleanSupplier verified);
 void registerBlockEntityTicks(int apiMajorVersion, ResourceLocation id,
         Set<ResourceLocation> types, BlockEntityTickAdapter adapter);
+void registerBlockEntityExecutionAdapter(int protocolVersion, ResourceLocation id,
+        Set<ResourceLocation> types, BlockEntityExecutionAdapter adapter);
 BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
         BlockEntityAdapters.Descriptor descriptor, BlockEntityAdapter adapter);
 ```
@@ -166,6 +168,7 @@ BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
 | `register` | major `1`, unique key, preparation | ≤128 registrations total; duplicate id aborts all | A data slot + preparation callbacks |
 | `claimNaturalSpawning` | already-registered key, non-blank `modId`, `verified` true at startup | No duplicate claim; missing key fails | Replaces *that mod's* spawn restriction only |
 | `registerBlockEntityTicks` | major `1`, unique id, 1..128 types, adapter | Shares the 128 budget/id space; overlapping types rejected | Per-invocation admission checks ([ticks](block-entity-ticks.en.md)) |
+| `registerBlockEntityExecutionAdapter` | protocol `1`, unique id/types, complete audited execution adapter | Shared budget and id/type conflict rules | Original region/resource execution ([protocol](block-entity-execution.en.md)) |
 | `registerBlockEntityAdapter` | protocol `1`, descriptor, adapter | Same budget; C5 id/type space | Conservative C5 request diagnostics, serial fences |
 
 Registration is only valid inside `RegisterParallelAdaptersEvent`, on the server thread. A caught nested

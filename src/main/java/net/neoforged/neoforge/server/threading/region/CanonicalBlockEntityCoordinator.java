@@ -24,6 +24,10 @@ final class CanonicalBlockEntityCoordinator {
 
         boolean mayAppend(List<Unit> prefix, Unit next);
 
+        default int prefixLimit(Unit first) {
+            return RegionBlockEntityWorkGraph.MAX_UNITS;
+        }
+
         /** Returns the contiguous count admitted before a pre-body refusal; every started body has joined. */
         int executePrefix(List<Unit> prefix);
 
@@ -44,7 +48,7 @@ final class CanonicalBlockEntityCoordinator {
 
     void execute(Driver driver) {
         while (this.cursor < this.ordered.size()) {
-            final var first = this.ordered.size() > RegionBlockEntityWorkGraph.MAX_UNITS ? null : driver.prepare(this.cursor);
+            final var first = driver.prepare(this.cursor);
             if (first == null) {
                 driver.serial(this.cursor);
                 ++this.cursor;
@@ -52,7 +56,9 @@ final class CanonicalBlockEntityCoordinator {
             }
             final List<Unit> prefix = new ArrayList<>();
             prefix.add(first);
-            for (int index = this.cursor + 1; index < this.ordered.size(); ++index) {
+            final int limit = Math.min(RegionBlockEntityWorkGraph.MAX_UNITS, driver.prefixLimit(first));
+            if (limit < 1) throw new IllegalStateException("Empty canonical planning window");
+            for (int index = this.cursor + 1; index < this.ordered.size() && prefix.size() < limit; ++index) {
                 final var next = driver.prepare(index);
                 if (next == null || !driver.mayAppend(prefix, next)) break;
                 prefix.add(next);

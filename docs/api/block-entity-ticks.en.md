@@ -240,7 +240,7 @@ Register it exactly like the v1 adapter; negotiate `AUDITED_BLOCK_ENTITY_TICKS` 
 
 | Limit | Effect |
 |---|---|
-| Canonical phase > 2048 original entries | Whole phase stays serial (`Completeness` of this contract does not raise it) |
+| Large canonical phase | Current core plans windows of at most 2048 candidates; whole-phase resource/update budgets remain |
 | Interior chunk rule | A BE whose chunk neighbours are outside the lease stays serial unless its protocol allows boundary admission |
 | Unknown class/subclass/function | Serial; exact class prevents inheritance of the contract |
 | Unknown behaviour/lazy tick added dynamically | Refused before the next invocation |

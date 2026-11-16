@@ -30,6 +30,8 @@ import net.neoforged.forgia.compat.create.mixin.KineticBlockEntityAccessor;
 import net.neoforged.neoforge.server.threading.api.ParallelApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Real Create functions through the actual canonical Level entry, not the historical explicit driver. */
 @Timeout(60)
@@ -37,11 +39,12 @@ class CreateCanonicalIntegrationTest {
     private static final BlockPos FIRST = new BlockPos(17, 64, 17);
     private static final BlockPos SECOND = new BlockPos(65, 64, 17);
 
-    @Test
-    void clutchesAndGearshiftsRunOriginalBodiesConcurrentlyThroughThePublicApi() {
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void clutchesAndGearshiftsRunOriginalBodiesConcurrentlyThroughThePublicApi(boolean sameRegion) {
         try (final var fixture = new CreateFixture()) {
             final var first = clutch(fixture, FIRST);
-            final var second = gearshift(fixture, SECOND);
+            final var second = gearshift(fixture, sameRegion ? FIRST.east() : SECOND);
             fixture.originalCreateTicker(first);
             fixture.originalCreateTicker(second);
             final var audit = ParallelApi.forServer(fixture.server).orElseThrow().auditedBlockEntityTicks().getFirst();
@@ -61,6 +64,24 @@ class CreateCanonicalIntegrationTest {
             assertEquals(999, ((KineticBlockEntityAccessor) second).forgia$validationCountdown());
             assertEquals(2, fixture.status().workerCompletions());
             assertEquals(2, fixture.engine.diagnostics().blockEntityTicksOnWorkers());
+            assertEquals(0, fixture.engine.diagnostics().ownershipViolationCount());
+        }
+    }
+
+    @Test
+    void moreThan2048RealCreateTickersKeepTheirOriginalBodiesAndRunOnWorkers() {
+        try (final var fixture = new CreateFixture()) {
+            final List<ClutchBlockEntity> sources = new ArrayList<>();
+            for (int index = 0; index < 2050; ++index) {
+                final var source = clutch(fixture, new BlockPos(17 + index % 14, 64 + index / 196, 17 + index / 14 % 14));
+                sources.add(source);
+                fixture.originalCreateTicker(source);
+            }
+            fixture.canonicalTick();
+            for (final var source : sources)
+                assertEquals(999, ((KineticBlockEntityAccessor) source).forgia$validationCountdown());
+            assertEquals(2050, fixture.status().workerCompletions());
+            assertEquals(2050, fixture.engine.diagnostics().blockEntityTicksOnWorkers());
             assertEquals(0, fixture.engine.diagnostics().ownershipViolationCount());
         }
     }

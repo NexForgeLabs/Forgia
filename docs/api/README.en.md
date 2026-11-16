@@ -97,6 +97,7 @@ execution context**. Neither is a permission token.
 | `BLOCK_ENTITY_OPERATIONS` | Two-owner operations and container transfer | Not parallel cross-region leases |
 | `GENERAL_BLOCK_ENTITY_ADAPTERS` | C5 conservative request/validation protocol | Requests do not create execution authority; targets stay serial fences |
 | `AUDITED_BLOCK_ENTITY_TICKS` | Audited complete original-ticker branch with READ/WRITE footprint | Hash ≠ semantic proof |
+| `BLOCK_ENTITY_EXECUTION_ADAPTERS` | [Original ticks through region/resource execution](block-entity-execution.en.md) | Requires a complete trusted adapter audit |
 | `SCHEDULED_TICK_DIAGNOSTICS` | Scheduled phase counters/latency | Empty list does not prove the slice is off |
 
 | Phase | Meaning | Allowed to mutate world? |
@@ -128,7 +129,7 @@ execution context**. Neither is a permission token.
 | `REJECTED / INVALID_CONTEXT` | Submitted from a network/async/service thread | Submit on the quiescent server thread or from the admitted ticker |
 | `REJECTED / UNOWNED_SOURCE` | Ticker not the bound source instance | You cannot borrow another machine's authority |
 | Adapter registered, zero worker completions | Slice off, phase over budget, or interior rule | Read `/neoforge regionthreading compat` before changing code |
-| Phase larger than the canonical budget | Core keeps >2048-entry BE phases wholly serial | Needs a bounded-window coordinator; do not raise constants |
+| Large canonical phase | Planned in windows of at most 2048 candidates | Whole-phase resource/update budgets still apply; an exhausted suffix stays serial |
 
 ## 7. Verification checklist before shipping an integration
 

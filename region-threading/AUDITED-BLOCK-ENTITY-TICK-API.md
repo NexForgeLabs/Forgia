@@ -12,6 +12,10 @@ they do not infer program safety. The interface is not a sandbox against arbitra
 ASM/coremods, JNI or asynchronous writers. Installing an unreviewed implementation cannot be described
 as automatic compatibility certification.
 
+Current additive execution protocol: [BlockEntityExecutionAdapter](../docs/api/block-entity-execution.en.md)
+adds coordinator-only fresh inspections and same-region resource scopes. Create 0.3.0 uses that explicit
+registration. The older audited protocol described here retains its own region-owner semantics.
+
 ## Registration and compatibility
 
 Implement `AuditedBlockEntityTickAdapter`, check the capability during `RegisterParallelAdaptersEvent`,
@@ -27,8 +31,8 @@ Existing vanilla native and Furnace proofs retain their own paths.
 
 All original engine switches, compatibility refusals, server-only declarations, interior layout rules
 and budgets still apply. In particular the existing canonical Coordinator keeps a phase larger than
-2048 original entries wholly serial; this extension does not raise or reset that budget. Large modpacks
-need a separately validated bounded-window coordinator before this contract can accelerate those phases.
+2048 candidates per planning window. The current coordinator uses bounded windows for larger phases;
+whole-phase resource/update budgets still apply. This extension does not raise or reset those budgets.
 Audited adapters may use prepareCanonical alongside Furnace Waves; old v1 adapters keep their original
 prepare=0 and complete serial behavior in that mode. No adapter creates a pool, schedules an alternate BE loop, issues a Permit,
 commits arbitrary callbacks or replaces the original body.

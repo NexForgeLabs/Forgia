@@ -50,6 +50,9 @@ sourceSets.each {
 }
 
 junitTest {
+    // Large canonical phases exercise thousands of real bindings alongside the world/mock fixtures.
+    // Keep the full regression run out of the default 512m heap's repeated full-GC cycle.
+    maxHeapSize = '2g'
     useJUnitPlatform {
         // The timing harness reports numbers instead of asserting behavior; it is run on demand through
         // :tests:junitBenchmark so a machine-dependent measurement can never fail the normal test run.
