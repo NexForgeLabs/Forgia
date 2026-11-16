@@ -146,6 +146,12 @@ final class RegionThreadingCommand {
                         + ", p50/p95/p99=" + millis(scheduled.latency().p50Nanos()) + "/" + millis(scheduled.latency().p95Nanos())
                         + "/" + millis(scheduled.latency().p99Nanos()) + " (last " + scheduled.latency().samples() + " nonempty phases)"), false);
             }
+            for (final var audit : api.auditedBlockEntityTicks()) {
+                source.sendSuccess(() -> Component.literal("Audited original-tick adapter " + audit.id()
+                        + ": implementationsVerified=" + audit.verified() + ", reason=" + audit.reason()
+                        + ", audit=" + audit.reference() + ", revision=" + audit.revision()
+                        + "; integrity is separate from fresh invocation admission and successful body completion"), false);
+            }
             for (final var tickerAdapter : api.blockEntityTickAdapters()) {
                 source.sendSuccess(() -> Component.literal("Block entity tick adapter " + tickerAdapter.id()
                         + ": types=" + tickerAdapter.types() + ", checks=" + tickerAdapter.checks()

@@ -77,14 +77,39 @@ The experimental public mod integration API and compile-only facade are describe
 [the parallel API guide](region-threading/MOD-PARALLEL-API.md). Complete cross-region operations and
 scheduled callback admission/metrics are documented in [the operation guide](region-threading/CROSS-REGION-OPERATIONS.md). Broader preparation and parallel-spawn filter
 contracts are proposed in [the API RFC](region-threading/MOD-PARALLEL-API-RFC.md); those later stages are not yet implemented.
-An [experimental MobSpawnController adapter](adapters/mobspawncontroller/README.md) provides frozen rules and
+An [experimental MobSpawnController adapter](docs/adapters/mobspawncontroller-adapter.en.md) provides frozen rules and
 verified admission for 1.2.3. The ordered nearby/chance experiment is **opt-in and off by default**:
 local pack validation found truncated work and no proven speedup. Default natural spawning stays serial;
 unsupported world filters, multipliers and unverified native hooks also retain the complete serial plan.
-The legacy [experimental Create 6.0.10 adapter](adapters/create/README.md) contains whole-network preflight
-and original v1 transmission/water-wheel/millstone integration. The current canonical Level path also requires
-an independent core body-closure proof; the old v1 ADMITTED decision cannot certify unknown Mod machines.
-Those legacy bridge checks do not expand the current Native/Furnace cohort.
+The [experimental Create 6.0.10 adapter](docs/adapters/create-adapter.en.md) now uses the generic
+[audited original-tick API](region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md) for stable transmission parts,
+clutches and gearshifts in the canonical Level path. All Create implementation/state/footprint knowledge
+lives in the adapter; Core validates the shared contract, binding, lifecycle and ownership. The adapter is
+an explicit reviewed trust contract, not automatic proof from a type/hash. Water-wheel/millstone v1 checks
+remain historical explicit-driver coverage; moving contraptions and unknown callbacks stay serial. No
+whole-server performance or installed-modpack compatibility claim follows from this extension.
+
+## Documentation
+
+The curated documentation set lives in `docs/` and is maintained in **English and Chinese** pairs
+(`*.en.md` / `*.zh.md`). The `region-threading/` directory remains the evidence archive (audits,
+acceptance runs, profiler records).
+
+| Start here | English | 中文 |
+|---|---|---|
+| Documentation index / 文档索引 | [docs/README](docs/README.en.md) | [docs/README](docs/README.zh.md) |
+| Mod-facing API entry matrix | [API overview](docs/api/README.en.md) | [API 总览](docs/api/README.zh.md) |
+| `ParallelApi` service and preparation results | [ParallelApi](docs/api/parallel-api.en.md) | [ParallelApi](docs/api/parallel-api.zh.md) |
+| Natural-spawn preparation and claims | [Spawning](docs/api/natural-spawn-preparation.en.md) | [刷怪准备](docs/api/natural-spawn-preparation.zh.md) |
+| Block-entity tick admission (v1 + audited) | [BE ticks](docs/api/block-entity-ticks.en.md) | [BE tick](docs/api/block-entity-ticks.zh.md) |
+| Cross-region two-owner operations | [BE operations](docs/api/block-entity-operations.en.md) | [BE 操作](docs/api/block-entity-operations.zh.md) |
+| Schedulers and entity interactions | [Schedulers](docs/api/schedulers-and-entity-interactions.en.md) | [调度器](docs/api/schedulers-and-entity-interactions.zh.md) |
+| Writing an adapter mod | [Adapter guide](docs/adapters/README.en.md) | [适配器指南](docs/adapters/README.zh.md) |
+| Create adapter 0.2.0 | [Create](docs/adapters/create-adapter.en.md) | [Create](docs/adapters/create-adapter.zh.md) |
+| MobSpawnController adapter 0.3.0 | [MSC](docs/adapters/mobspawncontroller-adapter.en.md) | [MSC](docs/adapters/mobspawncontroller-adapter.zh.md) |
+| Module implementation notes | [Modules](docs/modules/README.en.md) | [模块](docs/modules/README.zh.md) |
+| Commands, metrics, configuration | [Observability](docs/modules/observability.en.md) | [观测与配置](docs/modules/observability.zh.md) |
+| Full API inventory (evidence archive) | [API-REFERENCE](region-threading/API-REFERENCE.md) | 同左 |
 
 ## Configuration
 

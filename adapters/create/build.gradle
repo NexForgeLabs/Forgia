@@ -7,7 +7,7 @@ plugins {
 evaluationDependsOn(':neoforge')
 apply plugin: net.neoforged.neodev.NeoDevExtraPlugin
 
-version = '0.1.0'
+version = '0.2.0'
 base.archivesName = 'forgia-create-adapter'
 java.withSourcesJar()
 
@@ -90,6 +90,9 @@ junitTest {
     classpath = sourceSets.junit.output + sourceSets.junit.runtimeClasspath
     testClassesDirs = sourceSets.junit.output.classesDirs
     systemProperty 'mixin.debug.countInjections', 'true'
+    systemProperty 'forgia.create.persistentWorkers', providers.gradleProperty('createAdapterPersistentWorkers').getOrElse('false')
+    systemProperty 'forgia.create.furnaceWaves', providers.gradleProperty('createAdapterFurnaceWaves').getOrElse('false')
+    systemProperty 'forgia.create.resourceOwnership', providers.gradleProperty('createAdapterResourceOwnership').getOrElse('false')
     exclude '**/tests/hooks/**'
     def unknownHook = providers.gradleProperty('createAdapterUnverifiedHookControl').map { it.toBoolean() }.getOrElse(false)
     systemProperty 'forgia.create.testUnverifiedHook', unknownHook.toString()

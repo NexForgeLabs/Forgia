@@ -5967,8 +5967,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                 batch.markExecutingOnCurrentThread();
                 adapters = BlockEntityAdapterPhase.open(level, batch.execution());
                 // Publish this same phase before any arbitrary prepare callback: unload/shutdown must
-                // await preparation too. Preserve server prepare-once and the furnace prepare=0 path.
-                if (!furnaces && !this.shutdown && !this.regionizer.isLevelClosed(level)) ParallelAdapterRuntime.prepareBlockEntityTicks(level);
+                // await preparation too. Legacy adapter preparation still stays outside furnace waves;
+                // explicitly audited integrations use their own generic canonical preparation contract.
+                if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                    if (furnaces) ParallelAdapterRuntime.prepareAuditedBlockEntityTicks(level);
+                    else ParallelAdapterRuntime.prepareBlockEntityTicks(level, true);
+                }
                 graph = this.blockEntityWorkGraph.begin(level, chunks);
                 batch.setWorkGraph(graph);
                 final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
@@ -6044,7 +6048,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                             furnacePreparationNanos[0] += System.nanoTime() - started;
                             return new FurnaceInvocation(admission, inspection, candidate, claims);
                         }
-                        if (furnaces && admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED) return null;
+                        if (furnaces && admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
+                                && !AuditedBlockEntityPreparation.hasCandidate(admission))
+                            return null;
                         final var proof = NativeBlockEntityPreparation.prepare(admission);
                         if (proof == null) return null;
                         final var inspection = inspectNativeBlockEntity(admission);
@@ -6077,7 +6083,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                         final Set<RegionState> regions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
                         for (final var unit : prefix) {
                             final var nativeUnit = (NativeInvocation) unit;
-                            if (nativeUnit.proof().source() == ((NativeInvocation) next).proof().source()) return false;
+                            final var nextNative = (NativeInvocation) next;
+                            if (nativeUnit.proof().source() == nextNative.proof().source()
+                                    || nativeUnit.proof().conflictsWith(nextNative.proof()))
+                                return false;
                             regions.add(nativeUnit.region());
                         }
                         regions.add(((NativeInvocation) next).region());
@@ -6449,7 +6458,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
                             final boolean[] admitted = { false };
                             this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                                    batch.level(), region.coordinate(), region, null), () -> admitted[0] = ParallelAdapterRuntime.admitBlockEntityTick(admission, unit.inspection().descriptor()));
+                                    batch.level(), region.coordinate(), region, null), () -> admitted[0] = ParallelAdapterRuntime.admitBlockEntityTick(admission, unit.inspection().descriptor()) && unit.proof().fresh());
                             if (!admitted[0]) {
                                 gate.refuse(entry.offset());
                                 break;
@@ -7152,7 +7161,8 @@ public final class RegionThreadingEngine implements RegionThreading {
     RegionBlockEntityTickAdmission narrowCanonicalBlockEntity(RegionBlockEntityTickAdmission admission) {
         if (!admission.isAdmitted()
                 || this.furnaceWorkWavesEnabled && LevelChunk.furnaceWorkSource(admission.ticker()) != null
-                || NativeBlockEntityPreparation.prepare(admission) != null)
+                || NativeBlockEntityPreparation.prepareNative(admission) != null
+                || AuditedBlockEntityPreparation.hasCandidate(admission))
             return admission;
         return new RegionBlockEntityTickAdmission(admission.level(), admission.ticker(), admission.position(), admission.type(),
                 admission.binding(), RegionBlockEntityTickAdmission.Decision.TYPE_NOT_DECLARED, admission.sequence());

@@ -43,7 +43,8 @@ public final class ParallelApi {
         BLOCK_ENTITY_OPERATIONS,
         BLOCK_ENTITY_TICK_ADMISSION,
         SCHEDULED_TICK_DIAGNOSTICS,
-        GENERAL_BLOCK_ENTITY_ADAPTERS
+        GENERAL_BLOCK_ENTITY_ADAPTERS,
+        AUDITED_BLOCK_ENTITY_TICKS
     }
 
     /** Phase describes execution, not permission to mutate arbitrary objects. */
@@ -73,6 +74,11 @@ public final class ParallelApi {
 
         /** Per-instance native ticker admission diagnostics; registration does not enable any engine switch. */
         default List<BlockEntityTickAdapter.Status> blockEntityTickAdapters() {
+            return List.of();
+        }
+
+        /** Integrity diagnostics for explicitly audited original-tick adapters; not execution grants. */
+        default List<AuditedBlockEntityTickAdapter.Status> auditedBlockEntityTicks() {
             return List.of();
         }
 

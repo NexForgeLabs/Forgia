@@ -1,28 +1,42 @@
-# Forgia Create Adapter 0.1.0
+# Forgia Create Adapter 0.2.0
 
-实验性独立适配模组，限定 **Minecraft 1.21.1 + Create 6.0.10**，需要本次增加
-`BLOCK_ENTITY_TICK_ADMISSION` 的 Forgia 核心（构建版本 `21.1.250.52-beta`）。
-原 Create jar 保留；适配器通过公开注册 API 和四个只读 Mixin accessor 工作。
+中文 | [English](../../docs/adapters/create-adapter.en.md) · [中文完整文档](../../docs/adapters/create-adapter.zh.md) · [适配器指南](../../docs/adapters/README.zh.md)
 
-实现的是部分机器的**原始 tick 在原生 region worker 上执行**。第一版支持传动部件和磨石的稳定运行路径；
-没有宣称整个 Create、动力网络重建或工业产线已经并行，也没有已测得的整服加速倍数。
+> 本页是源码旁的简短说明；参数表、对比、失败语义与验证范围以双语文档为准。
 
-| 方块实体类型 | 可在 worker 上执行 | 必须完整串行的 tick |
+实验性独立适配模组，限定 **Minecraft 1.21.1 + Create 6.0.10**，需要提供
+`AUDITED_BLOCK_ENTITY_TICKS` 的 Forgia 核心（本轮构建 `21.1.250.107-beta`）。
+
+适配器通过公开的 [AuditedBlockEntityTickAdapter API](../../region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md)
+接入现有 canonical BE 阶段。**Create 的类、指纹、状态判断和资源足迹全部位于此 adapter；核心没有 Create 专用准入后端。**
+原 Create jar 保留，适配器不包含或替换上游实现，也不自行创建调度器/线程池。
+
+## 当前实际覆盖
+
+| 对象 | 当前 canonical Level 路径 | 完整串行边界 |
 |---|---|---|
-| `create:simple_kinetic`（轴、小/大齿轮） | 已初始化、网络未变、无需校验的原始 tick，包括原有 behaviour/lazy tick | 初始化、速度传播、网络 dirty、周期校验、旋转粒子发送、未知 behaviour |
+| `create:simple_kinetic`（轴、小/大齿轮） | 已初始化、无外部回调的本地原始 tick | 初始化、速度传播、network dirty、周期校验、粒子发布、未知 behaviour/实现 |
 | `create:encased_shaft`、`encased_cogwheel`、`encased_large_cogwheel`、`gearbox` | 同上 | 同上 |
-| `create:water_wheel`、`large_water_wheel` | 网络稳定且本 tick 无流量检查/动力源重激活时的原始 tick | 定期流量重算、网络和动力源更新 |
-| `create:millstone` | 同上，且空闲、停转、输出已满，或计时器扣减后仍大于 0 | 配方查找、设置加工时长、计时完成、消耗原料、随机产物与奖励、未知物品处理器 |
+| **`create:clutch`、`gearshift`** | **新增稳态原始 tick 支持** | 红石切换/源更新引起的拓扑分支，以及所有未闭合状态 |
+| `create:water_wheel`、`large_water_wheel`、`millstone` | 当前仍完整串行 | 这些类型保留历史 v1 明确驱动的检查/测试；尚未为当前 canonical 路径提交完整正文合同 |
+| 传送带、漏斗、工作盆、搅拌器、压块机、流体与存储网络 | 完整串行 | 共享库存/controller、配方、回调和外部写入者尚未闭合 |
+| 移动装置 Entity、Deployer USE/PUNCH、列车 | 完整串行 | 世界操作、碰撞、乘客、假玩家与全局管理器需要各自协议 |
 
-混合器、辊压机、传送带、溜槽、漏斗、分液池、储罐、流体网络、机械手、其它动力生成器、列车和移动结构仍走原有串行路径。
-第一版只放行完全由上述已审查成员组成的稳定动力网；连接其它 Create 机器/附属模组动力源时，关联的已支持机器也会回退。
-仅添加模组不会打开管理员关闭的核心开关。
+0.2.0 的关键变化是让第一批稳态类型进入**实际 `Level.tickBlockEntities` 路径**，而非仅增加 v1 名单。
+原始 tick、父类 tick、已审查 behaviour/lazy tick 都保留。类型兼容不等于整条工业产线已经并行，
+Worker 计数也不证明整服比串行更快。
+
+当前核心还保留 **一个 canonical BE 阶段超过 2048 项就整体串行** 的门槛。线上诊断曾收集约 5592 项，
+因此本版 adapter 不能单独让那种大阶段进入 Worker；需要后续通用有界窗口设计，不能只调高常量或按 chunk 绕过。
+本版测试明确区分小阶段正向路径和这个仍然存在的规模限制。
+
+本地闭合分支不读取动力网注册表，因此可与同网的其他串行机器共存；每个未知串行 fence 完整执行后，
+核心重新检查后缀。水车/磨石的历史明确驱动仍保留整网预检，不能用本地传动分支的结论扩大其权限。
 
 ## 安装与配置
 
-1. 停服后安装带上述能力的新 Forgia 核心。
-2. 将 `forgia-create-adapter-0.1.0.jar` 放进服务器 `mods/`，保留原 `create-1.21.1-6.0.10.jar`。
-3. 在实际生效的 `forgia.toml`（实例或世界 `serverconfig`）启用：
+将 `forgia-create-adapter-0.2.0.jar` 与原 `create-1.21.1-6.0.10.jar` 一起放入测试实例的 `mods/`。
+需使用提供上述新能力的 Forgia。适配器不打开任何管理员关闭的核心开关：
 
 ```toml
 enableRegionThreadingBridge = true
@@ -32,12 +46,29 @@ regionThreadingMode = "FIXED_3X3"
 regionThreadingFixedRegionChunks = 8
 ```
 
-已有 worker 数量可以继续使用。区域仍然使用核心的内部 chunk 准入规则：8×8 区域内，外沿一圈 chunk
-保留串行；对于满区域，内部是 6×6 chunk。不要为了本适配器把 Create 类型加入
-`admit_block_entities`；适配器自身注册候选类型并逐次检查，服务器的显式串行声明仍优先。
+沿用核心原有 interior 规则、预算、显式串行声明与兼容限制。8×8 区域的外沿一圈 chunk 仍保留串行。
+不需要把 Create 类型加入 `admit_block_entities`。本接口不依赖 optional runtime-proof/VM agent；
+它是显式安装已审核 adapter 的合同，不能与其他运行时证明后端的验收范围混淆。
 
-核心仍采用保守的整 chunk 准入：同一 chunk 存在未准入的其它机器时，该 chunk 整体串行。
-逐实例状态检查在真正调用 ticker 前执行，因此缓存不会把昨天的安全状态误当作今天的准入。
+所有默认开关保持原值。安装包、整包和线上升级均应按各自的验证流程完成；本地单元测试不代表线上已认证。
+
+## API 与执行边界
+
+`CreateTickAdmission` 实现公开的 `AuditedBlockEntityTickAdapter`，继续通过
+`ParallelApi.Registrar.registerBlockEntityTicks` 注册：
+
+- `audit()`：声明固定版本实现、精确 source/function 类、指纹和已审核 Mixin 来源，在服务器注册时冻结。
+- `prepareCanonical()`：当前本地传动分支不需要整网扫描；不保留 live Level 或整网许可。
+- `inspect(source, actualTickerClass)`：检查完整当前分支并列出 source、effect、behaviour 等真实 backing-root 的 READ/WRITE 身份。
+- `check(source)`：原 v1 逐次拒绝门继续存在；成功后才可能运行原始 ticker，成功返回才计 completion。
+
+核心只使用通用接口统一校验实现完整性、实际 wrapper/source/function/frame、生命周期、资源别名与新鲜状态。
+它复用原 canonical Native prefix、Ticket、region ownership、physical join、完整 serial fence 和有序效果提交。
+未知 callback 不会被拆掉；已开始的正文异常不在主线程重放。
+
+实现指纹不能自动证明语义安全。完整分支、回调闭包、资源完整性和外部异步写入者控制由 adapter 的审计承担；
+Java API 不是 sandbox。当前仍检查整个既有 Create 审计集合，任何未审核变换可能使本适配器保守地全部回退。
+exact class 阻止未知子类继承合同，动态添加未知 behaviour 会在下一次调用前拒绝。
 
 ## 诊断
 
@@ -46,91 +77,82 @@ regionThreadingFixedRegionChunks = 8
 /neoforge regionthreading status raw
 ```
 
-`compat` 新增类似输出：
+兼容诊断增加：
 
 ```text
-Block entity tick adapter forgia_create:steady_ticks: types=[...], checks=..., refused=..., nativeCompleted=..., checkMs=..., reasons={...}
+Audited original-tick adapter forgia_create:steady_ticks:
+  implementationsVerified=true, reason=VERIFIED_IMPLEMENTATIONS, audit=..., revision=...
+Block entity tick adapter forgia_create:steady_ticks:
+  checks=..., refused=..., nativeCompleted=..., prepareMs=..., checkMs=..., reasons={...}
 ```
 
-- `prepareMs`：整网预检的累计主线程耗时。
-- `checks`：实际进入逐次 predicate 的次数。
-- `nativeCompleted`：原生 worker 上成功返回的 ticker 调用；不把任务提交或主线程回退当作完成。
-- `refused`/`reasons`：在 body 开始前决定回到主线程的调用。
-- `TOPOLOGY_CHANGE`：附着/速度更新、network dirty 或周期校验。
-- `CALLBACK_REQUIRED`：加工、配方或粒子发布边界。
-- `UNKNOWN_CLASS`、`UNKNOWN_BEHAVIOUR`、`SHARED_RESOURCE`：实例或行为超出已审查范围。
-- `UNVERIFIED_TRANSFORMATIONS`：原始类 SHA-256 或已合并 Mixin 来源不受支持。
+`implementationsVerified` 只描述冻结实现的完整性，不能代替当前分支检查或成功完成。
+`nativeCompleted` 才是 worker 上成功返回的原始 ticker 调用；提交、回退和类名单不计作完成。
+使用同一窗口的增量配合全 tick MSPT/CPU/分配观察，不能从累计次数推导加速倍数。
 
-计数是累计次数，不能当作 CPU 时间，也不能用 worker 占比推导加速倍数。应记录同一测量窗口的增量
-和完整 MSPT（包括准备、准入、屏障及回退），在同一初始世界、相同配置与预热下比较开关。
-简单传动部件的 tick 很轻，调度/检查成本可能大于收益；第一版更适合验证并行路径和缩小后续热点范围。
+## 本地构建与测试
 
-## 并发与行为合同
-
-每批开始前在静止的服务器线程检查动力注册表：整网成员、加载/实例身份、未知类/behaviour、校验与网络脏标记、
-水车流量回调、源重激活和共享库存均影响整网准入。存在尚未加载的网络成员时也回退。
-检查有 4096 个网络/65536 个成员的上限；超限保留串行。worker 只读取不可变网络 id 集和自己的实例字段，
-不会并发遍历或更改 Create 的 `HashMap` 动力注册表。
-
-原始 `SmartBlockEntity.tick`、`KineticBlockEntity.tick`、磨石 tick 不被取消、替写或拆掉部分回调。
-准入器仅读当前 owner 的字段，不碰 live 动力网络或外部库存。周期校验/拓扑/加工边界保留整次原调用，
-并在所有本批 worker 结束后的服务器阶段执行一次。已经开始并抛出异常的 body 不做串行重试。
-
-exact class 检查阻止未经审查的子类继承许可；behaviour 检查每次执行，动态添加的未知 behaviour 即时回退。
-被查阅的原始 Create 类使用固定 SHA-256，并检查已经合并到这些类及 `ItemStackHandler` 的 Mixin 来源。
-未知变换不自动放行。该检查不能自动认证任意 ASM/coremod、异步能力访问或会替换公共字段/共享库存的附属模组。
-原始 jar 与真实整合包需要分别验证，整合包新增 Mixin 可能使这些类型全部回退。
-
-跨 region 双方块实体操作 API 的完成阶段仍是串行；本实现没有把它伪装成并行机器。
-
-## 重复真实服务器验证
-
-仓库提供 `tools/server_smoke.py`。它复制已安装服务器的 libraries 作为缓存，在新的私有目录安装当前核心，
-只装 Create 与适配器，创建两个真实水车装置并检查实际加工、worker 完成、安全计数和正常退出。
-不会覆盖已有目录或修改作为输入的世界/模组；必须提供已经接受的 `eula.txt`。
-
-```sh
-python3 adapters/create/tools/server_smoke.py \
-  --run-dir /absolute/path/to/new-create-smoke \
-  --libraries /absolute/path/to/existing-server/libraries \
-  --create-jar /absolute/path/to/create-1.21.1-6.0.10.jar \
-  --eula /absolute/path/to/existing-server/eula.txt \
-  --java /absolute/path/to/jdk-21/bin/java
-```
-
-这是功能验证，不测定加速倍数。产物与详细结果见 [验证记录](../../region-threading/CREATE-ADAPTER-VALIDATION.md)。
-
-## 从仓库构建
-
-使用 JDK 21，从仓库根目录执行。原 jar 仅由开发者本地提供，不提交、不打包：
+使用 JDK 21，在仓库根目录运行。原 jar 只由本地提供，不提交或打包：
 
 ```sh
 ./gradlew --offline --no-configuration-cache \
-  -PforgiaVersion=21.1.250.52-beta \
+  -PforgiaVersion=21.1.250.107-beta \
   -PcreateJar=/absolute/path/create-1.21.1-6.0.10.jar \
   :create-adapter:jar :neoforge:parallelApiJar :neoforge:installerJar
 
 ./gradlew --offline --no-configuration-cache \
-  -PforgiaVersion=21.1.250.52-beta \
+  -PforgiaVersion=21.1.250.107-beta \
   -PcreateJar=/absolute/path/create-1.21.1-6.0.10.jar \
   :create-adapter:junitTest
-```
 
-另用独立 JVM 注入未知 Mixin 的对照：
-
-```sh
+# 同一原始正文测试选择 persistent pool：
 ./gradlew --offline --no-configuration-cache \
-  -PforgiaVersion=21.1.250.52-beta \
+  -PforgiaVersion=21.1.250.107-beta \
+  -PcreateJar=/absolute/path/create-1.21.1-6.0.10.jar \
+  -PcreateAdapterPersistentWorkers=true :create-adapter:junitTest
+
+# 验证 canonical Create 与 Furnace/Resource 开关组合（保留原预算）：
+./gradlew --offline --no-configuration-cache \
+  -PforgiaVersion=21.1.250.107-beta \
+  -PcreateJar=/absolute/path/create-1.21.1-6.0.10.jar \
+  -PcreateAdapterPersistentWorkers=true -PcreateAdapterFurnaceWaves=true \
+  -PcreateAdapterResourceOwnership=true \
+  :create-adapter:junitTest --tests '*CreateCanonicalIntegrationTest'
+
+# 独立 JVM，注入未知 Mixin，必须观察到完整串行回退：
+./gradlew --offline --no-configuration-cache \
+  -PforgiaVersion=21.1.250.107-beta \
   -PcreateJar=/absolute/path/create-1.21.1-6.0.10.jar \
   -PcreateAdapterUnverifiedHookControl=true :create-adapter:junitTest
 ```
 
-该测试必须观察到实际原始机器完整串行和 `UNVERIFIED_TRANSFORMATIONS`，之后重新运行普通测试恢复报告。
+未提供原 Create jar 时编译/打包/真实 jar 测试明确跳过，不将其计为通过。
+产物为 `adapters/create/build/libs/forgia-create-adapter-0.2.0.jar`。
 
-产物在 `adapters/create/build/libs/forgia-create-adapter-0.1.0.jar`。
-未提供 Create jar 时编译、打包和真实 jar 测试明确跳过，不发布一个缺少类的空适配器。
-发布 jar 只应包含适配器、accessor 和元数据；不包含上游实现、测试类、Minecraft/NeoForge 或 API 副本。
+新增 canonical 测试使用真实变换 Create 类、原始 SmartBlockEntityTicker、Core wrapper 和实际 Level 循环，
+证明不同 region 的离合器与动力转向器原始正文同时执行，并检查回调边界重新准入、未知 behaviour/子类/函数、
+serial fence 后缀重审与原始调用次数。世界/chunk 服务仍有测试替身，不能据此宣称整包多人或吞吐量验收。
 
-测试使用真实已变换的 Create 方块实体、真实 Minecraft bound ticker 和真实 Forgia worker batch；世界、chunk
-服务是测试替身。覆盖两个 region 同时执行、计时轨迹对照、完整原配方调用、库存/RNG、缓存重用、未知行为/子类、
-身份替换和异常不重放。它们不等价于多人长期运行、真实整包产线吞吐量或完整存档往返验收。
+独立的核心示例 adapter 不依赖 Create，验证同一 API 的并行、READ/WRITE 冲突、失效与注册事务；
+架构测试限制通用核心组件引入目标模组依赖。
+
+## 私有真实服务器 smoke
+
+`tools/server_smoke.py` 在新目录复制只读输入 libraries，安装当前核心，仅加载原 Create 与 adapter，
+检查两个水车／齿轮箱／磨石装置的产物、当前通用审计完整性和真实 worker completion。
+不得指向生产实例目录。需要已经接受的 EULA：
+
+```sh
+python3 adapters/create/tools/server_smoke.py \
+  --run-dir /absolute/new/private-create-smoke \
+  --libraries /absolute/existing-server/libraries \
+  --create-jar /absolute/path/create-1.21.1-6.0.10.jar \
+  --eula /absolute/existing-server/eula.txt \
+  --java /absolute/jdk21/bin/java
+```
+
+这里只检查功能和调用路径；整体产出由原加工串行完成，不能用传动 worker 完成数声称磨石加工已并行。
+
+完整优化路线与本轮结果见 [优化方案](../../region-threading/CREATE-OPTIMIZATION-PLAN.md)。
+历史 0.1.0 的独立明确驱动验证保留在 [原验证记录](../../region-threading/CREATE-ADAPTER-VALIDATION.md)，
+不能将那些旧数据写成 0.2.0 canonical 或当前整合包的性能结果。

@@ -15,9 +15,14 @@ import com.simibubi.create.content.kinetics.gearbox.GearboxBlockEntity;
 import com.simibubi.create.content.kinetics.millstone.MillstoneBlockEntity;
 import com.simibubi.create.content.kinetics.simpleRelays.BracketedKineticBlockEntity;
 import com.simibubi.create.content.kinetics.simpleRelays.SimpleKineticBlockEntity;
+import com.simibubi.create.content.kinetics.transmission.ClutchBlockEntity;
+import com.simibubi.create.content.kinetics.transmission.GearshiftBlockEntity;
 import com.simibubi.create.content.kinetics.waterwheel.LargeWaterWheelBlockEntity;
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity;
 import com.simibubi.create.foundation.advancement.AdvancementBehaviour;
+import com.simibubi.create.foundation.blockEntity.SmartBlockEntityTicker;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Objects;
@@ -34,24 +39,27 @@ import net.neoforged.forgia.compat.create.mixin.KineticEffectHandlerAccessor;
 import net.neoforged.forgia.compat.create.mixin.SmartBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.TorquePropagatorAccessor;
 import net.neoforged.neoforge.items.ItemStackHandler;
-import net.neoforged.neoforge.server.threading.api.BlockEntityTickAdapter;
+import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter;
 import org.jetbrains.annotations.Nullable;
 
 /** Original ticks only. Network inspection is quiescent; workers read their instance and frozen ids only. */
-public final class CreateTickAdmission implements BlockEntityTickAdapter {
+public final class CreateTickAdmission implements AuditedBlockEntityTickAdapter {
     public static final ResourceLocation ID = ResourceLocation.parse("forgia_create:steady_ticks");
     public static final Set<ResourceLocation> TYPES = Set.of(
             type("simple_kinetic"), type("encased_shaft"), type("encased_cogwheel"),
             type("encased_large_cogwheel"), type("gearbox"), type("millstone"),
-            type("water_wheel"), type("large_water_wheel"));
+            type("water_wheel"), type("large_water_wheel"), type("clutch"), type("gearshift"));
+    private static final Set<Class<?>> LOCAL_BODIES = Set.of(KineticBlockEntity.class, SimpleKineticBlockEntity.class,
+            BracketedKineticBlockEntity.class, GearboxBlockEntity.class, ClutchBlockEntity.class, GearshiftBlockEntity.class);
     private static final Set<Class<?>> CLASSES = Set.of(KineticBlockEntity.class, SimpleKineticBlockEntity.class,
             BracketedKineticBlockEntity.class, GearboxBlockEntity.class, MillstoneBlockEntity.class,
-            WaterWheelBlockEntity.class, LargeWaterWheelBlockEntity.class);
+            WaterWheelBlockEntity.class, LargeWaterWheelBlockEntity.class, ClutchBlockEntity.class, GearshiftBlockEntity.class);
     private static final Set<Class<?>> BEHAVIOURS = Set.of(BracketedBlockEntityBehaviour.class,
             DirectBeltInputBehaviour.class, AdvancementBehaviour.class);
     private static final int MAX_NETWORKS = 4096;
     private static final int MAX_MEMBERS = 65536;
     private final boolean verified;
+    private volatile boolean canonicalPreparation;
     @Nullable
     private volatile Prepared prepared;
 
@@ -71,6 +79,7 @@ public final class CreateTickAdmission implements BlockEntityTickAdapter {
 
     @Override
     public void prepare(ServerLevel level) {
+        this.canonicalPreparation = false;
         this.prepared = null;
         if (!this.verified) return;
         final var networks = TorquePropagatorAccessor.forgia$networks().get(level);
@@ -122,12 +131,51 @@ public final class CreateTickAdmission implements BlockEntityTickAdapter {
     }
 
     @Override
+    public Audit audit() {
+        return CreateAudit.nativeAudit(LOCAL_BODIES);
+    }
+
+    @Override
+    @Nullable
+    public Proof inspect(BlockEntity blockEntity, Class<?> tickerImplementation) {
+        if (!this.verified || blockEntity == null || !LOCAL_BODIES.contains(blockEntity.getClass())
+                || tickerImplementation != SmartBlockEntityTicker.class || blockEntity.hasAttachments())
+            return null;
+        final var kinetic = (KineticBlockEntity) blockEntity;
+        final var behaviours = ((SmartBlockEntityAccessor) kinetic).forgia$behaviours();
+        if (behaviours == null || behaviours.getClass() != Reference2ObjectArrayMap.class || topology(kinetic) != Decision.ADMITTED)
+            return null;
+        final var storage = new ArrayList<Storage>();
+        storage.add(new Storage(kinetic, Access.WRITE));
+        storage.add(new Storage(behaviours, Access.READ));
+        storage.add(new Storage(((KineticBlockEntityAccessor) kinetic).forgia$effects(), Access.WRITE));
+        for (final var behaviour : behaviours.values()) {
+            // These exact behaviours inherit only the local scalar lazy-counter branch. Other
+            // behaviours may retain legacy admission but cannot inherit this stronger contract.
+            if (behaviour.getClass() != BracketedBlockEntityBehaviour.class && behaviour.getClass() != AdvancementBehaviour.class)
+                return null;
+            storage.add(new Storage(behaviour, Access.WRITE));
+        }
+        return new Proof(storage);
+    }
+
+    @Override
+    public void prepareCanonical(ServerLevel level) {
+        this.canonicalPreparation = true;
+        // Only LOCAL_BODIES currently return an audited proof. Their closed branch never
+        // dereferences a kinetic network, so no world-wide network snapshot is needed or retained.
+        // Millstone/water-wheel admission stays in the historical explicit driver.
+        this.prepared = null;
+    }
+
+    @Override
     public Decision check(BlockEntity blockEntity) {
         if (!this.verified) return Decision.UNVERIFIED_TRANSFORMATIONS;
         if (blockEntity == null || !CLASSES.contains(blockEntity.getClass())) return Decision.UNKNOWN_CLASS;
         final KineticBlockEntity kinetic = (KineticBlockEntity) blockEntity;
         final Decision local = topology(kinetic);
         if (local != Decision.ADMITTED) return local;
+        if (this.canonicalPreparation && LOCAL_BODIES.contains(kinetic.getClass())) return Decision.ADMITTED;
         if (kinetic.network != null) {
             final Prepared snapshot = this.prepared;
             if (snapshot == null || !snapshot.dimension().equals(kinetic.getLevel().dimension())
@@ -156,7 +204,9 @@ public final class CreateTickAdmission implements BlockEntityTickAdapter {
                 || ((KineticEffectHandlerAccessor) effects).forgia$owner() != kinetic)
             return Decision.SHARED_RESOURCE;
         if (((KineticEffectHandlerAccessor) effects).forgia$particleCountdown() == 1) return Decision.CALLBACK_REQUIRED;
-        for (final var behaviour : kinetic.getAllBehaviours()) {
+        final var behaviours = ((SmartBlockEntityAccessor) kinetic).forgia$behaviours();
+        if (behaviours == null || behaviours.getClass() != Reference2ObjectArrayMap.class) return Decision.UNKNOWN_BEHAVIOUR;
+        for (final var behaviour : behaviours.values()) {
             if (!BEHAVIOURS.contains(behaviour.getClass()) || behaviour.blockEntity != kinetic) return Decision.UNKNOWN_BEHAVIOUR;
         }
         if (kinetic instanceof MillstoneBlockEntity millstone && !plainInventories(millstone)) return Decision.SHARED_RESOURCE;

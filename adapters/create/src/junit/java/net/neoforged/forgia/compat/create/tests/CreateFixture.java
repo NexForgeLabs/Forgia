@@ -11,6 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,11 +21,14 @@ import com.simibubi.create.content.kinetics.KineticNetwork;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.millstone.MillstoneBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
+import com.simibubi.create.foundation.blockEntity.SmartBlockEntityTicker;
+import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import net.minecraft.core.BlockPos;
@@ -77,8 +81,11 @@ final class CreateFixture implements AutoCloseable {
     }
 
     CreateFixture(int regionChunks) {
-        this.engine = new RegionThreadingEngine(2, false, false, false, true, false, false,
+        this.engine = new RegionThreadingEngine(2, false, false, false, true, false, false, false,
+                Boolean.getBoolean("forgia.create.persistentWorkers"), false,
                 RegionLayout.fixed(regionChunks), RegionEntityStorageMode.MAIN_THREAD_ONLY);
+        this.engine.setFurnaceWorkWavesEnabledForTesting(Boolean.getBoolean("forgia.create.furnaceWaves"));
+        this.engine.setBlockEntityResourcesEnabledForTesting(Boolean.getBoolean("forgia.create.resourceOwnership"));
         when(this.server.isSameThread()).thenAnswer(call -> Thread.currentThread() == this.main);
         when(this.level.getServer()).thenReturn(this.server);
         when(this.level.dimension()).thenReturn(Level.OVERWORLD);
@@ -102,9 +109,78 @@ final class CreateFixture implements AutoCloseable {
             final BlockEntity be = this.level.getBlockEntity(call.getArgument(0));
             return be == null ? Blocks.AIR.defaultBlockState() : be.getBlockState();
         });
+        this.initializeLevelLoop();
         TorquePropagatorAccessor.forgia$networks().put(this.level, new HashMap<>());
         RegionThreadingManager.install(this.engine);
         ParallelAdapterRuntime.initialize(this.server, registrar -> NeoForge.EVENT_BUS.post(new RegisterParallelAdaptersEvent(this.server, registrar)));
+    }
+
+    private void initializeLevelLoop() {
+        set(Level.class, this.level, "blockEntityTickerLock", new Object());
+        for (final String name : List.of("blockEntityTickers", "pendingBlockEntityTickers", "foreignBlockEntityTickers", "freshBlockEntities", "pendingFreshBlockEntities")) {
+            set(Level.class, this.level, name, new ArrayList<>());
+        }
+        set(Level.class, this.level, "blockEntityTickerChunks", new Long2ObjectLinkedOpenHashMap<LevelChunk>());
+        set(Level.class, this.level, "blockEntityTickerSequence", new AtomicLong());
+        doCallRealMethod().when(this.level).addBlockEntityTicker(any());
+        doCallRealMethod().when(this.level).addFreshBlockEntities(any());
+        doCallRealMethod().when(this.level).registerBlockEntityTickerChunk(any());
+        doCallRealMethod().when(this.level).unregisterBlockEntityTickerChunk(any());
+        doCallRealMethod().when(this.level).collectBlockEntityTickerChunks(any());
+        doCallRealMethod().when(this.level).collectForeignBlockEntityTickers(any());
+        doCallRealMethod().when(this.level).snapshotBlockEntityTickers();
+        doCallRealMethod().when(this.level).removeCollectedBlockEntityTickers(any());
+        doCallRealMethod().when(this.level).nextBlockEntityTickerSequence();
+        doCallRealMethod().when(this.level).markBlockEntityTickerRemoved();
+        final var source = this.level.getChunkSource();
+        doAnswer(call -> {
+            BARRIER.await(call.getArgument(0));
+            return null;
+        }).when(source).managedBlockOnMainThread(any());
+        try {
+            final var tick = Level.class.getDeclaredMethod("tickBlockEntities");
+            tick.setAccessible(true);
+            tick.invoke(doCallRealMethod().when(this.level));
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    TickingBlockEntity originalCreateTicker(BlockEntity be) {
+        return this.canonicalTicker(be, new SmartBlockEntityTicker<>());
+    }
+
+    TickingBlockEntity canonicalTicker(BlockEntity be, BlockEntityTicker<?> function) {
+        final LevelChunk chunk = this.attach(be);
+        try {
+            final var factory = LevelChunk.class.getDeclaredMethod("createTicker", BlockEntity.class, BlockEntityTicker.class);
+            factory.setAccessible(true);
+            final var delegate = (TickingBlockEntity) factory.invoke(chunk, be, function);
+            final var wrapperType = Class.forName("net.minecraft.world.level.chunk.LevelChunk$RebindableTickingBlockEntityWrapper");
+            final var constructor = wrapperType.getDeclaredConstructor(LevelChunk.class, TickingBlockEntity.class);
+            constructor.setAccessible(true);
+            final var wrapper = (TickingBlockEntity) constructor.newInstance(chunk, delegate);
+            this.tickers.get(ChunkPos.asLong(be.getBlockPos())).add(wrapper);
+            this.level.addBlockEntityTicker(wrapper);
+            this.level.registerBlockEntityTickerChunk(chunk);
+            return wrapper;
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    void canonicalTick() {
+        try {
+            final var tick = Level.class.getDeclaredMethod("tickBlockEntities");
+            tick.setAccessible(true);
+            tick.invoke(this.level);
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            if (failure.getCause() instanceof RuntimeException runtime) throw runtime;
+            if (failure.getCause() instanceof Error error) throw error;
+            throw new AssertionError(failure.getCause());
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
     }
 
     MillstoneBlockEntity millstone(BlockPos pos, int timer, float speed) {

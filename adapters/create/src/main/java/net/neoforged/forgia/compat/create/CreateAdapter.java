@@ -21,11 +21,11 @@ public final class CreateAdapter {
     }
 
     private static void register(RegisterParallelAdaptersEvent event) {
-        if (!event.registrar().capabilities().contains(ParallelApi.Capability.BLOCK_ENTITY_TICK_ADMISSION)) {
-            throw new IllegalStateException("Forgia Create requires the BLOCK_ENTITY_TICK_ADMISSION capability");
+        if (!event.registrar().capabilities().contains(ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS)) {
+            throw new IllegalStateException("Forgia Create requires the AUDITED_BLOCK_ENTITY_TICKS capability");
         }
         event.registrar().registerBlockEntityTicks(ParallelApi.MAJOR_VERSION, CreateTickAdmission.ID,
                 CreateTickAdmission.TYPES, new CreateTickAdmission());
-        LogUtils.getLogger().info("Forgia Create registered steady tick admission; topology, recipe and unknown behaviour callbacks retain full serial ticks");
+        LogUtils.getLogger().info("Forgia Create registered audited original kinetic ticks; initialization, topology, recipe and unknown behaviour callbacks retain full serial ticks");
     }
 }

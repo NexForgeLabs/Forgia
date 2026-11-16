@@ -55,7 +55,9 @@ build
 
 **/out/
 
-docs/
+# local scratch: profiler/benchmark scratch dirs, agent task notes, game-test run output
+tmp/
+.pi/
 
 # local run artifacts
 nohup.out

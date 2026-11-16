@@ -1,5 +1,9 @@
 # Forgia MobSpawnController Adapter
 
+中文 | [English](../../docs/adapters/mobspawncontroller-adapter.en.md) · [中文完整文档](../../docs/adapters/mobspawncontroller-adapter.zh.md) · [适配器指南](../../docs/adapters/README.zh.md)
+
+> 本页是源码旁的简短说明；参数表、对比、失败语义与验证范围以双语文档为准。
+
 版本：`0.3.0`，实验性，限定 Minecraft 1.21.1 + MobSpawnController **1.2.3**。
 需要本源码的 Forgia 核心（包含 ordered spawn finalization 协议）；不能单独装到原版 NeoForge 或缺少该协议的旧 Forgia。
 

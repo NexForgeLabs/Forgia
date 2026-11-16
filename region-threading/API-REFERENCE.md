@@ -103,6 +103,7 @@ boolean regionThreadingInstalled();
 ParallelApi.Phase currentPhase();
 List<ParallelApi.AdapterStatus> adapters();
 List<BlockEntityTickAdapter.Status> blockEntityTickAdapters();
+List<AuditedBlockEntityTickAdapter.Status> auditedBlockEntityTicks();
 List<BlockEntityAdapters.Status> blockEntityAdapters();
 Optional<BlockEntityAdapters.PhaseSummary> lastBlockEntityAdapterPhase();
 BlockEntityOperations blockEntities();
@@ -117,6 +118,7 @@ List<ScheduledTickStatus> scheduledTicks();
 | `currentPhase()` | 当前调用线程的执行阶段；不能作为所有权通行证 |
 | `adapters()` | 自然刷怪 preparation 注册者及累计结果 |
 | `blockEntityTickAdapters()` | BE 适配器类型集合、准备／检查耗时、逐次拒绝原因和实际 worker 完成数；接口默认实现为空列表 |
+| `auditedBlockEntityTicks()` | 冻结实现审计的出处/revision、完整性与拒绝原因，默认空列表；不等于本次准入或完成 |
 | `blockEntityAdapters()` | C5的不可变描述/状态/检查/串行请求/异常/拒绝诊断，默认空列表；无Worker认证含义 |
 | `lastBlockEntityAdapterPhase()` | 最近关闭的C5会话及纯声明依赖waves，默认Optional.empty；不是完整Level执行plan |
 | `blockEntities()` | 完整 BE 操作服务；先检查对应 capability。接口默认实现可抛 `UnsupportedOperationException` |
@@ -134,6 +136,7 @@ List<ScheduledTickStatus> scheduledTicks();
 | `BLOCK_ENTITY_TICK_ADMISSION` | 受审计 BE 原生 tick 的静止准备和逐次准入检查 |
 | `BLOCK_ENTITY_OPERATIONS` | 完整双 owner BE 操作和容器搬运 |
 | `GENERAL_BLOCK_ENTITY_ADAPTERS` | C5通用/Dedicated保守申请、资源/依赖校验及注册生命周期，当前全serial |
+| `AUDITED_BLOCK_ENTITY_TICKS` | 显式受信任 adapter 的完整原 ticker 分支审计、READ/WRITE 足迹及 canonical region-owner 执行；见[接口合同](AUDITED-BLOCK-ENTITY-TICK-API.md) |
 | `SCHEDULED_TICK_DIAGNOSTICS` | scheduled tick 阶段计数／耗时查询 |
 
 ### 3.4 Phase 全部枚举值
@@ -276,6 +279,14 @@ public interface BlockEntityTickAdapter {
 `prepare` 在非空 BE 阶段开始前，于静止服务器线程执行；只能检查已加载资源并发布本批次脱离 live 世界的只读元数据。`check` 在 region 所有权下、对应原生 ticker 开始前逐次执行，只读传入实例拥有的字段和不可变元数据。不得加载 chunk、读取外部可变对象、调用任意回调、消费 RNG 或产生副作用；准入结论不缓存。普通类型／内部 chunk 规则和整 chunk 回退仍然适用。
 
 返回 `ADMITTED` 承诺完整继承 tick、behaviour、lazy tick 和第三方变换都满足这次所有权；注册是适配器作者的合同。其他结果在副作用之前选择完整串行 tick；检查异常是失败，不能触发部分正文重跑。`workerCompletions` 只计原生 worker 上成功返回的正文，任务拒绝或服务器串行不计入。
+
+实际 canonical Level 路径不会把旧 predicate 自动当成完整正文合同。新增的 `AuditedBlockEntityTickAdapter`
+继承这个接口，增加 `audit()`、`prepareCanonical(ServerLevel)` 和 `inspect(BlockEntity, Class<?>)`，通过同一
+registrar 注册并协商 `AUDITED_BLOCK_ENTITY_TICKS`。`Audit` 提供 exact source/function 与实现指纹/Mixin metadata；
+`Proof` 提供 backing-root 的 `Storage(identity, Access.READ/WRITE)`。所有 Mod 专属条件留在 adapter；核心做
+模组无关的实现/绑定/生命周期/足迹和跨 owner 冲突校验，复用原 canonical Native prefix、Ticket/Permit 与 physical join。
+这是显式安装已审核 adapter 的信任合同，指纹不自动证明语义安全。完整字段、线程/生命周期/失败语义及示例见
+[Audited original tick API](AUDITED-BLOCK-ENTITY-TICK-API.md)。旧 C5 API 的全 serial 语义保持不变。
 
 每个 id 最多注册 128 个 type，不能与其他 BE 注册重复。BE 与刷怪适配器共用总数 128 和唯一 id 空间；失败会使整次注册无效。诊断 reason 使用固定枚举，不得按坐标或网络创建无界标签。实例不能被保留作为以后修改的权限。参考 [Create 适配器](../adapters/create/README.md) 和[接口指南](MOD-PARALLEL-API.md#原生方块实体逐次准入)。
 
@@ -851,6 +862,7 @@ worker dispatch 行新增 `dispatchBatches`、`batchedTasks`、`batchRunners`、
 | 顶层类型 | 源码 |
 |---|---|
 | ParallelApi | [ParallelApi.java](../src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java) |
+| AuditedBlockEntityTickAdapter | [AuditedBlockEntityTickAdapter.java](../src/main/java/net/neoforged/neoforge/server/threading/api/AuditedBlockEntityTickAdapter.java) |
 | BlockEntityTickAdapter | [BlockEntityTickAdapter.java](../src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityTickAdapter.java) |
 | BlockEntityAdapter | [BlockEntityAdapter.java](../src/main/java/net/neoforged/neoforge/server/threading/api/adapter/BlockEntityAdapter.java) |
 | BlockEntityAdapters | [BlockEntityAdapters.java](../src/main/java/net/neoforged/neoforge/server/threading/api/adapter/BlockEntityAdapters.java) |

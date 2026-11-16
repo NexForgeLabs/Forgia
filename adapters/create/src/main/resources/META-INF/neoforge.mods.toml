@@ -4,9 +4,9 @@ license="LGPL-2.1-only"
 
 [[mods]]
 modId="forgia_create"
-version="0.1.0"
+version="0.2.0"
 displayName="Forgia Create Adapter"
-description='''Experimental native block-entity tick admission for Create 6.0.10. Audited steady kinetic, water-wheel and millstone ticks use Forgia region workers after a complete stable-network preflight. Initialization, topology changes, unknown behaviours and processing callbacks retain the complete original server tick. Requires Forgia BLOCK_ENTITY_TICK_ADMISSION.'''
+description='''Experimental audited original-ticker integration for Create 6.0.10 through Forgia's public API. Stable transmission parts, clutches and gearshifts can use the canonical worker path. Initialization, topology, unknown behaviours and processing callbacks retain the complete original server tick. Requires AUDITED_BLOCK_ENTITY_TICKS; no mod-specific Core backend.'''
 
 [[mixins]]
 config="forgia_create.mixins.json"
@@ -14,7 +14,7 @@ config="forgia_create.mixins.json"
 [[dependencies.forgia_create]]
 modId="neoforge"
 type="required"
-versionRange="[21.1.250.52-beta,)"
+versionRange="[21.1.250.107-beta,)"
 ordering="AFTER"
 side="BOTH"
 

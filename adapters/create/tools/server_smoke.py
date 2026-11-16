@@ -15,7 +15,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / 'tools/modpack-matrix'))
 from rcon import Rcon, RconError
 
-VERSION = '21.1.250.52-beta'
+VERSION = '21.1.250.107-beta'
 
 
 def arguments():
@@ -24,9 +24,9 @@ def arguments():
     parser.add_argument('--libraries', type=Path, required=True, help='Existing installed server libraries copied privately as installer cache')
     parser.add_argument('--create-jar', type=Path, required=True, help='Original Create 1.21.1 6.0.10 jar')
     parser.add_argument('--eula', type=Path, required=True, help='Existing eula.txt with eula=true; copied into the private instance')
-    parser.add_argument('--java', type=Path, default=Path('/home/yc/.local/opt/jdk-21.0.13+9/bin/java'))
+    parser.add_argument('--java', type=Path, default=Path('/home/yc/.jdks/jdk-21.0.12.1+1/bin/java'))
     parser.add_argument('--installer', type=Path, default=REPO / f'projects/neoforge/build/libs/neoforge-{VERSION}-installer.jar')
-    parser.add_argument('--adapter', type=Path, default=REPO / 'adapters/create/build/libs/forgia-create-adapter-0.1.0.jar')
+    parser.add_argument('--adapter', type=Path, default=REPO / 'adapters/create/build/libs/forgia-create-adapter-0.2.0.jar')
     return parser.parse_args()
 
 
@@ -146,6 +146,9 @@ rcon.password={password}
         raw = command('neoforge regionthreading status raw')
         (root / 'compat-after.txt').write_text(after)
         (root / 'diagnostics.raw.txt').write_text(raw)
+        integrity = re.search(r'Audited original-tick adapter forgia_create:steady_ticks: implementationsVerified=true', after)
+        if not integrity:
+            raise AssertionError('generic API did not verify the installed adapter implementations')
         completed = re.search(r'nativeCompleted=(\d+).*?checkMs=', after)
         if not completed or int(completed.group(1)) == 0:
             raise AssertionError('adapter has no real native completed bodies')

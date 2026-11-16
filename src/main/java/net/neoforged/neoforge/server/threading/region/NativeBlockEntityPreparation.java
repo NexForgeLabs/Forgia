@@ -71,6 +71,12 @@ public final class NativeBlockEntityPreparation {
     /** No inventory, provider, loot, entity, neighbor, RNG, or operation callback is entered in this branch. */
     @Nullable
     static Candidate prepare(RegionBlockEntityTickAdmission admission) {
+        final var nativeProof = prepareNative(admission);
+        return nativeProof != null ? nativeProof : AuditedBlockEntityPreparation.prepare(admission);
+    }
+
+    @Nullable
+    static Candidate prepareNative(RegionBlockEntityTickAdmission admission) {
         if (!VERIFIED || TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
                 || !admission.isCurrent() || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(admission.type()))
             return null;
@@ -93,13 +99,24 @@ public final class NativeBlockEntityPreparation {
         if (state != source.getBlockState() || state.getBlock() != Blocks.HOPPER || !source.getType().isValid(state)
                 || !source.nativeTickHasNoCallbacks(state))
             return null;
-        return new Candidate(admission, source, chunk);
+        return new HopperCandidate(admission, source, chunk);
     }
 
-    record Candidate(RegionBlockEntityTickAdmission admission, HopperBlockEntity source, LevelChunk chunk) {
-        boolean fresh() {
+    sealed interface Candidate permits HopperCandidate, AuditedBlockEntityPreparation.Candidate {
+        BlockEntity source();
+
+        boolean fresh();
+
+        default boolean conflictsWith(Candidate other) {
+            return other instanceof AuditedBlockEntityPreparation.Candidate audited ? audited.conflictsWith(this) : this.source() == other.source();
+        }
+    }
+
+    private record HopperCandidate(RegionBlockEntityTickAdmission admission, HopperBlockEntity source, LevelChunk chunk) implements Candidate {
+        @Override
+        public boolean fresh() {
             final var current = prepare(this.admission);
-            return current != null && current.source == this.source && current.chunk == this.chunk;
+            return current instanceof HopperCandidate candidate && candidate.source == this.source && candidate.chunk == this.chunk;
         }
     }
 }

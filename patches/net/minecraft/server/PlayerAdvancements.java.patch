@@ -32,3 +32,8 @@
          }
  
          if (flag1 && !advancementprogress.isDone()) {
+@@ -321,3 +_,3 @@
+     static record Data(Map<ResourceLocation, AdvancementProgress> map) {
+-        public static final Codec<PlayerAdvancements.Data> CODEC = Codec.unboundedMap(ResourceLocation.CODEC, AdvancementProgress.CODEC)
++        public static final Codec<PlayerAdvancements.Data> CODEC = new net.neoforged.neoforge.common.util.LinearUnboundedMapCodec<>(ResourceLocation.CODEC, AdvancementProgress.CODEC)
+             .xmap(PlayerAdvancements.Data::new, PlayerAdvancements.Data::map);

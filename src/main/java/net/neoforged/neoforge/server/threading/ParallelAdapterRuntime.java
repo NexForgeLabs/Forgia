@@ -25,6 +25,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.AdapterDescriptor;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
 import net.neoforged.neoforge.server.threading.api.BlockEntityOperations;
@@ -158,6 +159,13 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 throw new IllegalArgumentException("Invalid/duplicate block-entity adapter, types or API version: " + id);
             }
             final TickEntry entry = new TickEntry(id, registered, adapter);
+            // An audited adapter supplies metadata through a callback. Recheck the shared transaction
+            // after it returns, just like general adapter registration; nested failures cannot publish.
+            this.requireServerThread();
+            if (this.invalid || this.frozen || this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() >= MAX_ADAPTERS
+                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id) || this.blockEntityAdapters.containsId(id.toString())
+                    || registered.stream().anyMatch(type -> this.tickTypes.containsKey(type) || this.blockEntityAdapters.containsType(type.toString())))
+                throw new IllegalArgumentException("Reentrant audited adapter registration conflicts or exceeds the shared limit");
             this.tickEntries.put(id, entry);
             registered.forEach(type -> this.tickTypes.put(type, entry));
         } catch (RuntimeException | Error failure) {
@@ -222,8 +230,31 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
         return this.tickEntries.values().stream().map(TickEntry::status).toList();
     }
 
+    @Override
+    public List<AuditedBlockEntityTickAdapter.Status> auditedBlockEntityTicks() {
+        this.requireOpen();
+        return this.tickEntries.values().stream().filter(entry -> entry.audited != null)
+                .map(entry -> new AuditedBlockEntityTickAdapter.Status(entry.id, entry.audited.audit().reference(),
+                        entry.audited.audit().revision(), entry.audited.verified(), entry.audited.reason()))
+                .toList();
+    }
+
     /** Read-only adapter-wide preflight happens before publication/leases or any original ticker body. */
     public static void prepareBlockEntityTicks(ServerLevel level) {
+        prepareBlockEntityTicks(level, false, false);
+    }
+
+    /** Canonical callers select the stronger interface's preparation without changing legacy drivers. */
+    public static void prepareBlockEntityTicks(ServerLevel level, boolean canonical) {
+        prepareBlockEntityTicks(level, canonical, false);
+    }
+
+    /** Audited canonical integrations can coexist with protected waves; legacy prepare stays skipped. */
+    public static void prepareAuditedBlockEntityTicks(ServerLevel level) {
+        prepareBlockEntityTicks(level, true, true);
+    }
+
+    private static void prepareBlockEntityTicks(ServerLevel level, boolean canonical, boolean auditedOnly) {
         final ParallelAdapterRuntime runtime;
         synchronized (SERVERS) {
             runtime = SERVERS.get(level.getServer());
@@ -234,9 +265,11 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             throw new IllegalStateException("Block-entity preflight requires a quiescent server");
         }
         for (final TickEntry entry : runtime.tickEntries.values()) {
+            if (auditedOnly && !(entry.adapter instanceof AuditedBlockEntityTickAdapter)) continue;
             final long start = System.nanoTime();
             try {
-                entry.adapter.prepare(level);
+                if (canonical && entry.adapter instanceof AuditedBlockEntityTickAdapter audited) audited.prepareCanonical(level);
+                else entry.adapter.prepare(level);
             } finally {
                 entry.preparationNanos.add(System.nanoTime() - start);
             }
@@ -263,6 +296,18 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
     public static AdapterDescriptor blockEntityTickDescriptor(RegionBlockEntityTickAdmission admission) {
         final TickEntry entry = tickEntry(admission.level(), admission.type());
         return entry == null ? null : entry.descriptor;
+    }
+
+    /** Frozen registration metadata only. Constructing an equal value never creates runtime authority. */
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public record AuditedTickBinding(AuditedBlockEntityTickAdapter adapter, AuditedBlockEntityTickAdapter.Audit audit,
+            AdapterDescriptor descriptor, boolean verified, String reason) {}
+
+    @Nullable
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static AuditedTickBinding auditedBlockEntityTickBinding(RegionBlockEntityTickAdmission admission) {
+        final TickEntry entry = tickEntry(admission.level(), admission.type());
+        return entry == null ? null : entry.audited;
     }
 
     /** Called immediately before a native body, under its owner's region context. Never loads a chunk. */
@@ -355,7 +400,7 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 ParallelApi.Capability.NATURAL_SPAWN_PLAN_PREPARATION, ParallelApi.Capability.NATURAL_SPAWN_CLAIMS,
                 ParallelApi.Capability.ORDERED_SPAWN_FINALIZATION, ParallelApi.Capability.BLOCK_ENTITY_OPERATIONS,
                 ParallelApi.Capability.BLOCK_ENTITY_TICK_ADMISSION, ParallelApi.Capability.SCHEDULED_TICK_DIAGNOSTICS,
-                ParallelApi.Capability.GENERAL_BLOCK_ENTITY_ADAPTERS);
+                ParallelApi.Capability.GENERAL_BLOCK_ENTITY_ADAPTERS, ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS);
     }
 
     @Override
@@ -639,6 +684,8 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
         private final Set<ResourceLocation> types;
         private final BlockEntityTickAdapter adapter;
         private final AdapterDescriptor descriptor;
+        @Nullable
+        private final AuditedTickBinding audited;
         private final LongAdder checks = new LongAdder();
         private final LongAdder refusals = new LongAdder();
         private final LongAdder completed = new LongAdder();
@@ -651,6 +698,13 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             this.types = types;
             this.adapter = adapter;
             this.descriptor = new AdapterDescriptor(id, types, Mode.REGION_OWNER);
+            if (adapter instanceof AuditedBlockEntityTickAdapter audited) {
+                final var audit = Objects.requireNonNull(audited.audit(), "Null original-ticker audit");
+                final var verified = AuditedTickImplementation.verify(audited, audit);
+                this.audited = new AuditedTickBinding(audited, audit, this.descriptor, verified.valid(), verified.reason());
+            } else {
+                this.audited = null;
+            }
             for (final var decision : BlockEntityTickAdapter.Decision.values()) this.reasons.put(decision, new LongAdder());
         }
 

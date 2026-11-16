@@ -13,6 +13,7 @@ import com.simibubi.create.AllBlockEntityTypes;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.kinetics.KineticNetwork;
 import com.simibubi.create.content.kinetics.millstone.MillstoneBlockEntity;
+import com.simibubi.create.content.kinetics.transmission.ClutchBlockEntity;
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import java.util.concurrent.atomic.AtomicReference;
@@ -27,6 +28,28 @@ import org.junit.jupiter.api.Timeout;
 class CreateNetworkIntegrationTest {
     private static final BlockPos FIRST = new BlockPos(17, 64, 17);
     private static final BlockPos SECOND = new BlockPos(65, 64, 17);
+
+    @Test
+    void legacyDriverRetainsWholeNetworkPreflightWhileCanonicalUsesTheAuditedLocalBranch() {
+        try (final var fixture = new CreateFixture()) {
+            final var local = new ClutchBlockEntity(AllBlockEntityTypes.CLUTCH.get(), FIRST, AllBlocks.CLUTCH.getDefaultState());
+            fixture.steady(local, 0);
+            fixture.attach(local);
+            final var unknown = new MillstoneBlockEntity(AllBlockEntityTypes.MILLSTONE.get(), SECOND, AllBlocks.MILLSTONE.getDefaultState()) {};
+            fixture.steady(unknown, 0);
+            fixture.attach(unknown);
+            final var network = TorquePropagatorAccessor.forgia$networks().get(fixture.level).get(local.network);
+            unknown.network = local.network;
+            network.members.put(unknown, 0f);
+            final var gate = new CreateTickAdmission();
+            gate.prepare(fixture.level);
+            assertEquals(Decision.SHARED_RESOURCE, gate.check(local));
+            gate.prepareCanonical(fixture.level);
+            assertEquals(Decision.ADMITTED, gate.check(local));
+            gate.prepare(fixture.level);
+            assertEquals(Decision.SHARED_RESOURCE, gate.check(local), "canonical mode must not leak into a later legacy batch");
+        }
+    }
 
     @Test
     void anotherMembersDirtyNetworkPreventsAWorkerUsingAnOutdatedStressState() {

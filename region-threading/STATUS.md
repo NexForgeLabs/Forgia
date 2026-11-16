@@ -5,6 +5,12 @@ fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured tic
 means the same build with region threading disabled. These are not new C6/canary performance results;
 the accepted optional-service profile uses its separately recorded G1/compressed-pointer configuration.
 
+`.107` 通用扩展另提供 [Audited original-tick API](AUDITED-BLOCK-ENTITY-TICK-API.md)：
+显式安装的受审计 adapter 通过同一 registrar 提供实现/分支/资源合同，核心不保存 Mod 类名或专用兼容逻辑。
+[Create 0.2.0](../adapters/create/README.md) 是首个消费者，范围为稳态传动/离合器/动力转向器；
+原始 C5 request-only 接口仍保持完整 serial fence。结果和未覆盖项见[本轮方案](CREATE-OPTIMIZATION-PLAN.md)。
+这条新路线是明确的 trusted-adapter 合同，不将类指纹表述为自动语义证明。
+
 ## Measured performance work and runtime commands — bounded implementation
 
 The [performance report](PERFORMANCE-OPTIMIZATION-REPORT.md), [controlled measurements](PERFORMANCE-BENCHMARKS.md),
