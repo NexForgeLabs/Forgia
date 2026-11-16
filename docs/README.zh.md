@@ -14,7 +14,7 @@
 
 | 我想…… | 阅读 | 主要类型 |
 |---|---|---|
-| 了解 Forgia 是什么、哪些已认证 | [README](../README.md)、[STATUS](../region-threading/STATUS.md) | — |
+| 了解 Forgia 是什么、哪些已认证 | [README](../README.md)、[STATUS](../region-threading/STATUS.zh.md) | — |
 | 开启服务器 / 启用区域线程 | [观测与配置](modules/observability.zh.md) | `forgia.toml`、`/forgia` |
 | 调用面向模组的 API | [API 总览](api/README.zh.md) | `ParallelApi` |
 | 在主线程准备刷怪数据、在 worker 执行正文 | [刷怪准备](api/natural-spawn-preparation.zh.md) | `NaturalSpawnPreparation`、`Ready`、`ServerRequired` |

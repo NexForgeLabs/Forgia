@@ -1,5 +1,7 @@
 # Forgia status
 
+English | [中文](STATUS.zh.md)
+
 Historical workload tables below were measured on a 4-core/8-thread machine, JDK 21, ZGC generational,
 fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off"
 means the same build with region threading disabled. These are not new C6/canary performance results;
@@ -553,7 +555,8 @@ of the moves that cross a border, which is the cost a claim would have to remove
 sits between the chunk tick batch and the entity and block-entity slices of the same level tick, so no region
 slice runs while a move runs and a claim has nothing to exclude today; running the move on a worker would
 first require moving the phase into the batch, which changes the tick order. The mechanism was therefore not
-built; the numbers and the reasoning are in `.pi/tasks/structure-claims.md`.
+built; the numbers and the reasoning are in `.pi/tasks/structure-claims.md` (a scratch note kept outside
+the repository; the mechanism itself is not implemented).
 
 ## Block event phase: quiescent scope, no capture
 

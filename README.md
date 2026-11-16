@@ -1,5 +1,7 @@
 # Forgia
 
+English | [中文](README.zh.md)
+
 **A regionized, multithreaded Minecraft server for NeoForge 1.21.1.**
 
 Forgia ports [Folia](https://github.com/PaperMC/Folia)'s region model into NeoForge natively: the world is
@@ -33,7 +35,7 @@ thread; a refusal or failure after effects begin is reported without replaying t
 | **Natural spawning** | Per-region spawn bodies against the vanilla level-wide mob cap | spawn slice 4.6 → 2.8–3.9 ms |
 | **Points of interest** | Region-partitioned storage with published snapshots; queries identical to vanilla | villagers **2.1–2.4×**, zombies **3.4×** |
 | **Block entities** | One canonical phase: narrow original Hopper branches, verified burning Furnace prefixes and complete Unknown/Create Serial Fences | C6 correctness accepted; no current whole-server speedup claim |
-| **Redstone** | Cross-region updates converge in the **same tick** through a fixpoint | 98 layouts, 5 880 tick comparisons, identical to vanilla |
+| **Redstone** | Cross-region updates converge in the **same tick** through a fixpoint | 49 layouts run twice (on/off), 5 880 tick comparisons, identical to vanilla |
 | **Cross-region reads** | Seqlock chunk versions; a stale read re-runs the region that made it | 0 torn reads, 0 stale takes |
 | **Cross-region mod operations** | Public two-owner block entity operations, bounded sided Container transfers and explicit task outcomes | experimental; operations serialize after workers return |
 | **Scheduled ticks** | Vanilla lamp callbacks in a loaded, contained inert footprint; other phases retain the live serial queue | experimental; dispatch/completion/refusal/timing diagnostics |
@@ -341,7 +343,8 @@ and diagnostics extractions, compatibility boundaries, dependency checks and val
 entry points, execution authority and default-off admission remain unchanged.
 
 Deeper notes live next to the code (`src/main/java/net/neoforged/neoforge/server/threading/region/*.java`)
-and in the task records under `.pi/tasks/`, which document the design and the evidence for each milestone.
+and in the module implementation notes under `docs/modules/`; the design and evidence for each milestone is
+recorded in the `region-threading/` archive.
 
 ## Licence and lineage
 
