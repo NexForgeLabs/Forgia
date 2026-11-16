@@ -1,0 +1,45 @@
+type,placed,hasServerTicker,survivingAtEnd,statesProbed,serverTickingStates,collected,parallel,fallback,skipped,failed,fallbackReasons
+minecraft:banner,1,False,1,320,0,0,0,0,0,0,{}
+minecraft:barrel,1,False,1,12,0,0,0,0,0,0,{}
+minecraft:beacon,16,True,16,1,1,10200,0,10200,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 10200}"
+minecraft:bed,1,False,1,256,0,0,0,0,0,0,{}
+minecraft:beehive,16,True,16,48,48,9600,0,9600,0,0,"{""NO_DETACHED_PROGRAM"": 9600}"
+minecraft:bell,16,True,16,32,32,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:blast_furnace,16,True,16,8,8,9600,9600,0,0,0,{}
+minecraft:brewing_stand,16,True,16,8,8,9600,0,9600,0,0,"{""INVENTORY_OR_TRANSFER_NOT_SUPPORTED"": 9600}"
+minecraft:brushable_block,1,False,1,8,0,0,0,0,0,0,{}
+minecraft:calibrated_sculk_sensor,16,True,16,384,384,9600,0,9600,0,0,"{""WORLD_CALLBACKS_NOT_SUPPORTED"": 9600}"
+minecraft:campfire,16,True,16,64,64,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:chest,1,False,1,24,0,0,0,0,0,0,{}
+minecraft:chiseled_bookshelf,1,False,1,256,0,0,0,0,0,0,{}
+minecraft:command_block,1,False,1,36,0,0,0,0,0,0,{}
+minecraft:comparator,1,False,1,16,0,0,0,0,0,0,{}
+minecraft:conduit,16,True,16,2,2,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:crafter,16,True,16,48,48,9600,0,9600,0,0,"{""INVENTORY_OR_TRANSFER_NOT_SUPPORTED"": 9600}"
+minecraft:daylight_detector,16,True,16,32,32,9600,0,9600,0,0,"{""WORLD_CALLBACKS_NOT_SUPPORTED"": 9600}"
+minecraft:decorated_pot,1,False,1,16,0,0,0,0,0,0,{}
+minecraft:dispenser,1,False,1,12,0,0,0,0,0,0,{}
+minecraft:dropper,1,False,1,12,0,0,0,0,0,0,{}
+minecraft:enchanting_table,1,False,1,1,0,0,0,0,0,0,{}
+minecraft:end_gateway,16,True,16,1,1,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:end_portal,1,False,1,1,0,0,0,0,0,0,{}
+minecraft:ender_chest,1,False,1,8,0,0,0,0,0,0,{}
+minecraft:furnace,16,True,16,8,8,9600,9600,0,0,0,{}
+minecraft:hanging_sign,16,True,16,792,792,9600,0,9600,0,0,"{""NO_DETACHED_PROGRAM"": 9600}"
+minecraft:hopper,16,True,16,10,10,9600,0,9600,0,0,"{""INVENTORY_OR_TRANSFER_NOT_SUPPORTED"": 9600}"
+minecraft:jigsaw,1,False,1,12,0,0,0,0,0,0,{}
+minecraft:jukebox,16,True,16,2,1,9600,0,9600,0,0,"{""WORLD_CALLBACKS_NOT_SUPPORTED"": 9600}"
+minecraft:lectern,1,False,1,16,0,0,0,0,0,0,{}
+minecraft:mob_spawner,16,True,16,1,1,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:piston,16,True,0,12,12,0,0,0,0,0,{}
+minecraft:sculk_catalyst,16,True,16,2,2,9600,0,9600,0,0,"{""WORLD_CALLBACKS_NOT_SUPPORTED"": 9600}"
+minecraft:sculk_sensor,16,True,16,96,96,9600,0,9600,0,0,"{""WORLD_CALLBACKS_NOT_SUPPORTED"": 9600}"
+minecraft:sculk_shrieker,16,True,16,8,8,9600,0,9600,0,0,"{""WORLD_CALLBACKS_NOT_SUPPORTED"": 9600}"
+minecraft:shulker_box,16,True,16,102,102,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:sign,16,True,16,440,440,9600,0,9600,0,0,"{""NO_DETACHED_PROGRAM"": 9600}"
+minecraft:skull,1,False,1,280,0,0,0,0,0,0,{}
+minecraft:smoker,16,True,16,8,8,9600,9600,0,0,0,{}
+minecraft:structure_block,1,False,1,4,0,0,0,0,0,0,{}
+minecraft:trapped_chest,1,False,1,24,0,0,0,0,0,0,{}
+minecraft:trial_spawner,16,True,16,12,12,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"
+minecraft:vault,16,True,16,32,32,9600,0,9600,0,0,"{""ENTITY_ACCESS_NOT_SUPPORTED"": 9600}"

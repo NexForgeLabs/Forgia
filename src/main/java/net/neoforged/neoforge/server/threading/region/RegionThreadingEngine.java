@@ -175,6 +175,8 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     private final Map<Entity, Set<EntityRegionScheduledTask>> entityTasksByEntity = new ConcurrentHashMap<>();
     private final RegionWorkerPool workerPool;
+    // C7 owns its graph, task state and metrics. The pool/admission/Region leases are shared infrastructure.
+    private final net.neoforged.neoforge.server.threading.c7.C7Engine c7Engine = new net.neoforged.neoforge.server.threading.c7.C7Engine();
     private final GlobalRegionTickRunner globalTickRunner = new GlobalRegionTickRunner();
     private final RegionTickRunner tickRunner = new RegionTickRunner();
     private final GlobalRegionScheduler globalScheduler = new EngineGlobalRegionScheduler(this);
@@ -3504,6 +3506,88 @@ public final class RegionThreadingEngine implements RegionThreading {
             return null;
         }
         return new RegionBlockEntityTickPlan(this, level, barrier);
+    }
+
+    /** Independent C7 metrics; C6 counters and task grants are not involved. */
+    public net.neoforged.neoforge.server.threading.c7.C7Metrics.Snapshot c7Metrics() {
+        return this.c7Engine.metrics();
+    }
+
+    /**
+     * C7's outer hierarchical boundary. Only detached arithmetic goes to workers; the coordinator owns
+     * every live capture/commit Region. Holding the lifecycle read gate covers preparation, joining and
+     * commit, so shutdown/unload cannot retire the level below C7. No C6 batch/session is constructed.
+     */
+    public boolean tickC7BlockEntities(ServerLevel level, RegionTickBarrier barrier,
+            net.neoforged.neoforge.server.threading.c7.C7Options requested) {
+        if (level.getServer() == null || !level.getServer().isSameThread())
+            throw new IllegalStateException("C7 canonical BE entry requires the server coordinator");
+        if (this.regionWorkAdmission.isOwner())
+            throw new IllegalStateException("C7 cannot recursively enter an active canonical phase");
+        if (!this.workerExecutionEnabled || !this.layout.isFixed() || this.shutdown
+                || level.getProfiler() != InactiveProfiler.INSTANCE || this.regionizer.isLevelClosed(level))
+            return false;
+        // Never block the server behind a cleanup writer that may itself be awaiting a server handoff.
+        if (!this.lifecycleGate.readLock().tryLock()) return false;
+        final Map<RegionCoordinate, RegionState> leases = new LinkedHashMap<>();
+        boolean entered = false;
+        Throwable c7Failure = null;
+        try {
+            if (this.shutdown || this.regionizer.isLevelClosed(level)) return false;
+            this.enterCanonicalBoundary(level, barrier);
+            entered = true;
+            final var options = new net.neoforged.neoforge.server.threading.c7.C7Options(requested.mode(),
+                    Math.min(requested.workers(), this.workerPool.threadCount()), requested.maxWaveSize(), requested.maxWaves(),
+                    requested.maxTasks(), requested.maxResources(), requested.stragglerNanos(), requested.debug(),
+                    requested.trackingDiagnostics(), requested.conservative());
+            final net.neoforged.neoforge.server.threading.c7.C7Ownership ownership = (position, action) -> {
+                if (!level.getServer().isSameThread()) throw new IllegalStateException("C7 live access outside coordinator");
+                final var coordinate = this.layout.regionAt(level, position);
+                RegionState region = leases.get(coordinate);
+                if (region == null) {
+                    region = this.regionizer.getOrCreate(coordinate);
+                    if (region == null || !this.acquireRegionLease(region, barrier))
+                        throw new IllegalStateException("C7 cannot acquire its outer Region lease");
+                    boolean owned = false;
+                    try {
+                        region.beginOwnership();
+                        owned = true;
+                        leases.put(coordinate, region);
+                    } catch (Throwable admissionFailure) {
+                        if (owned) region.endOwnership();
+                        region.clearRunning();
+                        this.regionizer.removeIfEmpty(region);
+                        throw admissionFailure;
+                    }
+                }
+                this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
+                        level, coordinate, region, null), action);
+            };
+            net.neoforged.neoforge.server.threading.c7.C7LevelCoordinator.execute(level, this.c7Engine, options,
+                    this.workerPool, barrier, ownership, () -> !this.shutdown && !this.regionizer.isLevelClosed(level));
+            return true;
+        } catch (Throwable failure) {
+            c7Failure = failure;
+            throw failure;
+        } finally {
+            Throwable releaseFailure = null;
+            try {
+                final var owned = new ArrayList<>(leases.values());
+                for (int index = owned.size() - 1; index >= 0; --index) {
+                    final var region = owned.get(index);
+                    releaseFailure = runBatchCompletion(releaseFailure, region::endOwnership);
+                    releaseFailure = runBatchCompletion(releaseFailure, region::clearRunning);
+                    releaseFailure = runBatchCompletion(releaseFailure, () -> this.regionizer.removeIfEmpty(region));
+                }
+                if (entered) releaseFailure = runBatchCompletion(releaseFailure, this.regionWorkAdmission::exit);
+            } finally {
+                this.lifecycleGate.readLock().unlock();
+            }
+            if (releaseFailure != null) {
+                if (c7Failure != null) accumulateFailure(c7Failure, releaseFailure);
+                else throwUnchecked(releaseFailure);
+            }
+        }
     }
 
     /**
@@ -10803,6 +10887,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         return;
                     }
                     this.blockEntityWorkGraph.stop();
+                    this.c7Engine.close();
                     this.shutdown = true;
                     this.entityTransferJournal.clear();
                     this.pendingDeferredEntityMoves.clear();

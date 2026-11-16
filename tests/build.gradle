@@ -60,15 +60,19 @@ junitTest {
     outputs.upToDateWhen { false }
     exclude '**/furnacehooks/**'
     def furnaceHookControl = providers.gradleProperty('furnaceUnverifiedHookControl').map { it.toBoolean() }.getOrElse(false)
-    systemProperty 'forgia.furnace.testUnverifiedHook', furnaceHookControl.toString()
+    def c7HookControl = providers.gradleProperty('c7UnverifiedHookControl').map { it.toBoolean() }.getOrElse(false)
+    systemProperty 'forgia.furnace.testUnverifiedHook', (furnaceHookControl || c7HookControl).toString()
     // Re-run the original furnace safety/lifecycle suite through persistent work-stealing runners.
     systemProperty 'forgia.furnace.persistentWorkers', providers.gradleProperty('furnacePersistentWorkers').getOrElse('false')
     systemProperty 'forgia.furnace.resourceOwnership', providers.gradleProperty('furnaceResourceOwnership').getOrElse('false')
-    if (furnaceHookControl) {
+    if (c7HookControl) {
+        filter { includeTestsMatching '*C7LevelIntegrationTest.unknownActuallyMergedFurnaceMixinKeepsC7Serial' }
+    } else if (furnaceHookControl) {
         filter { includeTestsMatching '*FurnaceWorkWavesTest.unknownActuallyMergedFurnaceMixinKeepsOriginalBodiesSerial' }
     } else {
         filter { excludeTestsMatching '*FurnaceWorkWavesTest.unknownActuallyMergedFurnaceMixinKeepsOriginalBodiesSerial' }
     }
+    if (!c7HookControl) filter { excludeTestsMatching '*C7LevelIntegrationTest.unknownActuallyMergedFurnaceMixinKeepsC7Serial' }
     // The randomized redstone soak takes its scale from system properties; a Gradle property of the same name
     // forwards it to the test JVM, so a shorter or a longer run is one flag away:
     //   ./gradlew :tests:junitTest --tests '*RegionRandomizedRedstoneSoakTest' -PsoakShortSeeds=2 -PsoakShortTicks=100
@@ -199,6 +203,17 @@ runs {
             // Measurement runs pass -PgameTestFilter=benchmarkFurnace,benchmarkEntity so only the
             // benchmark batches run instead of the whole GameTest suite. Unset keeps every test.
             systemProperty("neoforge.gameTestServer.filter", providers.gradleProperty("gameTestFilter").getOrElse(""))
+    }
+    // Isolated C7 evaluation. It never changes the existing C6/canonical runs or shipped defaults.
+    c7EvaluationGameTestServer {
+            type = "gameTestServer"
+            systemProperty("forgia.c7Evaluation", "true")
+            systemProperty("forgia.c7AllVanilla", providers.gradleProperty("c7AllVanilla").getOrElse("false"))
+            systemProperty("forgia.c7VanillaCopies", providers.gradleProperty("c7VanillaCopies").getOrElse("16"))
+            systemProperty("forgia.c7EvaluationSide", providers.gradleProperty("c7Side").getOrElse("32"))
+            systemProperty("neoforge.gameTestServer.filter", "c7Evaluation")
+            systemProperty("neoforge.gameTestWorldPreset", "minecraft:flat")
+            systemProperty("neoforge.gameTestWorldSeed", "4242424242")
     }
     // Explicit current-contract profile. The default GameTest run and shipped server defaults stay off.
     canonicalGameTestServer {
@@ -397,6 +412,42 @@ regionThreadingOwnershipViolationMode = "WARN"
             // point and the kill is the same in all of them.
             systemProperty("neoforge.crashRecoveryKillTicks", providers.gradleProperty("crashKillTicks").getOrElse("40"))
         }
+    }
+}
+
+// Every driver uses the same fresh flat seed, fixture, mod set, worker pool and non-BE settings.
+// Only this isolated generated run directory is reset. Copy c7-evaluation.json after each invocation.
+tasks.named("runC7EvaluationGameTestServer").configure {
+    def driver = providers.gradleProperty("c7Driver").getOrElse("C7").toUpperCase(Locale.ROOT)
+    def evaluationDirectory = project.file(gameDirectory.get())
+    def c6Waves = providers.gradleProperty("c6FurnaceWaves").getOrElse("false").toBoolean()
+    def c6Resources = providers.gradleProperty("c6Resources").getOrElse("false").toBoolean()
+    doFirst {
+        if (!(driver in ["C6", "C7", "DISABLED"])) throw new GradleException("c7Driver must be C6, C7 or DISABLED")
+        def directory = evaluationDirectory
+        new File(directory, "world").deleteDir()
+        new File(directory, "c7-evaluation.json").delete()
+        new File(directory, "c7-vanilla-evaluation.json").delete()
+        def configFile = new File(directory, "config/forgia.toml")
+        configFile.parentFile.mkdirs()
+        configFile.text = """# Isolated C7 evaluation; not production defaults.
+blockEntityExecutionSystem = "${driver}"
+enableC7 = true
+c7ExecutionMode = "PARALLEL"
+c7Workers = 4
+c7Conservative = false
+c7StragglerNanos = 9223372036854775807
+enableRegionThreadingBridge = true
+enableRegionThreadingWorkers = true
+enableRegionThreadingBlockEntityTicks = true
+enableRegionThreadingFurnaceWorkWaves = ${c6Waves}
+enableRegionThreadingBlockEntityResources = ${c6Resources}
+enableRegionThreadingPersistentWorkers = true
+regionThreadingMode = "FIXED_3X3"
+regionThreadingFixedRegionChunks = 3
+regionThreadingWorkerThreads = 4
+regionThreadingOwnershipViolationMode = "WARN"
+"""
     }
 }
 

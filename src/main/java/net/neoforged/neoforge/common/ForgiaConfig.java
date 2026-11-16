@@ -51,6 +51,19 @@ public final class ForgiaConfig {
 
         public final BooleanValue enableRegionThreadingEntityTicks;
 
+        public final ModConfigSpec.EnumValue<net.neoforged.neoforge.server.threading.c7.BlockEntityExecutionSystem> blockEntityExecutionSystem;
+        public final BooleanValue enableC7;
+        public final ModConfigSpec.EnumValue<net.neoforged.neoforge.server.threading.c7.C7Options.Mode> c7ExecutionMode;
+        public final IntValue c7Workers;
+        public final IntValue c7MaxWaveSize;
+        public final IntValue c7MaxWaves;
+        public final IntValue c7MaxTasks;
+        public final IntValue c7MaxResources;
+        public final LongValue c7StragglerNanos;
+        public final BooleanValue c7Debug;
+        public final BooleanValue c7TrackingDiagnostics;
+        public final BooleanValue c7Conservative;
+
         public final BooleanValue enableRegionThreadingBlockEntityTicks;
 
         public final BooleanValue enableRegionThreadingFurnaceWorkWaves;
@@ -140,6 +153,22 @@ public final class ForgiaConfig {
                     .translation("neoforge.configgui.enableRegionThreadingEntityTicks")
                     .worldRestart()
                     .define("enableRegionThreadingEntityTicks", false);
+
+            blockEntityExecutionSystem = builder.comment("Exclusive BE driver: C6 preserves the existing implementation; C7 is a separately enabled detached dependency engine; DISABLED uses the original serial loop. No driver falls through to another parallel driver.")
+                    .worldRestart().defineEnum("blockEntityExecutionSystem", net.neoforged.neoforge.server.threading.c7.BlockEntityExecutionSystem.C6);
+            enableC7 = builder.comment("EXPERIMENTAL, default off. Requires driver C7, the region bridge and native workers. Only explicitly audited detached operations are parallel; arbitrary mod tickers remain complete serial fences.")
+                    .worldRestart().define("enableC7", false);
+            c7ExecutionMode = builder.comment("SHADOW plans dependencies but executes original tickers serially. PARALLEL enables audited snapshot computation with canonical server-thread commit.")
+                    .worldRestart().defineEnum("c7ExecutionMode", net.neoforged.neoforge.server.threading.c7.C7Options.Mode.SHADOW);
+            c7Workers = builder.comment("C7 lanes on the existing worker pool, capped at its size; no second pool.").worldRestart().defineInRange("c7Workers", 2, 1, 256);
+            c7MaxWaveSize = builder.worldRestart().defineInRange("c7MaxWaveSize", 256, 1, 65536);
+            c7MaxWaves = builder.comment("Graphs beyond this depth execute original invocations serially before any detached work starts.").worldRestart().defineInRange("c7MaxWaves", 256, 1, 65536);
+            c7MaxTasks = builder.comment("Larger phases stay wholly serial; resource history is never truncated into a smaller safety proof.").worldRestart().defineInRange("c7MaxTasks", 16384, 1, 1048576);
+            c7MaxResources = builder.worldRestart().defineInRange("c7MaxResources", 256, 1, 65536);
+            c7StragglerNanos = builder.comment("Slow detached computations demote subsequent invocations; never abandon or replay an in-flight task.").worldRestart().defineInRange("c7StragglerNanos", 5000000L, 1L, Long.MAX_VALUE);
+            c7Debug = builder.define("c7Debug", false);
+            c7TrackingDiagnostics = builder.comment("Collect detailed access violation diagnostics. Essential correctness counters stay enabled.").define("c7TrackingDiagnostics", true);
+            c7Conservative = builder.comment("After a proof refusal or invalidated frontier, keep the remaining phase serial. Disabling permits fresh independent prefixes, and NEVER admits unknown callbacks, incomplete footprints or cross-region mutations.").worldRestart().define("c7Conservative", true);
 
             enableRegionThreadingBlockEntityTicks = builder
                     .comment("EXPERIMENTAL: Ticks the real ServerLevel block entities of a tick on their owning region worker thread while the server thread waits for the batch. Requires enableRegionThreadingBridge. Only block entity types whose compatibility declaration proves that their server tick never queries or mutates entity storage, never spawns/removes an entity and writes only inside its region run on workers; every other type stays on the server thread. This is a bounded block-entity tick slice, not regionized world ticking.")

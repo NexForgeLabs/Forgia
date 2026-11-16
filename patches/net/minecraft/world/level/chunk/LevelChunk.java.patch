@@ -515,7 +515,7 @@
          BlockState blockstate = p_156407_.getBlockState();
          BlockEntityTicker<T> blockentityticker = blockstate.getTicker(this.level, (BlockEntityType<T>)p_156407_.getType());
          if (blockentityticker == null) {
-@@ -656,33 +_,275 @@
+@@ -656,33 +_,283 @@
                      }
                  );
          }
@@ -585,6 +585,14 @@
 +            ticker = ((LevelChunk.RebindableTickingBlockEntityWrapper) ticker).ticker;
 +        }
 +        return ticker.getClass() == LevelChunk.BoundTickingBlockEntity.class;
++    }
++
++    /** C7 diagnostics only: exact wrapper subject, without invoking a ticker/type getter or granting authority. */
++    @org.jetbrains.annotations.Nullable
++    public static BlockEntity c7TickerSubject(TickingBlockEntity ticker) {
++        if (!exactCoreBlockEntityBinding(ticker)) return null;
++        if (ticker instanceof LevelChunk.RebindableTickingBlockEntityWrapper wrapper) ticker = wrapper.ticker;
++        return ((LevelChunk.BoundTickingBlockEntity<?>) ticker).blockEntity;
 +    }
 +
 +    /** Immutable descriptive snapshot of exact Core wrapper storage; it grants no execution permission. */

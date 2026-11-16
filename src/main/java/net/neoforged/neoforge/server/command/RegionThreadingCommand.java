@@ -63,11 +63,51 @@ final class RegionThreadingCommand {
                             if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) engine.blockEntityWorkGraph().stop();
                             return sendWorkGraph(context.getSource());
                         })))
+                .then(Commands.literal("c7").executes(context -> sendC7(context.getSource()))
+                        .then(Commands.literal("types").executes(context -> sendC7Types(context.getSource()))))
                 .then(Commands.literal("compat").executes(context -> sendCompatibility(context.getSource())))
                 .then(Commands.literal("regions")
                         .executes(context -> sendRegionListing(context.getSource(), DEFAULT_LISTED_REGIONS))
                         .then(Commands.argument("count", IntegerArgumentType.integer(1, MAX_LISTED_REGIONS))
                                 .executes(context -> sendRegionListing(context.getSource(), IntegerArgumentType.getInteger(context, "count")))));
+    }
+
+    private static int sendC7Types(CommandSourceStack source) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) {
+            sendNotInstalled(source);
+            return 0;
+        }
+        final var types = engine.c7Metrics().types();
+        source.sendSuccess(() -> Component.literal("C7 type completions (bounded lifetime counters, includes harness/foreign BEs): " + types.size()), false);
+        types.entrySet().stream().limit(40).forEach(entry -> source.sendSuccess(() -> Component.literal(entry.getKey()
+                + " collected=" + entry.getValue().collected() + " parallel=" + entry.getValue().parallel()
+                + " serial=" + entry.getValue().serial() + " skipped=" + entry.getValue().skipped()
+                + " failed=" + entry.getValue().failed() + " serialReasons=" + entry.getValue().serialReasons()), false));
+        return 1;
+    }
+
+    private static int sendC7(CommandSourceStack source) {
+        source.sendSuccess(() -> Component.literal("BE driver=" + net.neoforged.neoforge.server.threading.c7.C7Runtime.system()
+                + ", C7 enabled=" + net.neoforged.neoforge.server.threading.c7.C7Runtime.enabled()
+                + "; detached empty-input furnace clocks only; all unsupported invocations are serial fences"), false);
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) {
+            sendNotInstalled(source);
+            return 0;
+        }
+        final var m = engine.c7Metrics();
+        source.sendSuccess(() -> Component.literal("C7-only: phases=" + m.phases() + ", collected=" + m.collected()
+                + ", parallelCompleted=" + m.parallel() + ", serialCompleted=" + m.serial() + ", skipped=" + m.skipped()
+                + ", dependencies=" + m.dependencies() + ", conflicts=" + m.conflicts() + ", waves=" + m.waves()
+                + ", avgWave=" + m.averageWaveSize() + ", maxWave=" + m.maxWave() + ", maxConcurrent=" + m.maxConcurrent()
+                + ", computeOccupancy=" + m.workerUtilization() + ", discoveries=" + m.dynamicDiscoveries()
+                + ", demotions=" + m.demotions() + ", failed=" + m.failed() + ", rejected=" + m.rejected()
+                + ", invalidated=" + m.invalidated() + ", graph=" + millis(m.graphNanos())
+                + ", scheduling=" + millis(m.schedulingNanos()) + ", prepare=" + millis(m.preparationNanos())
+                + ", execution=" + millis(m.executionNanos()) + ", commit=" + millis(m.commitNanos())
+                + ", collection=" + millis(m.collectionNanos()) + ", proof=" + millis(m.proofNanos()) + ", phase=" + millis(m.phaseNanos())
+                + ", proofRefusals=" + m.proofRefusals() + ", undeclaredKinds=" + m.undeclaredKinds()
+                + "; occupancy is not CPU utilization; C6 metrics are separate"), false);
+        return 1;
     }
 
     private static int startWorkGraph(CommandSourceStack source, int phases) {

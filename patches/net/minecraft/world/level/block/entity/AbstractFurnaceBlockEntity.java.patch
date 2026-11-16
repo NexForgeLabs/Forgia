@@ -87,7 +87,7 @@
          this.litDuration = this.getBurnDuration(this.items.get(1));
          CompoundTag compoundtag = p_155025_.getCompound("RecipesUsed");
  
-@@ -240,16 +_,32 @@
+@@ -240,16 +_,49 @@
      @Override
      protected void saveAdditional(CompoundTag p_187452_, HolderLookup.Provider p_323656_) {
          super.saveAdditional(p_187452_, p_323656_);
@@ -116,6 +116,23 @@
 +    /** Neo: used only by quiescent work-wave preparation. */
 +    public final RecipeType<?> furnaceWorkRecipeType() {
 +        return this.recipeType;
++    }
++
++    /** C7: immutable input for the complete no-recipe/no-fuel/no-notification branch only. */
++    @org.jetbrains.annotations.Nullable
++    public final net.neoforged.neoforge.server.threading.c7.C7FurnaceClock forgia$c7ClockSnapshot() {
++        if (!this.items.get(0).isEmpty() || this.litTime == 1) return null;
++        return new net.neoforged.neoforge.server.threading.c7.C7FurnaceClock(this.litTime, this.cookingProgress, this.cookingTotalTime);
++    }
++
++    /** C7: coordinator-only commit. This is not called by C6 and never performs a retry. */
++    public final void forgia$c7CommitClock(net.neoforged.neoforge.server.threading.c7.C7FurnaceClock before,
++            net.neoforged.neoforge.server.threading.c7.C7FurnaceClock after) {
++        if (this.level == null || this.level.getServer() == null || !this.level.getServer().isSameThread()
++                || !before.equals(this.forgia$c7ClockSnapshot()) || !before.advance().equals(after))
++            throw new IllegalStateException("Stale or off-thread C7 furnace commit");
++        this.litTime = after.litTime();
++        this.cookingProgress = after.cookingProgress();
 +    }
 +
      public static void serverTick(Level p_155014_, BlockPos p_155015_, BlockState p_155016_, AbstractFurnaceBlockEntity p_155017_) {

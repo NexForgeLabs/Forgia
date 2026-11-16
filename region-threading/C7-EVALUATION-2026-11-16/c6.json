@@ -1,0 +1,1072 @@
+{
+  "kind": "all registered vanilla BE types; every state of every valid vanilla block variant probed for a server ticker; one representative state per type",
+  "limitations": "mostly idle states, playing jukeboxes, zero players, empty processing inventories; missing audited programs stay serial; type reason categories are missing proof coverage, not observed accesses on every invocation; counters include harness BEs",
+  "driver": "C6",
+  "seed": 4242424242,
+  "dayTime": 6000,
+  "fixtureOrigin": [
+    16,
+    160,
+    16
+  ],
+  "warmupTicks": 200,
+  "measuredTicks": 600,
+  "copiesPerTickingType": 16,
+  "vanillaTypes": 44,
+  "serverTickingTypes": 25,
+  "placed": 419,
+  "chunks": 18,
+  "workers": 4,
+  "msptAverage": 1.7969239266666668,
+  "msptP95": 3.281,
+  "msptP99": 3.8448,
+  "parallelInvocations": 0,
+  "serialInvocations": 231000,
+  "fallbackRatio": 1.0,
+  "types": {
+    "minecraft:banner": {
+      "type": "minecraft:banner",
+      "representativeBlock": "minecraft:black_banner",
+      "validVanillaVariants": [
+        "minecraft:black_banner",
+        "minecraft:black_wall_banner",
+        "minecraft:blue_banner",
+        "minecraft:blue_wall_banner",
+        "minecraft:brown_banner",
+        "minecraft:brown_wall_banner",
+        "minecraft:cyan_banner",
+        "minecraft:cyan_wall_banner",
+        "minecraft:gray_banner",
+        "minecraft:gray_wall_banner",
+        "minecraft:green_banner",
+        "minecraft:green_wall_banner",
+        "minecraft:light_blue_banner",
+        "minecraft:light_blue_wall_banner",
+        "minecraft:light_gray_banner",
+        "minecraft:light_gray_wall_banner",
+        "minecraft:lime_banner",
+        "minecraft:lime_wall_banner",
+        "minecraft:magenta_banner",
+        "minecraft:magenta_wall_banner",
+        "minecraft:orange_banner",
+        "minecraft:orange_wall_banner",
+        "minecraft:pink_banner",
+        "minecraft:pink_wall_banner",
+        "minecraft:purple_banner",
+        "minecraft:purple_wall_banner",
+        "minecraft:red_banner",
+        "minecraft:red_wall_banner",
+        "minecraft:white_banner",
+        "minecraft:white_wall_banner",
+        "minecraft:yellow_banner",
+        "minecraft:yellow_wall_banner"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 320,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:black_banner}[rotation\u003d0]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:barrel": {
+      "type": "minecraft:barrel",
+      "representativeBlock": "minecraft:barrel",
+      "validVanillaVariants": [
+        "minecraft:barrel"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 12,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:barrel}[facing\u003dnorth,open\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:beacon": {
+      "type": "minecraft:beacon",
+      "representativeBlock": "minecraft:beacon",
+      "validVanillaVariants": [
+        "minecraft:beacon"
+      ],
+      "serverTickingVariants": [
+        "minecraft:beacon"
+      ],
+      "statesProbed": 1,
+      "serverTickingStates": 1,
+      "initialBlockState": "Block{minecraft:beacon}",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:bed": {
+      "type": "minecraft:bed",
+      "representativeBlock": "minecraft:black_bed",
+      "validVanillaVariants": [
+        "minecraft:black_bed",
+        "minecraft:blue_bed",
+        "minecraft:brown_bed",
+        "minecraft:cyan_bed",
+        "minecraft:gray_bed",
+        "minecraft:green_bed",
+        "minecraft:light_blue_bed",
+        "minecraft:light_gray_bed",
+        "minecraft:lime_bed",
+        "minecraft:magenta_bed",
+        "minecraft:orange_bed",
+        "minecraft:pink_bed",
+        "minecraft:purple_bed",
+        "minecraft:red_bed",
+        "minecraft:white_bed",
+        "minecraft:yellow_bed"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 256,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:black_bed}[facing\u003dnorth,occupied\u003dfalse,part\u003dfoot]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:beehive": {
+      "type": "minecraft:beehive",
+      "representativeBlock": "minecraft:bee_nest",
+      "validVanillaVariants": [
+        "minecraft:bee_nest",
+        "minecraft:beehive"
+      ],
+      "serverTickingVariants": [
+        "minecraft:bee_nest",
+        "minecraft:beehive"
+      ],
+      "statesProbed": 48,
+      "serverTickingStates": 48,
+      "initialBlockState": "Block{minecraft:bee_nest}[facing\u003dnorth,honey_level\u003d0]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:bell": {
+      "type": "minecraft:bell",
+      "representativeBlock": "minecraft:bell",
+      "validVanillaVariants": [
+        "minecraft:bell"
+      ],
+      "serverTickingVariants": [
+        "minecraft:bell"
+      ],
+      "statesProbed": 32,
+      "serverTickingStates": 32,
+      "initialBlockState": "Block{minecraft:bell}[attachment\u003dfloor,facing\u003dnorth,powered\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:blast_furnace": {
+      "type": "minecraft:blast_furnace",
+      "representativeBlock": "minecraft:blast_furnace",
+      "validVanillaVariants": [
+        "minecraft:blast_furnace"
+      ],
+      "serverTickingVariants": [
+        "minecraft:blast_furnace"
+      ],
+      "statesProbed": 8,
+      "serverTickingStates": 8,
+      "initialBlockState": "Block{minecraft:blast_furnace}[facing\u003dnorth,lit\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:brewing_stand": {
+      "type": "minecraft:brewing_stand",
+      "representativeBlock": "minecraft:brewing_stand",
+      "validVanillaVariants": [
+        "minecraft:brewing_stand"
+      ],
+      "serverTickingVariants": [
+        "minecraft:brewing_stand"
+      ],
+      "statesProbed": 8,
+      "serverTickingStates": 8,
+      "initialBlockState": "Block{minecraft:brewing_stand}[has_bottle_0\u003dfalse,has_bottle_1\u003dfalse,has_bottle_2\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:brushable_block": {
+      "type": "minecraft:brushable_block",
+      "representativeBlock": "minecraft:suspicious_gravel",
+      "validVanillaVariants": [
+        "minecraft:suspicious_gravel",
+        "minecraft:suspicious_sand"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 8,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:suspicious_gravel}[dusted\u003d0]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:calibrated_sculk_sensor": {
+      "type": "minecraft:calibrated_sculk_sensor",
+      "representativeBlock": "minecraft:calibrated_sculk_sensor",
+      "validVanillaVariants": [
+        "minecraft:calibrated_sculk_sensor"
+      ],
+      "serverTickingVariants": [
+        "minecraft:calibrated_sculk_sensor"
+      ],
+      "statesProbed": 384,
+      "serverTickingStates": 384,
+      "initialBlockState": "Block{minecraft:calibrated_sculk_sensor}[facing\u003dnorth,power\u003d0,sculk_sensor_phase\u003dinactive,waterlogged\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:campfire": {
+      "type": "minecraft:campfire",
+      "representativeBlock": "minecraft:campfire",
+      "validVanillaVariants": [
+        "minecraft:campfire",
+        "minecraft:soul_campfire"
+      ],
+      "serverTickingVariants": [
+        "minecraft:campfire",
+        "minecraft:soul_campfire"
+      ],
+      "statesProbed": 64,
+      "serverTickingStates": 64,
+      "initialBlockState": "Block{minecraft:campfire}[facing\u003dnorth,lit\u003dtrue,signal_fire\u003dfalse,waterlogged\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:chest": {
+      "type": "minecraft:chest",
+      "representativeBlock": "minecraft:chest",
+      "validVanillaVariants": [
+        "minecraft:chest"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 24,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:chest}[facing\u003dnorth,type\u003dsingle,waterlogged\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:chiseled_bookshelf": {
+      "type": "minecraft:chiseled_bookshelf",
+      "representativeBlock": "minecraft:chiseled_bookshelf",
+      "validVanillaVariants": [
+        "minecraft:chiseled_bookshelf"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 256,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:chiseled_bookshelf}[facing\u003dnorth,slot_0_occupied\u003dfalse,slot_1_occupied\u003dfalse,slot_2_occupied\u003dfalse,slot_3_occupied\u003dfalse,slot_4_occupied\u003dfalse,slot_5_occupied\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:command_block": {
+      "type": "minecraft:command_block",
+      "representativeBlock": "minecraft:chain_command_block",
+      "validVanillaVariants": [
+        "minecraft:chain_command_block",
+        "minecraft:command_block",
+        "minecraft:repeating_command_block"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 36,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:chain_command_block}[conditional\u003dfalse,facing\u003dnorth]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:comparator": {
+      "type": "minecraft:comparator",
+      "representativeBlock": "minecraft:comparator",
+      "validVanillaVariants": [
+        "minecraft:comparator"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 16,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:comparator}[facing\u003dnorth,mode\u003dcompare,powered\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:conduit": {
+      "type": "minecraft:conduit",
+      "representativeBlock": "minecraft:conduit",
+      "validVanillaVariants": [
+        "minecraft:conduit"
+      ],
+      "serverTickingVariants": [
+        "minecraft:conduit"
+      ],
+      "statesProbed": 2,
+      "serverTickingStates": 2,
+      "initialBlockState": "Block{minecraft:conduit}[waterlogged\u003dtrue]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:crafter": {
+      "type": "minecraft:crafter",
+      "representativeBlock": "minecraft:crafter",
+      "validVanillaVariants": [
+        "minecraft:crafter"
+      ],
+      "serverTickingVariants": [
+        "minecraft:crafter"
+      ],
+      "statesProbed": 48,
+      "serverTickingStates": 48,
+      "initialBlockState": "Block{minecraft:crafter}[crafting\u003dfalse,orientation\u003dnorth_up,triggered\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:daylight_detector": {
+      "type": "minecraft:daylight_detector",
+      "representativeBlock": "minecraft:daylight_detector",
+      "validVanillaVariants": [
+        "minecraft:daylight_detector"
+      ],
+      "serverTickingVariants": [
+        "minecraft:daylight_detector"
+      ],
+      "statesProbed": 32,
+      "serverTickingStates": 32,
+      "initialBlockState": "Block{minecraft:daylight_detector}[inverted\u003dfalse,power\u003d0]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:decorated_pot": {
+      "type": "minecraft:decorated_pot",
+      "representativeBlock": "minecraft:decorated_pot",
+      "validVanillaVariants": [
+        "minecraft:decorated_pot"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 16,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:decorated_pot}[cracked\u003dfalse,facing\u003dnorth,waterlogged\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:dispenser": {
+      "type": "minecraft:dispenser",
+      "representativeBlock": "minecraft:dispenser",
+      "validVanillaVariants": [
+        "minecraft:dispenser"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 12,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:dispenser}[facing\u003dnorth,triggered\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:dropper": {
+      "type": "minecraft:dropper",
+      "representativeBlock": "minecraft:dropper",
+      "validVanillaVariants": [
+        "minecraft:dropper"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 12,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:dropper}[facing\u003dnorth,triggered\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:enchanting_table": {
+      "type": "minecraft:enchanting_table",
+      "representativeBlock": "minecraft:enchanting_table",
+      "validVanillaVariants": [
+        "minecraft:enchanting_table"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 1,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:enchanting_table}",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:end_gateway": {
+      "type": "minecraft:end_gateway",
+      "representativeBlock": "minecraft:end_gateway",
+      "validVanillaVariants": [
+        "minecraft:end_gateway"
+      ],
+      "serverTickingVariants": [
+        "minecraft:end_gateway"
+      ],
+      "statesProbed": 1,
+      "serverTickingStates": 1,
+      "initialBlockState": "Block{minecraft:end_gateway}",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:end_portal": {
+      "type": "minecraft:end_portal",
+      "representativeBlock": "minecraft:end_portal",
+      "validVanillaVariants": [
+        "minecraft:end_portal"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 1,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:end_portal}",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:ender_chest": {
+      "type": "minecraft:ender_chest",
+      "representativeBlock": "minecraft:ender_chest",
+      "validVanillaVariants": [
+        "minecraft:ender_chest"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 8,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:ender_chest}[facing\u003dnorth,waterlogged\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:furnace": {
+      "type": "minecraft:furnace",
+      "representativeBlock": "minecraft:furnace",
+      "validVanillaVariants": [
+        "minecraft:furnace"
+      ],
+      "serverTickingVariants": [
+        "minecraft:furnace"
+      ],
+      "statesProbed": 8,
+      "serverTickingStates": 8,
+      "initialBlockState": "Block{minecraft:furnace}[facing\u003dnorth,lit\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:hanging_sign": {
+      "type": "minecraft:hanging_sign",
+      "representativeBlock": "minecraft:acacia_hanging_sign",
+      "validVanillaVariants": [
+        "minecraft:acacia_hanging_sign",
+        "minecraft:acacia_wall_hanging_sign",
+        "minecraft:bamboo_hanging_sign",
+        "minecraft:bamboo_wall_hanging_sign",
+        "minecraft:birch_hanging_sign",
+        "minecraft:birch_wall_hanging_sign",
+        "minecraft:cherry_hanging_sign",
+        "minecraft:cherry_wall_hanging_sign",
+        "minecraft:crimson_hanging_sign",
+        "minecraft:crimson_wall_hanging_sign",
+        "minecraft:dark_oak_hanging_sign",
+        "minecraft:dark_oak_wall_hanging_sign",
+        "minecraft:jungle_hanging_sign",
+        "minecraft:jungle_wall_hanging_sign",
+        "minecraft:mangrove_hanging_sign",
+        "minecraft:mangrove_wall_hanging_sign",
+        "minecraft:oak_hanging_sign",
+        "minecraft:oak_wall_hanging_sign",
+        "minecraft:spruce_hanging_sign",
+        "minecraft:spruce_wall_hanging_sign",
+        "minecraft:warped_hanging_sign",
+        "minecraft:warped_wall_hanging_sign"
+      ],
+      "serverTickingVariants": [
+        "minecraft:acacia_hanging_sign",
+        "minecraft:acacia_wall_hanging_sign",
+        "minecraft:bamboo_hanging_sign",
+        "minecraft:bamboo_wall_hanging_sign",
+        "minecraft:birch_hanging_sign",
+        "minecraft:birch_wall_hanging_sign",
+        "minecraft:cherry_hanging_sign",
+        "minecraft:cherry_wall_hanging_sign",
+        "minecraft:crimson_hanging_sign",
+        "minecraft:crimson_wall_hanging_sign",
+        "minecraft:dark_oak_hanging_sign",
+        "minecraft:dark_oak_wall_hanging_sign",
+        "minecraft:jungle_hanging_sign",
+        "minecraft:jungle_wall_hanging_sign",
+        "minecraft:mangrove_hanging_sign",
+        "minecraft:mangrove_wall_hanging_sign",
+        "minecraft:oak_hanging_sign",
+        "minecraft:oak_wall_hanging_sign",
+        "minecraft:spruce_hanging_sign",
+        "minecraft:spruce_wall_hanging_sign",
+        "minecraft:warped_hanging_sign",
+        "minecraft:warped_wall_hanging_sign"
+      ],
+      "statesProbed": 792,
+      "serverTickingStates": 792,
+      "initialBlockState": "Block{minecraft:acacia_hanging_sign}[attached\u003dfalse,rotation\u003d0,waterlogged\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:hopper": {
+      "type": "minecraft:hopper",
+      "representativeBlock": "minecraft:hopper",
+      "validVanillaVariants": [
+        "minecraft:hopper"
+      ],
+      "serverTickingVariants": [
+        "minecraft:hopper"
+      ],
+      "statesProbed": 10,
+      "serverTickingStates": 10,
+      "initialBlockState": "Block{minecraft:hopper}[enabled\u003dtrue,facing\u003ddown]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:jigsaw": {
+      "type": "minecraft:jigsaw",
+      "representativeBlock": "minecraft:jigsaw",
+      "validVanillaVariants": [
+        "minecraft:jigsaw"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 12,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:jigsaw}[orientation\u003dnorth_up]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:jukebox": {
+      "type": "minecraft:jukebox",
+      "representativeBlock": "minecraft:jukebox",
+      "validVanillaVariants": [
+        "minecraft:jukebox"
+      ],
+      "serverTickingVariants": [
+        "minecraft:jukebox"
+      ],
+      "statesProbed": 2,
+      "serverTickingStates": 1,
+      "initialBlockState": "Block{minecraft:jukebox}[has_record\u003dtrue]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:lectern": {
+      "type": "minecraft:lectern",
+      "representativeBlock": "minecraft:lectern",
+      "validVanillaVariants": [
+        "minecraft:lectern"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 16,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:lectern}[facing\u003dnorth,has_book\u003dfalse,powered\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:mob_spawner": {
+      "type": "minecraft:mob_spawner",
+      "representativeBlock": "minecraft:spawner",
+      "validVanillaVariants": [
+        "minecraft:spawner"
+      ],
+      "serverTickingVariants": [
+        "minecraft:spawner"
+      ],
+      "statesProbed": 1,
+      "serverTickingStates": 1,
+      "initialBlockState": "Block{minecraft:spawner}",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:piston": {
+      "type": "minecraft:piston",
+      "representativeBlock": "minecraft:moving_piston",
+      "validVanillaVariants": [
+        "minecraft:moving_piston"
+      ],
+      "serverTickingVariants": [
+        "minecraft:moving_piston"
+      ],
+      "statesProbed": 12,
+      "serverTickingStates": 12,
+      "initialBlockState": "Block{minecraft:moving_piston}[facing\u003dnorth,type\u003dnormal]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 0
+    },
+    "minecraft:sculk_catalyst": {
+      "type": "minecraft:sculk_catalyst",
+      "representativeBlock": "minecraft:sculk_catalyst",
+      "validVanillaVariants": [
+        "minecraft:sculk_catalyst"
+      ],
+      "serverTickingVariants": [
+        "minecraft:sculk_catalyst"
+      ],
+      "statesProbed": 2,
+      "serverTickingStates": 2,
+      "initialBlockState": "Block{minecraft:sculk_catalyst}[bloom\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:sculk_sensor": {
+      "type": "minecraft:sculk_sensor",
+      "representativeBlock": "minecraft:sculk_sensor",
+      "validVanillaVariants": [
+        "minecraft:sculk_sensor"
+      ],
+      "serverTickingVariants": [
+        "minecraft:sculk_sensor"
+      ],
+      "statesProbed": 96,
+      "serverTickingStates": 96,
+      "initialBlockState": "Block{minecraft:sculk_sensor}[power\u003d0,sculk_sensor_phase\u003dinactive,waterlogged\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:sculk_shrieker": {
+      "type": "minecraft:sculk_shrieker",
+      "representativeBlock": "minecraft:sculk_shrieker",
+      "validVanillaVariants": [
+        "minecraft:sculk_shrieker"
+      ],
+      "serverTickingVariants": [
+        "minecraft:sculk_shrieker"
+      ],
+      "statesProbed": 8,
+      "serverTickingStates": 8,
+      "initialBlockState": "Block{minecraft:sculk_shrieker}[can_summon\u003dfalse,shrieking\u003dfalse,waterlogged\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:shulker_box": {
+      "type": "minecraft:shulker_box",
+      "representativeBlock": "minecraft:black_shulker_box",
+      "validVanillaVariants": [
+        "minecraft:black_shulker_box",
+        "minecraft:blue_shulker_box",
+        "minecraft:brown_shulker_box",
+        "minecraft:cyan_shulker_box",
+        "minecraft:gray_shulker_box",
+        "minecraft:green_shulker_box",
+        "minecraft:light_blue_shulker_box",
+        "minecraft:light_gray_shulker_box",
+        "minecraft:lime_shulker_box",
+        "minecraft:magenta_shulker_box",
+        "minecraft:orange_shulker_box",
+        "minecraft:pink_shulker_box",
+        "minecraft:purple_shulker_box",
+        "minecraft:red_shulker_box",
+        "minecraft:shulker_box",
+        "minecraft:white_shulker_box",
+        "minecraft:yellow_shulker_box"
+      ],
+      "serverTickingVariants": [
+        "minecraft:black_shulker_box",
+        "minecraft:blue_shulker_box",
+        "minecraft:brown_shulker_box",
+        "minecraft:cyan_shulker_box",
+        "minecraft:gray_shulker_box",
+        "minecraft:green_shulker_box",
+        "minecraft:light_blue_shulker_box",
+        "minecraft:light_gray_shulker_box",
+        "minecraft:lime_shulker_box",
+        "minecraft:magenta_shulker_box",
+        "minecraft:orange_shulker_box",
+        "minecraft:pink_shulker_box",
+        "minecraft:purple_shulker_box",
+        "minecraft:red_shulker_box",
+        "minecraft:shulker_box",
+        "minecraft:white_shulker_box",
+        "minecraft:yellow_shulker_box"
+      ],
+      "statesProbed": 102,
+      "serverTickingStates": 102,
+      "initialBlockState": "Block{minecraft:black_shulker_box}[facing\u003dup]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:sign": {
+      "type": "minecraft:sign",
+      "representativeBlock": "minecraft:acacia_sign",
+      "validVanillaVariants": [
+        "minecraft:acacia_sign",
+        "minecraft:acacia_wall_sign",
+        "minecraft:bamboo_sign",
+        "minecraft:bamboo_wall_sign",
+        "minecraft:birch_sign",
+        "minecraft:birch_wall_sign",
+        "minecraft:cherry_sign",
+        "minecraft:cherry_wall_sign",
+        "minecraft:crimson_sign",
+        "minecraft:crimson_wall_sign",
+        "minecraft:dark_oak_sign",
+        "minecraft:dark_oak_wall_sign",
+        "minecraft:jungle_sign",
+        "minecraft:jungle_wall_sign",
+        "minecraft:mangrove_sign",
+        "minecraft:mangrove_wall_sign",
+        "minecraft:oak_sign",
+        "minecraft:oak_wall_sign",
+        "minecraft:spruce_sign",
+        "minecraft:spruce_wall_sign",
+        "minecraft:warped_sign",
+        "minecraft:warped_wall_sign"
+      ],
+      "serverTickingVariants": [
+        "minecraft:acacia_sign",
+        "minecraft:acacia_wall_sign",
+        "minecraft:bamboo_sign",
+        "minecraft:bamboo_wall_sign",
+        "minecraft:birch_sign",
+        "minecraft:birch_wall_sign",
+        "minecraft:cherry_sign",
+        "minecraft:cherry_wall_sign",
+        "minecraft:crimson_sign",
+        "minecraft:crimson_wall_sign",
+        "minecraft:dark_oak_sign",
+        "minecraft:dark_oak_wall_sign",
+        "minecraft:jungle_sign",
+        "minecraft:jungle_wall_sign",
+        "minecraft:mangrove_sign",
+        "minecraft:mangrove_wall_sign",
+        "minecraft:oak_sign",
+        "minecraft:oak_wall_sign",
+        "minecraft:spruce_sign",
+        "minecraft:spruce_wall_sign",
+        "minecraft:warped_sign",
+        "minecraft:warped_wall_sign"
+      ],
+      "statesProbed": 440,
+      "serverTickingStates": 440,
+      "initialBlockState": "Block{minecraft:acacia_sign}[rotation\u003d0,waterlogged\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:skull": {
+      "type": "minecraft:skull",
+      "representativeBlock": "minecraft:creeper_head",
+      "validVanillaVariants": [
+        "minecraft:creeper_head",
+        "minecraft:creeper_wall_head",
+        "minecraft:dragon_head",
+        "minecraft:dragon_wall_head",
+        "minecraft:piglin_head",
+        "minecraft:piglin_wall_head",
+        "minecraft:player_head",
+        "minecraft:player_wall_head",
+        "minecraft:skeleton_skull",
+        "minecraft:skeleton_wall_skull",
+        "minecraft:wither_skeleton_skull",
+        "minecraft:wither_skeleton_wall_skull",
+        "minecraft:zombie_head",
+        "minecraft:zombie_wall_head"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 280,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:creeper_head}[powered\u003dfalse,rotation\u003d0]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:smoker": {
+      "type": "minecraft:smoker",
+      "representativeBlock": "minecraft:smoker",
+      "validVanillaVariants": [
+        "minecraft:smoker"
+      ],
+      "serverTickingVariants": [
+        "minecraft:smoker"
+      ],
+      "statesProbed": 8,
+      "serverTickingStates": 8,
+      "initialBlockState": "Block{minecraft:smoker}[facing\u003dnorth,lit\u003dfalse]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:structure_block": {
+      "type": "minecraft:structure_block",
+      "representativeBlock": "minecraft:structure_block",
+      "validVanillaVariants": [
+        "minecraft:structure_block"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 4,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:structure_block}[mode\u003dload]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:trapped_chest": {
+      "type": "minecraft:trapped_chest",
+      "representativeBlock": "minecraft:trapped_chest",
+      "validVanillaVariants": [
+        "minecraft:trapped_chest"
+      ],
+      "serverTickingVariants": [],
+      "statesProbed": 24,
+      "serverTickingStates": 0,
+      "initialBlockState": "Block{minecraft:trapped_chest}[facing\u003dnorth,type\u003dsingle,waterlogged\u003dfalse]",
+      "hasServerTicker": false,
+      "placed": 1,
+      "survivingAtEnd": 1
+    },
+    "minecraft:trial_spawner": {
+      "type": "minecraft:trial_spawner",
+      "representativeBlock": "minecraft:trial_spawner",
+      "validVanillaVariants": [
+        "minecraft:trial_spawner"
+      ],
+      "serverTickingVariants": [
+        "minecraft:trial_spawner"
+      ],
+      "statesProbed": 12,
+      "serverTickingStates": 12,
+      "initialBlockState": "Block{minecraft:trial_spawner}[ominous\u003dfalse,trial_spawner_state\u003dinactive]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    },
+    "minecraft:vault": {
+      "type": "minecraft:vault",
+      "representativeBlock": "minecraft:vault",
+      "validVanillaVariants": [
+        "minecraft:vault"
+      ],
+      "serverTickingVariants": [
+        "minecraft:vault"
+      ],
+      "statesProbed": 32,
+      "serverTickingStates": 32,
+      "initialBlockState": "Block{minecraft:vault}[facing\u003dnorth,ominous\u003dfalse,vault_state\u003dinactive]",
+      "hasServerTicker": true,
+      "placed": 16,
+      "survivingAtEnd": 16
+    }
+  },
+  "c7Before": {
+    "phases": 0,
+    "collected": 0,
+    "parallel": 0,
+    "serial": 0,
+    "skipped": 0,
+    "dependencies": 0,
+    "graphNanos": 0,
+    "waves": 0,
+    "waveTasks": 0,
+    "maxWave": 0,
+    "maxConcurrent": 0,
+    "workerNanos": 0,
+    "workerCapacityNanos": 0,
+    "conflicts": 0,
+    "dynamicDiscoveries": 0,
+    "demotions": 0,
+    "schedulingNanos": 0,
+    "executionNanos": 0,
+    "preparationNanos": 0,
+    "commitNanos": 0,
+    "failed": 0,
+    "rejected": 0,
+    "invalidated": 0,
+    "rejectedPlans": 0,
+    "phaseNanos": 0,
+    "collectionNanos": 0,
+    "proofNanos": 0,
+    "proofRefusals": {},
+    "undeclaredKinds": {},
+    "types": {}
+  },
+  "c7After": {
+    "phases": 0,
+    "collected": 0,
+    "parallel": 0,
+    "serial": 0,
+    "skipped": 0,
+    "dependencies": 0,
+    "graphNanos": 0,
+    "waves": 0,
+    "waveTasks": 0,
+    "maxWave": 0,
+    "maxConcurrent": 0,
+    "workerNanos": 0,
+    "workerCapacityNanos": 0,
+    "conflicts": 0,
+    "dynamicDiscoveries": 0,
+    "demotions": 0,
+    "schedulingNanos": 0,
+    "executionNanos": 0,
+    "preparationNanos": 0,
+    "commitNanos": 0,
+    "failed": 0,
+    "rejected": 0,
+    "invalidated": 0,
+    "rejectedPlans": 0,
+    "phaseNanos": 0,
+    "collectionNanos": 0,
+    "proofNanos": 0,
+    "proofRefusals": {},
+    "undeclaredKinds": {},
+    "types": {}
+  },
+  "jvmBefore": {
+    "allocationBytes": 2027527472,
+    "workerCpuNanos": 424084600,
+    "processCpuNanos": 79930000000,
+    "heapBytes": 625637832
+  },
+  "jvmAfter": {
+    "allocationBytes": 2165012888,
+    "workerCpuNanos": 564405700,
+    "processCpuNanos": 83350000000,
+    "heapBytes": 764049864
+  },
+  "workerCpuUtilization": 0.031211837560688387,
+  "allocationBytes": 137485416,
+  "ownershipViolations": 0,
+  "containerItemCountAtStart": 16,
+  "containerItemCountAtEnd": 16,
+  "windowWallNanos": 1123941355,
+  "processCpuCores": 3.042863388543969,
+  "heapDeltaBytes": 138412032,
+  "mods": [
+    "add_pack_finders_test@1",
+    "ambient_occlusion_elements_test@1",
+    "anvil_update_event_fix@1",
+    "attachment_sync_test@1",
+    "biome_modifiers_test@1",
+    "chunk_data_event_save_null_world_test@1",
+    "chunk_event_load_new_chunk_test@1",
+    "chunkwatchworldtest@1",
+    "client_command_test@1",
+    "client_information_updated_test@1",
+    "composite_model_test@1",
+    "conditional_codec_test@1",
+    "configui@1",
+    "containertypetest@1",
+    "crash_callable_test@1",
+    "create_entity_classification_test@1",
+    "creative_mode_tab_test@1",
+    "custom_armor_model_test@1",
+    "custom_break_sound_test@1",
+    "custom_color_resolver_test@1",
+    "custom_elytra_test@1",
+    "custom_feature_flags_pack_test@1",
+    "custom_fluid_container_test@1",
+    "custom_head_test@1",
+    "custom_item_decorations_test@1",
+    "custom_particle_type_test@1",
+    "custom_plant_type_test@1",
+    "custom_preset_editor_test@1",
+    "custom_shield_test@1",
+    "custom_signs_test@1",
+    "custom_sound_type_test@1",
+    "custom_sprite_source_test@1",
+    "custom_tooltip_test@1",
+    "custom_transformtype_test@1",
+    "data_gen_test@1",
+    "data_pack_registries_test@1",
+    "deferred_holder_test@1",
+    "deferred_registry_test@1",
+    "deferred_work_queue_test@1",
+    "dimension_settings_test@1",
+    "duplicate_optional_tag_test@1",
+    "dyn_bucket_model_test@1",
+    "emissive_elements_test@1",
+    "ender_mask_test@1",
+    "entity_renderer_events_test@1",
+    "entity_selector_test@1",
+    "fake_player_test@1",
+    "finalize_spawn_fix_test@1",
+    "fishing_bobber_event_test@1",
+    "flower_pot_test@1",
+    "fluid_type_test@1",
+    "fluid_util_test@1",
+    "forge_chunk_manager_test@1",
+    "forgedebugmultilayermodel@1",
+    "full_pots_accessor_demo@1",
+    "gametest_test@1",
+    "grindstone_event_test@1",
+    "hide_neighbor_face_test@1",
+    "ingredient_invalidation@1",
+    "item_stacked_on_other_test@1",
+    "item_use_animation_test@1",
+    "login_packet_split_test@1",
+    "many_mob_effects_test@1",
+    "may_fly_attribute_item@1",
+    "mega_model_test@1",
+    "milk_fluid_test@1",
+    "minecraft@1.21.1",
+    "mod_mismatch_test@1",
+    "multiple_entrypoints_test@1",
+    "music_disc_test@1",
+    "nameplate_render_test@1",
+    "neoforge@21.1.250.106-beta-feature-c7-dependency-graph",
+    "neotests@1",
+    "new_fluid_test@1",
+    "new_model_loader_test@1",
+    "on_tree_grow_block_test@1",
+    "ordered_test_1@1",
+    "ordered_test_2@1",
+    "ordered_test_3@1",
+    "ordered_test_4@1",
+    "ordered_test_5@1",
+    "part_entity_test@1",
+    "permissiontest@1",
+    "player_negotiation_event_test@1",
+    "player_spawn_phantoms_event_test@1",
+    "potentialspawnsevent_test@1",
+    "potion_event_test@1",
+    "raid_enum_test@1",
+    "ranged_mobs_use_modded_weapons_test@1",
+    "recipe_book_extension_test@1",
+    "redstone_sided_connectivity_test@1",
+    "registry_codec_test@1",
+    "remove_tag_datagen_test@1",
+    "render_level_stages_test@1",
+    "render_local_player_test@1",
+    "renderable_test@1",
+    "scaffolding_test@1",
+    "server_world_creation_test@1",
+    "shader_resources_test@1",
+    "slipperiness_test@1",
+    "spawn_placement_test@1",
+    "stencil_enable_test@1",
+    "stop_using_item@1",
+    "structure_modifiers_test@1",
+    "testframework@21.1.250.106-beta-feature-c7-dependency-graph",
+    "text_linear_filtering_test@1",
+    "trade_with_villager_event_test@1",
+    "trsr_transformer_test@1",
+    "valid_railshape_test@1",
+    "worldgen_registry_desync_test@1"
+  ]
+}

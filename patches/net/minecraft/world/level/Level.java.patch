@@ -152,7 +152,7 @@
      }
  
      public void updateNeighborsAtExceptFromFacing(BlockPos p_46591_, Block p_46592_, Direction p_46593_) {
-@@ -486,42 +_,230 @@
+@@ -486,42 +_,237 @@
      }
  
      public void addBlockEntityTicker(TickingBlockEntity p_151526_) {
@@ -345,27 +345,34 @@
 +
 +            // Neo: the opt-in worker bridge captures the actual Level membership after pending merge and
 +            // fresh onLoad. Chunk registration and wrapper creation order do not define this phase's order.
-+            final net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickPlan blockEntityTickPlan = this instanceof net.minecraft.server.level.ServerLevel serverLevel
-+                    ? net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginBlockEntityTickPlan(serverLevel, serverLevel.getChunkSource()::managedBlockOnMainThread)
-+                    : null;
-+            if (blockEntityTickPlan == null) {
-+                Iterator<TickingBlockEntity> iterator = this.blockEntityTickers.iterator();
-+                boolean flag = this.tickRateManager().runsNormally();
++            final var blockEntitySystem = net.neoforged.neoforge.server.threading.c7.C7Runtime.system();
++            if (blockEntitySystem != net.neoforged.neoforge.server.threading.c7.BlockEntityExecutionSystem.C7
++                    || !(this instanceof net.minecraft.server.level.ServerLevel c7Level)
++                    || !net.neoforged.neoforge.server.threading.c7.C7Runtime.tick(c7Level, c7Level.getChunkSource()::managedBlockOnMainThread)) {
++                final net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickPlan blockEntityTickPlan = blockEntitySystem == net.neoforged.neoforge.server.threading.c7.BlockEntityExecutionSystem.C6
++                        && this instanceof net.minecraft.server.level.ServerLevel serverLevel
++                        ? net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginBlockEntityTickPlan(serverLevel, serverLevel.getChunkSource()::managedBlockOnMainThread)
++                        : null;
++                if (blockEntityTickPlan == null) {
++                    Iterator<TickingBlockEntity> iterator = this.blockEntityTickers.iterator();
++                    boolean flag = this.tickRateManager().runsNormally();
 +
-+                while (iterator.hasNext()) {
-+                    TickingBlockEntity tickingblockentity = iterator.next();
-+                    if (tickingblockentity.isRemoved()) {
-+                        iterator.remove();
-+                    } else if (flag && this.shouldTickBlocksAt(tickingblockentity.getPos())) {
-+                        tickingblockentity.tick();
++                    while (iterator.hasNext()) {
++                        TickingBlockEntity tickingblockentity = iterator.next();
++                        if (tickingblockentity.isRemoved()) {
++                            iterator.remove();
++                        } else if (flag && this.shouldTickBlocksAt(tickingblockentity.getPos())) {
++                            tickingblockentity.tick();
++                        }
 +                    }
++                } else {
++                    // Snapshot references under the ticker lock; all getters, eligibility and admission run
++                    // after releasing it. Newly pending tickers keep the existing next-phase publication rule.
++                    blockEntityTickPlan.collectCanonical();
 +                }
-+            } else {
-+                // Snapshot references under the ticker lock; all getters, eligibility and admission run
-+                // after releasing it. Newly pending tickers keep the existing next-phase publication rule.
-+                blockEntityTickPlan.collectCanonical();
++                if (blockEntitySystem == net.neoforged.neoforge.server.threading.c7.BlockEntityExecutionSystem.C6)
++                    net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockEntityTickPlan(blockEntityTickPlan);
 +            }
-+            net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockEntityTickPlan(blockEntityTickPlan);
 +        } finally {
 +            // Neo: finalization must run even when an inline ticker, a fresh onLoad() or the region batch throws.
 +            // Resetting the flag and publishing the tickers added while ticking keeps the next tick consistent
