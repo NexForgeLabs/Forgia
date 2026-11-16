@@ -187,6 +187,8 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final boolean scheduledTickWorkerExecutionEnabled;
     private final RegionScheduledTickMetrics[] scheduledTickMetrics = { new RegionScheduledTickMetrics(), new RegionScheduledTickMetrics() };
     private final boolean chunkTickWorkerExecutionEnabled;
+    private final RegionChunkTickCoordinator chunkTickCoordinator;
+    private final RegionDiagnosticsCollector diagnosticsCollector;
     private volatile boolean spawnWorkerExecutionEnabled;
     /**
      * Whether a slice leases several regions into one worker task. Off means one task per region, exactly like
@@ -1057,18 +1059,78 @@ public final class RegionThreadingEngine implements RegionThreading {
      * default, and off means the unchanged behaviour of every slice.
      */
     public RegionThreadingEngine(int workerThreads, boolean workerExecutionEnabled, boolean globalWorkerExecutionEnabled, boolean entityTickWorkerExecutionEnabled, boolean blockEntityTickWorkerExecutionEnabled, boolean scheduledTickWorkerExecutionEnabled, boolean chunkTickWorkerExecutionEnabled, boolean spawnWorkerExecutionEnabled, boolean persistentWorkers, boolean packedRegionLeases, RegionLayout layout, RegionEntityStorageMode entityStorageMode) {
-        this.layout = layout;
+        this(new RegionThreadingOptions(
+                new RegionThreadingOptions.Workers(workerThreads, workerExecutionEnabled, globalWorkerExecutionEnabled, persistentWorkers, packedRegionLeases),
+                new RegionThreadingOptions.TickSlices(entityTickWorkerExecutionEnabled, blockEntityTickWorkerExecutionEnabled, scheduledTickWorkerExecutionEnabled, chunkTickWorkerExecutionEnabled, spawnWorkerExecutionEnabled),
+                layout, entityStorageMode));
+    }
+
+    /** Creates the runtime from already resolved startup settings; legacy constructors remain compatible. */
+    public RegionThreadingEngine(RegionThreadingOptions options) {
+        final RegionThreadingOptions.Workers workers = options.workers();
+        final RegionThreadingOptions.TickSlices ticks = options.ticks();
+        this.layout = options.layout();
         this.regionizer = new ThreadedRegionizer(this.layout, this.regionWorkAdmission);
-        this.workerPool = new RegionWorkerPool(workerThreads > 0 ? workerThreads : Math.max(1, Runtime.getRuntime().availableProcessors() - 1), persistentWorkers);
-        this.workerExecutionEnabled = workerExecutionEnabled;
-        this.globalWorkerExecutionEnabled = globalWorkerExecutionEnabled;
-        this.entityTickWorkerExecutionEnabled = entityTickWorkerExecutionEnabled;
-        this.blockEntityTickWorkerExecutionEnabled = blockEntityTickWorkerExecutionEnabled;
-        this.scheduledTickWorkerExecutionEnabled = scheduledTickWorkerExecutionEnabled;
-        this.chunkTickWorkerExecutionEnabled = chunkTickWorkerExecutionEnabled;
-        this.spawnWorkerExecutionEnabled = spawnWorkerExecutionEnabled;
-        this.packedRegionLeasesEnabled = packedRegionLeases;
-        this.entityStorageMode = entityStorageMode;
+        this.workerPool = new RegionWorkerPool(workers.threads() > 0 ? workers.threads() : Math.max(1, Runtime.getRuntime().availableProcessors() - 1), workers.persistent());
+        this.workerExecutionEnabled = workers.regionTasks();
+        this.globalWorkerExecutionEnabled = workers.globalTasks();
+        this.entityTickWorkerExecutionEnabled = ticks.entities();
+        this.blockEntityTickWorkerExecutionEnabled = ticks.blockEntities();
+        this.scheduledTickWorkerExecutionEnabled = ticks.scheduledTicks();
+        this.chunkTickWorkerExecutionEnabled = ticks.chunkTicks();
+        this.spawnWorkerExecutionEnabled = ticks.spawning();
+        this.packedRegionLeasesEnabled = workers.packedRegionLeases();
+        this.entityStorageMode = options.entityStorageMode();
+        this.chunkTickCoordinator = new RegionChunkTickCoordinator(new ChunkTickHost());
+        this.diagnosticsCollector = new RegionDiagnosticsCollector(
+                new RegionDiagnosticsCollector.BorderSources(
+                        this.borderUpdatesRecorded,
+                        this.borderUpdatesApplied,
+                        this.borderUpdatesDelayed,
+                        this.borderUpdatesDropped,
+                        this.borderUpdatePasses,
+                        this.borderUpdateRegionsRerun,
+                        this.borderUpdateWorstPasses,
+                        this.borderUpdatesOverflowed,
+                        this.foreignChunkReads,
+                        this.readOfUnownedChunk,
+                        this.readOfVersionlessChunk,
+                        this.foreignReadInvalidatedPasses,
+                        this.foreignReadRegionReruns,
+                        this.foreignReadSeedsDropped,
+                        this.borderBlockWritesRecorded,
+                        this.borderBlockWritesApplied,
+                        this.borderBlockWritesOverflowed,
+                        this.borderBlockWritesDropped,
+                        this.readAfterDeferredBlockWrite),
+                new RegionDiagnosticsCollector.BlockEventSources(
+                        this.blockEventPhases,
+                        this.blockEventPhaseLeases,
+                        this.blockEventPhaseReleases,
+                        this.blockEventPhaseEvents,
+                        this.blockEventPhaseFixpoints,
+                        this.blockEventPhaseLeaseFallbacks,
+                        this.blockEventPhaseNanos,
+                        this.blockEventPhaseMaxNanos),
+                new RegionDiagnosticsCollector.GameEventSources(
+                        this.gameEventsPosted,
+                        this.gameEventSectionsLocal,
+                        this.gameEventSectionsDeferred,
+                        this.gameEventSectionsDelivered,
+                        this.gameEventSectionsRefused,
+                        this.gameEventSectionsDropped,
+                        this.gameEventSectionsDroppedNoRegion,
+                        this.gameEventSectionsDroppedNoChunk,
+                        this.gameEventDeliveryPasses),
+                new RegionDiagnosticsCollector.SaveSources(
+                        this.levelSaves,
+                        this.levelSavesWithBatchInFlight,
+                        this.levelSavesWithTickDeferredWork,
+                        this.levelSavesWithCrossTickDeferredWork,
+                        this.levelSaveCrossTickDeferredEntries,
+                        this.levelSaveDirtyPoiColumns,
+                        this.levelSaveFlushedPoiColumns),
+                this.appliedDeferredBlockUpdates, this.droppedDeferredBlockUpdates, this.refusedDeferredBlockUpdates, this.workerTickFailures);
         this.declareVanillaServerThreadOnlyEntities();
         RegionOwnershipViolationHandler.reset();
         RegionEntityOwnershipScope.resetCounters();
@@ -4644,15 +4706,6 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     /**
-     * Outcome of {@link #publishTickBatch(RegionTickBatch, ServerLevel)}.
-     */
-    private enum TickBatchPublication {
-        PUBLISHED,
-        LEVEL_CLOSED,
-        SHUTDOWN
-    }
-
-    /**
      * Ticks {@code accepted} entities on their owning region workers and waits for the batch.
      * <p>
      * Runs on the server thread: while the workers tick, the server thread only services chunk source
@@ -7821,82 +7874,56 @@ public final class RegionThreadingEngine implements RegionThreading {
      * mutations, so a random tick never mutates a server-owned structure from a worker.
      */
     void tickChunks(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed, RegionTickBarrier barrier) {
-        // The server thread is done deciding which chunks it hands over; the attribution of the slice closes its
-        // plan segment here, before the batch is published.
-        RegionChunkTickAttribution.endPlanSegment();
-        if (chunks.isEmpty()) {
-            return;
+        this.chunkTickCoordinator.executeAndAwait(level, chunks, randomTickSpeed, barrier);
+    }
+
+    /** Narrow bridge to the original runtime; the coordinator owns no independent execution authority. */
+    private final class ChunkTickHost implements RegionChunkTickCoordinator.Host {
+        @Override
+        public int blockUpdateEntryBudget() {
+            return RegionThreadingEngine.this.deferredBlockUpdateBudget;
         }
 
-        final RegionChunkTickBatch batch = new RegionChunkTickBatch(level, randomTickSpeed, this.deferredBlockUpdateBudget);
-        final TickBatchPublication publication = this.publishTickBatch(batch, level);
-        if (publication == TickBatchPublication.LEVEL_CLOSED) {
-            // The level clear completed after this collection. Its region state is retired and no batch may be
-            // published for it: the collected chunks must not tick for a level that already unloaded.
-            this.skippedChunkTicks.addAndGet(chunks.size());
-            return;
-        }
-        if (publication == TickBatchPublication.SHUTDOWN) {
-            // The engine was shut down between the collection and the batch; the collected chunks still have to
-            // tick, but no batch may be published after shutdown started.
-            for (final RegionChunkTickEntry chunk : chunks) {
-                this.tickChunkOnServerThread(level, chunk, randomTickSpeed);
-            }
-            return;
-        }
-        // This thread owns the batch until it finished; a shutdown or unload requested from inside it (fallback
-        // work included) cannot wait for a batch that only this thread can complete.
-        batch.markExecutingOnCurrentThread();
-        // The opt-in attribution is decided once per batch, never per chunk.
-        final boolean attribution = RegionChunkTickAttribution.isEnabled();
-        Throwable failure = null;
-        try {
-            final long leaseStart = attribution ? System.nanoTime() : 0L;
-            try {
-                this.leaseChunkTickGroups(batch, chunks, barrier);
-            } catch (Throwable throwable) {
-                failure = throwable;
-            } finally {
-                if (attribution) {
-                    RegionChunkTickAttribution.recordLease(System.nanoTime() - leaseStart);
-                }
-            }
-            final long awaitStart = attribution ? System.nanoTime() : 0L;
-            try {
-                this.runRegionBatch(level, () -> batch.submitAndAwait(this.workerPool, barrier));
-            } catch (Throwable throwable) {
-                if (failure == null) {
-                    failure = throwable;
-                }
-            } finally {
-                if (attribution) {
-                    RegionChunkTickAttribution.recordAwait(System.nanoTime() - awaitStart);
-                }
-            }
-        } finally {
-            final long handoffStart = attribution ? System.nanoTime() : 0L;
-            try {
-                failure = runBatchCompletion(failure, () -> this.applyDeferredChunkTickSectionUpdates(batch));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredChunkTickRemovals(batch));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredChunkTickAdditions(batch));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-                failure = runBatchCompletion(failure, () -> this.applyChunkTickLightning(batch));
-                failure = runBatchCompletion(failure, () -> this.tickFallbackChunkTicks(batch));
-                failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
-                batch.finish();
-                this.activeTickBatches.remove(batch);
-                batch.clearExecutingOnCurrentThread();
-            } finally {
-                if (attribution) {
-                    RegionChunkTickAttribution.recordHandoff(System.nanoTime() - handoffStart);
-                }
-            }
+        @Override
+        public TickBatchPublication publish(RegionChunkTickBatch batch) {
+            return RegionThreadingEngine.this.publishTickBatch(batch, batch.level());
         }
 
-        if (failure != null) {
-            throwUnchecked(failure);
+        @Override
+        public void countSkippedChunks(int count) {
+            RegionThreadingEngine.this.skippedChunkTicks.addAndGet(count);
         }
-        batch.throwIfFailed();
+
+        @Override
+        public void tickOnServerThread(ServerLevel level, RegionChunkTickEntry chunk, int randomTickSpeed) {
+            RegionThreadingEngine.this.tickChunkOnServerThread(level, chunk, randomTickSpeed);
+        }
+
+        @Override
+        public void leaseGroups(RegionChunkTickBatch batch, List<RegionChunkTickEntry> chunks, RegionTickBarrier barrier) {
+            RegionThreadingEngine.this.leaseChunkTickGroups(batch, chunks, barrier);
+        }
+
+        @Override
+        public void submitAndAwait(RegionChunkTickBatch batch, RegionTickBarrier barrier) {
+            RegionThreadingEngine.this.runRegionBatch(batch.level(), () -> batch.submitAndAwait(RegionThreadingEngine.this.workerPool, barrier));
+        }
+
+        @Override
+        @Nullable
+        public Throwable complete(RegionChunkTickBatch batch, @Nullable Throwable failure) {
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.applyDeferredChunkTickSectionUpdates(batch));
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.applyDeferredChunkTickRemovals(batch));
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.applyDeferredChunkTickAdditions(batch));
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.applyDeferredBlockUpdates(batch));
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.applyChunkTickLightning(batch));
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.tickFallbackChunkTicks(batch));
+            failure = runBatchCompletion(failure, () -> RegionThreadingEngine.this.applyRegionTickMutations(batch.regionTickMutations()));
+            batch.finish();
+            RegionThreadingEngine.this.activeTickBatches.remove(batch);
+            batch.clearExecutingOnCurrentThread();
+            return failure;
+        }
     }
 
     /**
@@ -8707,49 +8734,11 @@ public final class RegionThreadingEngine implements RegionThreading {
         return this.spawnWorkerExecutionEnabled;
     }
 
-    /** {@return a copy of {@code counters} as plain longs, indexed by the ordinal of the slice} */
-    private static long[] snapshot(AtomicLong[] counters) {
-        final long[] snapshot = new long[counters.length];
-        for (int index = 0; index < counters.length; ++index) {
-            snapshot[index] = counters[index].get();
-        }
-        return snapshot;
-    }
-
-    /** {@return the per-slice block-update counters of the diagnostics snapshot} */
-    private RegionThreadingDiagnostics.BlockUpdateCounters deferredBlockUpdateCounters() {
-        return new RegionThreadingDiagnostics.BlockUpdateCounters(
-                snapshot(this.appliedDeferredBlockUpdates),
-                snapshot(this.droppedDeferredBlockUpdates),
-                snapshot(this.refusedDeferredBlockUpdates));
-    }
-
-    /** {@return the per-slice worker tick failure counters of the diagnostics snapshot} */
-    private RegionThreadingDiagnostics.TickFailureCounters tickFailureCounters() {
-        return new RegionThreadingDiagnostics.TickFailureCounters(snapshot(this.workerTickFailures));
-    }
-
-    /** {@return the worker dispatch counters of the pool and of the packed region leases} */
+    /** Observes the original pool and lease-packing counters without retaining pool authority in the collector. */
     private RegionThreadingDiagnostics.WorkerDispatchCounters workerDispatchCounters() {
-        final RegionWorkerPool.DispatchSnapshot dispatch = this.workerPool.dispatchSnapshot();
-        return new RegionThreadingDiagnostics.WorkerDispatchCounters(
-                dispatch.submissions(),
-                dispatch.submitNanos(),
-                dispatch.wakeNanos(),
-                dispatch.idleWakeUps(),
-                dispatch.spinWakeUps(),
-                dispatch.parkWakeUps(),
-                dispatch.steals(),
-                this.packedTasks.get(),
-                this.packedRegions.get(),
-                this.packedLeaseFallbacks.get(),
-                this.workerPool.isPersistent(),
-                this.packedRegionLeasesEnabled,
-                dispatch.dispatchBatches(),
-                dispatch.batchedTasks(),
-                dispatch.batchRunners(),
-                dispatch.batchSteals(),
-                dispatch.batchStolenTasks());
+        return RegionDiagnosticsCollector.workerDispatch(this.workerPool.dispatchSnapshot(),
+                this.packedTasks.get(), this.packedRegions.get(), this.packedLeaseFallbacks.get(),
+                this.workerPool.isPersistent(), this.packedRegionLeasesEnabled);
     }
 
     private static void throwUnchecked(Throwable throwable) {
@@ -10631,16 +10620,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     @ApiStatus.Internal
     public RegionThreadingDiagnostics diagnostics() {
         final List<RegionTickSnapshot> regionTicks = this.regionizer.regionTickSnapshots();
-        long globalPhases = 0L;
-        long regionPhases = 0L;
-        long regionPhasesWithoutGlobalPhase = 0L;
-        long abandonedGlobalSegments = 0L;
-        for (final LevelTickPhaseState state : this.levelTickPhases.values()) {
-            globalPhases += state.globalPhaseCount();
-            regionPhases += state.regionPhaseCount();
-            regionPhasesWithoutGlobalPhase += state.regionPhasesWithoutGlobalPhase();
-            abandonedGlobalSegments += state.abandonedGlobalSegments();
-        }
+        final RegionDiagnosticsCollector.PhaseCounts phases = RegionDiagnosticsCollector.phases(this.levelTickPhases.values());
         return new RegionThreadingDiagnostics(
                 this.regionizer.size(),
                 this.regionizer.runningRegionCount(),
@@ -10692,8 +10672,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.lateChunkTicks.get(),
                 this.unleasedChunkTicks.get(),
                 this.chunkTickLightningStrikes.get(),
-                this.deferredBlockUpdateCounters(),
-                this.tickFailureCounters(),
+                this.diagnosticsCollector.blockUpdates(),
+                this.diagnosticsCollector.tickFailures(),
                 this.deferredUpdateBudgetChunkTicks.get(),
                 this.nonPartitionedChunkTicks.get(),
                 this.spawnChunksOnWorkers.get(),
@@ -10756,10 +10736,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.deferredPortalTransitionCount.get(),
                 this.appliedPortalTransitionCount.get(),
                 this.refusedPortalTransitionCount.get(),
-                globalPhases,
-                regionPhases,
-                regionPhasesWithoutGlobalPhase,
-                abandonedGlobalSegments,
+                phases.globalPhases(),
+                phases.regionPhases(),
+                phases.regionPhasesWithoutGlobalPhase(),
+                phases.abandonedGlobalSegments(),
                 this.mailboxAcceptedMessages.get(),
                 this.mailboxDeliveredMessages.get(),
                 this.mailboxRefusedFullMessages.get(),
@@ -10767,45 +10747,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.mailboxDroppedRetiredMessages.get(),
                 this.mailboxDroppedOnCloseMessages.get(),
                 this.mailboxDeliveryFailures.get(),
-                new RegionThreadingDiagnostics.BorderUpdateCounters(
-                        this.borderUpdatesRecorded.get(),
-                        this.borderUpdatesApplied.get(),
-                        this.borderUpdatesDelayed.get(),
-                        this.borderUpdatesDropped.get(),
-                        this.borderUpdatePasses.get(),
-                        this.borderUpdateRegionsRerun.get(),
-                        this.borderUpdateWorstPasses.get(),
-                        this.borderUpdatesOverflowed.get(),
-                        this.foreignChunkReads.get(),
-                        this.readOfUnownedChunk.get(),
-                        this.readOfVersionlessChunk.get(),
-                        this.foreignReadInvalidatedPasses.get(),
-                        this.foreignReadRegionReruns.get(),
-                        this.foreignReadSeedsDropped.get(),
-                        this.borderBlockWritesRecorded.get(),
-                        this.borderBlockWritesApplied.get(),
-                        this.borderBlockWritesOverflowed.get(),
-                        this.borderBlockWritesDropped.get(),
-                        this.readAfterDeferredBlockWrite.get()),
-                new RegionThreadingDiagnostics.BlockEventPhaseCounters(
-                        this.blockEventPhases.get(),
-                        this.blockEventPhaseLeases.get(),
-                        this.blockEventPhaseReleases.get(),
-                        this.blockEventPhaseEvents.get(),
-                        this.blockEventPhaseFixpoints.get(),
-                        this.blockEventPhaseLeaseFallbacks.get(),
-                        this.blockEventPhaseNanos.get(),
-                        this.blockEventPhaseMaxNanos.get()),
-                new RegionThreadingDiagnostics.GameEventCounters(
-                        this.gameEventsPosted.get(),
-                        this.gameEventSectionsLocal.get(),
-                        this.gameEventSectionsDeferred.get(),
-                        this.gameEventSectionsDelivered.get(),
-                        this.gameEventSectionsRefused.get(),
-                        this.gameEventSectionsDropped.get(),
-                        this.gameEventSectionsDroppedNoRegion.get(),
-                        this.gameEventSectionsDroppedNoChunk.get(),
-                        this.gameEventDeliveryPasses.get()),
+                this.diagnosticsCollector.borderUpdates(),
+                this.diagnosticsCollector.blockEvents(),
+                this.diagnosticsCollector.gameEvents(),
                 new RegionThreadingDiagnostics.PlayerRegionCounters(
                         this.playerRegions.entries(),
                         this.playerRegions.departures(),
@@ -10820,14 +10764,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         this.playerRegions.invariantChecks(),
                         this.playerRegions.invariantFailures()),
                 RegionPoiCounters.snapshot(),
-                new RegionThreadingDiagnostics.SaveCounters(
-                        this.levelSaves.get(),
-                        this.levelSavesWithBatchInFlight.get(),
-                        this.levelSavesWithTickDeferredWork.get(),
-                        this.levelSavesWithCrossTickDeferredWork.get(),
-                        this.levelSaveCrossTickDeferredEntries.get(),
-                        this.levelSaveDirtyPoiColumns.get(),
-                        this.levelSaveFlushedPoiColumns.get()),
+                this.diagnosticsCollector.saves(),
                 this.workerDispatchCounters(),
                 RegionMetricsSummary.summarize(regionTicks),
                 regionTicks);

@@ -63,6 +63,7 @@ import net.neoforged.neoforge.server.threading.RegionThreadingManager;
 import net.neoforged.neoforge.server.threading.region.RegionEntityStorageMode;
 import net.neoforged.neoforge.server.threading.region.RegionLayout;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
+import net.neoforged.neoforge.server.threading.region.RegionThreadingOptions;
 import net.neoforged.neoforge.server.threading.region.RegionTickCompatibility;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -175,7 +176,20 @@ public class ServerLifecycleHooks {
             // the entity slice stays on the server thread there.
             final RegionEntityStorageMode entityStorageMode = RegionEntityStorageMode.forConfiguration(
                     compatibility.entityTickWorkers(), ForgiaConfig.SERVER.enableRegionThreadingSpawning.get(), layout);
-            final RegionThreadingEngine engine = new RegionThreadingEngine(ForgiaConfig.SERVER.regionThreadingWorkerThreads.get(), ForgiaConfig.SERVER.enableRegionThreadingWorkers.get(), ForgiaConfig.SERVER.enableGlobalRegionThreadingWorker.get(), compatibility.entityTickWorkers(), ForgiaConfig.SERVER.enableRegionThreadingBlockEntityTicks.get(), ForgiaConfig.SERVER.enableRegionThreadingScheduledTicks.get(), ForgiaConfig.SERVER.enableRegionThreadingRandomTicks.get(), compatibility.spawnWorkers(), ForgiaConfig.SERVER.enableRegionThreadingPersistentWorkers.get(), ForgiaConfig.SERVER.enableRegionThreadingPackedRegionLeases.get(), layout, entityStorageMode);
+            final var workers = new RegionThreadingOptions.Workers(
+                    ForgiaConfig.SERVER.regionThreadingWorkerThreads.get(),
+                    ForgiaConfig.SERVER.enableRegionThreadingWorkers.get(),
+                    ForgiaConfig.SERVER.enableGlobalRegionThreadingWorker.get(),
+                    ForgiaConfig.SERVER.enableRegionThreadingPersistentWorkers.get(),
+                    ForgiaConfig.SERVER.enableRegionThreadingPackedRegionLeases.get());
+            final var ticks = new RegionThreadingOptions.TickSlices(
+                    compatibility.entityTickWorkers(),
+                    ForgiaConfig.SERVER.enableRegionThreadingBlockEntityTicks.get(),
+                    ForgiaConfig.SERVER.enableRegionThreadingScheduledTicks.get(),
+                    ForgiaConfig.SERVER.enableRegionThreadingRandomTicks.get(),
+                    compatibility.spawnWorkers());
+            final RegionThreadingEngine engine = new RegionThreadingEngine(
+                    new RegionThreadingOptions(workers, ticks, layout, entityStorageMode));
             // The engine ships the vanilla declarations of the types whose own tick reaches a mutation the
             // lease does not own (a splitting slime, a discarding fishing hook); every other type ticks on
             // its region worker. The vanilla POI declarations are gone because the level's POI storage is

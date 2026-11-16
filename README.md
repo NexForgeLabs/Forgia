@@ -311,6 +311,10 @@ when reproducing that evidence. Collector changes require a separate validation.
 - **Fail closed**: any work that cannot be proven safe — an unknown modded callback, a level without
   region-owned storage, a region that cannot be leased — runs on the server thread.
 
+The [incremental runtime refactor](region-threading/INCREMENTAL-RUNTIME-REFACTOR.md) records the chunk-phase
+and diagnostics extractions, compatibility boundaries, dependency checks and validation limits. Existing
+entry points, execution authority and default-off admission remain unchanged.
+
 Deeper notes live next to the code (`src/main/java/net/neoforged/neoforge/server/threading/region/*.java`)
 and in the task records under `.pi/tasks/`, which document the design and the evidence for each milestone.
 
