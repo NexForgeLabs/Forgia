@@ -12957,5 +12957,14 @@
       "proofNegativeControlsPassed": 243,
       "P3Started": false
     }
+  },
+  "postAcceptanceMaintenance": {
+    "sourcePushAuthorized": true,
+    "sourceCommit": "87b86859622f8c115f511ae24e0d4af1cd912cc3",
+    "cleanupRecord": "region-threading/evidence/player-region-tick-p2-126/cleanup-2026-11-17.json",
+    "removedAllocatedBytes": 79906963456,
+    "retainedEvidenceDirectory": "tmp/retained-player-region-tick-2026-11-17",
+    "windowsCompaction": "pending_user_approval_to_stop_current_Debian_session",
+    "historicalAcceptanceReceiptsUnmodified": true
   }
 }

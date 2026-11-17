@@ -1,3 +1,7 @@
+后续维护（2026-11-17）：用户已另行授权将全部更改提交/推送GitHub并清理WSL测试文件。源码及精简验收证据已推送，已删除约74.4 GiB的隔离测试世界、重复依赖、构建输出与Gradle/Node缓存。当前最终产物保留于 `tmp/retained-player-region-tick-2026-11-17/artifacts/neoforge-21.1.250.126-beta-installer.jar`；原始日志/帧/失败证据23376文件已压缩并逐项校验，其中最终3409原始输入全部保留。Git内精简回执见 `region-threading/evidence/player-region-tick-p2-126/`。原验收回执中的HEAD、未提交/未推送、旧路径存在等字段仅描述验收当时状态。WSL内部空间已释放；D盘仍需离线VHD压缩，当前尚未执行停止Debian的操作，见cleanup-2026-11-17.json。P3仍未开始。
+
+---
+
 当前最终结论（2026-11-17）：**P2 已按设计第 7 节首个受限完整双入口合同完成验收，最终产物为 21.1.250.126-beta。P3 未开始，按用户要求在 P3 开始前停止。整体设计仍 partial（P3–P5）。**
 
 `.125` 的完成草稿已被真实 NETWORK 线程合同反例撤回；旧 receipt.json 和所有失败/中断证据保持原样。

@@ -1,0 +1,333 @@
+{
+  "schema": 1,
+  "generatedAt": "2026-11-17T11:39:51.562306+00:00",
+  "status": "source_pushed_linux_cleanup_complete_windows_compaction_pending",
+  "authorization": "User requested push all changes to GitHub, then delete agent-created WSL caches and test files",
+  "sourceCommitPushed": "87b86859622f8c115f511ae24e0d4af1cd912cc3",
+  "remote": "origin/main",
+  "removedAllocatedBytes": 79906963456,
+  "removedAllocatedGiB": 74.41915893554688,
+  "linuxAvailableIncreaseBytes": 79827705856,
+  "deleted": [
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-continue01",
+      "allocatedBytesBefore": 3153158144,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-continue02",
+      "allocatedBytesBefore": 3493888,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-continue03",
+      "allocatedBytesBefore": 1858625536,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-continue04",
+      "allocatedBytesBefore": 19199901696,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-p2-final05",
+      "allocatedBytesBefore": 39914483712,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-worker01",
+      "allocatedBytesBefore": 1496449024,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-worker01-attempt2",
+      "allocatedBytesBefore": 2196389888,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tmp/player-region-tick-worker01-attempt3",
+      "allocatedBytesBefore": 2151411712,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/build",
+      "allocatedBytesBefore": 627257344,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/buildSrc/build",
+      "allocatedBytesBefore": 1630208,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/.gradle",
+      "allocatedBytesBefore": 415080448,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tests/build",
+      "allocatedBytesBefore": 586133504,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/testframework/build",
+      "allocatedBytesBefore": 106893312,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/tools/player-region-tick/node_modules",
+      "allocatedBytesBefore": 547045376,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/projects/base/build",
+      "allocatedBytesBefore": 17469440,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/projects/runtime-proof/build",
+      "allocatedBytesBefore": 3350528,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/projects/neoforge/build",
+      "allocatedBytesBefore": 2786570240,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/adapters/mobspawncontroller/build",
+      "allocatedBytesBefore": 3096576,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/Minecraft/Forgia/adapters/create/build",
+      "allocatedBytesBefore": 168570880,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/.gradle/caches",
+      "allocatedBytesBefore": 4354453504,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/.gradle/.tmp",
+      "allocatedBytesBefore": 168017920,
+      "status": "deleted"
+    },
+    {
+      "path": "/home/yc/.gradle/daemon",
+      "allocatedBytesBefore": 68247552,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer2809180631773593579",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer11476918127533441485",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer4957900357781813312",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer9603937875298372444",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer5887072072885764720",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer10337376793924950496",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer17620568285219440983",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer4719336787915285803",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer6995378760555272408",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer7554148873813380600",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer15903449754554185539",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer9312310472020703780",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer9751737341224335800",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer7464171284304126233",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer7777179570630276120",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer1409866050916987150",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer7729818373808884755",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer18426966405710419411",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer4189676649464006333",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer3454749361793624671",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer16661599064583891730",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer11125225648790003239",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer1406636662943343230",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    },
+    {
+      "path": "/tmp/neoforge_installer4736344403592639587",
+      "allocatedBytesBefore": 3301376,
+      "status": "deleted"
+    }
+  ],
+  "retainedLocalEvidence": {
+    "status": "verified_ready_for_bulk_cleanup",
+    "createdAt": "2026-11-17T11:33:48.499665+00:00",
+    "sourceRoots": [
+      "tmp/player-region-tick-continue01",
+      "tmp/player-region-tick-continue02",
+      "tmp/player-region-tick-continue03",
+      "tmp/player-region-tick-continue04",
+      "tmp/player-region-tick-p2-final05",
+      "tmp/player-region-tick-worker01",
+      "tmp/player-region-tick-worker01-attempt2",
+      "tmp/player-region-tick-worker01-attempt3"
+    ],
+    "archive": "tmp/retained-player-region-tick-2026-11-17/original-evidence.tar.gz",
+    "archiveSha256": "a7bae0a97e0d53aa097e317605a381fc481f1cab5a6366e477ca8ba291e35668",
+    "archiveBytes": 396429275,
+    "preservedFiles": 23376,
+    "originalEvidenceBytes": 4656596860,
+    "allFinalClosedInputsPreserved": 3409,
+    "allFinalClosedInputHashesMatch": true,
+    "artifacts": [
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/neoforge-21.1.250.126-beta-installer.jar",
+        "sha256": "cc0c9a4277a8cb6b882e68ad913968ab168380b6bae15a000162aaa6d07405aa"
+      },
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/neoforge-21.1.250.126-beta-universal.jar",
+        "sha256": "3d0ec4cfc9d03a6d6132ed5cc5d9226d93c5584d52dcd886662dc0c38e2f622b"
+      },
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/forgia-player-oracle-1.0.jar",
+        "sha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe"
+      },
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/forgia-player-p2-contract-1.0.jar",
+        "sha256": "09c7b8c93ffd2ee5e15b1eb83e4ffd8d3b02f5856d1954193313aa27ec0fe2be"
+      },
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/forgia-player-world-fault-1.0.jar",
+        "sha256": "66e34be47016d6968d46fd4dccdf93b73997547ebe27b987938c2ee9a54e4ae0"
+      },
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/patched-sources.jar",
+        "sha256": "044c41a4fb76213e8ca2cf9015a7cd8eb2a393c1974556e2c16bb8ad8d872a22"
+      },
+      {
+        "path": "tmp/retained-player-region-tick-2026-11-17/artifacts/forgia-player-network-contract-1.0.jar",
+        "sha256": "8e9a7fbd623b0bae2fd7546a1dae935461cc8bc656692b001540946333b214d3"
+      }
+    ],
+    "excludedBulkDirectories": [
+      ".cache",
+      ".gradle",
+      "build",
+      "gametest-world",
+      "libraries",
+      "node_modules",
+      "world",
+      "world_nether",
+      "world_the_end"
+    ],
+    "cleanupNotYetPerformed": true
+  },
+  "trim": {
+    "argv": [
+      "wsl.exe",
+      "-d",
+      "Debian",
+      "-u",
+      "root",
+      "--",
+      "/usr/sbin/fstrim",
+      "-v",
+      "/"
+    ],
+    "exit": 0,
+    "stdout": "/: 912.8 GiB (980128464896 bytes) trimmed\n",
+    "stderr": "",
+    "elapsedSeconds": 1.2197909589999654
+  },
+  "windowsDBeforeCleanupFreeBytes": 2763870208,
+  "windowsDAfterDeletionAndTrim": {
+    "Name": "D",
+    "Used": 319790133248,
+    "Free": 2331361280
+  },
+  "windowsHostSpaceReclaimed": false,
+  "remainingAction": "Run the prepared native WSL --manage Debian --compact from Windows. This command stops Debian and interrupts the current Codex/WSL session; await explicit user approval.",
+  "existingServerOperations": false,
+  "note": "All old proof receipts remain byte-identical historical snapshots. Their old paths/HEAD/no-commit assertions describe acceptance time. Cache cleanup is a later explicitly authorized action."
+}
