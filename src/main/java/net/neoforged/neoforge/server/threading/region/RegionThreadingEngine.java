@@ -268,6 +268,13 @@ public final class RegionThreadingEngine implements RegionThreading {
      * transitions by kind and the one-region invariant.
      */
     private final PlayerRegionTransitions playerRegions = new PlayerRegionTransitions();
+    private final RegionPlayerTickCoordinator playerTicks = new RegionPlayerTickCoordinator(this);
+    private final RegionPlayerNetworkGate playerNetworkGate = new RegionPlayerNetworkGate();
+    private final Map<String, AtomicLong> playerAdmissionRefusals = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, String> playerAdmissionLastRefusal = new java.util.concurrent.ConcurrentHashMap<>();
+    // Mutable local-object aliases are resource conflicts, never a second entity identity ledger.
+    private final java.util.IdentityHashMap<Object, RegionPlayerSpatialLease> playerStateClaims = new java.util.IdentityHashMap<>();
+    private volatile boolean playerTickPlanningRequested = RegionThreadingConfig.playerTicksRequested();
     /**
      * Levels whose entity tick index was seeded from the level's authoritative tick list.
      */
@@ -1181,7 +1188,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private void declareVanillaServerThreadOnlyEntities() {
         // A vehicle ticks its passengers recursively. Pin the whole riding stack before worker admission
         // so a mounted player's connection, input and dismount updates stay on the server thread too.
-        this.entityTickPolicy.serverThreadOnly(net.minecraft.world.entity.player.Player.class, "player_riding_stack");
+        this.entityTickPolicy.declarePlayerRidingStack();
         this.entityTickPolicy.serverThreadOnly(Slime.class, "slime_split_on_removal");
         this.entityTickPolicy.serverThreadOnly(FishingHook.class, "fishing_hook_remove");
         this.entityTickPolicy.serverThreadOnly(net.minecraft.world.entity.monster.Shulker.class, "shulker_peek_push");
@@ -1353,6 +1360,8 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     public boolean isOwnedByCurrentRegion(ServerLevel level, BlockPos pos) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) return playerSpace.ownsRegion(level, this.layout.regionX(SectionPos.blockToSectionCoord(pos.getX())), this.layout.regionZ(SectionPos.blockToSectionCoord(pos.getZ())));
         final RegionThreadingContext context = this.currentContext();
         if (!(context instanceof BasicRegionThreadingContext basicContext)
                 || basicContext.kind() != RegionThreadingContext.Kind.REGION
@@ -1387,6 +1396,8 @@ public final class RegionThreadingEngine implements RegionThreading {
      * worker may visit its listener registries, and it must not allocate a position per column to ask.
      */
     boolean isOwnedByCurrentRegion(ServerLevel level, int chunkX, int chunkZ) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) return playerSpace.ownsRegion(level, this.layout.regionX(chunkX), this.layout.regionZ(chunkZ));
         final RegionThreadingContext context = this.currentContext();
         if (!(context instanceof BasicRegionThreadingContext basicContext)
                 || basicContext.kind() != RegionThreadingContext.Kind.REGION
@@ -1407,6 +1418,8 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     @Override
     public boolean isOwnedByCurrentRegion(Entity entity) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) return playerSpace.owns(entity);
         final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
         if (group != null && group.owns(entity)) {
             return true;
@@ -1429,6 +1442,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public boolean isForeignRegionBlockEntityReadable(ServerLevel level, BlockPos pos) {
+        if (RegionPlayerSpatialLease.current() != null) return false;
         if (this.shutdown) {
             return false;
         }
@@ -1468,6 +1482,11 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void recordForeignChunkRead(ServerLevel level, int chunkX, int chunkZ, long version) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) {
+            playerSpace.chunk(level, chunkX, chunkZ);
+            return;
+        }
         if (!this.borderUpdatesEnabled) {
             return;
         }
@@ -3429,13 +3448,12 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     private void tickSelfDrivenFallbacks(RegionEntityTickBatch batch) {
         final ServerLevel level = batch.level();
-        for (final Entity entity : batch.deferredUpdateFallbackEntities()) {
-            // The batch could not reserve the block-write effects of the tick, so the worker never started it;
-            // the whole vanilla body runs here, like for an entity whose region could not be enumerated.
-            this.tickEntityServerSide(level, entity);
-        }
-        for (final Entity entity : batch.selfDrivenFallbackEntities()) {
-            this.tickEntityServerSide(level, entity);
+        final List<Entity> ordered = new ArrayList<>(batch.deferredUpdateFallbackEntities());
+        ordered.addAll(batch.selfDrivenFallbackEntities());
+        if (this.playerCriterionStorageEnabled()) {
+            this.tickPlayerWorldSequence(batch, ordered);
+        } else {
+            for (final Entity entity : ordered) this.tickEntityServerSide(level, entity);
         }
     }
 
@@ -4394,6 +4412,10 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @Nullable
     public RandomSource currentGroupRandom() {
+        final RandomSource player = RegionPlayerStateScope.random();
+        if (player != null) {
+            return player;
+        }
         final RandomSource scheduled = this.currentScheduledTickRandom.get();
         if (scheduled != null) {
             return scheduled;
@@ -4507,6 +4529,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public <T> T runOnServerThread(ServerLevel level, Supplier<T> computation) {
+        RegionPlayerStateScope.rejectServicePump();
         final RegionTickBatch batch = RegionTickBatch.current();
         if (batch == null) {
             return computation.get();
@@ -4602,6 +4625,495 @@ public final class RegionThreadingEngine implements RegionThreading {
         return false;
     }
 
+    @ApiStatus.Internal
+    public RegionPlayerTickCoordinator playerTicks() {
+        return this.playerTicks;
+    }
+
+    /** Full production pre-body contract. Scheduling still requires the original phase ticket and network barrier. */
+    @ApiStatus.Internal
+    public RegionPlayerAdmissionPlan.Capture capturePlayerAdmissionPlan(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase) {
+        var capture = RegionPlayerAdmissionPlan.capture(this, player, phase);
+        if (capture.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE)
+            this.playerAdmissionRefusals.computeIfAbsent(phase.name() + ":" + capture.refusal().name(), key -> new AtomicLong()).incrementAndGet();
+        this.playerAdmissionLastRefusal.put(phase.name(), capture.refusal() + ":" + capture.detail());
+        return capture;
+    }
+
+    /** Bounded enum keys only; details belong to the returned Capture, never retained player objects. */
+    public Map<String, Long> playerAdmissionRefusals() {
+        Map<String, Long> counts = new java.util.TreeMap<>();
+        this.playerAdmissionRefusals.forEach((reason, count) -> counts.put(reason, count.get()));
+        return Map.copyOf(counts);
+    }
+
+    @Nullable
+    String playerServerOnlyReason(ServerPlayer player) {
+        return this.entityTickPolicy.playerReasonFor(player);
+    }
+
+    /** Geometry only. Callbacks/shared state and actual phase admission remain separate, mandatory gates. */
+    @ApiStatus.Internal
+    public RegionPlayerSpatialPlan.Capture capturePlayerSpatialPlan(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase) {
+        return RegionPlayerSpatialPlan.capture(this, player, phase);
+    }
+
+    @Nullable
+    RegionPlayerSpatialLease reservePlayerSpatial(RegionTickBatch parent, RegionOwnershipLeaseGroup effects, List<RegionPlayerSpatialPlan> plans) {
+        if (plans.isEmpty()) return null;
+        if (!plans.getFirst().player().server.isSameThread() || RegionWorkerScope.isNativeWorkerThread() || !this.regionWorkAdmission.isOwner())
+            throw new IllegalStateException("Spatial reservation requires original engine server admission");
+        if (!this.activeTickBatches.contains(parent) || !parent.isExecutingOnCurrentThread() || !parent.isGroupsComplete()
+                || this.shutdown || this.isLevelClosed(parent.level()))
+            return null;
+        return RegionPlayerSpatialLease.acquire(this, parent, effects, plans);
+    }
+
+    public Map<String, Object> playerTickDiagnostics(MinecraftServer server) {
+        if (!server.isSameThread()) throw new IllegalStateException("Player diagnostics require a quiescent server command");
+        Map<String, Object> values = new java.util.LinkedHashMap<>();
+        values.put("requested", this.playerTickPlanningRequested);
+        values.put("persistent", this.workerPool.isPersistent());
+        values.put("phases", this.playerTicks.snapshot());
+        values.put("network", this.playerNetworkGate.snapshot());
+        values.put("refusals", this.playerAdmissionRefusals());
+        values.put("lastRefusal", Map.copyOf(this.playerAdmissionLastRefusal));
+        values.put("activeBatches", this.activeTickBatches.size());
+        values.put("stateClaims", this.playerStateClaims.size());
+        values.put("players", server.getPlayerList().getPlayers().stream().map(player -> {
+            RegionState owner = this.regionFor(player);
+            var region = this.regionAt(player.serverLevel(), player.blockPosition());
+            return Map.of("uuid", player.getUUID().toString(), "name", player.getGameProfile().getName(),
+                    "x", player.getX(), "y", player.getY(), "z", player.getZ(), "regionX", region.regionX(), "regionZ", region.regionZ(),
+                    "ownerCurrent", owner != null && owner.coordinate().equals(region), "health", player.getHealth());
+        }).toList());
+        return values;
+    }
+
+    public RegionPlayerNetworkGate playerNetworkGate() {
+        return this.playerNetworkGate;
+    }
+
+    /** One bounded contiguous prefix. Every acquired capability is released after real physical join. */
+    private int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered) {
+        if (ordered.isEmpty() || !this.playerCriterionStorageEnabled()) return 0;
+        final ServerPlayer first = ordered.getFirst().player;
+        if (!first.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Player dispatch requires its original server publisher");
+        if (this.regionWorkAdmission.isOwner() || !this.regionWorkAdmission.tryEnter(this::isQuiescentForParallelApi)) return 0;
+        RegionTickBatch parent = null;
+        boolean ownParent = false;
+        boolean frozen = false;
+        boolean regionPhase = false;
+        final List<RegionPlayerSpatialLease> leases = new ArrayList<>();
+        final List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
+        RegionPlayerTickDispatch effects = null;
+        try {
+            // Unknown extensions keep their ORIGINAL receive-thread contract as well as serial ticks.
+            // Freezing even a subsequently refused prefix could move an explicit NETWORK payload to
+            // the server queue. Inspect the global environment before creating that boundary; the full
+            // per-call capture/worker consume below still rechecks every admission condition.
+            if (RegionPlayerExtensionSnapshot.capture().refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
+                this.capturePlayerAdmissionPlan(first, ordered.getFirst().phase);
+                return 0;
+            }
+            if (!this.playerNetworkGate.freeze(first.server)) return 0;
+            frozen = true;
+            for (RegionTickBatch active : this.activeTickBatches) {
+                if (active.level() != first.serverLevel() || !active.isExecutingOnCurrentThread() || !active.isGroupsComplete()) return 0;
+                if (parent != null) return 0;
+                parent = active;
+            }
+            if (parent == null) {
+                parent = new RegionPlayerTickDispatch.Lifecycle(first.serverLevel());
+                if (this.publishTickBatch(parent, first.serverLevel()) != TickBatchPublication.PUBLISHED) return 0;
+                ownParent = true;
+                parent.markExecutingOnCurrentThread();
+            }
+            // No more groups than native pool workers: the pre-body all-group check cannot starve a
+            // queued task. A hot region retains its original order over several bounded prefixes.
+            for (RegionPlayerTickDispatch.Call call : ordered.subList(0, Math.min(ordered.size(), this.workerPool.threadCount()))) {
+                if (call.player.serverLevel() != first.serverLevel() || call.phase != ordered.getFirst().phase) break;
+                this.playerRegions.publishAtPlayerStage(this, call.player);
+                var capture = this.capturePlayerAdmissionPlan(call.player, call.phase);
+                if (capture.plan() == null) break;
+                call.admission = capture.plan();
+                calls.add(call);
+            }
+            if (calls.isEmpty()) return 0;
+            final var prefix = RegionPlayerConflictPlan.prefix(calls.stream().map(call -> call.admission.spatial().conflictEntry()).toList());
+            if (prefix.nextIndex() == 0) return 0;
+            calls.subList(prefix.nextIndex(), calls.size()).clear();
+            effects = new RegionPlayerTickDispatch(this, parent);
+            final List<List<RegionPlayerTickDispatch.Call>> groups = new ArrayList<>();
+            for (var group : prefix.groups()) {
+                List<RegionPlayerTickDispatch.Call> members = calls.stream().filter(call -> group.entries().stream().anyMatch(entry -> entry.player() == call.player)).toList();
+                RegionPlayerSpatialLease lease = this.reservePlayerSpatial(parent, effects, members.stream().map(call -> call.admission.spatial()).toList());
+                if (lease == null) return 0;
+                leases.add(lease);
+                if (lease.bindPlayerState(members.stream().map(call -> call.admission.state()).toList()) != RegionPlayerStatePlan.Refusal.NONE) return 0;
+                groups.add(members);
+            }
+            for (var call : calls) {
+                if (!call.admission.revalidate()) return 0;
+                call.ticket = this.playerTicks.prepare(call.player, call.player.connection.getConnection(), call.phase);
+                if (call.ticket == null || !this.playerTicks.admit(call.ticket)) return 0;
+            }
+            final RegionTaskBatch work = new RegionTaskBatch();
+            final var gate = new RegionPlayerTickDispatch.StartGate(groups.size());
+            final var dispatch = effects;
+            for (int i = 0; i < groups.size(); i++) {
+                var lease = leases.get(i);
+                var members = groups.get(i);
+                work.add("complete player " + ordered.getFirst().phase, parent.groupWork(() -> dispatch.runGroup(lease, members, gate)));
+            }
+            parent.externalWaveActive(true);
+            this.beginRegionPhase(parent.level());
+            regionPhase = true;
+            var joined = work.submit(this.workerPool);
+            // Deliberately no chunk/server queue pump: the supported branch owns all loaded chunks
+            // and rejects synchronous server services. Netty callbacks stay queued until after join.
+            joined.awaitCompletion();
+            joined.throwIfFailed();
+            return calls.size();
+        } finally {
+            if (regionPhase) this.levelTickPhaseState(parent.level()).endRegionPhase();
+            if (parent != null) parent.externalWaveActive(false);
+            Throwable cleanup = null;
+            try {
+                for (var call : calls) {
+                    if (call.ticket == null) continue;
+                    try {
+                        if (call.ticket.started()) this.playerTicks.joinWorker(call.ticket);
+                        else this.playerTicks.cancel(call.ticket);
+                    } catch (Throwable problem) {
+                        cleanup = accumulateFailure(cleanup, problem);
+                    }
+                }
+                for (var lease : leases) {
+                    try {
+                        lease.close();
+                    } catch (Throwable problem) {
+                        cleanup = accumulateFailure(cleanup, problem);
+                    }
+                }
+                if (effects != null) {
+                    try {
+                        this.applyDeferredSectionUpdates(parent.level(), effects.sections.drain(), effects.sections.isSeamClosed());
+                    } catch (Throwable problem) {
+                        cleanup = accumulateFailure(cleanup, problem);
+                    }
+                }
+            } finally {
+                try {
+                    if (ownParent) {
+                        parent.completeExternalWaves();
+                        parent.finish();
+                        this.activeTickBatches.remove(parent);
+                        parent.clearExecutingOnCurrentThread();
+                    }
+                } finally {
+                    if (frozen) this.playerNetworkGate.thaw();
+                    this.regionWorkAdmission.exit();
+                }
+            }
+            if (cleanup != null) {
+                Throwable original = calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
+                if (original != null) accumulateFailure(original, cleanup);
+                else throwUnchecked(cleanup);
+            }
+        }
+    }
+
+    private void tickPlayerWorldSequence(RegionEntityTickBatch parent, List<Entity> entities) {
+        for (int index = 0; index < entities.size();) {
+            final List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
+            for (int next = index; next < entities.size() && calls.size() < this.workerPool.threadCount(); next++) {
+                if (!(entities.get(next) instanceof ServerPlayer player) || player.getClass() != ServerPlayer.class
+                        || player.isRemoved() || player.level() != parent.level() || player.isPassenger() || !player.getPassengers().isEmpty()
+                        || !parent.level().isInEntityTickingRange(player.chunkPosition().toLong())
+                        || RegionEntityTickActivation.isFrozen(player, parent.level().tickRateManager() == null || parent.level().tickRateManager().runsNormally()))
+                    break;
+                calls.add(new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.ENTITY,
+                        () -> parent.level().guardEntityTick(parent.level()::tickNonPassenger, player)));
+            }
+            int consumed = this.dispatchPlayerPrefix(calls);
+            if (consumed == 0) {
+                this.tickEntityServerSide(parent.level(), entities.get(index++));
+                continue;
+            }
+            for (var call : calls.subList(0, consumed)) {
+                if (call.failure != null) throwUnchecked(call.failure);
+                if (!call.started) this.tickEntityServerSide(parent.level(), call.player);
+            }
+            index += consumed;
+        }
+    }
+
+    /** Same original connection traversal; results are consumed at each original try/catch position. */
+    public final class PlayerConnectionPass implements AutoCloseable {
+        private final List<net.minecraft.network.Connection> ordered;
+        private final Map<net.minecraft.network.Connection, RegionPlayerTickDispatch.Call> completed = new java.util.IdentityHashMap<>();
+        private int cursor;
+
+        private PlayerConnectionPass(List<net.minecraft.network.Connection> ordered) {
+            this.ordered = List.copyOf(ordered);
+        }
+
+        public boolean hasCompleted(net.minecraft.network.Connection connection) {
+            var call = this.completed.get(connection);
+            if (call == null) return false;
+            // Only an already-started original invocation must be consumed after socket loss. An
+            // unstarted call keeps the original traversal's current isConnected() eligibility and
+            // disconnection/removal branch; a refused batch is not permission to tick a closed listener.
+            if (!call.started) {
+                this.completed.remove(connection);
+                return false;
+            }
+            return true;
+        }
+
+        public boolean tick(net.minecraft.network.Connection connection) {
+            var done = this.completed.remove(connection);
+            if (done != null) {
+                if (done.failure != null) throwUnchecked(done.failure);
+                if (!done.started) tickPlayerSerial(done.player, connection, RegionPlayerTickCoordinator.Phase.CONNECTION, connection::tick);
+                return true;
+            }
+            while (this.cursor < this.ordered.size() && this.ordered.get(this.cursor) != connection) this.cursor++;
+            List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
+            for (int index = this.cursor; index < this.ordered.size() && calls.size() < workerPool.threadCount(); index++) {
+                var current = this.ordered.get(index);
+                if (current.isConnecting() || !current.isConnected() || !(current.getPacketListener() instanceof net.minecraft.server.network.ServerGamePacketListenerImpl listener)) break;
+                calls.add(new RegionPlayerTickDispatch.Call(listener.player, RegionPlayerTickCoordinator.Phase.CONNECTION, current::tick));
+            }
+            int consumed = dispatchPlayerPrefix(calls);
+            this.cursor++;
+            if (consumed == 0) return false;
+            for (var call : calls.subList(0, consumed)) this.completed.put(call.player.connection.getConnection(), call);
+            return this.tick(connection);
+        }
+
+        @Override
+        public void close() {
+            // All cached calls physically joined before publication. An original memory-connection
+            // crash may abort traversal; clearing inert results must not mask that original failure.
+            this.completed.clear();
+        }
+    }
+
+    public PlayerConnectionPass beginPlayerConnectionPass(List<net.minecraft.network.Connection> connections) {
+        return new PlayerConnectionPass(connections);
+    }
+
+    public RegionPlayerStatePlan.Capture capturePlayerStatePlan(RegionPlayerSpatialPlan spatial) {
+        return RegionPlayerStatePlan.capture(this, spatial);
+    }
+
+    boolean claimPlayerState(RegionPlayerSpatialLease lease, List<RegionPlayerStatePlan> plans) {
+        var staged = new java.util.IdentityHashMap<Object, ServerPlayer>();
+        for (var plan : plans) {
+            if (!plan.belongsTo(this) || !plan.revalidate()) return false;
+            for (Object object : plan.resources()) {
+                ServerPlayer previous = staged.putIfAbsent(object, plan.player());
+                if (previous != null && previous != plan.player()) return false;
+                RegionPlayerSpatialLease held = this.playerStateClaims.get(object);
+                if (held != null && held != lease) return false;
+            }
+        }
+        staged.keySet().forEach(object -> this.playerStateClaims.put(object, lease));
+        return true;
+    }
+
+    void releasePlayerState(RegionPlayerSpatialLease lease) {
+        this.playerStateClaims.values().removeIf(owner -> owner == lease);
+    }
+
+    int playerStateClaimCount() {
+        return this.playerStateClaims.size();
+    }
+
+    void releasePlayerSpatialRegion(RegionState region) {
+        this.releaseRegionLease(region);
+    }
+
+    /** Invalidate prepared work before same-level teleport/dismount/level-transition side effects. */
+    @ApiStatus.Internal
+    public void invalidatePlayerTickPlans(ServerPlayer player) {
+        if (!this.playerTickPlanningRequested) return;
+        if (!player.server.isSameThread()) throw new IllegalStateException("Player lifecycle handoff requires its server thread");
+        this.playerTicks.invalidate(player);
+    }
+
+    /** Storage prerequisites match the actual player phase dependencies; no slice is enabled here. */
+    @ApiStatus.Internal
+    public boolean playerCriterionStorageEnabled() {
+        return this.playerTickPlanningRequested && !this.shutdown && this.layout.isFixed()
+                && this.entityStorageMode == RegionEntityStorageMode.REGION_OWNED && this.entityTickWorkerExecutionEnabled;
+    }
+
+    @ApiStatus.Internal
+    public boolean playerTickPlanningRequested() {
+        return this.playerTickPlanningRequested;
+    }
+
+    /** Test construction seam; production selection is captured at startup. */
+    @ApiStatus.Internal
+    public void configurePlayerTickPlanningForTesting(boolean requested) {
+        if (this.playerTicks.snapshot().pending() != 0) throw new IllegalStateException("Player invocation still pending");
+        this.playerTickPlanningRequested = requested;
+    }
+
+    /** Complete original-thread connection calls; the world entrance keeps its body in ServerPlayer.tick. */
+    @ApiStatus.Internal
+    public void tickPlayerSerial(ServerPlayer player, net.minecraft.network.Connection connection,
+            RegionPlayerTickCoordinator.Phase phase, Runnable original) {
+        PlayerTickInvocation invocation = this.beginPlayerSerial(player, connection, phase);
+        try {
+            original.run();
+        } catch (Throwable failure) {
+            if (invocation != null) invocation.failed(failure);
+            throw failure;
+        } finally {
+            if (invocation != null) invocation.close();
+        }
+    }
+
+    @Nullable
+    @ApiStatus.Internal
+    public PlayerTickInvocation beginPlayerSerial(ServerPlayer player, net.minecraft.network.Connection connection,
+            RegionPlayerTickCoordinator.Phase phase) {
+        if (!player.server.isSameThread()) throw new IllegalStateException("Player phase must enter on its original server thread");
+        if (!this.playerTickPlanningRequested || this.shutdown) return null;
+        if (!this.layout.isFixed() || this.entityStorageMode != RegionEntityStorageMode.REGION_OWNED || !this.entityTickWorkerExecutionEnabled) {
+            this.playerTicks.recordUntrackedSerial(phase, RegionPlayerTickCoordinator.Reason.DEPENDENCIES);
+            return null;
+        }
+        boolean entered = false;
+        if (!this.regionWorkAdmission.isOwner()) {
+            entered = this.regionWorkAdmission.tryEnter(this::isQuiescentForParallelApi);
+            if (!entered) {
+                this.playerTicks.recordUntrackedSerial(phase, RegionPlayerTickCoordinator.Reason.STALE);
+                return null;
+            }
+        }
+        RegionTickBatch parent = null;
+        for (RegionTickBatch batch : this.activeTickBatches) {
+            if (batch.level() == player.serverLevel() && batch.isExecutingOnCurrentThread() && batch.isGroupsComplete()) {
+                parent = batch;
+                break;
+            }
+        }
+        PlayerTickInvocation invocation = new PlayerTickInvocation(this, entered);
+        RegionPlayerTickCoordinator.Plan prepared = null;
+        try {
+            if (parent == null && !this.activeTickBatches.isEmpty()) {
+                this.playerTicks.recordUntrackedSerial(phase, RegionPlayerTickCoordinator.Reason.STALE);
+                invocation.close();
+                return null;
+            }
+            if (parent == null) {
+                PlayerSerialLifecycle lifecycle = new PlayerSerialLifecycle(player.serverLevel());
+                if (this.publishTickBatch(lifecycle, player.serverLevel()) != TickBatchPublication.PUBLISHED) {
+                    lifecycle.finish();
+                    invocation.close();
+                    return null;
+                }
+                invocation.lifecycle = lifecycle;
+                lifecycle.markExecutingOnCurrentThread();
+            }
+            this.playerRegions.publishAtPlayerStage(this, player);
+            prepared = this.playerTicks.prepare(player, connection, phase);
+            if (prepared != null && this.playerTicks.admit(prepared) && this.playerTicks.start(prepared)) {
+                invocation.plan = prepared;
+            } else {
+                this.playerTicks.recordUntrackedSerial(phase, RegionPlayerTickCoordinator.Reason.STALE);
+            }
+            return invocation;
+        } catch (Throwable failure) {
+            if (prepared != null && !prepared.started()) this.playerTicks.cancel(prepared);
+            if (invocation.engine != null) {
+                invocation.failed(failure);
+                invocation.close();
+            }
+            throw failure;
+        }
+    }
+
+    /** Tracks a full original method while leaving every original instruction and Mixin target in place. */
+    @ApiStatus.Internal
+    public static final class PlayerTickInvocation implements AutoCloseable {
+        @Nullable
+        private RegionThreadingEngine engine;
+        @Nullable
+        private Thread caller;
+        @Nullable
+        private PlayerSerialLifecycle lifecycle;
+        @Nullable
+        private RegionPlayerTickCoordinator.Plan plan;
+        @Nullable
+        private Throwable failure;
+        private final boolean admissionEntered;
+
+        private PlayerTickInvocation(RegionThreadingEngine engine, boolean admissionEntered) {
+            this.engine = engine;
+            this.caller = Thread.currentThread();
+            this.admissionEntered = admissionEntered;
+        }
+
+        public void failed(Throwable failure) {
+            if (this.engine == null || this.caller != Thread.currentThread()) throw new IllegalStateException("Foreign or closed player invocation");
+            this.failure = failure;
+        }
+
+        @Override
+        public void close() {
+            RegionThreadingEngine current = this.engine;
+            if (current == null) return;
+            if (this.caller != Thread.currentThread()) throw new IllegalStateException("Player body has not returned on its caller");
+            if (this.lifecycle != null && this.lifecycle.playerSpatialReservationCount() != 0)
+                throw new IllegalStateException("Player child spatial lease has not physically returned and released");
+            Throwable cleanup = null;
+            try {
+                if (this.plan != null) current.playerTicks.complete(this.plan, this.failure);
+            } catch (Throwable failure) {
+                cleanup = failure;
+            }
+            try {
+                if (this.lifecycle != null) this.lifecycle.finish();
+            } catch (Throwable failure) {
+                cleanup = accumulateFailure(cleanup, failure);
+            } finally {
+                if (this.lifecycle != null) {
+                    current.activeTickBatches.remove(this.lifecycle);
+                    this.lifecycle.clearExecutingOnCurrentThread();
+                }
+            }
+            try {
+                if (this.admissionEntered) current.regionWorkAdmission.exit();
+            } catch (Throwable failure) {
+                cleanup = accumulateFailure(cleanup, failure);
+            }
+            Throwable original = this.failure;
+            this.engine = null;
+            this.caller = null;
+            this.lifecycle = null;
+            this.plan = null;
+            this.failure = null;
+            if (cleanup != null) {
+                if (original != null) accumulateFailure(original, cleanup);
+                else throwUnchecked(cleanup);
+            }
+        }
+    }
+
+    /** Uses the existing batch publication/join lifecycle, with no tasks, pool or world permission. */
+    private static final class PlayerSerialLifecycle extends RegionTickBatch {
+        PlayerSerialLifecycle(ServerLevel level) {
+            super(level, RegionTickSlice.ENTITY_TICK, 0);
+            this.completeExternalWaves();
+        }
+    }
+
     /** {@return true once the engine shut down and no region state may be published any more} */
     boolean isShutDown() {
         return this.shutdown;
@@ -4628,6 +5140,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (!(player.level() instanceof ServerLevel source)) {
             return;
         }
+        this.invalidatePlayerTickPlans(player);
         this.playerRegions.noteDimensionChange(this, player);
         final MinecraftServer server = source.getServer();
         final ServerLevel destinationLevel = server == null ? null : server.getLevel(destination);
@@ -9542,6 +10055,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.pendingDeferredEntityMoves.removeIf(move -> move.destination().level() == level);
                     this.chunkLoadAnswers.remove(level);
                     this.seededEntityTickLevels.remove(level);
+                    this.playerTicks.clearLevel(level);
+                    this.playerRegions.clearLevel(level);
                     RegionPlayerSnapshots.detach(level);
                     this.regionizer.clearLevel(level);
                     // The mailbox and the phase state of the level die with its region state: the queued
@@ -10818,6 +11333,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     void publishEntityRemoval(Entity entity) {
+        if (entity instanceof ServerPlayer player) this.playerTicks.invalidate(player);
         RegionState region = this.regionizer.regionFor(entity);
         if (region == null && entity.level() instanceof ServerLevel level) {
             region = this.regionizer.get(this.layout.regionAt(level, entity.blockPosition()));
@@ -11059,6 +11575,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // must be refused from now on, and the updates and removals that already wait are released.
                 this.closeDeferredSeams();
                 this.awaitActiveTickBatches(null);
+                this.playerNetworkGate.close();
+                this.playerTicks.close();
+                this.playerRegions.close();
                 this.awaitSubmittedRegionTasks(null);
                 // Drain work whose worker submission was rejected while the pool was closing. No new worker
                 // submissions are allowed now, and all queued handoffs finish on this server thread.

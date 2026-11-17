@@ -65,6 +65,8 @@ public final class RegionAwareEntityGetter implements LevelEntityGetter<Entity> 
     @Nullable
     @Override
     public Entity get(int id) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) return playerSpace.lookup(this.level, id, null);
         final Entity scoped = regionScopedLookup(id, null);
         if (scoped != null) {
             return scoped;
@@ -81,6 +83,8 @@ public final class RegionAwareEntityGetter implements LevelEntityGetter<Entity> 
     @Nullable
     @Override
     public Entity get(UUID uuid) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) return playerSpace.lookup(this.level, 0, uuid);
         final Entity scoped = regionScopedLookup(0, uuid);
         if (scoped != null) {
             return scoped;

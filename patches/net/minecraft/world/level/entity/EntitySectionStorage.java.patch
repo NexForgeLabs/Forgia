@@ -86,7 +86,7 @@
          LongSet longset = new LongOpenHashSet();
          this.sections.keySet().forEach(p_156886_ -> longset.add(getChunkKeyFromSectionKey(p_156886_)));
          return longset;
-@@ -115,17 +_,43 @@
+@@ -115,17 +_,48 @@
          this.forEachAccessibleNonEmptySection(p_261820_, p_261459_ -> p_261459_.getEntities(p_261820_, p_261992_));
      }
  
@@ -110,6 +110,11 @@
 +            throw new IllegalStateException("Entity section storage is not partitioned");
 +        }
 +        this.partitions.forEachAccessibleNonEmptySectionInRegion(regionX, regionZ, box, consumer);
++    }
++
++    public void forEachAccessibleNonEmptySectionInRegions(java.util.List<net.neoforged.neoforge.server.threading.region.RegionCoordinate> regions, AABB box, AbortableIterationConsumer<EntitySection<T>> consumer) {
++        if (this.partitions == null) throw new IllegalStateException("Entity section storage is not partitioned");
++        this.partitions.forEachAccessibleNonEmptySectionInRegions(regions, box, consumer);
 +    }
 +
      public <U extends T> void getEntities(EntityTypeTest<T, U> p_261630_, AABB p_261843_, AbortableIterationConsumer<U> p_261742_) {

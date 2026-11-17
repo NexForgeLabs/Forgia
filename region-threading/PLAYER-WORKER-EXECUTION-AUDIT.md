@@ -1,5 +1,10 @@
 # Player worker execution audit
 
+Follow-up design (2026-11-17): [玩家 Region Tick：源码调查与实施方案](PLAYER-REGION-TICK-DESIGN.zh.md)
+proposes full original player tick execution through two existing phase boundaries, reusing the current
+region engine after ownership, callback and lifecycle prerequisites are closed. It is a design only;
+the implementation limits and unexecuted multiplayer validation recorded in this audit remain applicable.
+
 No full player tick or authoritative movement update is moved to workers by this session. The measured production soak has no connected network players, so player-main-thread cost, packet latency and a multiplayer speedup are N/A. A worker feature without a real workload and a lifecycle/ordering oracle would not satisfy the requested performance or correctness standard.
 
 The actual call graph has two important entrances. `ServerLevel.tickNonPassenger` includes the always-ticking/player entity path. Separately, `ServerGamePacketListenerImpl.tick` calls `player.doTick`; `ServerPlayer.doTick` calls `super.tick`, updates criteria/experience/health and sends packets. `ServerPlayer.tick` handles game mode/block breaking, warden tracking, menus/broadcast, spectator camera behavior and location criteria. Moving just one of these methods would leave the same live player reachable from the other entrance.

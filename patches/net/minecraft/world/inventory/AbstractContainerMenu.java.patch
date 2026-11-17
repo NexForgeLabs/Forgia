@@ -1,15 +1,24 @@
 --- a/net/minecraft/world/inventory/AbstractContainerMenu.java
 +++ b/net/minecraft/world/inventory/AbstractContainerMenu.java
-@@ -511,6 +_,12 @@
-     }
- 
-     private boolean tryItemClickBehaviourOverride(Player p_249615_, ClickAction p_250300_, Slot p_249384_, ItemStack p_251073_, ItemStack p_252026_) {
-+        // Neo: Fire the ItemStackedOnOtherEvent, and return true if it was cancelled (meaning the event was handled). Returning true will trigger the container to stop processing further logic.
-+        // The first parameter to onItemStackedOn is the "carried" (under-mouse) item, which is the second ItemStack parameter to this method.
-+        if (net.neoforged.neoforge.common.CommonHooks.onItemStackedOn(p_252026_, p_251073_, p_249384_, p_250300_, p_249615_, createCarriedSlotAccess())) {
-+            return true;
-+        }
+@@ -167,2 +_,21 @@
++    /** Mutable menu objects participate in original-identity alias checks and pre-body validation. */
++    public java.util.List<Object> forgiaPlayerLocalMenuObjects() {
++        java.util.List<Object> objects = new java.util.ArrayList<>(java.util.List.of(this.slots, this.lastSlots,
++            this.remoteSlots, this.dataSlots, this.remoteDataSlots, this.quickcraftSlots, this.containerListeners));
++        objects.addAll(this.slots);
++        objects.addAll(this.containerListeners);
++        if (this.synchronizer != null) objects.add(this.synchronizer);
++        return objects;
++    }
 +
-         FeatureFlagSet featureflagset = p_249615_.level().enabledFeatures();
-         return p_252026_.isItemEnabled(featureflagset) && p_252026_.overrideStackedOnOther(p_249384_, p_250300_, p_249615_)
-             ? true
++    /** Exact listener/synchronizer identity captured on the server, not inferred from class names. */
++    public boolean forgiaHasLocalSynchronizers(ContainerListener listener, ContainerSynchronizer sync) {
++        return this.containerListeners.size() == 1 && this.containerListeners.getFirst() == listener
++            && this.synchronizer == sync && sync != null && this.dataSlots.isEmpty() && this.quickcraftStatus == 0 && this.quickcraftSlots.isEmpty()
++            && this.lastSlots.size() == this.slots.size() && this.remoteSlots.size() == this.slots.size()
++            && this.lastSlots.stream().allMatch(ItemStack::isEmpty) && this.remoteSlots.stream().allMatch(ItemStack::isEmpty) && this.remoteCarried.isEmpty();
++    }
++
+     public void broadcastChanges() {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
+         for (int i = 0; i < this.slots.size(); i++) {

@@ -98,6 +98,21 @@ abstract class RegionTickBatch {
     private boolean submitted;
     private volatile boolean externalWaves;
     private boolean serverAdmissionFence;
+    private int playerSpatialReservations;
+
+    final synchronized void retainPlayerSpatialReservation() {
+        if (this.finished.getCount() == 0 || !this.isGroupsComplete()) throw new IllegalStateException("Spatial reservation requires a live batch after prior groups joined");
+        this.playerSpatialReservations++;
+    }
+
+    final synchronized void releasePlayerSpatialReservation() {
+        if (this.playerSpatialReservations <= 0) throw new IllegalStateException("Spatial reservation already released");
+        this.playerSpatialReservations--;
+    }
+
+    final synchronized int playerSpatialReservationCount() {
+        return this.playerSpatialReservations;
+    }
 
     final void holdsServerAdmissionFence(boolean held) {
         this.serverAdmissionFence = held;
@@ -442,7 +457,7 @@ abstract class RegionTickBatch {
      * {@return true when every worker group finished}
      */
     final boolean isGroupsComplete() {
-        return this.groupBarrier.isComplete() || (this.externalWaves && !this.externalWaveActive);
+        return !this.externalWaveActive && (this.groupBarrier.isComplete() || this.externalWaves);
     }
 
     final void enableExternalWaves() {
@@ -567,6 +582,9 @@ abstract class RegionTickBatch {
      * Releases the final permit of the batch. Called on the server thread after all post-processing.
      */
     final void finish() {
+        synchronized (this) {
+            if (this.playerSpatialReservations != 0 || this.externalWaveActive) throw new IllegalStateException("Player spatial leases have not physically joined/released");
+        }
         this.closeSpawnAdmissions();
         // No group is running anymore; release any handoff that was enqueued but not serviced so the
         // batch can never keep a worker waiting after its lifecycle ended.

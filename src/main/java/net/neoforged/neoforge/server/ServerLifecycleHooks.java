@@ -203,6 +203,15 @@ public class ServerLifecycleHooks {
                     + ", unsupported mods=" + RegionThreadingCompatibility.unsupportedMods());
             LOGGER.warn(SERVERHOOKS, "Region threading bridge is enabled but blocked by compatibility policy {}; unsupported mods: {}", RegionThreadingCompatibility.defaultSupport(), RegionThreadingCompatibility.unsupportedMods());
         }
+        if (ForgiaConfig.SERVER.enableRegionThreadingPlayerTicks.get()) {
+            if (installed == null) {
+                LOGGER.warn(SERVERHOOKS, "Player phase planning requested but the region bridge is unavailable; complete original player calls remain serial");
+            } else {
+                LOGGER.info(SERVERHOOKS, "Player tick workers requested: bounded_complete_calls; unsupported invocations remain serial; fixedLayout={}, entitySlice={}, ownedStorage={}. Workers controls queued-task drain only",
+                        installed.regionLayout().isFixed(), compatibility.entityTickWorkers(),
+                        RegionEntityStorageMode.forConfiguration(compatibility.entityTickWorkers(), ForgiaConfig.SERVER.enableRegionThreadingSpawning.get(), installed.regionLayout()));
+            }
+        }
         // The declarations are read whether or not an engine was installed: a block-entity declaration narrows
         // the block-entity allowlist of the engine, and the report has to name what the files asked for even
         // when the engine is off.

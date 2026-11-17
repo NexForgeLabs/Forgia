@@ -1,0 +1,7 @@
+{
+  "name": "forgia-player-region-tick-proof",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Isolated real-protocol player tick oracle",
+  "dependencies": { "minecraft-protocol": "1.66.0" }
+}

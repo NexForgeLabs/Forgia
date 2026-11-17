@@ -11,6 +11,50 @@
              ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(p_143455_.containerId, p_143456_, p_143457_));
          }
      };
+@@ -490,6 +_,33 @@
++    /** Original local object and optional-state prerequisites, independent of callback admission. */
++    public boolean forgiaHasLocalStateBindings() {
++        return this.containerMenu == this.inventoryMenu && this.inventoryMenu.getClass() == net.minecraft.world.inventory.InventoryMenu.class
++            && this.inventoryMenu.forgiaIsLocalTo(this)
++            && this.inventoryMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer)
++            && this.getFoodData().getClass() == net.minecraft.world.food.FoodData.class
++            && this.getCooldowns().getClass() == net.minecraft.world.item.ServerItemCooldowns.class
++            && this.getStats().getClass() == net.minecraft.stats.ServerStatsCounter.class;
++    }
++
++    public boolean forgiaHasSimpleSharedState() {
++        return this.levitationStartPos == null && this.startingToFallPosition == null && this.enteredLavaOnVehiclePosition == null
++            && this.getCamera() == this && !this.isSleeping() && this.getFoodData().getFoodLevel() > 0
++            && this.getInventory().isEmpty() && this.getActiveEffects().isEmpty() && this.getUseItem().isEmpty();
++    }
++
++    /** Neo: spatial prerequisite only; never a callback, lifecycle or worker-admission proof. */
++    public boolean forgiaStationarySpatialInputs() {
++        final Vec3 velocity = this.getDeltaMovement();
++        return !this.jumping && this.xxa == 0 && this.yya == 0 && this.zza == 0
++            && this.lerpSteps == 0 && this.lerpHeadSteps == 0 && this.stuckSpeedMultiplier.equals(Vec3.ZERO)
++            && this.onGround() && velocity.x == 0 && velocity.z == 0
++            && Double.isFinite(velocity.y) && velocity.y >= -0.5 && velocity.y <= 0;
++    }
++
+     @Override
+     public void tick() {
++        final var playerPhase = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerEntityTick(this);
++        try {
+         this.gameMode.tick();
+         this.wardenSpawnTracker.tick();
+         this.spawnInvulnerableTime--;
+         if (this.invulnerableTime > 0) {
+@@ -525,3 +_,9 @@
+         this.updatePlayerAttributes();
+         this.advancements.flushDirty(this);
++        } catch (Throwable failure) {
++            if (playerPhase != null) playerPhase.failed(failure);
++            throw failure;
++        } finally {
++            if (playerPhase != null) playerPhase.close();
++        }
+     }
 @@ -606,6 +_,11 @@
                  this.connection.send(new ClientboundSetExperiencePacket(this.experienceProgress, this.totalExperience, this.experienceLevel));
              }
@@ -23,9 +67,10 @@
              if (this.tickCount % 20 == 0) {
                  CriteriaTriggers.LOCATION.trigger(this);
              }
-@@ -657,6 +_,7 @@
+@@ -657,6 +_,8 @@
      @Override
      public void die(DamageSource p_9035_) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
          this.gameEvent(GameEvent.ENTITY_DIE);
 +        if (net.neoforged.neoforge.common.CommonHooks.onLivingDeath(this, p_9035_)) return;
          boolean flag = this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES);
@@ -119,12 +164,13 @@
          return this.isReachableBedBlock(p_9117_) || this.isReachableBedBlock(p_9117_.relative(p_9118_.getOpposite()));
      }
  
-@@ -1011,6 +_,8 @@
+@@ -1011,6 +_,9 @@
  
      @Override
      public void dismountTo(double p_143389_, double p_143390_, double p_143391_) {
 +        // Neo: the vehicle relationship is dropped before the guarded setPos runs.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess(this, "ServerPlayer.dismountTo");
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
          this.removeVehicle();
          this.setPos(p_143389_, p_143390_, p_143391_);
      }
@@ -213,12 +259,13 @@
      }
  
      @Override
-@@ -1409,11 +_,15 @@
+@@ -1409,11 +_,17 @@
  
      @Override
      public void teleportTo(double p_8969_, double p_8970_, double p_8971_) {
 +        // Neo: the connection records the pending teleport before the guarded absMoveTo runs.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess(this, "ServerPlayer.teleportTo");
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
          this.connection.teleport(p_8969_, p_8970_, p_8971_, this.getYRot(), this.getXRot(), RelativeMovement.ROTATION);
      }
  
@@ -226,16 +273,18 @@
      public void teleportRelative(double p_251611_, double p_248861_, double p_252266_) {
 +        // Neo: the connection records the pending teleport before the guarded absMoveTo runs.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess(this, "ServerPlayer.teleportRelative");
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
          this.connection
              .teleport(this.getX() + p_251611_, this.getY() + p_248861_, this.getZ() + p_252266_, this.getYRot(), this.getXRot(), RelativeMovement.ALL);
      }
-@@ -1422,6 +_,9 @@
+@@ -1422,6 +_,10 @@
      public boolean teleportTo(
          ServerLevel p_265564_, double p_265424_, double p_265680_, double p_265312_, Set<RelativeMovement> p_265192_, float p_265059_, float p_265266_
      ) {
 +        // Neo: the destination ticket, the riding stop and the sleep wake below all change server state
 +        // before the guarded position write is reached.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess(this, "ServerPlayer.teleportTo");
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
          ChunkPos chunkpos = new ChunkPos(BlockPos.containing(p_265424_, p_265680_, p_265312_));
          p_265564_.getChunkSource().addRegionTicket(TicketType.POST_TELEPORT, chunkpos, 1, this.getId());
          this.stopRiding();
@@ -269,13 +318,14 @@
      }
  
      @Override
-@@ -1675,6 +_,9 @@
+@@ -1675,6 +_,10 @@
      }
  
      public void teleportTo(ServerLevel p_9000_, double p_9001_, double p_9002_, double p_9003_, float p_9004_, float p_9005_) {
 +        // Neo: the camera switch and the riding stop below change server state before the guarded
 +        // position write is reached.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess(this, "ServerPlayer.teleportTo");
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
          this.setCamera(this);
          this.stopRiding();
          if (p_9000_ == this.level()) {

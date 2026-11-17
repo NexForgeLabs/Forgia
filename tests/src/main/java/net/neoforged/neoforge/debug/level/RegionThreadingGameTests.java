@@ -146,7 +146,9 @@ public class RegionThreadingGameTests {
         }
     }
 
-    @GameTest(batch = "regionPhysicalEntityStorage", timeoutTicks = 200)
+    // The distant forced chunks must finish their asynchronous entity-data load before the storage
+    // crossing assertions begin. Preserve those assertions while allowing a longer fixture deadline.
+    @GameTest(batch = "regionPhysicalEntityStorage", timeoutTicks = 600)
     @EmptyTemplate(value = "15x10x15", floor = true)
     @TestHolder(description = "Moves a tracked item across a fixed region boundary in the real persistent section storage")
     static void physicalEntitySectionCrossing(final DynamicTest test) {

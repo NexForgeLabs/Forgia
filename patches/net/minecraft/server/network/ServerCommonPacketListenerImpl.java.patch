@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
 +++ b/net/minecraft/server/network/ServerCommonPacketListenerImpl.java
-@@ -42,6 +_,10 @@
+@@ -42,6 +42,10 @@
      private boolean closed = false;
      private int latency;
      private volatile boolean suspendFlushingOnServerThread = false;
@@ -8,20 +8,23 @@
 +     * Holds the current connection type, based on the types of payloads that have been received so far.
 +     */
 +    protected net.neoforged.neoforge.network.connection.ConnectionType connectionType;
- 
+-
++
      public ServerCommonPacketListenerImpl(MinecraftServer p_295057_, Connection p_294822_, CommonListenerCookie p_301980_) {
          this.server = p_295057_;
-@@ -49,6 +_,8 @@
+@@ -49,6 +53,8 @@
          this.keepAliveTime = Util.getMillis();
          this.latency = p_301980_.latency();
          this.transferred = p_301980_.transferred();
 +        // Neo: Set the connection type based on the cookie from the previous phase.
 +        this.connectionType = p_301980_.connectionType();
      }
- 
+-
++
      private void close() {
-@@ -83,6 +_,32 @@
- 
+@@ -83,6 +89,32 @@
+-
++
      @Override
      public void handleCustomPayload(ServerboundCustomPayloadPacket p_294276_) {
 +        // Neo: Unconditionally handle register/unregister payloads.
@@ -51,12 +54,14 @@
 +            return;
 +        }
      }
- 
+-
++
      @Override
-@@ -141,7 +_,10 @@
+@@ -141,12 +173,15 @@
          this.send(p_294278_, null);
      }
- 
+-
++
 +    @Override
      public void send(Packet<?> p_295099_, @Nullable PacketSendListener p_296321_) {
 +        net.neoforged.neoforge.network.registration.NetworkRegistry.checkPacket(p_295099_, this);
@@ -64,10 +69,19 @@
          if (p_295099_.isTerminal()) {
              this.close();
          }
-@@ -183,7 +_,41 @@
+-
++
+-        boolean flag = !this.suspendFlushingOnServerThread || !this.server.isSameThread();
++        boolean flag = !this.suspendFlushingOnServerThread || (!this.server.isSameThread() && !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding());
+-
++
+         try {
+             this.connection.send(p_295099_, p_296321_, flag);
+@@ -183,7 +218,41 @@
          return this.latency;
      }
- 
+-
++
 +    /**
 +     * Creates a new cookie for this connection.
 +     *
@@ -78,7 +92,7 @@
 +    @Deprecated
      protected CommonListenerCookie createCookie(ClientInformation p_301973_) {
          return new CommonListenerCookie(this.playerProfile(), this.latency, p_301973_, this.transferred);
-+    }
+     }
 +
 +    /**
 +     * Creates a new cookie for this connection.
@@ -104,5 +118,5 @@
 +    @Override
 +    public net.neoforged.neoforge.network.connection.ConnectionType getConnectionType() {
 +        return connectionType;
-     }
++    }
  }

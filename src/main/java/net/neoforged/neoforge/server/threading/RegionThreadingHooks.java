@@ -213,6 +213,34 @@ public final class RegionThreadingHooks {
         }
     }
 
+    /** Complete player scope checks never relax the global storage guard. */
+    public static void assertPlayerBlockAccess(net.minecraft.world.level.Level level, BlockPos pos) {
+        final var scope = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
+        if (scope != null) {
+            if (!(level instanceof ServerLevel serverLevel)) throw new IllegalStateException("Player block access crossed level");
+            scope.requireBlock(serverLevel, pos);
+        }
+    }
+
+    public static void assertPlayerBlockAccess(net.minecraft.world.level.Level level, int x, int y, int z) {
+        final var scope = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
+        if (scope != null) {
+            if (!(level instanceof ServerLevel serverLevel)) throw new IllegalStateException("Player block access crossed level");
+            scope.requireBlock(serverLevel, new BlockPos(x, y, z));
+        }
+    }
+
+    public static void assertPlayerTargetMutation(Entity entity, String operation) {
+        final var scope = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
+        if (scope != null) scope.requireTarget(entity, operation);
+    }
+
+    @Nullable
+    public static net.minecraft.world.level.chunk.LevelChunk playerSpatialChunk(ServerLevel level, int x, int z) {
+        final var scope = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
+        return scope == null ? null : scope.chunk(level, x, z);
+    }
+
     /**
      * Rejects server-owned entity storage access of a server-level entity issued from a native region
      * worker, unless the entity tick lease of the current thread grants this mutation of this entity.
@@ -389,6 +417,7 @@ public final class RegionThreadingHooks {
      * before the next tick starts.
      */
     public static boolean handOffEntityAddition(ServerLevel level, Entity entity) {
+        if (net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Player spawn has no synchronous complete spatial contract");
         if (!RegionWorkerScope.isNativeWorkerThread()) {
             return false;
         }
@@ -501,6 +530,8 @@ public final class RegionThreadingHooks {
      *         acquisition, because the barrier applies them instead
      */
     public static boolean deferEntitySectionUpdate(Entity entity, EntityInLevelCallback callback, double x, double y, double z) {
+        final var playerSpace = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
+        if (playerSpace != null) playerSpace.requirePosition(entity, x, y, z);
         return RegionEntityOwnershipScope.deferEntitySectionUpdate(entity, callback, x, y, z);
     }
 
@@ -607,6 +638,7 @@ public final class RegionThreadingHooks {
      * the caller's predicate is never run on storage the worker may not read.
      */
     public static void recordUnservedRangeQuery(String operation, RegionEntityQueryCounters.Operation path) {
+        if (net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Cannot truncate a complete player query: " + operation);
         RegionEntityQueryCounters.record(path, RegionEntityQueryCounters.Path.TRUNCATED);
         RegionEntityOwnershipScope.recordTruncatedQuery();
         if (UNSERVED_RANGE_QUERIES.add(operation)) {
@@ -641,6 +673,7 @@ public final class RegionThreadingHooks {
      */
     @Nullable
     public static List<ServerPlayer> playersOfLevel(ServerLevel level) {
+        if (net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Player level-wide live lookup requires a complete serial fence");
         if (!RegionWorkerScope.isNativeWorkerThread()) {
             return null;
         }
@@ -1334,6 +1367,7 @@ public final class RegionThreadingHooks {
 
     /** Shadow resource observation only; does not change the lookup or grant ownership. */
     public static void observeBlockEntityReference(net.minecraft.world.level.Level level, BlockPos pos) {
+        assertPlayerBlockAccess(level, pos);
         BlockEntityResourceOwnership.Scope.checkReference(level, pos);
         FurnaceWorkScope.checkReference(level, pos);
         RegionBlockEntityWorkGraph.blockEntityReference(level, pos);
@@ -1669,6 +1703,57 @@ public final class RegionThreadingHooks {
                 engine.moveRegionEntity(entity);
             }
         });
+    }
+
+    /** Capture once per original PlayerAdvancements owner; the default-off map remains unchanged. */
+    public static boolean playerCriterionStorageEnabled() {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine && engine.playerCriterionStorageEnabled();
+    }
+
+    /** Called before the original synchronous player teleport/lifecycle body; grants no world permission. */
+    public static void invalidatePlayerTickPlans(net.minecraft.server.level.ServerPlayer player) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) engine.invalidatePlayerTickPlans(player);
+    }
+
+    /** P1 brackets the original world method without moving any original instruction or Mixin target. */
+    @Nullable
+    public static RegionThreadingEngine.PlayerTickInvocation beginPlayerEntityTick(net.minecraft.server.level.ServerPlayer player) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (!(threading instanceof RegionThreadingEngine engine) || !engine.playerTickPlanningRequested()) return null;
+        if (net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.executingWorker(player,
+                net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.ENTITY))
+            return null;
+        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.connection == null) {
+            engine.playerTicks().recordUntrackedSerial(net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.ENTITY,
+                    player instanceof net.neoforged.neoforge.common.util.FakePlayer
+                            ? net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Reason.FAKE_PLAYER
+                            : net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Reason.NOT_CURRENT_PLAYER);
+            return null;
+        }
+        return engine.beginPlayerSerial(player, player.connection.getConnection(),
+                net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.ENTITY);
+    }
+
+    @Nullable
+    public static RegionThreadingEngine.PlayerConnectionPass beginPlayerConnectionPass(java.util.List<net.minecraft.network.Connection> connections) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine && engine.playerCriterionStorageEnabled()
+                ? engine.beginPlayerConnectionPass(connections)
+                : null;
+    }
+
+    /** Called exactly where ServerConnectionListener used to call the complete Connection.tick. */
+    public static boolean runPlayerConnectionTick(net.minecraft.network.Connection connection) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (!(threading instanceof RegionThreadingEngine engine) || !engine.playerTickPlanningRequested()
+                || !(connection.getPacketListener() instanceof net.minecraft.server.network.ServerGamePacketListenerImpl listener)
+                || listener.player instanceof net.neoforged.neoforge.common.util.FakePlayer)
+            return false;
+        engine.tickPlayerSerial(listener.player, connection,
+                net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.CONNECTION, connection::tick);
+        return true;
     }
 
     /**

@@ -160,6 +160,16 @@ final class PlayerRegionTransitions {
         this.forgetDepartedPlayers(level, players);
     }
 
+    /** Player-stage publication is also quiescent after the original entity groups physically joined. */
+    void publishAtPlayerStage(RegionThreadingEngine engine, ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        if (engine.isShutDown() || engine.isLevelClosed(level) || !engine.isQuiescentForParallelApi()) {
+            this.refusedTransitions.incrementAndGet();
+            return;
+        }
+        this.publishOne(engine, level, player);
+    }
+
     private void publishOne(RegionThreadingEngine engine, ServerLevel level, ServerPlayer player) {
         if (player.isRemoved()) {
             this.refusedTransitions.incrementAndGet();
@@ -275,6 +285,23 @@ final class PlayerRegionTransitions {
     void trackPlayer(ServerLevel level, ServerPlayer player) {
         synchronized (this.trackedPlayers) {
             this.trackedPlayers.computeIfAbsent(level, key -> Collections.newSetFromMap(new IdentityHashMap<>())).add(player);
+        }
+    }
+
+    /** Retire only live publication references, preserving the cumulative audit counters. */
+    void clearLevel(ServerLevel level) {
+        this.published.entrySet().removeIf(entry -> entry.getValue().level == level);
+        this.requests.keySet().removeIf(player -> player.level() == level);
+        synchronized (this.trackedPlayers) {
+            this.trackedPlayers.remove(level);
+        }
+    }
+
+    void close() {
+        this.published.clear();
+        this.requests.clear();
+        synchronized (this.trackedPlayers) {
+            this.trackedPlayers.clear();
         }
     }
 

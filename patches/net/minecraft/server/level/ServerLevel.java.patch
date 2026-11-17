@@ -613,7 +613,7 @@
      }
  
      @Override
-@@ -1600,7 +_,34 @@
+@@ -1600,7 +_,42 @@
  
      @Override
      public LevelEntityGetter<Entity> getEntities() {
@@ -647,6 +647,14 @@
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertLeasedEntityQuery(this, regionX, regionZ);
 +        this.entityManager.forEachAccessibleNonEmptySectionInRegion(regionX, regionZ, box, consumer);
      }
++
++    public void forEachAccessibleNonEmptySectionInRegions(java.util.List<net.neoforged.neoforge.server.threading.region.RegionCoordinate> regions, AABB box, AbortableIterationConsumer<net.minecraft.world.level.entity.EntitySection<Entity>> consumer) {
++        for (var region : regions) {
++            if (region.level() != this) throw new IllegalStateException("Cross-level section lease");
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertLeasedEntityQuery(this, region.regionX(), region.regionZ());
++        }
++        this.entityManager.forEachAccessibleNonEmptySectionInRegions(regions, box, consumer);
++    }
  
      public void addLegacyChunkEntities(Stream<Entity> p_143312_) {
 @@ -1612,6 +_,7 @@

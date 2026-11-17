@@ -21,7 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Entity ownership lease of exactly one region worker group.
+ * Entity ownership lease of one worker group. Ordinary groups retain exactly one region; an internal
+ * {@link RegionPlayerSpatialLease} validates its entire all-or-nothing set before using this scope.
+ * That spatial prerequisite does not close player callback, global-state or lifecycle admission.
  * <p>
  * The scope carries the leased level and region as one {@link RegionCoordinate}, the
  * {@link RegionOwnershipLeaseGroup} that answers {@link RegionOwnershipLeaseGroup#owns(Entity)} and defers the
@@ -177,6 +179,11 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
         return scope;
     }
 
+    static boolean isCurrentGroup(RegionOwnershipLeaseGroup group) {
+        RegionEntityOwnershipScope scope = CURRENT.get();
+        return scope != null && scope.isActive() && scope.group == group;
+    }
+
     /**
      * {@return whether the lease of the current thread grants the entity mutation {@code operation}}
      * <p>
@@ -303,7 +310,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * {@link #deferEntityAddition(ServerLevel, Entity)}.
      */
     private static boolean grantsPendingAdmissionMutation(RegionEntityOwnershipScope scope, ServerLevel level, Entity entity, String operation) {
-        return scope.coordinate.level() == level
+        return !(scope.group instanceof RegionPlayerSpatialLease) && scope.coordinate.level() == level
                 && GRANTABLE_PENDING_ADMISSION_OPERATIONS.contains(operation)
                 && !hasLevelEffects(entity)
                 && !entity.isRemoved();
@@ -474,6 +481,8 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * use the internal region-scoped section accessor to read a neighbouring region's storage.
      */
     public static boolean ownsQueryRegion(ServerLevel level, int regionX, int regionZ) {
+        final RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) return playerSpace.ownsRegion(level, regionX, regionZ);
         final RegionCoordinate coordinate = queryCoordinate(level);
         return coordinate != null && coordinate.regionX() == regionX && coordinate.regionZ() == regionZ;
     }
@@ -521,6 +530,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
         if (scope == null) {
             return false;
         }
+        if (scope.group instanceof RegionPlayerSpatialLease playerSpace) playerSpace.requirePosition(entity, x, y, z);
         final long targetSection = SectionPos.asLong(
                 SectionPos.posToSectionCoord(x),
                 SectionPos.posToSectionCoord(y),
@@ -688,6 +698,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      */
     @Nullable
     static RegionCoordinate currentLeaseCoordinate(ServerLevel level) {
+        if (RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Player unbounded index/POI access has no complete spatial contract");
         final RegionEntityOwnershipScope scope = CURRENT.get();
         if (scope == null || !scope.isActive() || !RegionWorkerScope.isNativeWorkerThread()) {
             return null;

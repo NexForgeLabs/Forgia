@@ -1,0 +1,1206 @@
+{
+  "status": "passed",
+  "version": "21.1.250.126-beta",
+  "independentEvidenceVerdicts": 68,
+  "schema3Scenarios": 144,
+  "schema4Scenarios": 180,
+  "functionalNegativeControls": 100,
+  "oraclePhaseOrderNegativeControls": 40,
+  "nativeFaultNegativeControls": 64,
+  "socketNegativeControls": 6,
+  "phaseOrderMutationControls": 8,
+  "networkMutationControls": 13,
+  "transitionMutationControls": 9,
+  "timerMutationControls": 3,
+  "proofNegativeControls": 243,
+  "junit": {
+    "totals": {
+      "tests": 478,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "classes": [
+      "net.neoforged.neoforge.unittest.RegionEntityOwnershipTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerTickCoordinatorTest",
+      "net.neoforged.neoforge.unittest.LifecycleRetirementRaceTest",
+      "net.neoforged.neoforge.unittest.RegionThreadingEngineTest",
+      "net.neoforged.neoforge.unittest.EntityIdentityLedgerTest",
+      "net.neoforged.neoforge.unittest.RegionThreadingArchitectureTest",
+      "net.neoforged.neoforge.unittest.RegionEntityTickRandomTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerSpatialLeaseTest",
+      "net.neoforged.neoforge.unittest.PlayerCriterionListenersTest",
+      "net.neoforged.neoforge.unittest.RegionSelfDrivenEntityTickTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerFootprintTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerPayloadContractTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerExtensionSnapshotTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerTransitionTest",
+      "net.neoforged.neoforge.unittest.RegionEntityOwnershipLeaseTest",
+      "net.neoforged.neoforge.unittest.RegionPlayerNetworkGateTest",
+      "net.neoforged.neoforge.unittest.RegionScopedEntityQueryTest",
+      "net.neoforged.neoforge.unittest.RegionEntityTickPlanTest",
+      "net.neoforged.neoforge.unittest.RegionEntityTickPolicyTest",
+      "net.neoforged.neoforge.unittest.RegionThreadingDeclarationsTest"
+    ]
+  },
+  "gameTestsPassed": 3,
+  "gameTests": [
+    {
+      "name": "regionPhysicalEntityStorage",
+      "result": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionPhysicalEntityStorage/result.json",
+      "resultSha256": "cdd0ca24d9c59b3791067878beaa8eb092a67c932f653b7de1aede60a069abcf",
+      "log": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionPhysicalEntityStorage/stdout.log",
+      "logSha256": "cd68a1e7b32d1ca4dbbf8a7da97671d845acdebd27d5f2a50bc36063ddb53a57"
+    },
+    {
+      "name": "regionOwnerOperations",
+      "result": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionOwnerOperations/result.json",
+      "resultSha256": "c85a64cbd5dc5572cdd4a5cec63da4b4713edf45e07ec6a41d3751db748e0cd6",
+      "log": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionOwnerOperations/stdout.log",
+      "logSha256": "dd5c56d173a49a69e071c5bb88883577175d68187ae5244c8e97cf285819fb89"
+    },
+    {
+      "name": "regionUnsafeFallback",
+      "result": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionUnsafeFallback/result.json",
+      "resultSha256": "4ec46b110807fc2966170c8c97f5db15ff0ea7c55fa1792bbed58f151f981309",
+      "log": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionUnsafeFallback/stdout.log",
+      "logSha256": "4c03e22e72ba60f4aa5ecd02b5fc15db7f3b2d358735c1a535c7234f376d9055"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "projects/neoforge/build/libs/neoforge-21.1.250.126-beta-installer.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/neoforge-21.1.250.126-beta-installer.jar",
+      "sha256": "cc0c9a4277a8cb6b882e68ad913968ab168380b6bae15a000162aaa6d07405aa"
+    },
+    {
+      "path": "projects/neoforge/build/libs/neoforge-21.1.250.126-beta-universal.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/neoforge-21.1.250.126-beta-universal.jar",
+      "sha256": "3d0ec4cfc9d03a6d6132ed5cc5d9226d93c5584d52dcd886662dc0c38e2f622b"
+    },
+    {
+      "path": "projects/neoforge/build/libs/forgia-player-oracle-1.0.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-oracle-1.0.jar",
+      "sha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe"
+    },
+    {
+      "path": "projects/neoforge/build/libs/forgia-player-p2-contract-1.0.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-p2-contract-1.0.jar",
+      "sha256": "09c7b8c93ffd2ee5e15b1eb83e4ffd8d3b02f5856d1954193313aa27ec0fe2be"
+    },
+    {
+      "path": "projects/neoforge/build/libs/forgia-player-world-fault-1.0.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-world-fault-1.0.jar",
+      "sha256": "66e34be47016d6968d46fd4dccdf93b73997547ebe27b987938c2ee9a54e4ae0"
+    },
+    {
+      "path": "projects/neoforge/build/neodev/artifacts/patched-sources.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/patched-sources.jar",
+      "sha256": "044c41a4fb76213e8ca2cf9015a7cd8eb2a393c1974556e2c16bb8ad8d872a22"
+    },
+    {
+      "path": "projects/neoforge/build/libs/forgia-player-network-contract-1.0.jar",
+      "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-network-contract-1.0.jar",
+      "sha256": "8e9a7fbd623b0bae2fd7546a1dae935461cc8bc656692b001540946333b214d3"
+    }
+  ],
+  "matrixRoots": {
+    "functional": "tmp/player-region-tick-p2-final05/final126/functional",
+    "smoke": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke",
+    "network": "tmp/player-region-tick-p2-final05/final126/network",
+    "same-group": "tmp/player-region-tick-p2-final05/final126/same-group",
+    "fault": "tmp/player-region-tick-p2-final05/final126/fault",
+    "socket": "tmp/player-region-tick-p2-final05/final126/recovery01/socket",
+    "transitions": "tmp/player-region-tick-p2-final05/final126/transitions",
+    "contract": "tmp/player-region-tick-p2-final05/final126/contract",
+    "timers": "tmp/player-region-tick-p2-final05/final126/recovery01/timers",
+    "lifecycle": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle",
+    "respawn": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn",
+    "phase-order": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order",
+    "network-contract": "tmp/player-region-tick-p2-final05/final126/network-contract"
+  },
+  "controls": [
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-on-fixed",
+      "negativeControls": 10,
+      "resultSha256": "b443881f7335d4f8c8dceef9da3e6df4f24947f79ac677bfaa7900ed1e79c1e9",
+      "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-on-fixed",
+      "negativeControls": 5,
+      "resultSha256": "9de71cfaa3c31bc1a974f5b720d3cfb177ba67606afe327eba035b27f34b749a",
+      "outputSha256": "7a18a8737bf03ed53df73af94d2c314086701c8c18fa749b0f672a415c7118a4"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-on-fixed",
+      "negativeControls": 15,
+      "resultSha256": "8e4a1c13aa8304c986893e58a272d4b245447d8c8de61936ea45d3e3d1ca2c05",
+      "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-on-fixed",
+      "negativeControls": 5,
+      "resultSha256": "66c0ff3bdd3df23664a3e3573e0e84129d28330821257750fdcf0d9396313af1",
+      "outputSha256": "11f06322fb4b1e9301357df6eec7384c6bf8950253423653d96b1163851c58d2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-on-persistent",
+      "negativeControls": 10,
+      "resultSha256": "d410238d62be23f7011bd69c43946ebea106d8fcf3518389dd8d82be7532d4e1",
+      "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-on-persistent",
+      "negativeControls": 5,
+      "resultSha256": "02e4ad256816a1f44e4730471a9035fe5d1449106ee3cf9506082f876e5c7fc9",
+      "outputSha256": "465f6baa874540d4ec80c05f76731b43ad2cffecfb38338ae4f8a88339265f0b"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-on-persistent",
+      "negativeControls": 15,
+      "resultSha256": "1a5c76a2186478d488424c20ca283201ef2dd17daed307afa4316dc35b243ac4",
+      "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-on-persistent",
+      "negativeControls": 5,
+      "resultSha256": "89637435ee71b403569aa9e5fb0f6c28e332866115ff9989f596cc291654777e",
+      "outputSha256": "3e9a471662b3e6533352e3d0ba5fbdd4eae5b9cdd9f499806564a9e7dbcce77b"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-off-fixed",
+      "negativeControls": 10,
+      "resultSha256": "6620d22ed233edcec49ef45f63b1e27dbfa203385815f45826671e9859ab6dcb",
+      "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-off-fixed",
+      "negativeControls": 5,
+      "resultSha256": "940bca9c83447a88c107018eb26a516a7602b6ad167cf93186bd019e70fa06df",
+      "outputSha256": "1cc399eefdfde1d3af10f680e547555040be75011b8cf0fae04a97b489e8f97a"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-off-fixed",
+      "negativeControls": 15,
+      "resultSha256": "a93342413f2af454cf52b92fe604725e2a0257eb9436fb6dfdf3c99a5a21adb9",
+      "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-off-fixed",
+      "negativeControls": 5,
+      "resultSha256": "698267b42c3c082b928e69cee7ae5bd78d07da82e02f432838be3ff067a8a384",
+      "outputSha256": "afcf609318a309c527cd07aca26bb0b5bd57eba8bc14130db47f344edb2d06d1"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-off-persistent",
+      "negativeControls": 10,
+      "resultSha256": "6e14d063f7706da104c168bc4a0e7ebb81f4f1abdaa07a626cd0b0d4881d87c2",
+      "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-off-persistent",
+      "negativeControls": 5,
+      "resultSha256": "efac7b2ab34a7f1d728f537649682cd2538b61faf4e809616e2e281309596ec1",
+      "outputSha256": "de6ca85314a6b6269cd29b635c0d2e19f8c865f34cbed50a3cb899e13babb2db"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-off-persistent",
+      "negativeControls": 15,
+      "resultSha256": "5c72467e452b46902c968462c2897083d85bcb75cb75a24158a4295180e66861",
+      "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-off-persistent",
+      "negativeControls": 5,
+      "resultSha256": "380151591517aa90978729a85274c26268df4ca5688e2c72d67fa3c8bae6ab0d",
+      "outputSha256": "e376f162caf6c555dee52618d9ec232293d167a9005a1d70fc8c6cca9db2c605"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-fixed-entity",
+      "negativeControls": 8,
+      "resultSha256": "3e20501e3df2f81c4abc61ea0a8ab797f7f4f3f183b9de2aae0a00377ba9a7ff",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-fixed-connection",
+      "negativeControls": 8,
+      "resultSha256": "767002496bb4cdd69ca6b1cadd8f21552a5591a7b39ca1623c23a805d60bd0c5",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-persistent-entity",
+      "negativeControls": 8,
+      "resultSha256": "55ea690183dc45f9c375a1f849c87b8ec63c1925d257ba37ebd2f2597ea673bf",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-persistent-connection",
+      "negativeControls": 8,
+      "resultSha256": "de0ef82beb1050b4a39f8509d179e3755d1409245a6c79b17ee31d3151408262",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-fixed-entity",
+      "negativeControls": 8,
+      "resultSha256": "57d952f7d6319f3dfa525626c69fef60787e4e3ce723c487a67a9bcafff832df",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-fixed-connection",
+      "negativeControls": 8,
+      "resultSha256": "6dafd27647974ffd8a58c8855dfdb4474fbfc02dff5efdba3eea762529cda1ef",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-persistent-entity",
+      "negativeControls": 8,
+      "resultSha256": "5f76f57081b5adf3acd80f06ecd0abd6ab64034f0d3881186947c3e7eadf65e0",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-persistent-connection",
+      "negativeControls": 8,
+      "resultSha256": "2299ced97021c3ec7d62e6f09513bb89d343c907dfad56cd1222a18e9121e227",
+      "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-network-normal",
+      "negativeControls": 6,
+      "resultSha256": "8874c18e7918c9ddb433b049919ae1a11a32843fb683b212cea8f5517a6e355e",
+      "outputSha256": "452882763e7061229f39543e47c0f42f2fbc2c4f93d6dcf9294527d3a0d71d41"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-network-overflow",
+      "negativeControls": 7,
+      "resultSha256": "6cba361bf60f9b9e9c3fd47e4218503df33d92b9f522d7f28b18ad64c4e305f1",
+      "outputSha256": "a87a7833244eb5a6f6763db89d4121b4f3f504a4fa18cc3ea45e7ffe51f3f665"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-transition-production",
+      "negativeControls": 3,
+      "resultSha256": "1ae43635973ff20b0e9cfa8f9a9195c048d4aa73c50895cc94ed63cb305a1026",
+      "outputSha256": "3f39f01711a0c1a0a9f2469cc2604505148d7433a01206516d8b64e4e5c3f57b"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-transition-contract",
+      "negativeControls": 6,
+      "resultSha256": "f68e4dffd9f6fd9ec5ba7c8798f148359e811728e9d1da45c6b5238fd587d0ea",
+      "outputSha256": "8dc238c3123b5d30ee14f3fd5ba7428bcc27a72a910ecae23bd4193ec7bc7264"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-timers",
+      "negativeControls": 3,
+      "resultSha256": "165ba8c5c330955e3c5d2d29d68adb2e93e4f4773c031698428b002a97848080",
+      "outputSha256": "3715e5e44038fb39053c41b23433dcda3ca0f46e74e80d62b6cb3ca2e0a05877"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-phase",
+      "negativeControls": 8,
+      "resultSha256": "2fd2bfb30bb2d0c52b3d208968166f9ef3389ee4992c8ae40b5b69077395f6ab",
+      "outputSha256": "e33d6d623e191c1bb2b2c4efa15232ddb47fbd979be00f37fb00665257c27c36"
+    },
+    {
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-socket",
+      "negativeControls": 6,
+      "resultSha256": "3f6e677f81abd7141d5f15e1a7a228ab1ef2af60110d537d7e8b1f367b4325d9",
+      "outputSha256": "bbc66c184f15891f6897e751318dcfd3e1735cde508efa881a11959a1e9602d2"
+    }
+  ],
+  "runs": [
+    {
+      "suite": "schema3",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-fixed/interaction-run/independent-verdict.json",
+      "sha256": "77d21c0ddfc51f641cdf0fddaf1db4d8f929f066f61082622f975676aa537859",
+      "status": "passed",
+      "persistent": false,
+      "playerPlanningRequested": true,
+      "scenarioCount": 36
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-fixed/phase-order.json",
+      "sha256": "1ae0cd8ab10c9b5f7b246e42f559f1fc6ada0ede8d659594be045933e3e1b332",
+      "status": "passed",
+      "completeServerTicks": 1321
+    },
+    {
+      "suite": "schema4",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-fixed/resource-run/independent-verdict.json",
+      "sha256": "28bd8b4a32b3e80ca31d0567af45776b343598a6497ce281f34fd9d3131d86be",
+      "status": "passed",
+      "persistent": false,
+      "playerPlanningRequested": true,
+      "scenarioCount": 45
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-fixed/phase-order.json",
+      "sha256": "db0f3f713bcd83f0509b30ba59c8edcaa490177a8d5758a7ca170570bea4eba2",
+      "status": "passed",
+      "completeServerTicks": 1702
+    },
+    {
+      "suite": "smoke",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-on-fixed/worker-smoke/independent-verdict.json",
+      "sha256": "bd850516fd442d52e351239426d70a95d9de5cede783324c9c2d9fd225d81a2e",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "attack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 248,
+            "workerCalls": 248,
+            "overlapCount": 95
+          },
+          "CONNECTION": {
+            "sampledCalls": 248,
+            "workerCalls": 248,
+            "overlapCount": 98
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 242,
+            "workerCalls": 242,
+            "overlapCount": 0
+          },
+          "CONNECTION": {
+            "sampledCalls": 242,
+            "workerCalls": 242,
+            "overlapCount": 0
+          }
+        }
+      }
+    },
+    {
+      "suite": "transitions",
+      "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-on-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "c176ea57e3ff1e00401add7a730ae271b35e34a1fc6bb1958723b62dbd2d85da",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "mainThreadPayloads": 0,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/contract/server-on-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "4756bfba841b313c44e111c343d189344bb1cba20c04ee4bab49d288d0145def",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "mainThreadPayloads": 9,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "timers",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-on-fixed/p2-timers/independent-verdict.json",
+      "sha256": "bb019329bd2241faaa8e26eeb0a5935d7d5ccfa49ddc7f4c930a3043987a6eaf",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "floatingDisconnectPackets": 1,
+      "idleDisconnectPackets": 1,
+      "idleObservedSeconds": 55.147470516
+    },
+    {
+      "suite": "lifecycle",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-on-fixed/worker-lifecycle/independent-verdict.json",
+      "sha256": "813cb358d029ca39c6e222514568bed93d231391bdfcdfdbbbf5094469839e7e",
+      "status": "passed",
+      "persistent": false,
+      "requested": true
+    },
+    {
+      "suite": "respawn",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-on-fixed/worker-respawn/independent-verdict.json",
+      "sha256": "b65a6015a0e1bde954a19eb6c947fc0c4dd973d139befc98f163b3bd9c8109c4",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "settledNewInstanceWorkerCalls": {
+        "ENTITY": 77,
+        "CONNECTION": 77
+      },
+      "newInstanceWorkerCalls": {
+        "ENTITY": 88,
+        "CONNECTION": 0
+      },
+      "workerReadmission": "both phases observed after normal client settlement"
+    },
+    {
+      "suite": "phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-on-fixed/worker-phase-order/independent-verdict.json",
+      "sha256": "5b089cffc68cfdaca303538c4e943acffed038d2af65ff80383776ac60ff2b2f",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "completeServerTicks": 30,
+      "actualPlayerTickPre": 60,
+      "actualPlayerTickPost": 60,
+      "nativeCallsPerPlayerPhase": {
+        "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+          "ENTITY": 30,
+          "CONNECTION": 30
+        },
+        "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+          "ENTITY": 30,
+          "CONNECTION": 30
+        }
+      }
+    },
+    {
+      "suite": "network-contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-on-fixed/network-contract/independent-verdict.json",
+      "sha256": "1fc32f3ab8a3ae01425628d5c395614c12a53977f4ae43ca75b356045a8969c4",
+      "status": "passed",
+      "persistent": false,
+      "requested": true,
+      "networkCallbacks": 500,
+      "mainContinuations": 500,
+      "wrongThread": 0,
+      "deferredNetworkCallbacks": 0
+    },
+    {
+      "suite": "schema3",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-persistent/interaction-run/independent-verdict.json",
+      "sha256": "6324ac2956ffced9ed4f701774762b7fde96aa65262adf26e9533f36c114c57e",
+      "status": "passed",
+      "persistent": true,
+      "playerPlanningRequested": true,
+      "scenarioCount": 36
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-persistent/phase-order.json",
+      "sha256": "e679e44a2fb81a735d93741bb569302e8de06603594f89285c78d32bc025f8dc",
+      "status": "passed",
+      "completeServerTicks": 1339
+    },
+    {
+      "suite": "schema4",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-persistent/resource-run/independent-verdict.json",
+      "sha256": "664b27a6b4016203ed8df9a53a7da4e4d971f99801ecbf882837fb2040c5e228",
+      "status": "passed",
+      "persistent": true,
+      "playerPlanningRequested": true,
+      "scenarioCount": 45
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-persistent/phase-order.json",
+      "sha256": "77fb177d26f7fa99c2343ef2d9b040a0f84c98d98640c2cea0d2554c162f9b8f",
+      "status": "passed",
+      "completeServerTicks": 1677
+    },
+    {
+      "suite": "smoke",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-on-persistent/worker-smoke/independent-verdict.json",
+      "sha256": "bc53e4e0854713255ce8c65bbcd27f856b3a235c502e4dfb98e534b3da1ff859",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "attack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 236,
+            "workerCalls": 236,
+            "overlapCount": 73
+          },
+          "CONNECTION": {
+            "sampledCalls": 236,
+            "workerCalls": 236,
+            "overlapCount": 84
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 232,
+            "workerCalls": 232,
+            "overlapCount": 0
+          },
+          "CONNECTION": {
+            "sampledCalls": 232,
+            "workerCalls": 232,
+            "overlapCount": 0
+          }
+        }
+      }
+    },
+    {
+      "suite": "transitions",
+      "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-on-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "c751b502ac2a4c76aa82145c88a0e29cdcaba399282eb330cfb4f12dd1813c41",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "mainThreadPayloads": 0,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/contract/server-on-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "2dbc2e3ec299e4224c427ceff30b17c4330f41f45fea54818ac1d69a87579d46",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "mainThreadPayloads": 9,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "timers",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-on-persistent/p2-timers/independent-verdict.json",
+      "sha256": "343974301a7d3763e8c3df5249eca9acd91958742e7e0b5b753a8428d9f2a016",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "floatingDisconnectPackets": 1,
+      "idleDisconnectPackets": 1,
+      "idleObservedSeconds": 55.262147055
+    },
+    {
+      "suite": "lifecycle",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-on-persistent/worker-lifecycle/independent-verdict.json",
+      "sha256": "5c57851cdc32fd222337230c01c39046daefa9a070ea1d9ebfa40e5b311f8835",
+      "status": "passed",
+      "persistent": true,
+      "requested": true
+    },
+    {
+      "suite": "respawn",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-on-persistent/worker-respawn/independent-verdict.json",
+      "sha256": "7747b2c17c12bcd1a553d0b64c18523f53218bce449ce0719ade7a05a7647bf5",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "settledNewInstanceWorkerCalls": {
+        "ENTITY": 77,
+        "CONNECTION": 77
+      },
+      "newInstanceWorkerCalls": {
+        "ENTITY": 88,
+        "CONNECTION": 0
+      },
+      "workerReadmission": "both phases observed after normal client settlement"
+    },
+    {
+      "suite": "phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-on-persistent/worker-phase-order/independent-verdict.json",
+      "sha256": "8178a1a177a739f75035b6509db6632208cbd58527034ce98010f15038bc63ab",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "completeServerTicks": 30,
+      "actualPlayerTickPre": 60,
+      "actualPlayerTickPost": 60,
+      "nativeCallsPerPlayerPhase": {
+        "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+          "ENTITY": 30,
+          "CONNECTION": 30
+        },
+        "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+          "ENTITY": 30,
+          "CONNECTION": 30
+        }
+      }
+    },
+    {
+      "suite": "network-contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-on-persistent/network-contract/independent-verdict.json",
+      "sha256": "adf05db34ac39a9f8d3f3d76fb744fbe2ac9a3c0d05837017b643d9e9ecef977",
+      "status": "passed",
+      "persistent": true,
+      "requested": true,
+      "networkCallbacks": 500,
+      "mainContinuations": 500,
+      "wrongThread": 0,
+      "deferredNetworkCallbacks": 0
+    },
+    {
+      "suite": "schema3",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-fixed/interaction-run/independent-verdict.json",
+      "sha256": "71d5721c7badd8718fd9f3d92589350f7cd01882a12c815f43808729923f0c05",
+      "status": "passed",
+      "persistent": false,
+      "playerPlanningRequested": false,
+      "scenarioCount": 36
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-fixed/phase-order.json",
+      "sha256": "04dfce32eb4b5d535ed7eca8762c1e73b645dc56574da0ce8566784a426b5db9",
+      "status": "passed",
+      "completeServerTicks": 1351
+    },
+    {
+      "suite": "schema4",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-fixed/resource-run/independent-verdict.json",
+      "sha256": "4ef854b382b109628cae3f6caa25eaf3ffdbd48948a332cef5b2e663976295d6",
+      "status": "passed",
+      "persistent": false,
+      "playerPlanningRequested": false,
+      "scenarioCount": 45
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-fixed/phase-order.json",
+      "sha256": "070a3bce57d0b54ecbab288911d27ed864f491d52f0ee2563535348872053ccd",
+      "status": "passed",
+      "completeServerTicks": 1671
+    },
+    {
+      "suite": "smoke",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-off-fixed/worker-smoke/independent-verdict.json",
+      "sha256": "4255c30924686094585b40bfa224b9dec0eb6210871292137c7a97dba3fac9fb",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "attack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          }
+        }
+      }
+    },
+    {
+      "suite": "transitions",
+      "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-off-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "2124b4af9f4dd5cf3429308f933eb24decbadf39e71e1c27c708cc49a9e14a9f",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "mainThreadPayloads": 0,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/contract/server-off-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "ac6d35d4025bba411c19f281c5bf1cac5d007102e60cfe4c866d55a97eed894e",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "mainThreadPayloads": 9,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "timers",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-off-fixed/p2-timers/independent-verdict.json",
+      "sha256": "2ba5ad3ae08a3dedb457da0da84e7ca9ba41533962d908631b2a375a9fee7f7d",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "floatingDisconnectPackets": 1,
+      "idleDisconnectPackets": 1,
+      "idleObservedSeconds": 56.06482991
+    },
+    {
+      "suite": "lifecycle",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-off-fixed/worker-lifecycle/independent-verdict.json",
+      "sha256": "46d8486cea696c03e547b22513627728dffcff3484d21190540b76914297ebbd",
+      "status": "passed",
+      "persistent": false,
+      "requested": false
+    },
+    {
+      "suite": "respawn",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-off-fixed/worker-respawn/independent-verdict.json",
+      "sha256": "89030bfd216005146dcea2eb0fb844d3718e0777e92a0d46ec4b6a292bd9ab05",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "settledNewInstanceWorkerCalls": {
+        "ENTITY": 0,
+        "CONNECTION": 0
+      },
+      "newInstanceWorkerCalls": {
+        "ENTITY": 0,
+        "CONNECTION": 0
+      },
+      "workerReadmission": "partial; serial refusal retained for an unadmitted new-instance phase"
+    },
+    {
+      "suite": "phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-off-fixed/worker-phase-order/independent-verdict.json",
+      "sha256": "6a73ca551accbc0aa59998841b2535b1ab94624a8e6804d29a0ae73ef35cfb39",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "completeServerTicks": 30,
+      "actualPlayerTickPre": 60,
+      "actualPlayerTickPost": 60,
+      "nativeCallsPerPlayerPhase": {
+        "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        },
+        "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        }
+      }
+    },
+    {
+      "suite": "network-contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-off-fixed/network-contract/independent-verdict.json",
+      "sha256": "d0dcb5a62aa2eeeb9430821ada48e35ae2787173ba4711ada5c8cca5f5f568d9",
+      "status": "passed",
+      "persistent": false,
+      "requested": false,
+      "networkCallbacks": 500,
+      "mainContinuations": 500,
+      "wrongThread": 0,
+      "deferredNetworkCallbacks": 0
+    },
+    {
+      "suite": "schema3",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-persistent/interaction-run/independent-verdict.json",
+      "sha256": "934948039d914d4f4f47db737b3e658ef8d8da7ef06e9370aa2f6a3b526b0399",
+      "status": "passed",
+      "persistent": true,
+      "playerPlanningRequested": false,
+      "scenarioCount": 36
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-persistent/phase-order.json",
+      "sha256": "e21f32d4b9b3ba7b0d408d8fb2eb0ca8aaa52838be76af91af389e8b04b72a21",
+      "status": "passed",
+      "completeServerTicks": 1302
+    },
+    {
+      "suite": "schema4",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-persistent/resource-run/independent-verdict.json",
+      "sha256": "7263a3c8fa033189da9eb74a541d2c2eb3dd2ef9e562ca030654323bd7823feb",
+      "status": "passed",
+      "persistent": true,
+      "playerPlanningRequested": false,
+      "scenarioCount": 45
+    },
+    {
+      "suite": "oracle-original-phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-persistent/phase-order.json",
+      "sha256": "6cc98132373973f06cf16d7dc83ec6ee0b507177e92eb0539610441c8fb2a71b",
+      "status": "passed",
+      "completeServerTicks": 1735
+    },
+    {
+      "suite": "smoke",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-off-persistent/worker-smoke/independent-verdict.json",
+      "sha256": "50431ca757dace4d3ad8565229620041d00896819acc137ddbc945f6665aa9b6",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "attack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0
+          }
+        }
+      }
+    },
+    {
+      "suite": "transitions",
+      "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-off-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "8153e44002e0643fbc692ea2a60371cad9a12aabcecdbdf9133bf32dee6b5f3b",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "mainThreadPayloads": 0,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/contract/server-off-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "13c96159d2572092e9a5c145a8a972be5f6578eb42adba84e1eb25694b43c2a5",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "mainThreadPayloads": 9,
+      "orderedAsyncChats": 5,
+      "orderedMixedPings": 5
+    },
+    {
+      "suite": "timers",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-off-persistent/p2-timers/independent-verdict.json",
+      "sha256": "a345cc523bbea637abbf08e492e23a265a164b008f803d1a5669d62bcc502090",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "floatingDisconnectPackets": 1,
+      "idleDisconnectPackets": 1,
+      "idleObservedSeconds": 55.936006674
+    },
+    {
+      "suite": "lifecycle",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-off-persistent/worker-lifecycle/independent-verdict.json",
+      "sha256": "a8ec2e2d1e289a37f774ff2fd19683a3fe7efd3d9cdfc139624cf67512ccdf97",
+      "status": "passed",
+      "persistent": true,
+      "requested": false
+    },
+    {
+      "suite": "respawn",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-off-persistent/worker-respawn/independent-verdict.json",
+      "sha256": "3893135704a36dd393a2e2716100aa7a430865b0e6561610256eccc9a9fe128f",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "settledNewInstanceWorkerCalls": {
+        "ENTITY": 0,
+        "CONNECTION": 0
+      },
+      "newInstanceWorkerCalls": {
+        "ENTITY": 0,
+        "CONNECTION": 0
+      },
+      "workerReadmission": "partial; serial refusal retained for an unadmitted new-instance phase"
+    },
+    {
+      "suite": "phase-order",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-off-persistent/worker-phase-order/independent-verdict.json",
+      "sha256": "f205c0371069d790d733fb698df27867ebe0a3b1163cbe764b511c4aeb81763c",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "completeServerTicks": 30,
+      "actualPlayerTickPre": 60,
+      "actualPlayerTickPost": 60,
+      "nativeCallsPerPlayerPhase": {
+        "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        },
+        "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        }
+      }
+    },
+    {
+      "suite": "network-contract",
+      "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-off-persistent/network-contract/independent-verdict.json",
+      "sha256": "dcb2322339aa619ea17401a39bdcbd240a0ca55655e299edf9f5ed9d3f9e06a2",
+      "status": "passed",
+      "persistent": true,
+      "requested": false,
+      "networkCallbacks": 500,
+      "mainContinuations": 500,
+      "wrongThread": 0,
+      "deferredNetworkCallbacks": 0
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-entity/network-fence/independent-verdict.json",
+      "sha256": "b52d35e18911d7f3af5ea429d39574d4e1b9f5c09908428f774b3e4a4f7a9d8b",
+      "status": "passed",
+      "persistent": false,
+      "phase": "ENTITY",
+      "overflow": false,
+      "orderedAcceptedReplies": 256,
+      "disconnectPackets": 0
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-entity-overflow/network-fence/independent-verdict.json",
+      "sha256": "84f6e8d468e415e12e8fbee407ed076952a01a545d6788224aa915df4cf206fe",
+      "status": "passed",
+      "persistent": false,
+      "phase": "ENTITY",
+      "overflow": true,
+      "orderedAcceptedReplies": 4096,
+      "disconnectPackets": 1
+    },
+    {
+      "suite": "same-group",
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-fixed-entity/worker-fault/independent-verdict.json",
+      "sha256": "d32cca58f33e4780a48b155bc510c46b6efaa9bd7eea526388a030c3ebd2d43d",
+      "status": "passed_expected_failure",
+      "persistent": false,
+      "phase": "ENTITY",
+      "sameGroup": true
+    },
+    {
+      "suite": "fault",
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-fixed-entity/worker-fault/independent-verdict.json",
+      "sha256": "54ed6ae65046c5b527e7aa1461535328a0612dff447432fa136621f5842a4c11",
+      "status": "passed_expected_failure",
+      "persistent": false,
+      "phase": "ENTITY",
+      "sameGroup": false
+    },
+    {
+      "suite": "socket",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-fixed-entity/worker-socket-close/independent-verdict.json",
+      "sha256": "63cd8c2021cac60b73b4b8a6bfb1afa9537b2c6bba98ab5efaaf547e3ff863b8",
+      "status": "passed",
+      "persistent": false,
+      "phase": "ENTITY"
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-connection/network-fence/independent-verdict.json",
+      "sha256": "786aea106884895fde803376ee0615e0832fc149e86d2de094b330792af2cbff",
+      "status": "passed",
+      "persistent": false,
+      "phase": "CONNECTION",
+      "overflow": false,
+      "orderedAcceptedReplies": 256,
+      "disconnectPackets": 0
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-connection-overflow/network-fence/independent-verdict.json",
+      "sha256": "e8287d597b447e3399be1801739e96c7d6378afc030ee670111350dcfda22a36",
+      "status": "passed",
+      "persistent": false,
+      "phase": "CONNECTION",
+      "overflow": true,
+      "orderedAcceptedReplies": 4096,
+      "disconnectPackets": 1
+    },
+    {
+      "suite": "same-group",
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-fixed-connection/worker-fault/independent-verdict.json",
+      "sha256": "ff34e1837c5cac9aa759f1acbf534881abbed98de63e5bf6f102ee512b721432",
+      "status": "passed_expected_failure",
+      "persistent": false,
+      "phase": "CONNECTION",
+      "sameGroup": true
+    },
+    {
+      "suite": "fault",
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-fixed-connection/worker-fault/independent-verdict.json",
+      "sha256": "c35ae55f1e130a92d0f8691bae33cb40f67d31aceaab7d69aed95c3e7c553773",
+      "status": "passed_expected_failure",
+      "persistent": false,
+      "phase": "CONNECTION",
+      "sameGroup": false
+    },
+    {
+      "suite": "socket",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-fixed-connection/worker-socket-close/independent-verdict.json",
+      "sha256": "d937da34369c7fe24deb63e75daf88b3bb50a0abddec70a85bf6a0677f34e441",
+      "status": "passed",
+      "persistent": false,
+      "phase": "CONNECTION"
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-entity/network-fence/independent-verdict.json",
+      "sha256": "03c8f8c29adc7744f929cd8c537e9d25cc8240ecbf53e2701a62ce8eeae73257",
+      "status": "passed",
+      "persistent": true,
+      "phase": "ENTITY",
+      "overflow": false,
+      "orderedAcceptedReplies": 256,
+      "disconnectPackets": 0
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-entity-overflow/network-fence/independent-verdict.json",
+      "sha256": "8e39cd923681d6de5b1e944d1cf677f6e27db38316d5ea44c56396535a3fb8ca",
+      "status": "passed",
+      "persistent": true,
+      "phase": "ENTITY",
+      "overflow": true,
+      "orderedAcceptedReplies": 4096,
+      "disconnectPackets": 1
+    },
+    {
+      "suite": "same-group",
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-persistent-entity/worker-fault/independent-verdict.json",
+      "sha256": "e08b1bc225e997904ac7280bec3f097b27a7bb471a1bf1f5b2c622259655b44e",
+      "status": "passed_expected_failure",
+      "persistent": true,
+      "phase": "ENTITY",
+      "sameGroup": true
+    },
+    {
+      "suite": "fault",
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-persistent-entity/worker-fault/independent-verdict.json",
+      "sha256": "3d8d80916810463f17dbc8b981701b9b39c1010e60e75fb0e98b416d64686006",
+      "status": "passed_expected_failure",
+      "persistent": true,
+      "phase": "ENTITY",
+      "sameGroup": false
+    },
+    {
+      "suite": "socket",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-persistent-entity/worker-socket-close/independent-verdict.json",
+      "sha256": "3d72a422c3d4133d84062f9cfe916336f442a2a4c79becd24e0a405511ee237a",
+      "status": "passed",
+      "persistent": true,
+      "phase": "ENTITY"
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-connection/network-fence/independent-verdict.json",
+      "sha256": "1a719054256d9c75ffbe4cf0b324f53f5f9efa797e65053d1cf460c65cab60a2",
+      "status": "passed",
+      "persistent": true,
+      "phase": "CONNECTION",
+      "overflow": false,
+      "orderedAcceptedReplies": 256,
+      "disconnectPackets": 0
+    },
+    {
+      "suite": "network",
+      "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-connection-overflow/network-fence/independent-verdict.json",
+      "sha256": "f2bd771a0736485413d39991fad626efd87db4d624aee0f4e0df4ac448e7f077",
+      "status": "passed",
+      "persistent": true,
+      "phase": "CONNECTION",
+      "overflow": true,
+      "orderedAcceptedReplies": 4096,
+      "disconnectPackets": 1
+    },
+    {
+      "suite": "same-group",
+      "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-persistent-connection/worker-fault/independent-verdict.json",
+      "sha256": "cd552735bc8c1ed75a77aac482e7dc867f990620e1fdd4694ad480dc01ebba47",
+      "status": "passed_expected_failure",
+      "persistent": true,
+      "phase": "CONNECTION",
+      "sameGroup": true
+    },
+    {
+      "suite": "fault",
+      "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-persistent-connection/worker-fault/independent-verdict.json",
+      "sha256": "0e35ab1b9fcd8e3dba5589555081f856086d0b5c92e93c6fd457db33991e3793",
+      "status": "passed_expected_failure",
+      "persistent": true,
+      "phase": "CONNECTION",
+      "sameGroup": false
+    },
+    {
+      "suite": "socket",
+      "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-persistent-connection/worker-socket-close/independent-verdict.json",
+      "sha256": "2433087a66e00f037dcefe6329ad83212f22d6942ac854bd383e485637a4424e",
+      "status": "passed",
+      "persistent": true,
+      "phase": "CONNECTION"
+    }
+  ],
+  "interruptedOriginalSuites": [
+    "smoke",
+    "socket",
+    "timers"
+  ],
+  "recoveryPolicy": "Original incomplete worlds and unknown exits preserved; all six remaining matrices rerun in fresh recovery01 installations"
+}

@@ -1,0 +1,2134 @@
+{
+  "schema": 4,
+  "status": "P2_complete_within_designed_bounded_complete_call_contract",
+  "p2Status": "complete",
+  "overallDesignStatus": "partial_P3_P4_P5_not_started",
+  "stopBeforeP3": true,
+  "generatedAt": "2026-11-17T11:14:07.171243+00:00",
+  "agentExecution": "parent direct; no SubAgent",
+  "version": "21.1.250.126-beta",
+  "baselineHead": "1943dc5919acea387bcac28352b2eeb748cadc63",
+  "commitPushDeploymentPerformed": false,
+  "existingServerOperations": false,
+  "scope": "Design section 7 P2 first audited full ENTITY/world parent call and full CONNECTION.tick branch; no gameplay admission expansion, owner routing or performance stage",
+  "supersedesRetractedDraft": {
+    "path": "tmp/player-region-tick-p2-final05/receipt.json",
+    "sha256": "daf55e74cde9109e6fd2b3fb0c386378f90fa4e27fc88db6e025ee300b591cf0",
+    "reason": ".125 froze before UNKNOWN_MOD refusal, changing explicit NETWORK receive-thread contract; normal TCP/JDI counterexample preserved",
+    "counterexample": "tmp/player-region-tick-p2-final05/server-network-contract-repro125/network-contract/independent-defect-verdict.json"
+  },
+  "reviewedManifest": {
+    "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.126-beta.json",
+    "sha256": "b43c22a51fd9bc5b6598a789202c82f740ed87d1fe85d8ff595f61039e3472d1",
+    "reviewKind": "parent source/artifact review; no human/independent approval claimed"
+  },
+  "productionDelta": [
+    "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerNetworkGate.java",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java"
+  ],
+  "productionFixes": [
+    "Overflow terminal uses current common listener original protocol disconnect after accepted prefix and physical join",
+    "Reject unknown/uninspectable extensions before network freeze; retain all later per-call admission/consume rechecks"
+  ],
+  "preservedGuarantees": [
+    "default false",
+    "unknown extensions and unsupported branches whole-call serial",
+    "original full bodies and synchronous results/events",
+    "no replay once started",
+    "physical return/join before authority/retain retirement",
+    "original .115 checks unchanged; no oracle worker exemption",
+    "explicit NETWORK handlers retain original Netty receive-thread contract"
+  ],
+  "verification": {
+    "status": "passed",
+    "version": "21.1.250.126-beta",
+    "independentEvidenceVerdicts": 68,
+    "schema3Scenarios": 144,
+    "schema4Scenarios": 180,
+    "functionalNegativeControls": 100,
+    "oraclePhaseOrderNegativeControls": 40,
+    "nativeFaultNegativeControls": 64,
+    "socketNegativeControls": 6,
+    "phaseOrderMutationControls": 8,
+    "networkMutationControls": 13,
+    "transitionMutationControls": 9,
+    "timerMutationControls": 3,
+    "proofNegativeControls": 243,
+    "junit": {
+      "totals": {
+        "tests": 478,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "classes": [
+        "net.neoforged.neoforge.unittest.RegionEntityOwnershipTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerTickCoordinatorTest",
+        "net.neoforged.neoforge.unittest.LifecycleRetirementRaceTest",
+        "net.neoforged.neoforge.unittest.RegionThreadingEngineTest",
+        "net.neoforged.neoforge.unittest.EntityIdentityLedgerTest",
+        "net.neoforged.neoforge.unittest.RegionThreadingArchitectureTest",
+        "net.neoforged.neoforge.unittest.RegionEntityTickRandomTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerSpatialLeaseTest",
+        "net.neoforged.neoforge.unittest.PlayerCriterionListenersTest",
+        "net.neoforged.neoforge.unittest.RegionSelfDrivenEntityTickTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerFootprintTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerPayloadContractTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerExtensionSnapshotTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerTransitionTest",
+        "net.neoforged.neoforge.unittest.RegionEntityOwnershipLeaseTest",
+        "net.neoforged.neoforge.unittest.RegionPlayerNetworkGateTest",
+        "net.neoforged.neoforge.unittest.RegionScopedEntityQueryTest",
+        "net.neoforged.neoforge.unittest.RegionEntityTickPlanTest",
+        "net.neoforged.neoforge.unittest.RegionEntityTickPolicyTest",
+        "net.neoforged.neoforge.unittest.RegionThreadingDeclarationsTest"
+      ]
+    },
+    "gameTestsPassed": 3,
+    "gameTests": [
+      {
+        "name": "regionPhysicalEntityStorage",
+        "result": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionPhysicalEntityStorage/result.json",
+        "resultSha256": "cdd0ca24d9c59b3791067878beaa8eb092a67c932f653b7de1aede60a069abcf",
+        "log": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionPhysicalEntityStorage/stdout.log",
+        "logSha256": "cd68a1e7b32d1ca4dbbf8a7da97671d845acdebd27d5f2a50bc36063ddb53a57"
+      },
+      {
+        "name": "regionOwnerOperations",
+        "result": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionOwnerOperations/result.json",
+        "resultSha256": "c85a64cbd5dc5572cdd4a5cec63da4b4713edf45e07ec6a41d3751db748e0cd6",
+        "log": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionOwnerOperations/stdout.log",
+        "logSha256": "dd5c56d173a49a69e071c5bb88883577175d68187ae5244c8e97cf285819fb89"
+      },
+      {
+        "name": "regionUnsafeFallback",
+        "result": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionUnsafeFallback/result.json",
+        "resultSha256": "4ec46b110807fc2966170c8c97f5db15ff0ea7c55fa1792bbed58f151f981309",
+        "log": "tmp/player-region-tick-p2-final05/final126/recovery01/gametest-regionUnsafeFallback/stdout.log",
+        "logSha256": "4c03e22e72ba60f4aa5ecd02b5fc15db7f3b2d358735c1a535c7234f376d9055"
+      }
+    ],
+    "artifacts": [
+      {
+        "path": "projects/neoforge/build/libs/neoforge-21.1.250.126-beta-installer.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/neoforge-21.1.250.126-beta-installer.jar",
+        "sha256": "cc0c9a4277a8cb6b882e68ad913968ab168380b6bae15a000162aaa6d07405aa"
+      },
+      {
+        "path": "projects/neoforge/build/libs/neoforge-21.1.250.126-beta-universal.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/neoforge-21.1.250.126-beta-universal.jar",
+        "sha256": "3d0ec4cfc9d03a6d6132ed5cc5d9226d93c5584d52dcd886662dc0c38e2f622b"
+      },
+      {
+        "path": "projects/neoforge/build/libs/forgia-player-oracle-1.0.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-oracle-1.0.jar",
+        "sha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe"
+      },
+      {
+        "path": "projects/neoforge/build/libs/forgia-player-p2-contract-1.0.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-p2-contract-1.0.jar",
+        "sha256": "09c7b8c93ffd2ee5e15b1eb83e4ffd8d3b02f5856d1954193313aa27ec0fe2be"
+      },
+      {
+        "path": "projects/neoforge/build/libs/forgia-player-world-fault-1.0.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-world-fault-1.0.jar",
+        "sha256": "66e34be47016d6968d46fd4dccdf93b73997547ebe27b987938c2ee9a54e4ae0"
+      },
+      {
+        "path": "projects/neoforge/build/neodev/artifacts/patched-sources.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/patched-sources.jar",
+        "sha256": "044c41a4fb76213e8ca2cf9015a7cd8eb2a393c1974556e2c16bb8ad8d872a22"
+      },
+      {
+        "path": "projects/neoforge/build/libs/forgia-player-network-contract-1.0.jar",
+        "archive": "tmp/player-region-tick-p2-final05/final126/artifacts/forgia-player-network-contract-1.0.jar",
+        "sha256": "8e9a7fbd623b0bae2fd7546a1dae935461cc8bc656692b001540946333b214d3"
+      }
+    ],
+    "matrixRoots": {
+      "functional": "tmp/player-region-tick-p2-final05/final126/functional",
+      "smoke": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke",
+      "network": "tmp/player-region-tick-p2-final05/final126/network",
+      "same-group": "tmp/player-region-tick-p2-final05/final126/same-group",
+      "fault": "tmp/player-region-tick-p2-final05/final126/fault",
+      "socket": "tmp/player-region-tick-p2-final05/final126/recovery01/socket",
+      "transitions": "tmp/player-region-tick-p2-final05/final126/transitions",
+      "contract": "tmp/player-region-tick-p2-final05/final126/contract",
+      "timers": "tmp/player-region-tick-p2-final05/final126/recovery01/timers",
+      "lifecycle": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle",
+      "respawn": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn",
+      "phase-order": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order",
+      "network-contract": "tmp/player-region-tick-p2-final05/final126/network-contract"
+    },
+    "controls": [
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-on-fixed",
+        "negativeControls": 10,
+        "resultSha256": "b443881f7335d4f8c8dceef9da3e6df4f24947f79ac677bfaa7900ed1e79c1e9",
+        "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-on-fixed",
+        "negativeControls": 5,
+        "resultSha256": "9de71cfaa3c31bc1a974f5b720d3cfb177ba67606afe327eba035b27f34b749a",
+        "outputSha256": "7a18a8737bf03ed53df73af94d2c314086701c8c18fa749b0f672a415c7118a4"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-on-fixed",
+        "negativeControls": 15,
+        "resultSha256": "8e4a1c13aa8304c986893e58a272d4b245447d8c8de61936ea45d3e3d1ca2c05",
+        "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-on-fixed",
+        "negativeControls": 5,
+        "resultSha256": "66c0ff3bdd3df23664a3e3573e0e84129d28330821257750fdcf0d9396313af1",
+        "outputSha256": "11f06322fb4b1e9301357df6eec7384c6bf8950253423653d96b1163851c58d2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-on-persistent",
+        "negativeControls": 10,
+        "resultSha256": "d410238d62be23f7011bd69c43946ebea106d8fcf3518389dd8d82be7532d4e1",
+        "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-on-persistent",
+        "negativeControls": 5,
+        "resultSha256": "02e4ad256816a1f44e4730471a9035fe5d1449106ee3cf9506082f876e5c7fc9",
+        "outputSha256": "465f6baa874540d4ec80c05f76731b43ad2cffecfb38338ae4f8a88339265f0b"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-on-persistent",
+        "negativeControls": 15,
+        "resultSha256": "1a5c76a2186478d488424c20ca283201ef2dd17daed307afa4316dc35b243ac4",
+        "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-on-persistent",
+        "negativeControls": 5,
+        "resultSha256": "89637435ee71b403569aa9e5fb0f6c28e332866115ff9989f596cc291654777e",
+        "outputSha256": "3e9a471662b3e6533352e3d0ba5fbdd4eae5b9cdd9f499806564a9e7dbcce77b"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-off-fixed",
+        "negativeControls": 10,
+        "resultSha256": "6620d22ed233edcec49ef45f63b1e27dbfa203385815f45826671e9859ab6dcb",
+        "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-off-fixed",
+        "negativeControls": 5,
+        "resultSha256": "940bca9c83447a88c107018eb26a516a7602b6ad167cf93186bd019e70fa06df",
+        "outputSha256": "1cc399eefdfde1d3af10f680e547555040be75011b8cf0fae04a97b489e8f97a"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-off-fixed",
+        "negativeControls": 15,
+        "resultSha256": "a93342413f2af454cf52b92fe604725e2a0257eb9436fb6dfdf3c99a5a21adb9",
+        "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-off-fixed",
+        "negativeControls": 5,
+        "resultSha256": "698267b42c3c082b928e69cee7ae5bd78d07da82e02f432838be3ff067a8a384",
+        "outputSha256": "afcf609318a309c527cd07aca26bb0b5bd57eba8bc14130db47f344edb2d06d1"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-interactions-off-persistent",
+        "negativeControls": 10,
+        "resultSha256": "6e14d063f7706da104c168bc4a0e7ebb81f4f1abdaa07a626cd0b0d4881d87c2",
+        "outputSha256": "28eb93e1a2e44c21bc4098ee1625df28d61a0cf055f50abb6ef8bbf7a620d988"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-interactions-off-persistent",
+        "negativeControls": 5,
+        "resultSha256": "efac7b2ab34a7f1d728f537649682cd2538b61faf4e809616e2e281309596ec1",
+        "outputSha256": "de6ca85314a6b6269cd29b635c0d2e19f8c865f34cbed50a3cb899e13babb2db"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/controls-resources-off-persistent",
+        "negativeControls": 15,
+        "resultSha256": "5c72467e452b46902c968462c2897083d85bcb75cb75a24158a4295180e66861",
+        "outputSha256": "644df3bd63cd98145a9ca8efff57cf6522f3ffc4892cda731b1b4e3d7eb61d4c"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/phase-controls-resources-off-persistent",
+        "negativeControls": 5,
+        "resultSha256": "380151591517aa90978729a85274c26268df4ca5688e2c72d67fa3c8bae6ab0d",
+        "outputSha256": "e376f162caf6c555dee52618d9ec232293d167a9005a1d70fc8c6cca9db2c605"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-fixed-entity",
+        "negativeControls": 8,
+        "resultSha256": "3e20501e3df2f81c4abc61ea0a8ab797f7f4f3f183b9de2aae0a00377ba9a7ff",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-fixed-connection",
+        "negativeControls": 8,
+        "resultSha256": "767002496bb4cdd69ca6b1cadd8f21552a5591a7b39ca1623c23a805d60bd0c5",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-persistent-entity",
+        "negativeControls": 8,
+        "resultSha256": "55ea690183dc45f9c375a1f849c87b8ec63c1925d257ba37ebd2f2597ea673bf",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/controls-on-persistent-connection",
+        "negativeControls": 8,
+        "resultSha256": "de0ef82beb1050b4a39f8509d179e3755d1409245a6c79b17ee31d3151408262",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-fixed-entity",
+        "negativeControls": 8,
+        "resultSha256": "57d952f7d6319f3dfa525626c69fef60787e4e3ce723c487a67a9bcafff832df",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-fixed-connection",
+        "negativeControls": 8,
+        "resultSha256": "6dafd27647974ffd8a58c8855dfdb4474fbfc02dff5efdba3eea762529cda1ef",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-persistent-entity",
+        "negativeControls": 8,
+        "resultSha256": "5f76f57081b5adf3acd80f06ecd0abd6ab64034f0d3881186947c3e7eadf65e0",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/controls-on-persistent-connection",
+        "negativeControls": 8,
+        "resultSha256": "2299ced97021c3ec7d62e6f09513bb89d343c907dfad56cd1222a18e9121e227",
+        "outputSha256": "7a9c6ae6cb740f22c3f1450b920b5147cc8e77898aadc2ab04ccf4fb5974b6f2"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-network-normal",
+        "negativeControls": 6,
+        "resultSha256": "8874c18e7918c9ddb433b049919ae1a11a32843fb683b212cea8f5517a6e355e",
+        "outputSha256": "452882763e7061229f39543e47c0f42f2fbc2c4f93d6dcf9294527d3a0d71d41"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-network-overflow",
+        "negativeControls": 7,
+        "resultSha256": "6cba361bf60f9b9e9c3fd47e4218503df33d92b9f522d7f28b18ad64c4e305f1",
+        "outputSha256": "a87a7833244eb5a6f6763db89d4121b4f3f504a4fa18cc3ea45e7ffe51f3f665"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-transition-production",
+        "negativeControls": 3,
+        "resultSha256": "1ae43635973ff20b0e9cfa8f9a9195c048d4aa73c50895cc94ed63cb305a1026",
+        "outputSha256": "3f39f01711a0c1a0a9f2469cc2604505148d7433a01206516d8b64e4e5c3f57b"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-transition-contract",
+        "negativeControls": 6,
+        "resultSha256": "f68e4dffd9f6fd9ec5ba7c8798f148359e811728e9d1da45c6b5238fd587d0ea",
+        "outputSha256": "8dc238c3123b5d30ee14f3fd5ba7428bcc27a72a910ecae23bd4193ec7bc7264"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-timers",
+        "negativeControls": 3,
+        "resultSha256": "165ba8c5c330955e3c5d2d29d68adb2e93e4f4773c031698428b002a97848080",
+        "outputSha256": "3715e5e44038fb39053c41b23433dcda3ca0f46e74e80d62b6cb3ca2e0a05877"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-phase",
+        "negativeControls": 8,
+        "resultSha256": "2fd2bfb30bb2d0c52b3d208968166f9ef3389ee4992c8ae40b5b69077395f6ab",
+        "outputSha256": "e33d6d623e191c1bb2b2c4efa15232ddb47fbd979be00f37fb00665257c27c36"
+      },
+      {
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/controls-socket",
+        "negativeControls": 6,
+        "resultSha256": "3f6e677f81abd7141d5f15e1a7a228ab1ef2af60110d537d7e8b1f367b4325d9",
+        "outputSha256": "bbc66c184f15891f6897e751318dcfd3e1735cde508efa881a11959a1e9602d2"
+      }
+    ],
+    "runs": [
+      {
+        "suite": "schema3",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-fixed/interaction-run/independent-verdict.json",
+        "sha256": "77d21c0ddfc51f641cdf0fddaf1db4d8f929f066f61082622f975676aa537859",
+        "status": "passed",
+        "persistent": false,
+        "playerPlanningRequested": true,
+        "scenarioCount": 36
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-fixed/phase-order.json",
+        "sha256": "1ae0cd8ab10c9b5f7b246e42f559f1fc6ada0ede8d659594be045933e3e1b332",
+        "status": "passed",
+        "completeServerTicks": 1321
+      },
+      {
+        "suite": "schema4",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-fixed/resource-run/independent-verdict.json",
+        "sha256": "28bd8b4a32b3e80ca31d0567af45776b343598a6497ce281f34fd9d3131d86be",
+        "status": "passed",
+        "persistent": false,
+        "playerPlanningRequested": true,
+        "scenarioCount": 45
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-fixed/phase-order.json",
+        "sha256": "db0f3f713bcd83f0509b30ba59c8edcaa490177a8d5758a7ca170570bea4eba2",
+        "status": "passed",
+        "completeServerTicks": 1702
+      },
+      {
+        "suite": "smoke",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-on-fixed/worker-smoke/independent-verdict.json",
+        "sha256": "bd850516fd442d52e351239426d70a95d9de5cede783324c9c2d9fd225d81a2e",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "attack": {
+          "before": 20.0,
+          "after": 19.0,
+          "clientDamageEvents": 1,
+          "clientHealth": 19,
+          "distance": 2.0,
+          "regions": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ]
+          ]
+        },
+        "windows": {
+          "independent": {
+            "ENTITY": {
+              "sampledCalls": 248,
+              "workerCalls": 248,
+              "overlapCount": 95
+            },
+            "CONNECTION": {
+              "sampledCalls": 248,
+              "workerCalls": 248,
+              "overlapCount": 98
+            }
+          },
+          "same-region": {
+            "ENTITY": {
+              "sampledCalls": 242,
+              "workerCalls": 242,
+              "overlapCount": 0
+            },
+            "CONNECTION": {
+              "sampledCalls": 242,
+              "workerCalls": 242,
+              "overlapCount": 0
+            }
+          }
+        }
+      },
+      {
+        "suite": "transitions",
+        "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-on-fixed/p2-matrix/independent-verdict.json",
+        "sha256": "c176ea57e3ff1e00401add7a730ae271b35e34a1fc6bb1958723b62dbd2d85da",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "mainThreadPayloads": 0,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/contract/server-on-fixed/p2-matrix/independent-verdict.json",
+        "sha256": "4756bfba841b313c44e111c343d189344bb1cba20c04ee4bab49d288d0145def",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "mainThreadPayloads": 9,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "timers",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-on-fixed/p2-timers/independent-verdict.json",
+        "sha256": "bb019329bd2241faaa8e26eeb0a5935d7d5ccfa49ddc7f4c930a3043987a6eaf",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "floatingDisconnectPackets": 1,
+        "idleDisconnectPackets": 1,
+        "idleObservedSeconds": 55.147470516
+      },
+      {
+        "suite": "lifecycle",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-on-fixed/worker-lifecycle/independent-verdict.json",
+        "sha256": "813cb358d029ca39c6e222514568bed93d231391bdfcdfdbbbf5094469839e7e",
+        "status": "passed",
+        "persistent": false,
+        "requested": true
+      },
+      {
+        "suite": "respawn",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-on-fixed/worker-respawn/independent-verdict.json",
+        "sha256": "b65a6015a0e1bde954a19eb6c947fc0c4dd973d139befc98f163b3bd9c8109c4",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "settledNewInstanceWorkerCalls": {
+          "ENTITY": 77,
+          "CONNECTION": 77
+        },
+        "newInstanceWorkerCalls": {
+          "ENTITY": 88,
+          "CONNECTION": 0
+        },
+        "workerReadmission": "both phases observed after normal client settlement"
+      },
+      {
+        "suite": "phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-on-fixed/worker-phase-order/independent-verdict.json",
+        "sha256": "5b089cffc68cfdaca303538c4e943acffed038d2af65ff80383776ac60ff2b2f",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "completeServerTicks": 30,
+        "actualPlayerTickPre": 60,
+        "actualPlayerTickPost": 60,
+        "nativeCallsPerPlayerPhase": {
+          "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+            "ENTITY": 30,
+            "CONNECTION": 30
+          },
+          "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+            "ENTITY": 30,
+            "CONNECTION": 30
+          }
+        }
+      },
+      {
+        "suite": "network-contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-on-fixed/network-contract/independent-verdict.json",
+        "sha256": "1fc32f3ab8a3ae01425628d5c395614c12a53977f4ae43ca75b356045a8969c4",
+        "status": "passed",
+        "persistent": false,
+        "requested": true,
+        "networkCallbacks": 500,
+        "mainContinuations": 500,
+        "wrongThread": 0,
+        "deferredNetworkCallbacks": 0
+      },
+      {
+        "suite": "schema3",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-persistent/interaction-run/independent-verdict.json",
+        "sha256": "6324ac2956ffced9ed4f701774762b7fde96aa65262adf26e9533f36c114c57e",
+        "status": "passed",
+        "persistent": true,
+        "playerPlanningRequested": true,
+        "scenarioCount": 36
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-on-persistent/phase-order.json",
+        "sha256": "e679e44a2fb81a735d93741bb569302e8de06603594f89285c78d32bc025f8dc",
+        "status": "passed",
+        "completeServerTicks": 1339
+      },
+      {
+        "suite": "schema4",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-persistent/resource-run/independent-verdict.json",
+        "sha256": "664b27a6b4016203ed8df9a53a7da4e4d971f99801ecbf882837fb2040c5e228",
+        "status": "passed",
+        "persistent": true,
+        "playerPlanningRequested": true,
+        "scenarioCount": 45
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-on-persistent/phase-order.json",
+        "sha256": "77fb177d26f7fa99c2343ef2d9b040a0f84c98d98640c2cea0d2554c162f9b8f",
+        "status": "passed",
+        "completeServerTicks": 1677
+      },
+      {
+        "suite": "smoke",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-on-persistent/worker-smoke/independent-verdict.json",
+        "sha256": "bc53e4e0854713255ce8c65bbcd27f856b3a235c502e4dfb98e534b3da1ff859",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "attack": {
+          "before": 20.0,
+          "after": 19.0,
+          "clientDamageEvents": 1,
+          "clientHealth": 19,
+          "distance": 2.0,
+          "regions": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ]
+          ]
+        },
+        "windows": {
+          "independent": {
+            "ENTITY": {
+              "sampledCalls": 236,
+              "workerCalls": 236,
+              "overlapCount": 73
+            },
+            "CONNECTION": {
+              "sampledCalls": 236,
+              "workerCalls": 236,
+              "overlapCount": 84
+            }
+          },
+          "same-region": {
+            "ENTITY": {
+              "sampledCalls": 232,
+              "workerCalls": 232,
+              "overlapCount": 0
+            },
+            "CONNECTION": {
+              "sampledCalls": 232,
+              "workerCalls": 232,
+              "overlapCount": 0
+            }
+          }
+        }
+      },
+      {
+        "suite": "transitions",
+        "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-on-persistent/p2-matrix/independent-verdict.json",
+        "sha256": "c751b502ac2a4c76aa82145c88a0e29cdcaba399282eb330cfb4f12dd1813c41",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "mainThreadPayloads": 0,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/contract/server-on-persistent/p2-matrix/independent-verdict.json",
+        "sha256": "2dbc2e3ec299e4224c427ceff30b17c4330f41f45fea54818ac1d69a87579d46",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "mainThreadPayloads": 9,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "timers",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-on-persistent/p2-timers/independent-verdict.json",
+        "sha256": "343974301a7d3763e8c3df5249eca9acd91958742e7e0b5b753a8428d9f2a016",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "floatingDisconnectPackets": 1,
+        "idleDisconnectPackets": 1,
+        "idleObservedSeconds": 55.262147055
+      },
+      {
+        "suite": "lifecycle",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-on-persistent/worker-lifecycle/independent-verdict.json",
+        "sha256": "5c57851cdc32fd222337230c01c39046daefa9a070ea1d9ebfa40e5b311f8835",
+        "status": "passed",
+        "persistent": true,
+        "requested": true
+      },
+      {
+        "suite": "respawn",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-on-persistent/worker-respawn/independent-verdict.json",
+        "sha256": "7747b2c17c12bcd1a553d0b64c18523f53218bce449ce0719ade7a05a7647bf5",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "settledNewInstanceWorkerCalls": {
+          "ENTITY": 77,
+          "CONNECTION": 77
+        },
+        "newInstanceWorkerCalls": {
+          "ENTITY": 88,
+          "CONNECTION": 0
+        },
+        "workerReadmission": "both phases observed after normal client settlement"
+      },
+      {
+        "suite": "phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-on-persistent/worker-phase-order/independent-verdict.json",
+        "sha256": "8178a1a177a739f75035b6509db6632208cbd58527034ce98010f15038bc63ab",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "completeServerTicks": 30,
+        "actualPlayerTickPre": 60,
+        "actualPlayerTickPost": 60,
+        "nativeCallsPerPlayerPhase": {
+          "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+            "ENTITY": 30,
+            "CONNECTION": 30
+          },
+          "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+            "ENTITY": 30,
+            "CONNECTION": 30
+          }
+        }
+      },
+      {
+        "suite": "network-contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-on-persistent/network-contract/independent-verdict.json",
+        "sha256": "adf05db34ac39a9f8d3f3d76fb744fbe2ac9a3c0d05837017b643d9e9ecef977",
+        "status": "passed",
+        "persistent": true,
+        "requested": true,
+        "networkCallbacks": 500,
+        "mainContinuations": 500,
+        "wrongThread": 0,
+        "deferredNetworkCallbacks": 0
+      },
+      {
+        "suite": "schema3",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-fixed/interaction-run/independent-verdict.json",
+        "sha256": "71d5721c7badd8718fd9f3d92589350f7cd01882a12c815f43808729923f0c05",
+        "status": "passed",
+        "persistent": false,
+        "playerPlanningRequested": false,
+        "scenarioCount": 36
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-fixed/phase-order.json",
+        "sha256": "04dfce32eb4b5d535ed7eca8762c1e73b645dc56574da0ce8566784a426b5db9",
+        "status": "passed",
+        "completeServerTicks": 1351
+      },
+      {
+        "suite": "schema4",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-fixed/resource-run/independent-verdict.json",
+        "sha256": "4ef854b382b109628cae3f6caa25eaf3ffdbd48948a332cef5b2e663976295d6",
+        "status": "passed",
+        "persistent": false,
+        "playerPlanningRequested": false,
+        "scenarioCount": 45
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-fixed/phase-order.json",
+        "sha256": "070a3bce57d0b54ecbab288911d27ed864f491d52f0ee2563535348872053ccd",
+        "status": "passed",
+        "completeServerTicks": 1671
+      },
+      {
+        "suite": "smoke",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-off-fixed/worker-smoke/independent-verdict.json",
+        "sha256": "4255c30924686094585b40bfa224b9dec0eb6210871292137c7a97dba3fac9fb",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "attack": {
+          "before": 20.0,
+          "after": 19.0,
+          "clientDamageEvents": 1,
+          "clientHealth": 19,
+          "distance": 2.0,
+          "regions": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ]
+          ]
+        },
+        "windows": {
+          "independent": {
+            "ENTITY": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            },
+            "CONNECTION": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            }
+          },
+          "same-region": {
+            "ENTITY": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            },
+            "CONNECTION": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            }
+          }
+        }
+      },
+      {
+        "suite": "transitions",
+        "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-off-fixed/p2-matrix/independent-verdict.json",
+        "sha256": "2124b4af9f4dd5cf3429308f933eb24decbadf39e71e1c27c708cc49a9e14a9f",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "mainThreadPayloads": 0,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/contract/server-off-fixed/p2-matrix/independent-verdict.json",
+        "sha256": "ac6d35d4025bba411c19f281c5bf1cac5d007102e60cfe4c866d55a97eed894e",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "mainThreadPayloads": 9,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "timers",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-off-fixed/p2-timers/independent-verdict.json",
+        "sha256": "2ba5ad3ae08a3dedb457da0da84e7ca9ba41533962d908631b2a375a9fee7f7d",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "floatingDisconnectPackets": 1,
+        "idleDisconnectPackets": 1,
+        "idleObservedSeconds": 56.06482991
+      },
+      {
+        "suite": "lifecycle",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-off-fixed/worker-lifecycle/independent-verdict.json",
+        "sha256": "46d8486cea696c03e547b22513627728dffcff3484d21190540b76914297ebbd",
+        "status": "passed",
+        "persistent": false,
+        "requested": false
+      },
+      {
+        "suite": "respawn",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-off-fixed/worker-respawn/independent-verdict.json",
+        "sha256": "89030bfd216005146dcea2eb0fb844d3718e0777e92a0d46ec4b6a292bd9ab05",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "settledNewInstanceWorkerCalls": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        },
+        "newInstanceWorkerCalls": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        },
+        "workerReadmission": "partial; serial refusal retained for an unadmitted new-instance phase"
+      },
+      {
+        "suite": "phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-off-fixed/worker-phase-order/independent-verdict.json",
+        "sha256": "6a73ca551accbc0aa59998841b2535b1ab94624a8e6804d29a0ae73ef35cfb39",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "completeServerTicks": 30,
+        "actualPlayerTickPre": 60,
+        "actualPlayerTickPost": 60,
+        "nativeCallsPerPlayerPhase": {
+          "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+            "ENTITY": 0,
+            "CONNECTION": 0
+          },
+          "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+            "ENTITY": 0,
+            "CONNECTION": 0
+          }
+        }
+      },
+      {
+        "suite": "network-contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-off-fixed/network-contract/independent-verdict.json",
+        "sha256": "d0dcb5a62aa2eeeb9430821ada48e35ae2787173ba4711ada5c8cca5f5f568d9",
+        "status": "passed",
+        "persistent": false,
+        "requested": false,
+        "networkCallbacks": 500,
+        "mainContinuations": 500,
+        "wrongThread": 0,
+        "deferredNetworkCallbacks": 0
+      },
+      {
+        "suite": "schema3",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-persistent/interaction-run/independent-verdict.json",
+        "sha256": "934948039d914d4f4f47db737b3e658ef8d8da7ef06e9370aa2f6a3b526b0399",
+        "status": "passed",
+        "persistent": true,
+        "playerPlanningRequested": false,
+        "scenarioCount": 36
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-interactions-off-persistent/phase-order.json",
+        "sha256": "e21f32d4b9b3ba7b0d408d8fb2eb0ca8aaa52838be76af91af389e8b04b72a21",
+        "status": "passed",
+        "completeServerTicks": 1302
+      },
+      {
+        "suite": "schema4",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-persistent/resource-run/independent-verdict.json",
+        "sha256": "7263a3c8fa033189da9eb74a541d2c2eb3dd2ef9e562ca030654323bd7823feb",
+        "status": "passed",
+        "persistent": true,
+        "playerPlanningRequested": false,
+        "scenarioCount": 45
+      },
+      {
+        "suite": "oracle-original-phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/functional/server-resources-off-persistent/phase-order.json",
+        "sha256": "6cc98132373973f06cf16d7dc83ec6ee0b507177e92eb0539610441c8fb2a71b",
+        "status": "passed",
+        "completeServerTicks": 1735
+      },
+      {
+        "suite": "smoke",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/smoke/server-off-persistent/worker-smoke/independent-verdict.json",
+        "sha256": "50431ca757dace4d3ad8565229620041d00896819acc137ddbc945f6665aa9b6",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "attack": {
+          "before": 20.0,
+          "after": 19.0,
+          "clientDamageEvents": 1,
+          "clientHealth": 19,
+          "distance": 2.0,
+          "regions": [
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ]
+          ]
+        },
+        "windows": {
+          "independent": {
+            "ENTITY": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            },
+            "CONNECTION": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            }
+          },
+          "same-region": {
+            "ENTITY": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            },
+            "CONNECTION": {
+              "sampledCalls": 0,
+              "workerCalls": 0,
+              "overlapCount": 0
+            }
+          }
+        }
+      },
+      {
+        "suite": "transitions",
+        "path": "tmp/player-region-tick-p2-final05/final126/transitions/server-off-persistent/p2-matrix/independent-verdict.json",
+        "sha256": "8153e44002e0643fbc692ea2a60371cad9a12aabcecdbdf9133bf32dee6b5f3b",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "mainThreadPayloads": 0,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/contract/server-off-persistent/p2-matrix/independent-verdict.json",
+        "sha256": "13c96159d2572092e9a5c145a8a972be5f6578eb42adba84e1eb25694b43c2a5",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "mainThreadPayloads": 9,
+        "orderedAsyncChats": 5,
+        "orderedMixedPings": 5
+      },
+      {
+        "suite": "timers",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/timers/server-off-persistent/p2-timers/independent-verdict.json",
+        "sha256": "a345cc523bbea637abbf08e492e23a265a164b008f803d1a5669d62bcc502090",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "floatingDisconnectPackets": 1,
+        "idleDisconnectPackets": 1,
+        "idleObservedSeconds": 55.936006674
+      },
+      {
+        "suite": "lifecycle",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/lifecycle/server-off-persistent/worker-lifecycle/independent-verdict.json",
+        "sha256": "a8ec2e2d1e289a37f774ff2fd19683a3fe7efd3d9cdfc139624cf67512ccdf97",
+        "status": "passed",
+        "persistent": true,
+        "requested": false
+      },
+      {
+        "suite": "respawn",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/respawn/server-off-persistent/worker-respawn/independent-verdict.json",
+        "sha256": "3893135704a36dd393a2e2716100aa7a430865b0e6561610256eccc9a9fe128f",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "settledNewInstanceWorkerCalls": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        },
+        "newInstanceWorkerCalls": {
+          "ENTITY": 0,
+          "CONNECTION": 0
+        },
+        "workerReadmission": "partial; serial refusal retained for an unadmitted new-instance phase"
+      },
+      {
+        "suite": "phase-order",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/phase-order/server-off-persistent/worker-phase-order/independent-verdict.json",
+        "sha256": "f205c0371069d790d733fb698df27867ebe0a3b1163cbe764b511c4aeb81763c",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "completeServerTicks": 30,
+        "actualPlayerTickPre": 60,
+        "actualPlayerTickPost": 60,
+        "nativeCallsPerPlayerPhase": {
+          "7d0eb8e8-b949-381e-8c93-ef714c0795cf": {
+            "ENTITY": 0,
+            "CONNECTION": 0
+          },
+          "baefa512-3954-3a2f-898a-7bc32c1d584a": {
+            "ENTITY": 0,
+            "CONNECTION": 0
+          }
+        }
+      },
+      {
+        "suite": "network-contract",
+        "path": "tmp/player-region-tick-p2-final05/final126/network-contract/server-off-persistent/network-contract/independent-verdict.json",
+        "sha256": "dcb2322339aa619ea17401a39bdcbd240a0ca55655e299edf9f5ed9d3f9e06a2",
+        "status": "passed",
+        "persistent": true,
+        "requested": false,
+        "networkCallbacks": 500,
+        "mainContinuations": 500,
+        "wrongThread": 0,
+        "deferredNetworkCallbacks": 0
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-entity/network-fence/independent-verdict.json",
+        "sha256": "b52d35e18911d7f3af5ea429d39574d4e1b9f5c09908428f774b3e4a4f7a9d8b",
+        "status": "passed",
+        "persistent": false,
+        "phase": "ENTITY",
+        "overflow": false,
+        "orderedAcceptedReplies": 256,
+        "disconnectPackets": 0
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-entity-overflow/network-fence/independent-verdict.json",
+        "sha256": "84f6e8d468e415e12e8fbee407ed076952a01a545d6788224aa915df4cf206fe",
+        "status": "passed",
+        "persistent": false,
+        "phase": "ENTITY",
+        "overflow": true,
+        "orderedAcceptedReplies": 4096,
+        "disconnectPackets": 1
+      },
+      {
+        "suite": "same-group",
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-fixed-entity/worker-fault/independent-verdict.json",
+        "sha256": "d32cca58f33e4780a48b155bc510c46b6efaa9bd7eea526388a030c3ebd2d43d",
+        "status": "passed_expected_failure",
+        "persistent": false,
+        "phase": "ENTITY",
+        "sameGroup": true
+      },
+      {
+        "suite": "fault",
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-fixed-entity/worker-fault/independent-verdict.json",
+        "sha256": "54ed6ae65046c5b527e7aa1461535328a0612dff447432fa136621f5842a4c11",
+        "status": "passed_expected_failure",
+        "persistent": false,
+        "phase": "ENTITY",
+        "sameGroup": false
+      },
+      {
+        "suite": "socket",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-fixed-entity/worker-socket-close/independent-verdict.json",
+        "sha256": "63cd8c2021cac60b73b4b8a6bfb1afa9537b2c6bba98ab5efaaf547e3ff863b8",
+        "status": "passed",
+        "persistent": false,
+        "phase": "ENTITY"
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-connection/network-fence/independent-verdict.json",
+        "sha256": "786aea106884895fde803376ee0615e0832fc149e86d2de094b330792af2cbff",
+        "status": "passed",
+        "persistent": false,
+        "phase": "CONNECTION",
+        "overflow": false,
+        "orderedAcceptedReplies": 256,
+        "disconnectPackets": 0
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-fixed-connection-overflow/network-fence/independent-verdict.json",
+        "sha256": "e8287d597b447e3399be1801739e96c7d6378afc030ee670111350dcfda22a36",
+        "status": "passed",
+        "persistent": false,
+        "phase": "CONNECTION",
+        "overflow": true,
+        "orderedAcceptedReplies": 4096,
+        "disconnectPackets": 1
+      },
+      {
+        "suite": "same-group",
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-fixed-connection/worker-fault/independent-verdict.json",
+        "sha256": "ff34e1837c5cac9aa759f1acbf534881abbed98de63e5bf6f102ee512b721432",
+        "status": "passed_expected_failure",
+        "persistent": false,
+        "phase": "CONNECTION",
+        "sameGroup": true
+      },
+      {
+        "suite": "fault",
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-fixed-connection/worker-fault/independent-verdict.json",
+        "sha256": "c35ae55f1e130a92d0f8691bae33cb40f67d31aceaab7d69aed95c3e7c553773",
+        "status": "passed_expected_failure",
+        "persistent": false,
+        "phase": "CONNECTION",
+        "sameGroup": false
+      },
+      {
+        "suite": "socket",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-fixed-connection/worker-socket-close/independent-verdict.json",
+        "sha256": "d937da34369c7fe24deb63e75daf88b3bb50a0abddec70a85bf6a0677f34e441",
+        "status": "passed",
+        "persistent": false,
+        "phase": "CONNECTION"
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-entity/network-fence/independent-verdict.json",
+        "sha256": "03c8f8c29adc7744f929cd8c537e9d25cc8240ecbf53e2701a62ce8eeae73257",
+        "status": "passed",
+        "persistent": true,
+        "phase": "ENTITY",
+        "overflow": false,
+        "orderedAcceptedReplies": 256,
+        "disconnectPackets": 0
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-entity-overflow/network-fence/independent-verdict.json",
+        "sha256": "8e39cd923681d6de5b1e944d1cf677f6e27db38316d5ea44c56396535a3fb8ca",
+        "status": "passed",
+        "persistent": true,
+        "phase": "ENTITY",
+        "overflow": true,
+        "orderedAcceptedReplies": 4096,
+        "disconnectPackets": 1
+      },
+      {
+        "suite": "same-group",
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-persistent-entity/worker-fault/independent-verdict.json",
+        "sha256": "e08b1bc225e997904ac7280bec3f097b27a7bb471a1bf1f5b2c622259655b44e",
+        "status": "passed_expected_failure",
+        "persistent": true,
+        "phase": "ENTITY",
+        "sameGroup": true
+      },
+      {
+        "suite": "fault",
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-persistent-entity/worker-fault/independent-verdict.json",
+        "sha256": "3d8d80916810463f17dbc8b981701b9b39c1010e60e75fb0e98b416d64686006",
+        "status": "passed_expected_failure",
+        "persistent": true,
+        "phase": "ENTITY",
+        "sameGroup": false
+      },
+      {
+        "suite": "socket",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-persistent-entity/worker-socket-close/independent-verdict.json",
+        "sha256": "3d72a422c3d4133d84062f9cfe916336f442a2a4c79becd24e0a405511ee237a",
+        "status": "passed",
+        "persistent": true,
+        "phase": "ENTITY"
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-connection/network-fence/independent-verdict.json",
+        "sha256": "1a719054256d9c75ffbe4cf0b324f53f5f9efa797e65053d1cf460c65cab60a2",
+        "status": "passed",
+        "persistent": true,
+        "phase": "CONNECTION",
+        "overflow": false,
+        "orderedAcceptedReplies": 256,
+        "disconnectPackets": 0
+      },
+      {
+        "suite": "network",
+        "path": "tmp/player-region-tick-p2-final05/final126/network/server-on-persistent-connection-overflow/network-fence/independent-verdict.json",
+        "sha256": "f2bd771a0736485413d39991fad626efd87db4d624aee0f4e0df4ac448e7f077",
+        "status": "passed",
+        "persistent": true,
+        "phase": "CONNECTION",
+        "overflow": true,
+        "orderedAcceptedReplies": 4096,
+        "disconnectPackets": 1
+      },
+      {
+        "suite": "same-group",
+        "path": "tmp/player-region-tick-p2-final05/final126/same-group/server-on-persistent-connection/worker-fault/independent-verdict.json",
+        "sha256": "cd552735bc8c1ed75a77aac482e7dc867f990620e1fdd4694ad480dc01ebba47",
+        "status": "passed_expected_failure",
+        "persistent": true,
+        "phase": "CONNECTION",
+        "sameGroup": true
+      },
+      {
+        "suite": "fault",
+        "path": "tmp/player-region-tick-p2-final05/final126/fault/server-on-persistent-connection/worker-fault/independent-verdict.json",
+        "sha256": "0e35ab1b9fcd8e3dba5589555081f856086d0b5c92e93c6fd457db33991e3793",
+        "status": "passed_expected_failure",
+        "persistent": true,
+        "phase": "CONNECTION",
+        "sameGroup": false
+      },
+      {
+        "suite": "socket",
+        "path": "tmp/player-region-tick-p2-final05/final126/recovery01/socket/server-on-persistent-connection/worker-socket-close/independent-verdict.json",
+        "sha256": "2433087a66e00f037dcefe6329ad83212f22d6942ac854bd383e485637a4424e",
+        "status": "passed",
+        "persistent": true,
+        "phase": "CONNECTION"
+      }
+    ],
+    "interruptedOriginalSuites": [
+      "smoke",
+      "socket",
+      "timers"
+    ],
+    "recoveryPolicy": "Original incomplete worlds and unknown exits preserved; all six remaining matrices rerun in fresh recovery01 installations"
+  },
+  "commands": {
+    "index": "tmp/player-region-tick-p2-final05/final126/command-index.json",
+    "indexSha256": "a398902cbd7d791a5e385391a02729212c3aea657968691b594656f0294527e4",
+    "completed": 725,
+    "nonzeroPreserved": 39,
+    "interruptedExitUnknownNotAccepted": 19,
+    "interruptedAudit": "tmp/player-region-tick-p2-final05/final126/interrupted-command-audit.json",
+    "interruptedAuditSha256": "f256b24678c0c217a6fa67e468cb84dc2a2fc6e1e1b2d74de55406dded4aba5c"
+  },
+  "closedInputHashes": {
+    "path": "tmp/player-region-tick-p2-final05/final126/input-hashes.json",
+    "sha256": "4f10190b968e9b1793849815138b20bc95d597a9d94698b07d4aad0efcf3d4a0",
+    "files": 3409
+  },
+  "installedCoreHashes": {
+    "path": "tmp/player-region-tick-p2-final05/final126/installed-core-hashes.json",
+    "sha256": "fcd3d54d35474e4d947aa40f658e799524998a3f90a4ccf7dd8ac71f29df8454",
+    "files": 120
+  },
+  "sourceSnapshot": [
+    {
+      "path": "patches/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java.patch",
+      "sha256": "82805408a83ee518384f5aa461c1a1a2cf82bb2529317a255c0666fdf5b82477"
+    },
+    {
+      "path": "patches/net/minecraft/stats/StatType.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/stats/StatType.java.patch",
+      "sha256": "e57f3c3fbec7b9e82186a44c9003e20a8975c2d14823b72819be2253df1318ef"
+    },
+    {
+      "path": "patches/net/minecraft/world/entity/ai/attributes/AttributeInstance.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/entity/ai/attributes/AttributeInstance.java.patch",
+      "sha256": "da545c6d20592d19a5c3c2f7c3208151b1537461f65045336b985b833626a7fa"
+    },
+    {
+      "path": "patches/net/minecraft/world/entity/ai/attributes/AttributeMap.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/entity/ai/attributes/AttributeMap.java.patch",
+      "sha256": "4166a0546806a8cdf5eaa5db8c051d237464a434ceb1309474551675428825d6"
+    },
+    {
+      "path": "patches/net/minecraft/world/food/FoodData.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/food/FoodData.java.patch",
+      "sha256": "a1d9e7f276d9b668cb6ed81b1f6cbd888c3d65a2d4e5da4425e50173fbb74099"
+    },
+    {
+      "path": "patches/net/minecraft/world/inventory/InventoryMenu.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/inventory/InventoryMenu.java.patch",
+      "sha256": "159eca6f881cd3ba86e065f35ec4eecd7ee6c1adfc542e0a64f030721bf81c89"
+    },
+    {
+      "path": "patches/net/minecraft/world/item/ItemCooldowns.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/item/ItemCooldowns.java.patch",
+      "sha256": "894969c72eca1bba4b20b54523185a47ceae358a43766a96dbc63851218d7a81"
+    },
+    {
+      "path": "patches/net/minecraft/world/scores/Scoreboard.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/scores/Scoreboard.java.patch",
+      "sha256": "d6cf2b792456ba6d10f06fa3dedd617e09a372760321cb1560b8422eb6b3d430"
+    },
+    {
+      "path": "region-threading/PLAYER-PRODUCTION-ADMISSION-CONTRACT.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-PRODUCTION-ADMISSION-CONTRACT.zh.md",
+      "sha256": "140e5d7666cc38bb0037f97104216814ab6ff118c88e40738f6e07175d7d373e"
+    },
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-DESIGN.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-REGION-TICK-DESIGN.zh.md",
+      "sha256": "b91128c3b2be45f17035def455eab5b74e18c23881dd21999e92e4ac3d881e3c"
+    },
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-HANDOFF.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-REGION-TICK-HANDOFF.zh.md",
+      "sha256": "af243b8ba6a1920319a89ec657777926d2f716ab319da20e6d1d0db2597f9423"
+    },
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-IMPLEMENTATION.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-REGION-TICK-IMPLEMENTATION.zh.md",
+      "sha256": "e47e07d801e1fbb93cbb45ea07a9f1e5f90a8ad4f01e5e45458ea141671225ec"
+    },
+    {
+      "path": "region-threading/PLAYER-SHARED-STATE-CONTRACT.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-SHARED-STATE-CONTRACT.zh.md",
+      "sha256": "0d79c93aeb9b8bd7c82fe4fa801f1d5298500c352d0bafc66bafc32abfebf438"
+    },
+    {
+      "path": "region-threading/PLAYER-SPATIAL-FOOTPRINT-CONTRACT.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-SPATIAL-FOOTPRINT-CONTRACT.zh.md",
+      "sha256": "d6942f417d35c4e69a24e050e068003e5a0673240e71eaa2bb102dd2393c23f6"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/PlayerCriterionListeners.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/PlayerCriterionListeners.java",
+      "sha256": "108dce075aea7c032239d060d8a592027f35f838d562e68ff6d8e720e0864fb5"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerAdmissionPlan.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerAdmissionPlan.java",
+      "sha256": "803ca12b5e36ac3c4d8a4b54035efa4f37fd3b8bb5fcbb0290b390c6fd9ef874"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerConflictPlan.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerConflictPlan.java",
+      "sha256": "d3be313e3b6cf2afa62844b0e9c55785b84d98478487272d9faf7d21dd90a81b"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerExtensionSnapshot.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerExtensionSnapshot.java",
+      "sha256": "c1832e29a6b850a036f434ad10d43e6ce4158fdbadce6075f2ad6cac7bc9127f"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerFootprint.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerFootprint.java",
+      "sha256": "22f6cd1757fa4efc5c3f7752a8632e1fef1c88c803d3b575439f23e46bc37bfb"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerNetworkGate.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerNetworkGate.java",
+      "sha256": "15802296d5cc549625f992786abe9a2573326d271d34b497019092efefed0c2c"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerScopedQuery.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerScopedQuery.java",
+      "sha256": "8be1dd62b858675515d16c766890a292581eb88d5c30fa0713ad24978fd246c2"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSpatialLease.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSpatialLease.java",
+      "sha256": "9281e42f220c4c81f93fb0234175e57cb9967aaa8ad881437100bcb34fd7a30d"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSpatialPlan.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSpatialPlan.java",
+      "sha256": "ed4dfbf608da647e95f1a1c7511299cb85d5a91a6e1340e0c33aa99e70ca1e72"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStateHooks.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStateHooks.java",
+      "sha256": "54ec1cb4e380a8efae3ad3cb1740b1749d1b87bc911d72c1ccf6cfdef3384d45"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStatePlan.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStatePlan.java",
+      "sha256": "d27ea08fb5535308eb64f6328ed283ad0866a671621c6b5d4a9ba7b99073a82c"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStateScope.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStateScope.java",
+      "sha256": "92efc76c1066c30464001c13664e81296ffc6d1f7873f5421ca6c05da234bea8"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickCoordinator.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickCoordinator.java",
+      "sha256": "f910fb4449e2930cf79203ef2d7107cd49677add134a2dd3d82c5997eba66dfc"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickDispatch.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickDispatch.java",
+      "sha256": "035b21938660b921b2c1c83de94a24179c4527ec07eb34fc3f62c4e70e805100"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/PlayerCriterionListenersTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/PlayerCriterionListenersTest.java",
+      "sha256": "d8bd6875208b46a689934652b0b3b81c881220ee574685d6e8fc00380f88ba94"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerExtensionSnapshotTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerExtensionSnapshotTest.java",
+      "sha256": "4930a9fd2fa5d4cdc296045dfdd51563d141234cf5cfc6926732cb220d89b2a9"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerFootprintTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerFootprintTest.java",
+      "sha256": "f21059f13ddd67bde9ee9be76a38867dd05db4fa58058dde797aecb8a3d70461"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerNetworkGateTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerNetworkGateTest.java",
+      "sha256": "acf0728350c09cc4c1b65e83ce3890e25f27c6a043b471fef12bb83a919e03fd"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerPayloadContractTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerPayloadContractTest.java",
+      "sha256": "5347e52815d3dcd90fbe782e06bba4424eaaef05820bec7234c13e9ebd2cec13"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerSpatialLeaseTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerSpatialLeaseTest.java",
+      "sha256": "d5f0e00686fbf2868afe0a490496217a832b76f8f06d4d4baf0ca8d0e26f7342"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerTickCoordinatorTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionPlayerTickCoordinatorTest.java",
+      "sha256": "cdf4d5dfbbe3994ded3285cbbaa83a2e286b15566cd32d49339871001bb56143"
+    },
+    {
+      "path": "tools/forgia-entity-safety/README.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/forgia-entity-safety/README.md",
+      "sha256": "dd43a372e76b9cf557ec24e5f6886a0efe36d2129401dd6df63f9a47874217ec"
+    },
+    {
+      "path": "tools/forgia-entity-safety/README.zh.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/forgia-entity-safety/README.zh.md",
+      "sha256": "a247437c61fd22ef63df1da579e4cd9d414e84e4e8fe93895671230123b73cc8"
+    },
+    {
+      "path": "tools/forgia-entity-safety/src/main/resources/META-INF/neoforge.mods.toml",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/forgia-entity-safety/src/main/resources/META-INF/neoforge.mods.toml",
+      "sha256": "f1aab8a17b6d419d7ea76d00f4758ebc102451c4351d8155d3ffc5c6335d74b6"
+    },
+    {
+      "path": "tools/forgia-entity-safety/src/main/resources/forgia-entity-safety.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/forgia-entity-safety/src/main/resources/forgia-entity-safety.json",
+      "sha256": "bcb2da65cc51c7f6c0d7f6be6ba1bd3a932fbc660b6ba875a7c3ff02fa33a9a7"
+    },
+    {
+      "path": "tools/player-region-tick/.gitignore",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/.gitignore",
+      "sha256": "37bf373dc1b46dae9c68fbfab7a9c298b5e1899c2d34030ed05bb4030b2e8976"
+    },
+    {
+      "path": "tools/player-region-tick/README.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/README.md",
+      "sha256": "f6f0b0d00a86449d71bbaa50b708d5c6f9ec01c7db84c160eca18b504af3418d"
+    },
+    {
+      "path": "tools/player-region-tick/clients.cjs",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/clients.cjs",
+      "sha256": "e5adf4e81c05de73ed1371999a8776f89a43bf3e0c2bf7372e8bd97fbdfec2c1"
+    },
+    {
+      "path": "tools/player-region-tick/decode_interaction_frames.cjs",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/decode_interaction_frames.cjs",
+      "sha256": "216694c5efbacfd6963577dcafdfb17184a0d33935600115bc5f45d1cc5300eb"
+    },
+    {
+      "path": "tools/player-region-tick/decode_lifecycle_frames.cjs",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/decode_lifecycle_frames.cjs",
+      "sha256": "fcd15638d02e5f1b220e74f34287ca0c61617c7a97e1fe4c3800647a38378b2b"
+    },
+    {
+      "path": "tools/player-region-tick/decode_protocol_frames.cjs",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/decode_protocol_frames.cjs",
+      "sha256": "0b0c510f87d8e756a1c03bcf57925fad1afd6ffb42925081a61c0166c9de0696"
+    },
+    {
+      "path": "tools/player-region-tick/decode_resource_frames.cjs",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/decode_resource_frames.cjs",
+      "sha256": "bcc277afa949307e8ef08403e4e19d1d3a55e773bf93dcef0a6d5add9866165b"
+    },
+    {
+      "path": "tools/player-region-tick/dimension_scenarios.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/dimension_scenarios.py",
+      "sha256": "67a73a316b9967a23e358e0fc46c7d80692dae911baca5491981ef0a8f42f84d"
+    },
+    {
+      "path": "tools/player-region-tick/install.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/install.py",
+      "sha256": "3895d8a85ad156d3cd5eb4fd50cd998c15df278b2189a3a0fb687f28df6d9462"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/Oracle.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/Oracle.java",
+      "sha256": "a238ad0b86ec31f01d0baf52f42b58a111e8e14596587d4b1a447630d6f37894"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/ResourceOracle.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/ResourceOracle.java",
+      "sha256": "8ced659c8170b83a446d0b38bf887bff4e87557fa7444c224f319a133cac8b9b"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/ChestMenuMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/ChestMenuMixin.java",
+      "sha256": "07e84bab035851f0c18b2b686d61fcd6c423c378865a913f1ffa7fdd35706be5"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/ConnectionMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/ConnectionMixin.java",
+      "sha256": "620862af410710b0f7fef65786c07b4201666c55bedc4540b546b82889cffbf4"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/ConnectionsMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/ConnectionsMixin.java",
+      "sha256": "e3ce2c1e088c7ba028377f37de0925ecabd9a15461fd335857eb8c79bb429a0d"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/GameModeMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/GameModeMixin.java",
+      "sha256": "7eb1c6e01231255727b61b95eade0ec04d1d900a046fb3d91cbcbbb9690c2c63"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/InteractionMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/InteractionMixin.java",
+      "sha256": "d0dfd74266501773839c7e3e6e5016dbf837fd577c5861acd2a1986aeb42ee66"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/LevelMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/LevelMixin.java",
+      "sha256": "fbfd96181bf9d888df9cbf2457ef345c5e3c736def121ec4e38bbe1b4f9fcc60"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/ListenerMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/ListenerMixin.java",
+      "sha256": "019a33c7364294558889044aa3e75121efe5ae62fd3f51b9e0a9ee1cb612c0d1"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/PlayerListMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/PlayerListMixin.java",
+      "sha256": "0b0a239fc753613f0803979c70c2bd55217e90ad05bbe9e4c4c904a80a4df924"
+    },
+    {
+      "path": "tools/player-region-tick/java/forgia/playeroracle/mixin/PlayerMixin.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/java/forgia/playeroracle/mixin/PlayerMixin.java",
+      "sha256": "47820a044d934632dffa4f3c3ea5160805ae4f217dffef7fa29e72616d60888a"
+    },
+    {
+      "path": "tools/player-region-tick/jdi/PlayerAdmissionFence.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/jdi/PlayerAdmissionFence.java",
+      "sha256": "1084b9141e2496153f9f073a4e092a2dcf690311d038c8bfe499bd700582b1c5"
+    },
+    {
+      "path": "tools/player-region-tick/jdi/PlayerNetworkFence.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/jdi/PlayerNetworkFence.java",
+      "sha256": "058d70fd7cb5f187e6227e3fe2f73a8f6afa9607c4e8c5451ac83eacf04c12a1"
+    },
+    {
+      "path": "tools/player-region-tick/jdi/PlayerPhaseOrder.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/jdi/PlayerPhaseOrder.java",
+      "sha256": "3aad89d02e7fe335b6a5a71648904ed9485a69c3942c2058f22df497561ec653"
+    },
+    {
+      "path": "tools/player-region-tick/jdi/PlayerSocketClose.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/jdi/PlayerSocketClose.java",
+      "sha256": "94dc964af5ff7fcb12be77950cd79493f1e8a0ed32cb00255b9b2f3a28fd663f"
+    },
+    {
+      "path": "tools/player-region-tick/jdi/PlayerStateDiagnostic.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/jdi/PlayerStateDiagnostic.java",
+      "sha256": "6396e762b6ecc93c21130e1687cc346fb7b6d95a0d9a524987326e058e73cb37"
+    },
+    {
+      "path": "tools/player-region-tick/jdi/PlayerTickFault.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/jdi/PlayerTickFault.java",
+      "sha256": "f0382ffe4f49cf22f5db27d4400c7dcf281e181599503015e41b7fcd87aec0b8"
+    },
+    {
+      "path": "tools/player-region-tick/lifecycle_clients.cjs",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/lifecycle_clients.cjs",
+      "sha256": "b1f2b852c2949a2945feafe5a64d6d88a66132f930e15dff961567fd93c974ef"
+    },
+    {
+      "path": "tools/player-region-tick/network-contract/java/forgia/networkcontract/NetworkContract.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/network-contract/java/forgia/networkcontract/NetworkContract.java",
+      "sha256": "0c3db57a0e105f22ee33d59b69b15b59ef87f55eb3267f78dbb0473015965de9"
+    },
+    {
+      "path": "tools/player-region-tick/network-contract/resources/META-INF/neoforge.mods.toml",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/network-contract/resources/META-INF/neoforge.mods.toml",
+      "sha256": "054a05a2297bd6f4f61cc1835652aa2899d2042e76f26c1aa9898fdf8b7cfb7c"
+    },
+    {
+      "path": "tools/player-region-tick/network_contract.gradle",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/network_contract.gradle",
+      "sha256": "f88e315ffd3c3c01c8f2ad6a2c79cc093bc8792f9f624fab6ac7cd4a9cf8e4a6"
+    },
+    {
+      "path": "tools/player-region-tick/oracle.gradle",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/oracle.gradle",
+      "sha256": "80d4cf6b5065be61bad5e4b917a29194c9e32aa159735de38885a14d2d6b4dca"
+    },
+    {
+      "path": "tools/player-region-tick/p2-contract/java/forgia/playerp2/P2Contract.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/p2-contract/java/forgia/playerp2/P2Contract.java",
+      "sha256": "e0e88b8b03a8785d9218b67a62789e0230a00245980075d14398014e485b1a2b"
+    },
+    {
+      "path": "tools/player-region-tick/p2-contract/resources/META-INF/neoforge.mods.toml",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/p2-contract/resources/META-INF/neoforge.mods.toml",
+      "sha256": "133456be81d5bab3bd038d3b4012c3baf72e771a07168346ce336b05d031bf03"
+    },
+    {
+      "path": "tools/player-region-tick/p2_contract.gradle",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/p2_contract.gradle",
+      "sha256": "a63a6b942872d6b25356a2d4d7458491c228fe083d76e693cc2868f962068ebe"
+    },
+    {
+      "path": "tools/player-region-tick/package-lock.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/package-lock.json",
+      "sha256": "2be24f8c0451e72eaa6d0ec88ba90f16c34c62be877af1a75ab62baaba4035d9"
+    },
+    {
+      "path": "tools/player-region-tick/package.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/package.json",
+      "sha256": "38406b497e062d90a741bfa340dadd7d48786bd9523c317d61d1c771037cbeca"
+    },
+    {
+      "path": "tools/player-region-tick/proof_events.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/proof_events.py",
+      "sha256": "47f8ae41d4152a677ef1843785a1d11f3bde15c829034fe5d3860418adf38848"
+    },
+    {
+      "path": "tools/player-region-tick/resource_scenarios.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/resource_scenarios.py",
+      "sha256": "17384fb7e470e0266ff21bb945365465d911a42f9d7c95bbc15abd56eb0aae1e"
+    },
+    {
+      "path": "tools/player-region-tick/resources/META-INF/neoforge.mods.toml",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/resources/META-INF/neoforge.mods.toml",
+      "sha256": "c203b63ec5ccccd7b1326f4592cc0be87037a1a3de3f52e8ddfb5b03bec41b0b"
+    },
+    {
+      "path": "tools/player-region-tick/resources/forgia_player_oracle.mixins.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/resources/forgia_player_oracle.mixins.json",
+      "sha256": "b3f680efea140b38aa6d9108bdac5b42c1af8f95a5791949050021c75d058d1a"
+    },
+    {
+      "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.122-beta.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/reviewed-artifacts/21.1.250.122-beta.json",
+      "sha256": "6760559fdba264b5835879881f39e80cd13ccf43243acc7033a11a3754233462"
+    },
+    {
+      "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.123-beta.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/reviewed-artifacts/21.1.250.123-beta.json",
+      "sha256": "c9a440f0483374d1e202a5195c25df32f8d0b61bfbf8f7921fd470988e6d7ea5"
+    },
+    {
+      "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.124-beta.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/reviewed-artifacts/21.1.250.124-beta.json",
+      "sha256": "6e43b4b70c0047a5a2f0572e6dc6d1fecf56028217aa045238a841c7f6716d38"
+    },
+    {
+      "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.125-beta.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/reviewed-artifacts/21.1.250.125-beta.json",
+      "sha256": "6c99f7eba6d3fef2757a253c13e680224f87983c8cda38dc7cfa4aa5c4db07ed"
+    },
+    {
+      "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.126-beta.json",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/reviewed-artifacts/21.1.250.126-beta.json",
+      "sha256": "b43c22a51fd9bc5b6598a789202c82f740ed87d1fe85d8ff595f61039e3472d1"
+    },
+    {
+      "path": "tools/player-region-tick/reviewed_artifacts.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/reviewed_artifacts.py",
+      "sha256": "f629593476d8bd1263563e3f9bb53cf7319206dd21b9b990534a7820b72f29e1"
+    },
+    {
+      "path": "tools/player-region-tick/run_baseline.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_baseline.py",
+      "sha256": "087ea0ba224a39036de82c6159b6884226d7a08603bd10bf089eaaade66acdbb"
+    },
+    {
+      "path": "tools/player-region-tick/run_command.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_command.py",
+      "sha256": "596d4402f9d49087ec333b4bc5c9622783c4f0d93b534234d57e88142b9821ed"
+    },
+    {
+      "path": "tools/player-region-tick/run_connection_failure.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_connection_failure.py",
+      "sha256": "57cf8551eeb1aa23cae20816246e2fad9b25365fd8dd4d5496d421bee31db2dd"
+    },
+    {
+      "path": "tools/player-region-tick/run_interactions.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_interactions.py",
+      "sha256": "753ed7d7a840fb5e8540609377c0177d17bd22fda7a6de7f70f4f88a5199180e"
+    },
+    {
+      "path": "tools/player-region-tick/run_network_contract.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_network_contract.py",
+      "sha256": "fe24e4be3aed8b2933bd9c5b2e4862bb7ca30b4681e413e21edc5ed94ee6d10e"
+    },
+    {
+      "path": "tools/player-region-tick/run_network_fence.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_network_fence.py",
+      "sha256": "a7b1aa84299016c896660bf099ff0ad2bbad001b1ed8c550be888a6c9a51cf37"
+    },
+    {
+      "path": "tools/player-region-tick/run_p2_matrix.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_p2_matrix.py",
+      "sha256": "ecc781f54c8fc41c21350b4f809554df5ef5f21935127c9805bc1c230da81c25"
+    },
+    {
+      "path": "tools/player-region-tick/run_p2_suite_matrix.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_p2_suite_matrix.py",
+      "sha256": "8b257320d0cd2c72903d309dae44bee539622064caf25f3bcbb7f0161ea80983"
+    },
+    {
+      "path": "tools/player-region-tick/run_p2_timers.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_p2_timers.py",
+      "sha256": "6bf49a4feb554deb5aed4aa46f8fdb90dc0744f26c9572322b68aad00fd9cb23"
+    },
+    {
+      "path": "tools/player-region-tick/run_resources.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_resources.py",
+      "sha256": "c18f1b47e011d376fb8fec49f6476b13f9cf064f7f627138dbac4bd068f26486"
+    },
+    {
+      "path": "tools/player-region-tick/run_worker_fault.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_worker_fault.py",
+      "sha256": "c22c9938c8b97a24f843ce35e6c214ec19e6f668da3417482247570aaca1f2f2"
+    },
+    {
+      "path": "tools/player-region-tick/run_worker_lifecycle.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_worker_lifecycle.py",
+      "sha256": "446c45245207a1369a5007989ceeeb75f8776b0b6f31e294904e3f8724b31cad"
+    },
+    {
+      "path": "tools/player-region-tick/run_worker_phase_order.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_worker_phase_order.py",
+      "sha256": "2bfc94ff343b0b9e92376434004698c30473e4ce70a367efb31a0a519d03ca5d"
+    },
+    {
+      "path": "tools/player-region-tick/run_worker_respawn.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_worker_respawn.py",
+      "sha256": "f17fff5b8530c4d42b09c9251be59f82ad2dd3001670530db44a82b64f91798c"
+    },
+    {
+      "path": "tools/player-region-tick/run_worker_smoke.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_worker_smoke.py",
+      "sha256": "01213b3f56955e157b49864ea771f020e8c2ed9ffa9ff39546cb88be0ae205fa"
+    },
+    {
+      "path": "tools/player-region-tick/run_worker_socket_close.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_worker_socket_close.py",
+      "sha256": "c8b0037d6ccc6d6dede4629c401c8934f7ee0b3629803d53aef4de0a3e3b8934"
+    },
+    {
+      "path": "tools/player-region-tick/run_world_failure.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/run_world_failure.py",
+      "sha256": "b864610d46d06cc806823a4e59b812faa56a66aa44e812e3f266cd65f969627e"
+    },
+    {
+      "path": "tools/player-region-tick/test_interaction_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_interaction_validator.py",
+      "sha256": "19d93f2d9ba5b21d0091a8b75fc8c4e6af898ca78ab5483a3f31b5c1c6b10689"
+    },
+    {
+      "path": "tools/player-region-tick/test_oracle_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_oracle_validator.py",
+      "sha256": "e4c03ba7b12a59210dcbc691abc586bf670c3f653aa29652268031477d167c7d"
+    },
+    {
+      "path": "tools/player-region-tick/test_p2_proof_validators.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_p2_proof_validators.py",
+      "sha256": "620c649598a9cb2bd37d2148ec1a6418dc9e95d26a93f2aea2a4932c7621ed08"
+    },
+    {
+      "path": "tools/player-region-tick/test_phase_order_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_phase_order_validator.py",
+      "sha256": "6f31a7881cdb127ffe3796e7a7215c9f0695402ead6397c321d36a61fc7fca92"
+    },
+    {
+      "path": "tools/player-region-tick/test_proof_events.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_proof_events.py",
+      "sha256": "15e8a879ceb8f4b40339022fe6d9256c1b0bbf426958c6ce58273c1ba311e855"
+    },
+    {
+      "path": "tools/player-region-tick/test_resource_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_resource_validator.py",
+      "sha256": "6e1d4ecf9dd2f7ddf0d2424ef5c8a9df323540cd71151061bd498a980a3b5974"
+    },
+    {
+      "path": "tools/player-region-tick/test_reviewed_artifacts.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_reviewed_artifacts.py",
+      "sha256": "e3ed6eec09420a6c1a9262afab595b0b7ff268493f96d71e5d31f25b67a9ee76"
+    },
+    {
+      "path": "tools/player-region-tick/test_worker_fault_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_worker_fault_validator.py",
+      "sha256": "f6c6803e606c59a681f8d7e672f322c2a2bfbf89a312c3a504d62d20f4958007"
+    },
+    {
+      "path": "tools/player-region-tick/test_worker_lifecycle_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_worker_lifecycle_validator.py",
+      "sha256": "f9aef3f757bc53d16a63c2e4f3b9b1b939dd5937cb511b2c0a8c5dd3eca334b3"
+    },
+    {
+      "path": "tools/player-region-tick/test_worker_socket_validator.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/test_worker_socket_validator.py",
+      "sha256": "fbfa33c6a5f1b95b4004f14fdb6399d1a231bd7979129829e4b81ca02aa5c649"
+    },
+    {
+      "path": "tools/player-region-tick/verify_interactions.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_interactions.py",
+      "sha256": "e8210811c847c5a2113378ff6db29d7b78085d2f097c4f6d164e879c4cd63e64"
+    },
+    {
+      "path": "tools/player-region-tick/verify_network_contract.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_network_contract.py",
+      "sha256": "c0c070ef5685df09d6c4ea6609a7bdda3b70d661268476857c967b48d5e468ea"
+    },
+    {
+      "path": "tools/player-region-tick/verify_network_fence.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_network_fence.py",
+      "sha256": "19488047e1f4dc86d0b34a9efcc193f716f394d9d3955757de3dc9b5f7a4afac"
+    },
+    {
+      "path": "tools/player-region-tick/verify_network_repro125.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_network_repro125.py",
+      "sha256": "0e58d29d0c048fcf6d175965924c9a34246bfaeb5aaeef2c32bb3fcc50fe1a69"
+    },
+    {
+      "path": "tools/player-region-tick/verify_oracle.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_oracle.py",
+      "sha256": "64fafcd3dbaf0a1d05f7aea340bc138655b90d318d088e02204c487283867a0d"
+    },
+    {
+      "path": "tools/player-region-tick/verify_p2_matrix.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_p2_matrix.py",
+      "sha256": "a7e548ab433153283699a845b419c0ad1489f88eb9ad922c5a4976058956bc84"
+    },
+    {
+      "path": "tools/player-region-tick/verify_p2_timers.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_p2_timers.py",
+      "sha256": "9e7ee6d09e553edec07be4bce72c5bc76b5c08ade8902b5ffa3502980f393717"
+    },
+    {
+      "path": "tools/player-region-tick/verify_patch_sources.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_patch_sources.py",
+      "sha256": "1a0bbb1c5aaaf5969ddcc3851b2a5f66fe6d1577f30ac08f033fe2a2634c4056"
+    },
+    {
+      "path": "tools/player-region-tick/verify_phase_order.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_phase_order.py",
+      "sha256": "71bfc7c5b54b6630e9ef7dfd1fcb4be9f7a787c9a6afc41f8152aae7fab5e728"
+    },
+    {
+      "path": "tools/player-region-tick/verify_resources.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_resources.py",
+      "sha256": "282d0fa7be06747ae858a28296b6dfd7edddf46d4c73acec9210d6bde2eef147"
+    },
+    {
+      "path": "tools/player-region-tick/verify_worker_fault.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_worker_fault.py",
+      "sha256": "986c09dd610b98b79f9fbde899ec92f73347a944d7e691e488d204e05a289ff1"
+    },
+    {
+      "path": "tools/player-region-tick/verify_worker_lifecycle.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_worker_lifecycle.py",
+      "sha256": "c6a4d15d5a8212ef3eb2cb5e6a87688d8c326e1bfb041805ef6681eab6c2f581"
+    },
+    {
+      "path": "tools/player-region-tick/verify_worker_phase_order.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_worker_phase_order.py",
+      "sha256": "0c2dcb56f379debf988fc77fcf2692241100d6c770dee2650754d5e5f2c4b33b"
+    },
+    {
+      "path": "tools/player-region-tick/verify_worker_respawn.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_worker_respawn.py",
+      "sha256": "5e1e9c9f1f16ea15d769bf7bd3bb6144746a114d77b4237ac7beeb0f25e41e3d"
+    },
+    {
+      "path": "tools/player-region-tick/verify_worker_smoke.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_worker_smoke.py",
+      "sha256": "8c9289930ac3317e1843cb9d6b61bec9f356c23355da40190fdc61f9f5195c64"
+    },
+    {
+      "path": "tools/player-region-tick/verify_worker_socket_close.py",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/verify_worker_socket_close.py",
+      "sha256": "77241991cac762d4bccd663a0a392af129df64a1eae21697b760e76748c8bf85"
+    },
+    {
+      "path": "tools/player-region-tick/world-fault/java/forgia/playerfault/WorldFault.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/world-fault/java/forgia/playerfault/WorldFault.java",
+      "sha256": "2de0d883680015eea70a051cfaefeeab4c112a41906e2919b00ae02781543183"
+    },
+    {
+      "path": "tools/player-region-tick/world-fault/resources/META-INF/neoforge.mods.toml",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/world-fault/resources/META-INF/neoforge.mods.toml",
+      "sha256": "9189607e521e49a4c928fc7dad460521ff31c85597ffa099a890212e0975c495"
+    },
+    {
+      "path": "tools/player-region-tick/world_fault.gradle",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tools/player-region-tick/world_fault.gradle",
+      "sha256": "9bc1df272c046d4e3561df35afd98afba3282afced9c3f1fa5aa112b21b794ea"
+    },
+    {
+      "path": "patches/net/minecraft/advancements/AdvancementRewards.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/advancements/AdvancementRewards.java.patch",
+      "sha256": "e3471dcccdc7e940e09ea8f4faa2b92025365ad65d2b79143c0e13a31bd5195e"
+    },
+    {
+      "path": "patches/net/minecraft/network/Connection.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/network/Connection.java.patch",
+      "sha256": "44445d2980084ccaf86b410e3a958bf00cee24da34ce6e8de0a72efed92373c8"
+    },
+    {
+      "path": "patches/net/minecraft/server/PlayerAdvancements.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/PlayerAdvancements.java.patch",
+      "sha256": "9a7ba584dbd635e5a21cb404cf23a5683c579fa5883ff6df37dd72ab00084739"
+    },
+    {
+      "path": "patches/net/minecraft/server/level/ServerChunkCache.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/level/ServerChunkCache.java.patch",
+      "sha256": "568ed21796d67ed4acfdaf4d2a446104d40667bc72b2296495a7a0fde6e6fe97"
+    },
+    {
+      "path": "patches/net/minecraft/server/level/ServerLevel.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/level/ServerLevel.java.patch",
+      "sha256": "f2c1303e7acdf539f9531ac0c10414882a1629c3c86026d35e634ff0481ddf7f"
+    },
+    {
+      "path": "patches/net/minecraft/server/level/ServerPlayer.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/level/ServerPlayer.java.patch",
+      "sha256": "7aa64cb498728dff53f3cdcc30d625d6d8c24446d4dcfd74d01752946c2c10da"
+    },
+    {
+      "path": "patches/net/minecraft/server/level/ServerPlayerGameMode.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/level/ServerPlayerGameMode.java.patch",
+      "sha256": "430db30c661c0cfe9640c51e211a20c5a20af09b21ac35c59b98e9a3f917e44d"
+    },
+    {
+      "path": "patches/net/minecraft/server/network/ServerCommonPacketListenerImpl.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/network/ServerCommonPacketListenerImpl.java.patch",
+      "sha256": "9d7fee72eea2c8203d0f41a2e0124193de255beda4628ab7cf86145e583cfc6c"
+    },
+    {
+      "path": "patches/net/minecraft/server/network/ServerConnectionListener.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/server/network/ServerConnectionListener.java.patch",
+      "sha256": "82d58621c2d7ce2dc7727b19bdc905a1d8a231b659053edc470dfbc88e0f5074"
+    },
+    {
+      "path": "patches/net/minecraft/stats/StatsCounter.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/stats/StatsCounter.java.patch",
+      "sha256": "411b1bc0522b36895b181fe8a887867ecd09277523357e7ba8ebfcfc189e6383"
+    },
+    {
+      "path": "patches/net/minecraft/world/entity/Entity.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/entity/Entity.java.patch",
+      "sha256": "524e79c4e09206ca54d7fbf1653363d7fcb35fdbd5b14de919e7516917f497c8"
+    },
+    {
+      "path": "patches/net/minecraft/world/entity/LivingEntity.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/entity/LivingEntity.java.patch",
+      "sha256": "1a2a1edbda7c6fea73f56e4c129f1b5947c1a58a4c595b7099efe28b695a55b5"
+    },
+    {
+      "path": "patches/net/minecraft/world/entity/player/Player.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/entity/player/Player.java.patch",
+      "sha256": "c065868bcea77ab11bade41b05014026a8ccdec3aa7928a6bc6b7d431b7b4698"
+    },
+    {
+      "path": "patches/net/minecraft/world/inventory/AbstractContainerMenu.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/inventory/AbstractContainerMenu.java.patch",
+      "sha256": "a53831a37af856a5769f6ac5a0850524b3b9439db06aa21307db18c5d2fd150e"
+    },
+    {
+      "path": "patches/net/minecraft/world/level/Level.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/level/Level.java.patch",
+      "sha256": "470ef203581d0bf1d909cf02fa19ca65e06a23382341ff64f5e8dff46d4d3174"
+    },
+    {
+      "path": "patches/net/minecraft/world/level/chunk/LevelChunk.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/level/chunk/LevelChunk.java.patch",
+      "sha256": "e62e7534a3041dcf644673f383a76e45d8378fb9dda9c4ee50d32f672a1a4636"
+    },
+    {
+      "path": "patches/net/minecraft/world/level/entity/EntitySectionStorage.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/level/entity/EntitySectionStorage.java.patch",
+      "sha256": "d9f073c68f729bcd43a87cd00150e95a2a9928991017fec223ce442f86c1c80a"
+    },
+    {
+      "path": "patches/net/minecraft/world/level/entity/PersistentEntitySectionManager.java.patch",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/patches/net/minecraft/world/level/entity/PersistentEntitySectionManager.java.patch",
+      "sha256": "2aeea8dcafc1e3902baed168028de8b14a1902d25923b24dfa358756122841ac"
+    },
+    {
+      "path": "region-threading/PLAYER-WORKER-EXECUTION-AUDIT.md",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/region-threading/PLAYER-WORKER-EXECUTION-AUDIT.md",
+      "sha256": "ad53aa68801b0f1ed168c74e31bcec3102f0d90243d5b1e2ea0fd22f61bf1c40"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/common/ForgiaConfig.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/common/ForgiaConfig.java",
+      "sha256": "7a3f67a75682e85f165157d37bef798c26a21e7dc3fdf03471c7e8718e8808df"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/ServerLifecycleHooks.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/ServerLifecycleHooks.java",
+      "sha256": "433612f0e7d1b4e99e48c10c33bdee7a91841c8e1a481a0def197ea37db49cde"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/command/RegionThreadingCommand.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/command/RegionThreadingCommand.java",
+      "sha256": "c236a9ca2293dcc6aa9a2c6c03a23e839d2e84a877809a2f311ae0489c806d6f"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/RegionThreadingHooks.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/RegionThreadingHooks.java",
+      "sha256": "6ddc79931b6f42c3ea1a405c2a468f8aded33f855eab11604b25c1df6e8c3795"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/FixedEntitySectionPartitions.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/FixedEntitySectionPartitions.java",
+      "sha256": "ae1550d94541b043bd6f323a5709515d9ed6e800783d6eeb9204cb7bd5480f60"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/PlayerRegionTransitions.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/PlayerRegionTransitions.java",
+      "sha256": "68b44e87d44bc832b3e7c1e181540a7be01b2dd6984f682a44d1be97707bf4a1"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionAwareEntityGetter.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionAwareEntityGetter.java",
+      "sha256": "02fb53e75f9dbfdaf280634548ad86501a16f82a803328b935427a653cb2b73c"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityOwnershipScope.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityOwnershipScope.java",
+      "sha256": "67982dd567181124419f14c0e9b816aabab23d74cecbcc27e257cb1ac10160e1"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPolicy.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPolicy.java",
+      "sha256": "def35c49da9446056f1ff0dccd69f852c0e088ae5783781eadf2787e91dd5aeb"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java",
+      "sha256": "c121d0ac18b7a55ac254991ff7ea98d5a23d30cc6954f4699b005f2c08d25212"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingConfig.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingConfig.java",
+      "sha256": "44f291ab1d9f425ee380c5a2d744710be4abf6b3fcc323288cdcd82b3cf2368f"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java",
+      "sha256": "15c6fdd1263adc476b93ef7e21f928f0a2538af3e66451dafa740c56ef51f689"
+    },
+    {
+      "path": "src/main/java/net/neoforged/neoforge/server/threading/region/RegionTickBatch.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/src/main/java/net/neoforged/neoforge/server/threading/region/RegionTickBatch.java",
+      "sha256": "71b2e3f5bd4aee3ae4f2425c8441f3e91bd8ba8287747c6a3a405dec26f13348"
+    },
+    {
+      "path": "tests/src/junit/java/net/neoforged/neoforge/unittest/RegionThreadingDeclarationsTest.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/junit/java/net/neoforged/neoforge/unittest/RegionThreadingDeclarationsTest.java",
+      "sha256": "40f8fd7637845041f7b8f9319021eba4ef1fb4853ef8b369e170864f82ee52e9"
+    },
+    {
+      "path": "tests/src/main/java/net/neoforged/neoforge/debug/level/RegionThreadingGameTests.java",
+      "snapshot": "tmp/player-region-tick-p2-final05/source-snapshot-final126/tests/src/main/java/net/neoforged/neoforge/debug/level/RegionThreadingGameTests.java",
+      "sha256": "af6166e7e6274e9f252f851a79cc7432cb1e22c755417709d9b2c55b777e3f2c"
+    }
+  ],
+  "proofs": {
+    "static": "tmp/player-region-tick-p2-final05/final126/static-checks.json",
+    "patches": "tmp/player-region-tick-p2-final05/final126/patch-proof-final.json",
+    "unitTests": "tmp/player-region-tick-p2-final05/final126/junit-final-478/junit-summary.json",
+    "acceptedEvidence": "tmp/player-region-tick-p2-final05/final126/accepted-evidence.json",
+    "acceptedEvidenceSha256": "45086416dd641b4cbaa686ba46048a0ece9e104a7bd3e440f7b9f3fccb9e6989"
+  },
+  "preservedFailures": [
+    "Retracted .125 complete draft and real explicit NETWORK-on-Server counterexample; final .126 rerun",
+    "All .124/.125 compile, driver, verifier, NDJSON polling and socket/phase failures remain original",
+    "Original .126 background process set absent at resume; partial smoke/socket/timers and top-level wrappers have unknown exits, preserved; six remaining matrices rerun in fresh recovery01",
+    "A previous .125 terminated debugger wrapper has no recoverable exit; never counted as passing",
+    "Final collector first expected transition control split4/5 instead of actual3/6 (total9 unchanged); preserved failed command and source-at-failure.py; corrected index-only split, fresh v2 collection passes without changing original corpora/verdicts"
+  ],
+  "limitations": [
+    "Support remains the conservative empty-inventory/stationary/inert-loaded-terrain/closed-optional-state branch; unsupported gameplay stays fully serial",
+    "Schema3/4 oracle always UNKNOWN_MOD and worker=0; gameplay compatibility/conservation, not worker gameplay certification",
+    "Integrated memory Connection refused by both plans; original GUI pause control flow audited, no graphical client pause replay",
+    "Active Level retirement proven at real engine clearLevelRegionTasks and native pool/lease kernel; no arbitrary dynamic-dimension Mod parallel unload certification",
+    "Finite overflow/cancel/GC proof, not hours-long arbitrary-extension/network soak",
+    "No speedup, broad tail-latency or P5 performance conclusion",
+    "Interrupted wrappers with unknown exits remain distinct from accepted complete matrices"
+  ],
+  "remainingStages": [
+    "P3 actual supported gameplay worker expansion",
+    "P4 owner packet routing",
+    "P5 1/8/32 clients, distributions, MSPT/tail latency/allocation and sustained recovery/soak"
+  ],
+  "handoff": "region-threading/PLAYER-REGION-TICK-HANDOFF.zh.md",
+  "proofMechanisms": {
+    "phaseAndNetworkCounterexample": "Read-only external JDI breakpoints",
+    "nativeBodyFaults": "External JDI ThreadReference.stop injects RuntimeException at an actual original-body side-effect breakpoint; no class redefinition or worker admission exception",
+    "networkAndSocketFences": "Pause original body, read original diagnostics, send normal TCP packets or close physical client TCP",
+    "gameplay": "Normal client packets; commands prepare fixtures/read independent state"
+  },
+  "verificationFileHashes": {
+    "path": "tmp/player-region-tick-p2-final05/final126/verification-file-hashes.json",
+    "sha256": "c2c77d442e183c5900f0d731c5fb351387ec8f0c7c8d8b9a9c94ababd8d2773e",
+    "files": 73
+  }
+}

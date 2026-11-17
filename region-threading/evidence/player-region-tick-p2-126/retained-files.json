@@ -1,0 +1,62 @@
+[
+  {
+    "original": "tmp/player-region-tick-p2-final05/receipt-final126.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/receipt-final126.json",
+    "sha256": "befd7c4ca56a967139cb3f011c1e3018c4f0adb4f198303cb011ac3799838811"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final-proof-audit-final126.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/final-proof-audit-final126.json",
+    "sha256": "7c43d8507eeae63a1a4204c5aa2298d089d3f108c559842ef6fa0a2b8889761e"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/accepted-evidence.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/accepted-evidence.json",
+    "sha256": "45086416dd641b4cbaa686ba46048a0ece9e104a7bd3e440f7b9f3fccb9e6989"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/junit-final-478/junit-summary.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/junit-summary.json",
+    "sha256": "9f315675a74f80161967343cc7949d69c112429708c6189c469381546b9bd5fc"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/static-checks.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/static-checks.json",
+    "sha256": "b6945cef33f9dc59e2096b83f0a3de0ee1beee5f62952f8ec28fadd4f07b0a4b"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/patch-proof-final.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/patch-proof-final.json",
+    "sha256": "1faedfcc336d1160c03b1370563f596d49c4a54c96ba859126a0b8bec4660a9d"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/artifacts.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/artifacts.json",
+    "sha256": "46de2461d018247694bf98de03f3086ffa8afb41e5ce9ec422fa083f62cdc03a"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/interrupted-command-audit.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/interrupted-command-audit.json",
+    "sha256": "f256b24678c0c217a6fa67e468cb84dc2a2fc6e1e1b2d74de55406dded4aba5c"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/command-index.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/command-index.json",
+    "sha256": "a398902cbd7d791a5e385391a02729212c3aea657968691b594656f0294527e4"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/input-hashes.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/input-hashes.json",
+    "sha256": "4f10190b968e9b1793849815138b20bc95d597a9d94698b07d4aad0efcf3d4a0"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/installed-core-hashes.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/installed-core-hashes.json",
+    "sha256": "fcd3d54d35474e4d947aa40f658e799524998a3f90a4ccf7dd8ac71f29df8454"
+  },
+  {
+    "original": "tmp/player-region-tick-p2-final05/final126/verification-file-hashes.json",
+    "retained": "region-threading/evidence/player-region-tick-p2-126/verification-file-hashes.json",
+    "sha256": "c2c77d442e183c5900f0d731c5fb351387ec8f0c7c8d8b9a9c94ababd8d2773e"
+  }
+]

@@ -14,6 +14,12 @@ import net.neoforged.neoforge.common.NeoForgeConfig;
 final class RegionThreadingConfig {
     private RegionThreadingConfig() {}
 
+    static boolean playerTicksRequested() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableRegionThreadingPlayerTicks.get()
+                : ForgiaConfig.SERVER.enableRegionThreadingPlayerTicks.getDefault();
+    }
+
     static int maxImmediateTasksPerDrain() {
         return ForgiaConfig.isServerConfigLoaded()
                 ? ForgiaConfig.SERVER.regionThreadingMaxImmediateTasksPerDrain.get()

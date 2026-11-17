@@ -1,0 +1,198 @@
+[
+  {
+    "command": "tmp/player-region-tick-p2-final05/final125/socket/server-on-persistent-connection/worker-socket-close/debugger-command/command.json",
+    "commandSha256": "ada8dfd5faebd94b66aab26033bfd69c78003765bd608bd1fbb656e47313f66d",
+    "stdout": "tmp/player-region-tick-p2-final05/final125/socket/server-on-persistent-connection/worker-socket-close/debugger-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 850832,
+    "childPid": 850833
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/after-native-command/command.json",
+    "commandSha256": "63d60db4523a7020e7d99e7a3a7e4f337265a30b3a2687c3f83287fbd4a74695",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/after-native-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 863533,
+    "childPid": 863535
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/group-functional/command.json",
+    "commandSha256": "c42d5894d5de5ac460b7beda7748b16862f6832be9fbf2d31bde4feddc6a40ed",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/group-functional/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 860009,
+    "childPid": 860013
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/group-lifecycle/command.json",
+    "commandSha256": "24373027320aee1b860185b7b4ac87b561f55d3ecd8da092033bfd03c4438384",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/group-lifecycle/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 860008,
+    "childPid": 860011
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/group-native/command.json",
+    "commandSha256": "9ac174cb296d1e9ddfc3b874aa2ea9decc700b58debec824cefd742aa8424c95",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/group-native/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 860010,
+    "childPid": 860012
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/proof-controls-command/command.json",
+    "commandSha256": "60b1e0d2e097b133701a119f1db0a4b95ec45f2389d1254df48febb8170685e6",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/proof-controls-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 871130,
+    "childPid": 871133
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/smoke/install-on-persistent/command.json",
+    "commandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/smoke/install-on-persistent/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commandMetadataIncomplete": true,
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": null,
+    "childPid": null
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/smoke/run-on-fixed/command.json",
+    "commandSha256": "f5d6d8a9c82196b1efbbce9e48226bfd4d22b238cac37f84deb2271a7d44d103",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/smoke/run-on-fixed/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 872881,
+    "childPid": 872882
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/smoke/verify-on-fixed/command.json",
+    "commandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/smoke/verify-on-fixed/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commandMetadataIncomplete": true,
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": null,
+    "childPid": null
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/socket/install-on-fixed-connection/command.json",
+    "commandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/socket/install-on-fixed-connection/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commandMetadataIncomplete": true,
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": null,
+    "childPid": null
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/socket/run-on-fixed-entity/command.json",
+    "commandSha256": "e91f9f85b6f8bc2eb28f1e55d9dad6212d01800134b013bb08fa56883021f2c2",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/socket/run-on-fixed-entity/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 872968,
+    "childPid": 872969
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/socket/server-on-fixed-entity/worker-socket-close/debugger-command/command.json",
+    "commandSha256": "782c86670ed0863f0a6915997948319813b85cf67ac13a224ae9abbcc938ce20",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/socket/server-on-fixed-entity/worker-socket-close/debugger-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 873151,
+    "childPid": 873152
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/socket/verify-on-fixed-entity/command.json",
+    "commandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/socket/verify-on-fixed-entity/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commandMetadataIncomplete": true,
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": null,
+    "childPid": null
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/suite-smoke-command/command.json",
+    "commandSha256": "c4c6441941670d5f27c2accacf75a24455313343b50d8dc71bb6fbdf2b7cc0ad",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/suite-smoke-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 872606,
+    "childPid": 872607
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/suite-socket-command/command.json",
+    "commandSha256": "844e2426bd37263422a22eb78547e512f5b96225b7062e93bdb027794fe1b142",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/suite-socket-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 872794,
+    "childPid": 872795
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/suite-timers-command/command.json",
+    "commandSha256": "114d4b51aa19f14367ed6c0ad6a1b4ff80d5dbde4333b4e6ea125b97e587abda",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/suite-timers-command/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 872427,
+    "childPid": 872428
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/timers/install-on-persistent/command.json",
+    "commandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/timers/install-on-persistent/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commandMetadataIncomplete": true,
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": null,
+    "childPid": null
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/timers/run-on-fixed/command.json",
+    "commandSha256": "23d124fb9f6e28b46aabd6ac39b52e63d18b56414e7897c8fa1343e92a73ebd7",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/timers/run-on-fixed/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": 872669,
+    "childPid": 872670
+  },
+  {
+    "command": "tmp/player-region-tick-p2-final05/final126/timers/verify-on-fixed/command.json",
+    "commandSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout": "tmp/player-region-tick-p2-final05/final126/timers/verify-on-fixed/stdout.log",
+    "stdoutSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "commandMetadataIncomplete": true,
+    "exit": null,
+    "classification": "interrupted_exit_unknown_not_accepted",
+    "wrapperPid": null,
+    "childPid": null
+  }
+]

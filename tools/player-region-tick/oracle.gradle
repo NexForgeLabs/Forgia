@@ -1,0 +1,34 @@
+// Opt-in installed-server oracle. Adds no production sources, permissions or worker bypass.
+gradle.projectsEvaluated {
+    def core = rootProject.findProject(':neoforge')
+    if (core == null) return
+    def oracle = core.sourceSets.create('playerOracle') {
+        java.srcDir rootProject.file('tools/player-region-tick/java')
+        resources.srcDir rootProject.file('tools/player-region-tick/resources')
+        compileClasspath += core.sourceSets.main.output + core.sourceSets.main.compileClasspath
+    }
+    core.dependencies.add(oracle.compileOnlyConfigurationName, "io.github.llamalad7:mixinextras-neoforge:${rootProject.mixin_extras_version}")
+    core.tasks.register('playerOracleJar', Jar) {
+        dependsOn core.tasks.named('playerOracleClasses')
+        archiveBaseName = 'forgia-player-oracle'
+        archiveVersion = '1.0'
+        from oracle.output
+    }
+    def gameTestRun = rootProject.providers.gradleProperty('playerOracleGameTestRun')
+    if (gameTestRun.isPresent()) {
+        def tests = rootProject.project(':tests')
+        def directory = rootProject.file(gameTestRun.get())
+        tests.neoDev.runs.named('canonicalGameTestServer') {
+            gameDirectory = directory
+        }
+        tests.tasks.named('runCanonicalGameTestServer') {
+            doFirst {
+                if (new File(directory, 'world').exists() || new File(directory, 'player-oracle-run.marker').exists()) {
+                    throw new GradleException('Player oracle GameTests require a new directory; retained evidence is never reset: ' + directory)
+                }
+                directory.mkdirs()
+                new File(directory, 'player-oracle-run.marker').text = 'isolated P0 regression; no player worker certification\n'
+            }
+        }
+    }
+}

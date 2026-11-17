@@ -1,0 +1,16 @@
+--- a/net/minecraft/world/entity/ai/attributes/AttributeMap.java
++++ b/net/minecraft/world/entity/ai/attributes/AttributeMap.java
+@@ -27,2 +_,9 @@
++    /** Original per-player objects; used to detect aliases before dispatch, never copied for execution. */
++    public java.util.List<Object> forgiaPlayerLocalObjects() {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
++        java.util.List<Object> result = new java.util.ArrayList<>();
++        result.add(this); result.addAll(this.attributes.values());
++        return result;
++    }
+     public AttributeMap(AttributeSupplier p_22144_) {
+         this.supplier = p_22144_;
+@@ -51,2 +_,3 @@
+     public AttributeInstance getInstance(Holder<Attribute> p_250010_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
+         return this.attributes.computeIfAbsent(p_250010_, p_315936_ -> this.supplier.createInstance(this::onAttributeModified, (Holder<Attribute>)p_315936_));

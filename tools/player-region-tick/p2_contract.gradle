@@ -1,0 +1,16 @@
+// Isolated unknown extension: exercises original main-thread contracts; never worker-admitted.
+gradle.projectsEvaluated {
+    def core = rootProject.findProject(':neoforge')
+    if (core == null) return
+    def probe = core.sourceSets.create('playerP2Contract') {
+        java.srcDir rootProject.file('tools/player-region-tick/p2-contract/java')
+        resources.srcDir rootProject.file('tools/player-region-tick/p2-contract/resources')
+        compileClasspath += core.sourceSets.main.output + core.sourceSets.main.compileClasspath
+    }
+    core.tasks.register('playerP2ContractJar', Jar) {
+        dependsOn core.tasks.named('playerP2ContractClasses')
+        archiveBaseName = 'forgia-player-p2-contract'
+        archiveVersion = '1.0'
+        from probe.output
+    }
+}

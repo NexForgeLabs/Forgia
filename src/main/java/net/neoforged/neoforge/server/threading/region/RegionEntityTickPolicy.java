@@ -71,6 +71,26 @@ final class RegionEntityTickPolicy {
     private final Map<Class<?>, Memo> resolved = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> serverThreadOnlyTicks = new ConcurrentHashMap<>();
     private volatile long declarationVersion;
+    private volatile boolean builtInPlayerRidingDeclaration;
+
+    void declarePlayerRidingStack() {
+        this.serverThreadOnly(net.minecraft.world.entity.player.Player.class, "player_riding_stack");
+        this.builtInPlayerRidingDeclaration = true;
+    }
+
+    /** A standalone player may bypass only our original inherited riding fence, never a declaration. */
+    @Nullable
+    String playerReasonFor(Entity player) {
+        String typeReason = this.typeReasonFor(player);
+        if (typeReason != null) return typeReason;
+        if (player.isPassenger() || !player.getPassengers().isEmpty()) return this.reasonFor(player);
+        for (Class<?> candidate = player.getClass(); candidate != null; candidate = candidate.getSuperclass()) {
+            String reason = this.declarations.get(candidate);
+            if (reason != null && !(candidate == net.minecraft.world.entity.player.Player.class && this.builtInPlayerRidingDeclaration)) return reason;
+            if (candidate == Entity.class) break;
+        }
+        return null;
+    }
 
     private record Memo(long declarationVersion, @Nullable String reason) {}
 
@@ -90,6 +110,7 @@ final class RegionEntityTickPolicy {
         if (reason.isBlank()) {
             throw new IllegalArgumentException("reason must not be blank");
         }
+        if (type == net.minecraft.world.entity.player.Player.class) this.builtInPlayerRidingDeclaration = false;
         this.declarations.put(type, reason);
         this.declarationVersion++;
     }

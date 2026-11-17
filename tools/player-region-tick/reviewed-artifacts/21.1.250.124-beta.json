@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "id": "forgia-21.1.250.124-beta-schema3-4",
+  "version": "21.1.250.124-beta",
+  "contract": "unknown-extension-whole-call-serial",
+  "installerSha256": "bec193f7f14402542fbc041f6bb0a730b909d0359c3a39b5e7958a203bc2809a",
+  "installedJars": {
+    "server": "be73f087a89de9d40ed5323dd1044dc7552812279b5f63e8ac974f5145baa9b6",
+    "universal": "732120c00996a7040c6b8626781cd9fac586160798955a0dcb51426345b12c91"
+  },
+  "oracleSha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe",
+  "review": {
+    "kind": "parent-agent-source-and-artifact-review",
+    "date": "2026-11-17",
+    "reviewer": "parent Codex agent; no independent or human approval claimed",
+    "evidence": [
+      "tmp/player-region-tick-continue04/final124/build-regression/result.json",
+      "tmp/player-region-tick-continue04/final124/build-regression/junit-summary.json",
+      "tmp/player-region-tick-continue04/final124/patch-consistency.json",
+      "tmp/player-region-tick-continue04/final124/install-smoke-on-fixed/result.json",
+      "tmp/player-region-tick-continue04/retirement-reproduction-123-v2/junit"
+    ],
+    "findings": [
+      "26 persisted Minecraft patches match generated sources byte for byte",
+      "417 JUnit tests passed; includes two-pool real external shutdown and physical socket-loss regression",
+      "Installed universal bytes equal reviewed installer embedded bytes",
+      "Oracle Mod is deliberately unknown; both player phases must remain serial in schema3/4",
+      "Functional geometry, original synchronous events, raw client feedback and conservation checks retained; no production worker certification from oracle",
+      "Unstarted cached closed connections preserve original removal eligibility; started results are consumed without replay",
+      "Schema4 break observer waits 2 seconds for original drop delay/motion; original verifier assertions unchanged; earlier failed evidence retained",
+      "Stop-new-admission flag never opens the network fence before real join",
+      "Consumed active state keeps exact captured identities and original lease through physical socket loss or shutdown; unstarted admission still refuses",
+      "Earlier .123 retirement defects reproduced as four failed native-pool tests; failures preserved"
+    ],
+    "sources": {
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerNetworkGate.java": "8352661425f3e1589bbc2ee7acb2e5a66782c5438086b6d8ad50b58bb2006a4d",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java": "6304c75420f317a48f541fb18a6222b9f3e1160765cf251e613a309e4098f1c7",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerExtensionSnapshot.java": "c1832e29a6b850a036f434ad10d43e6ce4158fdbadce6075f2ad6cac7bc9127f",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickDispatch.java": "035b21938660b921b2c1c83de94a24179c4527ec07eb34fc3f62c4e70e805100",
+      "patches/net/minecraft/network/Connection.java.patch": "44445d2980084ccaf86b410e3a958bf00cee24da34ce6e8de0a72efed92373c8",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStatePlan.java": "d27ea08fb5535308eb64f6328ed283ad0866a671621c6b5d4a9ba7b99073a82c"
+    }
+  }
+}

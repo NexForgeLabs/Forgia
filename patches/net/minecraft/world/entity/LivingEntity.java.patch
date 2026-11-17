@@ -168,6 +168,17 @@
          float f = this.getHealth();
          if (f > 0.0F) {
              this.setHealth(f + p_21116_);
+@@ -1074,3 +_,4 @@
+     public void setHealth(float p_21154_) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "LivingEntity.setHealth");
+         this.entityData.set(DATA_HEALTH_ID, Mth.clamp(p_21154_, 0.0F, this.getMaxHealth()));
+     }
+@@ -1082,4 +_,5 @@
+     @Override
+     public boolean hurt(DamageSource p_21016_, float p_21017_) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "LivingEntity.hurt");
+         if (this.isInvulnerableTo(p_21016_)) {
+             return false;
 @@ -1090,23 +_,30 @@
          } else if (p_21016_.is(DamageTypeTags.IS_FIRE) && this.hasEffect(MobEffects.FIRE_RESISTANCE)) {
              return false;

@@ -147,6 +147,57 @@ class RegionThreadingDeclarationsTest {
     }
 
     @Test
+    void oneDeclaredRegistryTypeLeavesNinetyNineOtherModEntitiesOnWorkers() throws IOException {
+        final EntityType<?> bossType = mock(EntityType.class);
+        final EntityType<?> ordinaryModType = mock(EntityType.class);
+        final Path file = this.write("leviathan.json", """
+                {"entities": [{"type": "cataclysm:the_leviathan", "reason": "%s"}]}
+                """.formatted(ENTITY_REASON));
+        final RegionThreadingDeclarations.TypeLookup lookup = new SingleTypeLookup(bossType);
+        final var report = RegionThreadingDeclarations.parse(
+                List.of(new RegionThreadingDeclarations.Source("leviathan.json", file)), lookup);
+        assertTrue(report.ignored().isEmpty());
+        this.installEngine();
+        report.applyTo(this.engine);
+
+        final ServerLevel level = this.mockLevel();
+        this.engine.addRegionSection(level, 0, 0);
+        final Thread serverThread = Thread.currentThread();
+        final AtomicInteger bossBodies = new AtomicInteger();
+        final AtomicInteger ordinaryBodies = new AtomicInteger();
+        final Zombie boss = this.entity(level, new BlockPos(1, 64, 1), bossType);
+        doAnswer(invocation -> {
+            assertEquals(serverThread, Thread.currentThread(), "the complete operation must run on the server");
+            net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess("Entity.setPosRaw");
+            bossBodies.incrementAndGet();
+            return null;
+        }).when(boss).tick();
+        this.tickList.add(boss);
+        for (int index = 0; index < 99; index++) {
+            // A different registry type can use the exact same Java class: the fix must not pin its class,
+            // namespace or mod, nor rerun an already-started body to recover from the guarded operation.
+            final Zombie ordinary = this.entity(level, new BlockPos(2, 64, 1), ordinaryModType);
+            doAnswer(invocation -> {
+                assertTrue(net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread());
+                ordinaryBodies.incrementAndGet();
+                return null;
+            }).when(ordinary).tick();
+            this.tickList.add(ordinary);
+        }
+
+        this.plan(level).executeAndAwait();
+
+        assertEquals(1, bossBodies.get());
+        assertEquals(99, ordinaryBodies.get());
+        for (final Entity entity : this.tickList) {
+            verify(entity, times(1)).tick();
+        }
+        assertEquals(99, this.engine.diagnostics().entityTicksOnWorkers());
+        assertEquals(Map.of(ENTITY_REASON, 1L), this.engine.diagnostics().serverThreadOnlyEntityTicksByReason());
+        assertEquals(0, this.engine.diagnostics().ownershipViolationCount());
+    }
+
+    @Test
     void admittedBlockEntityTypeJoinsTheRegionSafeAllowlist() throws IOException {
         // A pack admits a modded machine whose tick only touches its own chunk; the engine cannot prove that for
         // a mod it has never seen, so the declaration is the pack's promise. The interior-chunk rule still

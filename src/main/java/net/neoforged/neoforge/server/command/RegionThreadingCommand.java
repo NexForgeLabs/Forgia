@@ -46,6 +46,15 @@ final class RegionThreadingCommand {
                                     () -> sendNotInstalled(source));
                             return 1;
                         })
+                        .then(Commands.literal("players").executes(context -> {
+                            if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) {
+                                String json = new com.google.gson.Gson().toJson(engine.playerTickDiagnostics(context.getSource().getServer()));
+                                context.getSource().sendSuccess(() -> Component.literal(json), false);
+                                return 1;
+                            }
+                            sendNotInstalled(context.getSource());
+                            return 0;
+                        }))
                         .then(Commands.literal("raw").executes(context -> {
                             final CommandSourceStack source = context.getSource();
                             RegionThreadingHooks.diagnostics().ifPresentOrElse(
@@ -523,6 +532,15 @@ final class RegionThreadingCommand {
         // for scripts that match them.
         source.sendSuccess(() -> Component.literal(blockEntityAdmissionLine()), false);
         source.sendSuccess(() -> Component.literal("Region players: " + diagnostics.playerRegions()), false);
+        if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine playerEngine) {
+            final var players = playerEngine.playerTicks().snapshot();
+            source.sendSuccess(() -> Component.literal("Player tick phases: requested=" + playerEngine.playerTickPlanningRequested()
+                    + ", mode=bounded_complete_calls, workerAdmission=" + playerEngine.playerCriterionStorageEnabled() + ", owners=" + players.owners()
+                    + ", pending=" + players.pending() + ", running=" + players.running()
+                    + ", handoffs=" + players.handoffs() + ", invalidations=" + players.invalidations()
+                    + ", phases=" + players.phases()), false);
+            source.sendSuccess(() -> Component.literal("Player production admission refusals: " + playerEngine.playerAdmissionRefusals()), false);
+        }
         // A seventh independent line for the per-operation entity query answers of a native region worker, so
         // the six lines above keep their shape for scripts that match them. The line renders the record the
         // diagnostics carry instead of re-reading the counters, so the report and the line cannot disagree.

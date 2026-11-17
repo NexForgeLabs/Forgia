@@ -50,6 +50,8 @@ public final class ForgiaConfig {
         public final BooleanValue enableGlobalRegionThreadingWorker;
 
         public final BooleanValue enableRegionThreadingEntityTicks;
+        /** Opt-in player phase planning; complete worker admission remains closed until its audit is implemented. */
+        public final BooleanValue enableRegionThreadingPlayerTicks;
 
         public final BooleanValue enableRegionThreadingBlockEntityTicks;
 
@@ -140,6 +142,10 @@ public final class ForgiaConfig {
                     .translation("neoforge.configgui.enableRegionThreadingEntityTicks")
                     .worldRestart()
                     .define("enableRegionThreadingEntityTicks", false);
+            enableRegionThreadingPlayerTicks = builder
+                    .comment("EXPERIMENTAL: Dispatches complete original player world and connection ticks through the existing region pool when the bounded spatial, local-state, callback and network contracts are satisfied. The initial production branch supports stationary players on inert loaded terrain with empty inventory, local menus and closed advancement/scoreboard paths; unknown mods, transforms, callbacks and unsupported state keep complete serial calls. Requires the bridge, a fixed layout, region-owned entity storage and the entity slice. Missing dependencies preserve complete original serial calls. The Workers key remains a queued-task drain setting, not a dependency of tick execution.")
+                    .worldRestart()
+                    .define("enableRegionThreadingPlayerTicks", false);
 
             enableRegionThreadingBlockEntityTicks = builder
                     .comment("EXPERIMENTAL: Ticks the real ServerLevel block entities of a tick on their owning region worker thread while the server thread waits for the batch. Requires enableRegionThreadingBridge. Only block entity types whose compatibility declaration proves that their server tick never queries or mutates entity storage, never spawns/removes an entity and writes only inside its region run on workers; every other type stays on the server thread. This is a bounded block-entity tick slice, not regionized world ticking.")

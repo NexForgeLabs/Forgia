@@ -1,0 +1,28 @@
+modLoader = "lowcodefml"
+loaderVersion = "[4,)"
+license = "LGPL-2.1-only"
+
+[[mods]]
+modId = "forgia_entity_safety"
+version = "0.1.0"
+displayName = "Forgia Entity Safety"
+description = '''
+Keeps Cataclysm's Leviathan tick on the server thread before its player-grab attack starts.
+All other entity types keep their existing Forgia scheduling policy.
+Requires Forgia with region-threading declarations support (tested against 21.1.250.101-beta).
+'''
+regionThreadingDeclarations = "forgia-entity-safety.json"
+
+[[dependencies.forgia_entity_safety]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,21.2)"
+ordering = "NONE"
+side = "SERVER"
+
+[[dependencies.forgia_entity_safety]]
+modId = "cataclysm"
+type = "optional"
+versionRange = "[3.33,)"
+ordering = "AFTER"
+side = "SERVER"

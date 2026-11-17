@@ -1,0 +1,16 @@
+// Test-only unknown Mod. It is never declared safe or granted a runtime permission.
+gradle.projectsEvaluated {
+    def core = rootProject.findProject(':neoforge')
+    if (core == null) return
+    def probe = core.sourceSets.create('playerWorldFault') {
+        java.srcDir rootProject.file('tools/player-region-tick/world-fault/java')
+        resources.srcDir rootProject.file('tools/player-region-tick/world-fault/resources')
+        compileClasspath += core.sourceSets.main.output + core.sourceSets.main.compileClasspath
+    }
+    core.tasks.register('playerWorldFaultJar', Jar) {
+        dependsOn core.tasks.named('playerWorldFaultClasses')
+        archiveBaseName = 'forgia-player-world-fault'
+        archiveVersion = '1.0'
+        from probe.output
+    }
+}

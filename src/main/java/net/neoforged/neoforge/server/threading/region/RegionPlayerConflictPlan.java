@@ -1,0 +1,115 @@
+/*
+ * Copyright (c) NeoForged and contributors
+ * SPDX-License-Identifier: LGPL-2.1-only
+ */
+package net.neoforged.neoforge.server.threading.region;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import net.minecraft.world.entity.Entity;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+
+/** Contiguous-prefix conflict planning only: no pool, reordered fences, or body execution. */
+@ApiStatus.Internal
+public final class RegionPlayerConflictPlan {
+    public enum Conflict {
+        SAME_REGION, HALO_INTERSECTION, SHARED_TARGET
+    }
+
+    /** A null footprint is an original serial fence. Entity references are the original objects. */
+    public record Entry(Entity player, RegionCoordinate home, @Nullable RegionPlayerFootprint footprint, List<Entity> targets) {
+        public Entry {
+            targets = List.copyOf(targets);
+        }
+    }
+
+    public record Group(List<Entry> entries, List<RegionCoordinate> regions, Set<Conflict> reasons) {
+        public Group {
+            entries = List.copyOf(entries);
+            regions = List.copyOf(regions);
+            reasons = Set.copyOf(reasons);
+        }
+    }
+
+    public record Prefix(List<Group> groups, int nextIndex, boolean oversizedConflict) {
+        public Prefix {
+            groups = List.copyOf(groups);
+        }
+    }
+
+    private RegionPlayerConflictPlan() {}
+
+    /** Caller joins this prefix, executes the original fence, then CAPTURES the suffix again. */
+    public static Prefix prefix(List<Entry> ordered) {
+        if (ordered.isEmpty()) return new Prefix(List.of(), 0, false);
+        int size = 0;
+        var level = ordered.getFirst().home.level();
+        for (Entry entry : ordered) {
+            if (entry.footprint == null || entry.home.level() != level || entry.footprint.level() != level) break;
+            size++;
+        }
+        return groups(ordered, size, false);
+    }
+
+    private static Prefix groups(List<Entry> ordered, int size, boolean oversized) {
+        int[] parent = new int[size];
+        for (int i = 0; i < size; i++) parent[i] = i;
+        for (int i = 0; i < size; i++) for (int j = 0; j < i; j++) {
+            if (conflict(ordered.get(i), ordered.get(j)) != null) parent[root(parent, i)] = root(parent, j);
+        }
+        Map<Integer, List<Entry>> members = new LinkedHashMap<>();
+        Map<Integer, Integer> first = new LinkedHashMap<>();
+        for (int i = 0; i < size; i++) {
+            int key = root(parent, i);
+            members.computeIfAbsent(key, ignored -> new ArrayList<>()).add(ordered.get(i));
+            first.putIfAbsent(key, i);
+        }
+        List<Group> result = new ArrayList<>();
+        for (var component : members.entrySet()) {
+            Set<RegionCoordinate> regions = new LinkedHashSet<>();
+            Set<Conflict> reasons = new LinkedHashSet<>();
+            List<Entry> entries = component.getValue();
+            for (int i = 0; i < entries.size(); i++) {
+                regions.addAll(entries.get(i).footprint.regions());
+                for (int j = 0; j < i; j++) {
+                    Conflict reason = conflict(entries.get(i), entries.get(j));
+                    if (reason != null) reasons.add(reason);
+                }
+            }
+            if (regions.size() > RegionPlayerFootprint.MAX_REGIONS) {
+                // No member of the oversized component starts. Earlier independent entries remain
+                // eligible, and the caller performs a complete serial fence at its FIRST member.
+                return groups(ordered, first.get(component.getKey()), true);
+            }
+            List<RegionCoordinate> canonical = new ArrayList<>(regions);
+            canonical.sort(RegionLeasePack.CANONICAL_ORDER);
+            result.add(new Group(entries, canonical, reasons));
+        }
+        return new Prefix(result, size, oversized);
+    }
+
+    private static int root(int[] parent, int index) {
+        while (parent[index] != index) {
+            parent[index] = parent[parent[index]];
+            index = parent[index];
+        }
+        return index;
+    }
+
+    @Nullable
+    private static Conflict conflict(Entry a, Entry b) {
+        if (a.player == b.player || a.home.equals(b.home)) return Conflict.SAME_REGION;
+        Set<Entity> identities = Collections.newSetFromMap(new IdentityHashMap<>());
+        identities.addAll(a.targets);
+        if (b.targets.stream().anyMatch(identities::contains)) return Conflict.SHARED_TARGET;
+        if (a.footprint.regions().stream().anyMatch(b.footprint.regions()::contains)) return Conflict.HALO_INTERSECTION;
+        return null;
+    }
+}

@@ -1,0 +1,16 @@
+// Isolated unknown extension: exercises original main-thread contracts; never worker-admitted.
+gradle.projectsEvaluated {
+    def core = rootProject.findProject(':neoforge')
+    if (core == null) return
+    def probe = core.sourceSets.create('playerNetworkContract') {
+        java.srcDir rootProject.file('tools/player-region-tick/network-contract/java')
+        resources.srcDir rootProject.file('tools/player-region-tick/network-contract/resources')
+        compileClasspath += core.sourceSets.main.output + core.sourceSets.main.compileClasspath
+    }
+    core.tasks.register('playerNetworkContractJar', Jar) {
+        dependsOn core.tasks.named('playerNetworkContractClasses')
+        archiveBaseName = 'forgia-player-network-contract'
+        archiveVersion = '1.0'
+        from probe.output
+    }
+}

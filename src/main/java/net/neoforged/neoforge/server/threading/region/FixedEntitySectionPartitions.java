@@ -233,6 +233,11 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
      * section scan produces for the same region.
      */
     public void forEachAccessibleNonEmptySectionInRegion(int regionX, int regionZ, AABB box, AbortableIterationConsumer<EntitySection<T>> consumer) {
+        RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) {
+            var level = playerSpace.level();
+            playerSpace.requireSections(level, java.util.List.of(new RegionCoordinate(level, regionX, regionZ)), box);
+        }
         final Bucket<T> bucket = this.bucket(regionX, regionZ);
         if (bucket == null) {
             return;
@@ -271,6 +276,43 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
                 }
             }
         }
+    }
+
+    /** Complete-set scan in ORIGINAL signed packed section order, never region-group order. */
+    public void forEachAccessibleNonEmptySectionInRegions(java.util.List<RegionCoordinate> coordinates, AABB box, AbortableIterationConsumer<EntitySection<T>> consumer) {
+        if (coordinates.isEmpty() || coordinates.size() > RegionPlayerFootprint.MAX_REGIONS || new java.util.HashSet<>(coordinates).size() != coordinates.size())
+            throw new IllegalArgumentException("Invalid complete region set");
+        // Validate ALL leases before any bucket or predicate is visited.
+        if (RegionWorkerScope.isNativeWorkerThread()) for (RegionCoordinate coordinate : coordinates)
+            RegionThreadingHooks.assertLeasedEntityQuery(coordinate.level(), coordinate.regionX(), coordinate.regionZ());
+        RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+        if (playerSpace != null) playerSpace.requireSections(coordinates.getFirst().level(), coordinates, box);
+        Long2ObjectMap<EntitySection<T>> selected = new Long2ObjectOpenHashMap<>();
+        LongSortedSet ordered = new LongAVLTreeSet();
+        int size = this.layout.regionChunkSize();
+        for (RegionCoordinate coordinate : coordinates) {
+            Bucket<T> bucket = this.bucket(coordinate.regionX(), coordinate.regionZ());
+            if (bucket == null) continue;
+            int minX = Math.max(SectionPos.posToSectionCoord(box.minX - 2), coordinate.regionX() * size);
+            int maxX = Math.min(SectionPos.posToSectionCoord(box.maxX + 2), (coordinate.regionX() + 1) * size - 1);
+            int minZ = Math.max(SectionPos.posToSectionCoord(box.minZ - 2), coordinate.regionZ() * size);
+            int maxZ = Math.min(SectionPos.posToSectionCoord(box.maxZ + 2), (coordinate.regionZ() + 1) * size - 1);
+            int minY = SectionPos.posToSectionCoord(box.minY - 4), maxY = SectionPos.posToSectionCoord(box.maxY);
+            for (int x = minX; x <= maxX; x++) {
+                LongIterator ids = bucket.sectionIds.subSet(SectionPos.asLong(x, 0, 0), SectionPos.asLong(x, -1, -1) + 1).iterator();
+                while (ids.hasNext()) {
+                    long id = ids.nextLong();
+                    if (SectionPos.z(id) < minZ || SectionPos.z(id) > maxZ || SectionPos.y(id) < minY || SectionPos.y(id) > maxY) continue;
+                    EntitySection<T> section = bucket.sections.get(id);
+                    if (section != null && !section.isEmpty() && section.getStatus().isAccessible()) {
+                        ordered.add(id);
+                        selected.put(id, section);
+                    }
+                }
+            }
+        }
+        LongIterator ids = ordered.iterator();
+        while (ids.hasNext()) if (consumer.accept(selected.get(ids.nextLong())).shouldAbort()) return;
     }
 
     private static final class Bucket<T extends EntityAccess> {

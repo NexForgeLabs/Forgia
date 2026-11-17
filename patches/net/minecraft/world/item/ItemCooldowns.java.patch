@@ -1,0 +1,6 @@
+--- a/net/minecraft/world/item/ItemCooldowns.java
++++ b/net/minecraft/world/item/ItemCooldowns.java
+@@ -28,2 +_,3 @@
+     public void tick() {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
+         this.tickCount++;

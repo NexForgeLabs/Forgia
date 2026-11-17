@@ -80,6 +80,7 @@ public final class RegionScopedEntityQuery {
      */
     @Nullable
     public static List<Entity> tryQuery(ServerLevel level, @Nullable Entity excluded, AABB box, Predicate<? super Entity> predicate) {
+        if (RegionPlayerSpatialLease.current() != null) return RegionPlayerScopedQuery.query(level, excluded, box, predicate);
         final LeasedBox leased = leasedQueryBox(level, box, RegionEntityQueryCounters.Operation.GET_IN_BOX);
         if (leased == null) {
             return null;
@@ -120,6 +121,10 @@ public final class RegionScopedEntityQuery {
      */
     public static <T extends Entity> boolean tryQuery(
             ServerLevel level, EntityTypeTest<Entity, T> typeTest, AABB box, Predicate<? super T> predicate, List<? super T> result, int max) {
+        if (RegionPlayerSpatialLease.current() != null) {
+            RegionPlayerScopedQuery.query(level, typeTest, box, predicate, result, max);
+            return true;
+        }
         final LeasedBox leased = leasedQueryBox(level, box, RegionEntityQueryCounters.Operation.GET_BY_TYPE_IN_BOX);
         if (leased == null) {
             return false;
@@ -169,6 +174,10 @@ public final class RegionScopedEntityQuery {
      *         legacy guard
      */
     public static boolean tryGetInBox(ServerLevel level, AABB box, Consumer<Entity> consumer) {
+        if (RegionPlayerSpatialLease.current() != null) {
+            RegionPlayerScopedQuery.get(level, box, consumer);
+            return true;
+        }
         final LeasedBox leased = leasedQueryBox(level, box, RegionEntityQueryCounters.Operation.GET_IN_BOX);
         if (leased == null) {
             return false;
@@ -191,6 +200,10 @@ public final class RegionScopedEntityQuery {
      */
     public static <T extends Entity> boolean tryGetByTypeInBox(ServerLevel level, EntityTypeTest<Entity, T> typeTest, AABB box,
             AbortableIterationConsumer<T> consumer) {
+        if (RegionPlayerSpatialLease.current() != null) {
+            RegionPlayerScopedQuery.get(level, typeTest, box, consumer);
+            return true;
+        }
         final LeasedBox leased = leasedQueryBox(level, box, RegionEntityQueryCounters.Operation.GET_BY_TYPE_IN_BOX);
         if (leased == null) {
             return false;
@@ -238,6 +251,7 @@ public final class RegionScopedEntityQuery {
      */
     @Nullable
     public static List<Entity> tryGetAll(ServerLevel level) {
+        if (RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Player getAll has no bounded spatial contract");
         final RegionState region = leasedEntityIndex(level, RegionEntityQueryCounters.Operation.GET_ALL);
         if (region == null) {
             return null;
@@ -253,6 +267,7 @@ public final class RegionScopedEntityQuery {
      *         legacy guard
      */
     public static <T extends Entity> boolean tryGetByType(ServerLevel level, EntityTypeTest<Entity, T> typeTest, AbortableIterationConsumer<T> consumer) {
+        if (RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Player unbounded type query has no complete spatial contract");
         final RegionState region = leasedEntityIndex(level, RegionEntityQueryCounters.Operation.GET_BY_TYPE);
         if (region == null) {
             return false;

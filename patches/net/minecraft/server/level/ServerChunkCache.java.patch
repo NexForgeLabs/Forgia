@@ -21,7 +21,7 @@
              profilerfiller.incrementCounter("getChunkCacheMiss");
              CompletableFuture<ChunkResult<ChunkAccess>> completablefuture = this.getChunkFutureMainThread(p_8360_, p_8361_, p_330876_, p_8363_);
              this.mainThreadProcessor.managedBlock(completablefuture::isDone);
-@@ -164,10 +_,60 @@
+@@ -164,10 +_,66 @@
          }
      }
  
@@ -51,6 +51,12 @@
 +     */
 +    @Nullable
 +    private ChunkAccess getChunkForRegionWorker(int p_8360_, int p_8361_, ChunkStatus p_330876_, boolean p_8363_) {
++        final LevelChunk playerChunk = net.neoforged.neoforge.server.threading.RegionThreadingHooks.playerSpatialChunk(this.level, p_8360_, p_8361_);
++        if (playerChunk != null) {
++            ChunkAccess result = ChunkStatus.FULL.isOrAfter(p_330876_) ? playerChunk : null;
++            if (result == null) throw new IllegalStateException("Player chunk status exceeds captured FULL chunk");
++            return result;
++        }
 +        ChunkHolder chunkholder = this.getVisibleChunkIfPresent(ChunkPos.asLong(p_8360_, p_8361_));
 +        ChunkAccess chunkaccess = chunkholder == null ? null : chunkholder.getChunkIfPresent(p_330876_);
 +        if (chunkaccess == null && p_8363_) {

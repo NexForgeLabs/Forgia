@@ -1,9 +1,33 @@
 --- a/net/minecraft/server/PlayerAdvancements.java
 +++ b/net/minecraft/server/PlayerAdvancements.java
-@@ -166,6 +_,8 @@
+@@ -50,3 +_,4 @@
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
++    private final net.neoforged.neoforge.server.threading.region.PlayerCriterionListeners forgiaCriterionListeners = new net.neoforged.neoforge.server.threading.region.PlayerCriterionListeners(net.neoforged.neoforge.server.threading.RegionThreadingHooks.playerCriterionStorageEnabled());
+     private final PlayerList playerList;
+@@ -75,3 +_,9 @@
++    /** Neo: listener storage belongs to this advancement owner, never to a global trigger. */
++    public net.neoforged.neoforge.server.threading.region.PlayerCriterionListeners forgiaCriterionListeners() {
++        return this.forgiaCriterionListeners;
++    }
++
+     public void setPlayer(ServerPlayer p_135980_) {
++        this.forgiaCriterionListeners.invalidateLifecycle();
+         this.player = p_135980_;
+     }
+@@ -79,2 +_,3 @@
+     public void stopListening() {
++        this.forgiaCriterionListeners.invalidateLifecycle();
+         for (CriterionTrigger<?> criteriontrigger : BuiltInRegistries.TRIGGER_TYPES) {
+@@ -85,2 +_,3 @@
+     public void reload(ServerAdvancementManager p_135982_) {
++        this.forgiaCriterionListeners.invalidateLifecycle();
+         this.stopListening();
+@@ -166,6 +_,9 @@
      }
  
      public boolean award(AdvancementHolder p_300979_, String p_135990_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAward(this, p_300979_);
 +        // Forge: don't grant advancements for fake players
 +        if (this.player instanceof net.neoforged.neoforge.common.util.FakePlayer) return false;
          boolean flag = false;
@@ -24,6 +48,10 @@
                  });
              }
          }
+@@ -193,2 +_,3 @@
+     public boolean revoke(AdvancementHolder p_301073_, String p_136000_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAward(this, p_301073_);
+         boolean flag = false;
 @@ -198,6 +_,7 @@
              this.registerListeners(p_301073_);
              this.progressChanged.add(p_301073_);
@@ -32,6 +60,14 @@
          }
  
          if (flag1 && !advancementprogress.isDone()) {
+@@ -248,2 +_,3 @@
+     public void flushDirty(ServerPlayer p_135993_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAdvancements(this);
+         if (this.isFirstPacket || !this.rootsToUpdate.isEmpty() || !this.progressChanged.isEmpty()) {
+@@ -288,2 +_,3 @@
+     public AdvancementProgress getOrStartProgress(AdvancementHolder p_301185_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAdvancements(this);
+         AdvancementProgress advancementprogress = this.progress.get(p_301185_);
 @@ -321,3 +_,3 @@
      static record Data(Map<ResourceLocation, AdvancementProgress> map) {
 -        public static final Codec<PlayerAdvancements.Data> CODEC = Codec.unboundedMap(ResourceLocation.CODEC, AdvancementProgress.CODEC)

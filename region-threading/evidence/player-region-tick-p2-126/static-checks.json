@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "pythonFiles": 48,
+  "nodeFiles": 6,
+  "productionChanges": [
+    "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerNetworkGate.java",
+    "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java"
+  ],
+  "allInitialSourceFilesPreserved": 138,
+  "protectedFilesUnchanged": 7,
+  "legacy115VerifiersUnchanged": true,
+  "productionAdmissionUnchanged": true,
+  "gitDiffCheck": "passed"
+}

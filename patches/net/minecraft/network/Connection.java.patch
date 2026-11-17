@@ -1,29 +1,41 @@
 --- a/net/minecraft/network/Connection.java
 +++ b/net/minecraft/network/Connection.java
-@@ -107,6 +_,8 @@
+@@ -107,6 +107,8 @@
      private volatile DisconnectionDetails delayedDisconnect;
      @Nullable
      BandwidthDebugMonitor bandwidthDebugMonitor;
 +    @Nullable
 +    private ProtocolInfo<?> inboundProtocol;
- 
+-
++
      public Connection(PacketFlow p_129482_) {
          this.receiving = p_129482_;
-@@ -120,11 +_,13 @@
+@@ -120,15 +122,22 @@
          if (this.delayedDisconnect != null) {
              this.disconnect(this.delayedDisconnect);
          }
 +        net.neoforged.neoforge.network.connection.ConnectionUtils.setConnection(p_129525_, this);
      }
- 
+-
++
      @Override
      public void channelInactive(ChannelHandlerContext p_129527_) {
++        try (var regionNetwork = net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.enter(this, () -> this.channelInactive(p_129527_), null)) {
++            if (regionNetwork == null) return;
          this.disconnect(Component.translatable("disconnect.endOfStream"));
 +        net.neoforged.neoforge.network.connection.ConnectionUtils.removeConnection(p_129527_);
++            }
      }
- 
+-
++
      @Override
-@@ -141,6 +_,13 @@
+     public void exceptionCaught(ChannelHandlerContext p_129533_, Throwable p_129534_) {
++        try (var regionNetwork = net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.enter(this, () -> this.exceptionCaught(p_129533_, p_129534_), null)) {
++            if (regionNetwork == null) return;
+         if (p_129534_ instanceof SkipPacketException) {
+             LOGGER.debug("Skipping packet due to errors", p_129534_.getCause());
+         } else {
+@@ -141,6 +150,13 @@
                  } else {
                      Component component = Component.translatable("disconnect.genericReason", "Internal Exception: " + p_129534_);
                      PacketListener packetlistener = this.packetListener;
@@ -37,7 +49,30 @@
                      DisconnectionDetails disconnectiondetails;
                      if (packetlistener != null) {
                          disconnectiondetails = packetlistener.createDisconnectionInfo(component, p_129534_);
-@@ -226,6 +_,7 @@
+@@ -167,9 +183,12 @@
+                 }
+             }
+         }
++            }
+     }
+-
++
+     protected void channelRead0(ChannelHandlerContext p_129487_, Packet<?> p_129488_) {
++        try (var regionNetwork = net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.enter(this, () -> this.channelRead0(p_129487_, p_129488_), p_129488_)) {
++            if (regionNetwork == null) return;
+         if (this.channel.isOpen()) {
+             PacketListener packetlistener = this.packetListener;
+             if (packetlistener == null) {
+@@ -190,6 +209,7 @@
+                 }
+             }
+         }
++            }
+     }
+-
++
+     private static <T extends PacketListener> void genericsFtw(Packet<T> p_129518_, PacketListener p_129519_) {
+@@ -226,6 +246,7 @@
          if (p_320903_.flow() != this.getReceiving()) {
              throw new IllegalStateException("Invalid inbound protocol: " + p_320903_.id());
          } else {
@@ -45,7 +80,7 @@
              this.packetListener = p_320940_;
              this.disconnectListener = null;
              UnconfiguredPipelineHandler.InboundConfigurationTask unconfiguredpipelinehandler$inboundconfigurationtask = UnconfiguredPipelineHandler.setupInboundProtocol(
-@@ -254,7 +_,12 @@
+@@ -254,7 +275,12 @@
              if (bundlerinfo != null) {
                  PacketBundleUnpacker packetbundleunpacker = new PacketBundleUnpacker(bundlerinfo);
                  unconfiguredpipelinehandler$outboundconfigurationtask = unconfiguredpipelinehandler$outboundconfigurationtask.andThen(
@@ -58,8 +93,9 @@
 +                    }
                  );
              }
- 
-@@ -427,7 +_,7 @@
+-
++
+@@ -427,7 +453,7 @@
          if (this.address == null) {
              return "local";
          } else {
@@ -67,20 +103,53 @@
 +            return p_295875_ ? net.neoforged.neoforge.network.DualStackUtils.getAddressString(this.address) : "IP hidden";
          }
      }
- 
-@@ -470,6 +_,7 @@
+-
++
+@@ -436,6 +462,8 @@
      }
- 
+-
++
+     public void disconnect(DisconnectionDetails p_350867_) {
++        try (var regionNetwork = net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.enter(this, () -> this.disconnect(p_350867_), null)) {
++            if (regionNetwork == null) return;
+         if (this.channel == null) {
+             this.delayedDisconnect = p_350867_;
+         }
+@@ -444,6 +472,7 @@
+             this.channel.close().awaitUninterruptibly();
+             this.disconnectionDetails = p_350867_;
+         }
++            }
+     }
+-
++
+     public boolean isMemoryConnection() {
+@@ -470,6 +499,7 @@
+     }
+-
++
      public static ChannelFuture connect(InetSocketAddress p_290034_, boolean p_290035_, final Connection p_290031_) {
 +        net.neoforged.neoforge.network.DualStackUtils.checkIPv6(p_290034_.getAddress());
          Class<? extends SocketChannel> oclass;
          EventLoopGroup eventloopgroup;
          if (Epoll.isAvailable() && p_290035_) {
-@@ -638,5 +_,17 @@
- 
+@@ -611,9 +641,11 @@
+     }
+-
++
+     public void handleDisconnection() {
++        if (net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.deferWorkerDisconnection(this)) return;
+         if (this.channel != null && !this.channel.isOpen()) {
+             if (this.disconnectionHandled) {
+                 LOGGER.warn("handleDisconnection() called twice");
+             } else {
++                net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.retireConnection(this);
+                 this.disconnectionHandled = true;
+                 PacketListener packetlistener = this.getPacketListener();
+@@ -639,4 +671,16 @@
      public void setBandwidthLogger(LocalSampleLogger p_323799_) {
          this.bandwidthDebugMonitor = new BandwidthDebugMonitor(p_323799_);
-+    }
+     }
 +
 +    public Channel channel() {
 +        return this.channel;
@@ -92,5 +161,5 @@
 +
 +    public ProtocolInfo<?> getInboundProtocol() {
 +        return Objects.requireNonNull(this.inboundProtocol, "Inbound protocol not set?");
-     }
++    }
  }

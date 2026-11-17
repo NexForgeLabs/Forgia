@@ -1,7 +1,8 @@
 --- a/net/minecraft/server/network/ServerConnectionListener.java
 +++ b/net/minecraft/server/network/ServerConnectionListener.java
-@@ -48,11 +_,12 @@
- 
+@@ -48,11 +48,12 @@
+-
++
  public class ServerConnectionListener {
      private static final Logger LOGGER = LogUtils.getLogger();
 +    private static final int READ_TIMEOUT = Integer.parseInt(System.getProperty("neoforge.readTimeout", "30"));
@@ -15,21 +16,55 @@
      );
      final MinecraftServer server;
      public volatile boolean running;
-@@ -65,6 +_,8 @@
+@@ -65,6 +66,8 @@
      }
- 
+-
++
      public void startTcpServerListener(@Nullable InetAddress p_9712_, int p_9713_) throws IOException {
 +        if (p_9712_ == null) p_9712_ = new java.net.InetSocketAddress(p_9713_).getAddress();
 +        net.neoforged.neoforge.network.DualStackUtils.checkIPv6(p_9712_);
          synchronized (this.channels) {
              Class<? extends ServerSocketChannel> oclass;
              EventLoopGroup eventloopgroup;
-@@ -86,7 +_,7 @@
+@@ -86,7 +89,7 @@
                      } catch (ChannelException channelexception) {
                      }
- 
+-
++
 -                    ChannelPipeline channelpipeline = p_9729_.pipeline().addLast("timeout", new ReadTimeoutHandler(30));
 +                    ChannelPipeline channelpipeline = p_9729_.pipeline().addLast("timeout", new ReadTimeoutHandler(READ_TIMEOUT));
                      if (ServerConnectionListener.this.server.repliesToStatus()) {
                          channelpipeline.addLast("legacy_query", new LegacyQueryHandler(ServerConnectionListener.this.getServer()));
                      }
+@@ -146,14 +149,17 @@
+-
++
+     public void tick() {
+         synchronized (this.connections) {
++            try (var playerPass = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionPass(this.connections)) {
+             Iterator<Connection> iterator = this.connections.iterator();
+-
++
+             while (iterator.hasNext()) {
+                 Connection connection = iterator.next();
+                 if (!connection.isConnecting()) {
+-                    if (connection.isConnected()) {
++                    if (connection.isConnected() || (playerPass != null && playerPass.hasCompleted(connection))) {
+                         try {
+-                            connection.tick();
++                            if (!(playerPass != null && playerPass.tick(connection)) && !net.neoforged.neoforge.server.threading.RegionThreadingHooks.runPlayerConnectionTick(connection)) {
++                                connection.tick();
++                            }
+                         } catch (Exception exception) {
+                             if (connection.isMemoryConnection()) {
+                                 throw new ReportedException(CrashReport.forThrowable(exception, "Ticking memory connection"));
+@@ -173,6 +179,8 @@
+         }
+     }
+-
++
++    }
++
+     public MinecraftServer getServer() {
+         return this.server;
+     }

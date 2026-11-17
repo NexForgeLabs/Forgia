@@ -1,5 +1,9 @@
 --- a/net/minecraft/advancements/AdvancementRewards.java
 +++ b/net/minecraft/advancements/AdvancementRewards.java
+@@ -38,2 +_,3 @@
+     public void grant(ServerPlayer p_9990_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateHooks.reward(this, p_9990_);
+         p_9990_.giveExperiencePoints(this.experience);
 @@ -40,6 +_,7 @@
          LootParams lootparams = new LootParams.Builder(p_9990_.serverLevel())
              .withParameter(LootContextParams.THIS_ENTITY, p_9990_)

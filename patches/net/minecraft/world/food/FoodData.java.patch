@@ -1,0 +1,6 @@
+--- a/net/minecraft/world/food/FoodData.java
++++ b/net/minecraft/world/food/FoodData.java
+@@ -33,2 +_,3 @@
+     public void tick(Player p_38711_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
+         Difficulty difficulty = p_38711_.level().getDifficulty();

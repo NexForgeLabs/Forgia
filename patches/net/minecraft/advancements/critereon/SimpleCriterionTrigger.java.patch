@@ -1,0 +1,56 @@
+--- a/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java
++++ b/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java
+@@ -19,28 +_,45 @@
+ 
+     @Override
+     public final void addPlayerListener(PlayerAdvancements p_66243_, CriterionTrigger.Listener<T> p_66244_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAdvancements(p_66243_);
+-        this.players.computeIfAbsent(p_66243_, p_66252_ -> Sets.newHashSet()).add(p_66244_);
++        if (p_66243_.forgiaCriterionListeners().enabled()) {
++            p_66243_.forgiaCriterionListeners().add(this, p_66244_);
++        } else {
++            this.players.computeIfAbsent(p_66243_, p_66252_ -> Sets.newHashSet()).add(p_66244_);
++        }
+     }
+ 
+     @Override
+     public final void removePlayerListener(PlayerAdvancements p_66254_, CriterionTrigger.Listener<T> p_66255_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAdvancements(p_66254_);
+-        Set<CriterionTrigger.Listener<T>> set = this.players.get(p_66254_);
+-        if (set != null) {
+-            set.remove(p_66255_);
+-            if (set.isEmpty()) {
+-                this.players.remove(p_66254_);
++        if (p_66254_.forgiaCriterionListeners().enabled()) {
++            p_66254_.forgiaCriterionListeners().remove(this, p_66255_);
++        } else {
++            Set<CriterionTrigger.Listener<T>> set = this.players.get(p_66254_);
++            if (set != null) {
++                set.remove(p_66255_);
++                if (set.isEmpty()) {
++                    this.players.remove(p_66254_);
++                }
+             }
+         }
+     }
+ 
+     @Override
+     public final void removePlayerListeners(PlayerAdvancements p_66241_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAdvancements(p_66241_);
+-        this.players.remove(p_66241_);
++        if (p_66241_.forgiaCriterionListeners().enabled()) {
++            p_66241_.forgiaCriterionListeners().removeAll(this);
++        } else {
++            this.players.remove(p_66241_);
++        }
+     }
+ 
+     protected void trigger(ServerPlayer p_66235_, Predicate<T> p_66236_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkTrigger(this, p_66235_);
+         PlayerAdvancements playeradvancements = p_66235_.getAdvancements();
+-        Set<CriterionTrigger.Listener<T>> set = this.players.get(playeradvancements);
++        Set<CriterionTrigger.Listener<T>> set = playeradvancements.forgiaCriterionListeners().enabled()
++            ? playeradvancements.forgiaCriterionListeners().get(this) : this.players.get(playeradvancements);
+         if (set != null && !set.isEmpty()) {
+             LootContext lootcontext = EntityPredicate.createContext(p_66235_, p_66235_);
+             List<CriterionTrigger.Listener<T>> list = null;

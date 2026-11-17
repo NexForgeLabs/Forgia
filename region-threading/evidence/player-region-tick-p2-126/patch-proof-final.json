@@ -1,0 +1,165 @@
+{
+  "status": "passed",
+  "archive": "projects/neoforge/build/neodev/artifacts/patched-sources.jar",
+  "archiveSha256": "044c41a4fb76213e8ca2cf9015a7cd8eb2a393c1974556e2c16bb8ad8d872a22",
+  "comparison": "byte-for-byte applied persisted source vs generated source, changed and untracked patches",
+  "files": [
+    {
+      "patch": "patches/net/minecraft/advancements/AdvancementRewards.java.patch",
+      "patchSha256": "e3471dcccdc7e940e09ea8f4faa2b92025365ad65d2b79143c0e13a31bd5195e",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/advancements/AdvancementRewards.java",
+      "sourceSha256": "f5aa5261823fa160a39a341b9b87314feb8d4f5098980d15a87b0c1672f1f14a"
+    },
+    {
+      "patch": "patches/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java.patch",
+      "patchSha256": "82805408a83ee518384f5aa461c1a1a2cf82bb2529317a255c0666fdf5b82477",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java",
+      "sourceSha256": "4c8467f9ec818becfe1dd892162da3c3faaf8971c1ea98670648c17c9a846d2c"
+    },
+    {
+      "patch": "patches/net/minecraft/network/Connection.java.patch",
+      "patchSha256": "44445d2980084ccaf86b410e3a958bf00cee24da34ce6e8de0a72efed92373c8",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/network/Connection.java",
+      "sourceSha256": "faa1ccba7ff618be6e60ffe8a07d5c300d874e0bb5b27e80c6ce7bc1c83dfa06"
+    },
+    {
+      "patch": "patches/net/minecraft/server/PlayerAdvancements.java.patch",
+      "patchSha256": "9a7ba584dbd635e5a21cb404cf23a5683c579fa5883ff6df37dd72ab00084739",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/PlayerAdvancements.java",
+      "sourceSha256": "80a58324c6d85edcc072bea389740bf3a5ec14913a92b0a507b1d5cd9e0bdf8e"
+    },
+    {
+      "patch": "patches/net/minecraft/server/level/ServerChunkCache.java.patch",
+      "patchSha256": "568ed21796d67ed4acfdaf4d2a446104d40667bc72b2296495a7a0fde6e6fe97",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/level/ServerChunkCache.java",
+      "sourceSha256": "5d7927ca01342f24d14db1ca7dc88eab2f097724ff1e381ccb4de43d9b389dbf"
+    },
+    {
+      "patch": "patches/net/minecraft/server/level/ServerLevel.java.patch",
+      "patchSha256": "f2c1303e7acdf539f9531ac0c10414882a1629c3c86026d35e634ff0481ddf7f",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/level/ServerLevel.java",
+      "sourceSha256": "4f36807b1c58da1462c00d293fd414fba940f05bc67bb6fec8d5a8dfd18a5469"
+    },
+    {
+      "patch": "patches/net/minecraft/server/level/ServerPlayer.java.patch",
+      "patchSha256": "7aa64cb498728dff53f3cdcc30d625d6d8c24446d4dcfd74d01752946c2c10da",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/level/ServerPlayer.java",
+      "sourceSha256": "d914d4816d8ffd2b7a93d8740de143f1e05a3aed6e816aebec80ad7716fb8350"
+    },
+    {
+      "patch": "patches/net/minecraft/server/level/ServerPlayerGameMode.java.patch",
+      "patchSha256": "430db30c661c0cfe9640c51e211a20c5a20af09b21ac35c59b98e9a3f917e44d",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/level/ServerPlayerGameMode.java",
+      "sourceSha256": "7dc686432b2ab8b4a4b892b5429884f6cf72a4de51b712458802d382b48beb75"
+    },
+    {
+      "patch": "patches/net/minecraft/server/network/ServerCommonPacketListenerImpl.java.patch",
+      "patchSha256": "9d7fee72eea2c8203d0f41a2e0124193de255beda4628ab7cf86145e583cfc6c",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/network/ServerCommonPacketListenerImpl.java",
+      "sourceSha256": "0592009c60533fd86a31d7032ed92d25eba767cedd73696aa9013dd056e0afdf"
+    },
+    {
+      "patch": "patches/net/minecraft/server/network/ServerConnectionListener.java.patch",
+      "patchSha256": "82d58621c2d7ce2dc7727b19bdc905a1d8a231b659053edc470dfbc88e0f5074",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/server/network/ServerConnectionListener.java",
+      "sourceSha256": "bf7609ee08999e43dbd5da3fe26547415b293e65d6d9e418071cfd9e289a4c39"
+    },
+    {
+      "patch": "patches/net/minecraft/stats/StatType.java.patch",
+      "patchSha256": "e57f3c3fbec7b9e82186a44c9003e20a8975c2d14823b72819be2253df1318ef",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/stats/StatType.java",
+      "sourceSha256": "4ca4e1bcb0cbcbf38f0ec6daaea8296c058cf886dd7b87ee235076effa779e9f"
+    },
+    {
+      "patch": "patches/net/minecraft/stats/StatsCounter.java.patch",
+      "patchSha256": "411b1bc0522b36895b181fe8a887867ecd09277523357e7ba8ebfcfc189e6383",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/stats/StatsCounter.java",
+      "sourceSha256": "36aadeb3fcbc90528589015f201d8bae5a7ff4cf2771feb38ebbc2cb9392e706"
+    },
+    {
+      "patch": "patches/net/minecraft/world/entity/Entity.java.patch",
+      "patchSha256": "524e79c4e09206ca54d7fbf1653363d7fcb35fdbd5b14de919e7516917f497c8",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/entity/Entity.java",
+      "sourceSha256": "8f0efef9cee37fc5173f85d27f909f0521f2738f358b6053ade1d8766a76164e"
+    },
+    {
+      "patch": "patches/net/minecraft/world/entity/LivingEntity.java.patch",
+      "patchSha256": "1a2a1edbda7c6fea73f56e4c129f1b5947c1a58a4c595b7099efe28b695a55b5",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/entity/LivingEntity.java",
+      "sourceSha256": "ada06d4aa9ee59a01130e27122f9803d3cbc169e461cc6842836636081f8c6c7"
+    },
+    {
+      "patch": "patches/net/minecraft/world/entity/ai/attributes/AttributeInstance.java.patch",
+      "patchSha256": "da545c6d20592d19a5c3c2f7c3208151b1537461f65045336b985b833626a7fa",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/entity/ai/attributes/AttributeInstance.java",
+      "sourceSha256": "788d415db1a9c97ff0d0c1f153138ae949fe9b18ec16a920f2d86d44d25cdf38"
+    },
+    {
+      "patch": "patches/net/minecraft/world/entity/ai/attributes/AttributeMap.java.patch",
+      "patchSha256": "4166a0546806a8cdf5eaa5db8c051d237464a434ceb1309474551675428825d6",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/entity/ai/attributes/AttributeMap.java",
+      "sourceSha256": "d8d49fc129ee6236de60ae181e3accb7f132c3324864e25a25c720ad62835334"
+    },
+    {
+      "patch": "patches/net/minecraft/world/entity/player/Player.java.patch",
+      "patchSha256": "c065868bcea77ab11bade41b05014026a8ccdec3aa7928a6bc6b7d431b7b4698",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/entity/player/Player.java",
+      "sourceSha256": "f58b47f033cb00bd6a2a1540dd780ce48b8cdb504ecb4feaf7a696c9b55a7bd4"
+    },
+    {
+      "patch": "patches/net/minecraft/world/food/FoodData.java.patch",
+      "patchSha256": "a1d9e7f276d9b668cb6ed81b1f6cbd888c3d65a2d4e5da4425e50173fbb74099",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/food/FoodData.java",
+      "sourceSha256": "443c95fd7dbc2c9bf7cd310b4e06cfd7b1cd25a7fd4af05bec3ceb1222d4a239"
+    },
+    {
+      "patch": "patches/net/minecraft/world/inventory/AbstractContainerMenu.java.patch",
+      "patchSha256": "a53831a37af856a5769f6ac5a0850524b3b9439db06aa21307db18c5d2fd150e",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/inventory/AbstractContainerMenu.java",
+      "sourceSha256": "d4a43bf717796d812695b7b304f179c62c0ccedfb1c9265135c3a6b2d50643b0"
+    },
+    {
+      "patch": "patches/net/minecraft/world/inventory/InventoryMenu.java.patch",
+      "patchSha256": "159eca6f881cd3ba86e065f35ec4eecd7ee6c1adfc542e0a64f030721bf81c89",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/inventory/InventoryMenu.java",
+      "sourceSha256": "da653ef74cc46a53184cb98aa8a92b364dd739f2f2e3a40a07a68d136ff289c7"
+    },
+    {
+      "patch": "patches/net/minecraft/world/item/ItemCooldowns.java.patch",
+      "patchSha256": "894969c72eca1bba4b20b54523185a47ceae358a43766a96dbc63851218d7a81",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/item/ItemCooldowns.java",
+      "sourceSha256": "067c1a766de1e01c9cbaabf4f235138dd8433c56eb21663839a0af24acf01e1b"
+    },
+    {
+      "patch": "patches/net/minecraft/world/level/Level.java.patch",
+      "patchSha256": "470ef203581d0bf1d909cf02fa19ca65e06a23382341ff64f5e8dff46d4d3174",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/level/Level.java",
+      "sourceSha256": "38eec80013702c61830739853104df8689b6fcb988f7a81d2c2f11b0de1cc496"
+    },
+    {
+      "patch": "patches/net/minecraft/world/level/chunk/LevelChunk.java.patch",
+      "patchSha256": "e62e7534a3041dcf644673f383a76e45d8378fb9dda9c4ee50d32f672a1a4636",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/level/chunk/LevelChunk.java",
+      "sourceSha256": "f5b58cbe28bae2d4cc47ec38c03e34c7cb0a692063d27a0cb94e8295549e6208"
+    },
+    {
+      "patch": "patches/net/minecraft/world/level/entity/EntitySectionStorage.java.patch",
+      "patchSha256": "d9f073c68f729bcd43a87cd00150e95a2a9928991017fec223ce442f86c1c80a",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/level/entity/EntitySectionStorage.java",
+      "sourceSha256": "c2c47b07200dbbf8e93c5b2e590291515f1fa92ce24090df547ed94d420ee844"
+    },
+    {
+      "patch": "patches/net/minecraft/world/level/entity/PersistentEntitySectionManager.java.patch",
+      "patchSha256": "2aeea8dcafc1e3902baed168028de8b14a1902d25923b24dfa358756122841ac",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/level/entity/PersistentEntitySectionManager.java",
+      "sourceSha256": "94d59ba703760c3dbd09eeb5a15afe0e842217e931c1f3e3b26a3f6e6c5af319"
+    },
+    {
+      "patch": "patches/net/minecraft/world/scores/Scoreboard.java.patch",
+      "patchSha256": "d6cf2b792456ba6d10f06fa3dedd617e09a372760321cb1560b8422eb6b3d430",
+      "generated": "projects/neoforge/src/main/java/net/minecraft/world/scores/Scoreboard.java",
+      "sourceSha256": "3746f007df78eb928b27c83d2ef20fa5e00a2590ec112a42a3e4b31941d3b158"
+    }
+  ],
+  "fileCount": 26
+}
