@@ -70,10 +70,10 @@ Ownership is by lease, not by thread name. `Thread.currentThread().getName()` is
 
 | Topic | Evidence document |
 |---|---|
-| Overall status and roadmap | [STATUS](../../region-threading/STATUS.md) |
-| Configuration matrix | [PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md) |
-| Benchmarks | [PERFORMANCE-BENCHMARKS](../../region-threading/PERFORMANCE-BENCHMARKS.md) |
-| Block entities | [BLOCK-ENTITY-PARALLELISM](../../region-threading/BLOCK-ENTITY-PARALLELISM.md), [CANONICAL-BLOCK-ENTITY-COORDINATOR](../../region-threading/CANONICAL-BLOCK-ENTITY-COORDINATOR.md) |
-| Entity/ownership protocols | [OWNERSHIP-PROTOCOLS-VALIDATION](../../region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md) |
-| Cross-region/scheduled | [CROSS-REGION-OPERATIONS](../../region-threading/CROSS-REGION-OPERATIONS.md) |
-| Observability | [RUNTIME-OBSERVABILITY](../../region-threading/RUNTIME-OBSERVABILITY.md) |
+| Overall status and roadmap | [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) |
+| Configuration matrix | [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md) |
+| Benchmarks | [PERFORMANCE-BENCHMARKS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md) |
+| Block entities | [BLOCK-ENTITY-PARALLELISM](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md), [CANONICAL-BLOCK-ENTITY-COORDINATOR](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-COORDINATOR.md) |
+| Entity/ownership protocols | [OWNERSHIP-PROTOCOLS-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md) |
+| Cross-region/scheduled | [CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md) |
+| Observability | [RUNTIME-OBSERVABILITY](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/RUNTIME-OBSERVABILITY.md) |
