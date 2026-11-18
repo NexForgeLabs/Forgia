@@ -17,7 +17,7 @@ claim.
 
 | I want to… | Read | Primary types |
 |---|---|---|
-| Understand what Forgia is and what is certified | [README](../README.md), [STATUS](../region-threading/STATUS.md) ([中文](../region-threading/STATUS.zh.md)) | — |
+| Understand what Forgia is and what is certified | [README](https://github.com/NexForgeLabs/Forgia/blob/main/README.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) ([中文](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.zh.md)) | — |
 | Start a server / enable region threading | [Observability & configuration](modules/observability.en.md) | `forgia.toml`, `/forgia` |
 | Call a mod-facing API | [API overview](api/README.en.md) | `ParallelApi` |
 | Prepare natural-spawn data on the server, run the body on a worker | [Natural-spawn preparation](api/natural-spawn-preparation.en.md) | `NaturalSpawnPreparation`, `Ready`, `ServerRequired` |
@@ -28,7 +28,7 @@ claim.
 | Install or validate the Create adapter | [Create adapter](adapters/create-adapter.en.md) | `forgia_create:steady_ticks` |
 | Install or validate the MobSpawnController adapter | [MSC adapter](adapters/mobspawncontroller-adapter.en.md) | `forgia_mobspawncontroller` |
 | Understand the engine internals | [Module docs](modules/README.en.md) | `RegionThreadingEngine`, `CanonicalBlockEntityCoordinator` |
-| Read a measurement, not a summary | [Evidence archive](../region-threading/STATUS.md) | — |
+| Read a measurement, not a summary | [Evidence archive](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) | — |
 
 ## 2. Documentation map
 
