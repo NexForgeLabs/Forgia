@@ -156,6 +156,13 @@ final class RegionEntityTickPolicy {
         if (reason != null) {
             return reason;
         }
+        // Original ItemEntity.tick can merge on a 2-tick (moving) or 40-tick (stationary)
+        // cadence after tickNonPassenger increments tickCount. Its complete query can return
+        // a stored non-ticking item absent from this batch's mutation membership. Keep every
+        // potentially merging invocation on the publisher BEFORE either stack is modified;
+        // do not clamp the query, skip the merge, widen discard permission, or replay a tick.
+        if (entity instanceof net.minecraft.world.entity.item.ItemEntity && (entity.tickCount + 1) % 2 == 0)
+            return "item_merge_sync_fence";
         for (final Entity passenger : entity.getPassengers()) {
             final String passengerReason = this.reasonFor(passenger);
             if (passengerReason != null) {

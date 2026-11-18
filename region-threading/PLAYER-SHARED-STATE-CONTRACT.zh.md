@@ -1,3 +1,11 @@
+P4最终`.146`按当前逐类有界合同完成统一验收，停止在P5前。完整结果/约束与失败见[P4记录](PLAYER-REGION-TICK-P4.zh.md)最后收口，机器回执`tmp/player-region-tick-p4-final04/acceptance-01/receipt.json`。无碰撞有限移动、匹配已生效目标确认、原材料库存/共享单箱及无签名低spam原FutureChain完成具备owner协议；所有未闭合路径完整原串行。默认false、未知扩展freeze前串行、MAIN/NETWORK原合同、无开始后重放与真实join后清理保持。下文进行中/旧产物措辞保留历史。
+
+---
+
+当前P4 `.144`候选补足：有限原移动/确认/材料库存/共享单箱点击及原过滤聊天completion复用当前spatial/state lease。原ChunkMap tracking和全局聊天广播只在worker同步暂停时由原publisher执行精确一次服务，不泵通用队列；未知可达事件监听器freeze前整次串行。原任务/聊天封装取消清空引用、retains一次释放、shutdown等实际thaw/原回调返回。详细边界见[production合同](PLAYER-PRODUCTION-ADMISSION-CONTRACT.zh.md)开头及[P4记录](PLAYER-REGION-TICK-P4.zh.md)末尾。644 JUnit/3选定GameTest通过，完整同产物矩阵进行中，P5未开始。以下P3/P2状态保留历史。
+
+---
+
 # 玩家共享状态前置协议
 
 P3最终`.134`已按当前逐类有界合同完成统一验收，P4/P5未开始；下文进行中/旧产物措辞保留历史。最新收口与限制见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾及`tmp/player-region-tick-p3-final02/acceptance-01/receipt.json`。

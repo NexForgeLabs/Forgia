@@ -1,3 +1,27 @@
+当前最终结论（2026-11-18）：**P4按设计第7节逐类有界owner网络协议完成，同产物21.1.250.146-beta；停在P5前，P5未开始，整体仍partial。** 652项JUnit、3选定GameTest、完整schema3 144/schema4 180、13套P2、28份P3/14份P4、369项proof控制、110份verdict/102隔离安装通过。回执`tmp/player-region-tick-p4-final04/acceptance-01/receipt.json`及`final-audit.json`，详细边界/全部失败见[P4记录](PLAYER-REGION-TICK-P4.zh.md)末尾。默认false、未知扩展freeze前串行、MAIN合同、不重放和真实join保持；签名/高spam/碰撞纠正等仍完整串行。P3已推送，P4代码本地未提交。以下所有旧状态保留历史。
+
+---
+
+当前P4（2026-11-18）：`.146`为最终冻结候选，652项/21类JUnit、351项聚焦及3选定GameTest通过；新增签名/限流聊天串行预算、原扫掠体无碰撞前置检查。统一验收根`tmp/player-region-tick-p4-final04`；两池队列和首组真实撞墙纠正通过，完整四模式/P2/P3/schema3/4矩阵仍在运行。所有旧产物与失败保留，不混入新产物认证。详细当前范围见[P4记录](PLAYER-REGION-TICK-P4.zh.md)末尾；P4尚未最终收口，P5未开始。默认false、未知扩展freeze前整次串行、原MAIN合同、开始后不重放和真实join后清理保持。P3已推送，P4代码本地未提交。以下旧状态保留历史。
+
+---
+
+当前P4（2026-11-18）：最终候选已推进至`.145`，645项/21类受影响JUnit、344项聚焦回归及3项选定GameTest通过；两池真实队列、四模式routes/async和四模式生产smoke通过，完整schema3/4、13套P2及P3统一矩阵继续。`.144`原执行器空任务反例已在完整原PacketUtils入口复现并修正，所有旧产物/失败保留，不能把`.144`中间通过混入最终认证。精确当前边界与证据见[P4实施记录](PLAYER-REGION-TICK-P4.zh.md)末尾。默认false/未知扩展freeze前串行/MAIN合同/开始后不重放/真实join后清理保持；P4尚未最终验收，P5未开始。P3已推送，P4代码本地未提交。以下旧状态保留历史。
+
+---
+
+当前P4（2026-11-18）：用户要求自主完成整个P4，完成后停在P5前。当前`.144`候选在构建，整体未验收；原包路由支持有限移动/跨区发布、匹配confirm、本地普通材料PICKUP/共享单箱QUICK_MOVE及原过滤聊天completion。`.143`四模式异步与部分原路由/队列/兼容证据已通过，但日志审计发现旧XP停服测试未捕获后台异常，已新增fail-first断言并修正真正等待thaw/原回调返回的停服边界。全部失败保留，同一最终产物完整矩阵尚待重跑；默认false/未知扩展freeze前串行/原MAIN合同/开始后不重放保持。详见[当前P4记录](PLAYER-REGION-TICK-P4.zh.md)末尾。P3提交38b2e985a已推送；P4源码本地未提交，P5未开始。以下旧状态保留历史。
+
+---
+
+当前P4（2026-11-18）：P3提交`38b2e985a`已推送origin/main。首条有界空槽切换owner包四模式/9项proof负控制与576项受影响JUnit通过，`.136`NETWORK/MAIN和双入口smoke四模式通过；**转换off-persistent发生普通ItemEntity.merge→discard存储权限崩溃，P4及`.136`整体仍partial、未验收**。失败世界/原包/崩溃保留；详细范围、回执和下步定位见[当前P4实施记录](PLAYER-REGION-TICK-P4.zh.md)末尾。移动/传送confirm/库存/async owner未开放，P5未开始。以下旧状态保留历史。
+
+---
+
+当前任务（2026-11-18）：用户已授权推送并开始P4，解除下文历史“停在P4前”限制。P3验收提交`38b2e985a`已推送origin/main。P4 owner网络路由进行中，首个候选为原快捷栏空槽切换包，详见[当前P4实施记录](PLAYER-REGION-TICK-P4.zh.md)；移动/传送确认/点击/async owner尚未开放，整体P4未完成，P5未开始。保留原默认关闭、未知扩展freeze前串行、原MAIN payload合同、开始后不重放与真实join后清理。
+
+---
+
 当前结论（2026-11-18）：**P3已按设计第7节的逐类有界协议完成统一验收，最终产物21.1.250.134-beta；停在P4前，P4/P5未开始。整体设计仍partial。** XP末次/单球、普通材料库存拾取、共享单箱子原菜单tick、非显示计分板、真实背包地图及一次非致命自饥饿伤害均有完整原worker正文、事件/同步结果、客户端反馈和守恒证据。一般PvP/实体/方块/开箱点击等正常包继续原服务器fence，未知/未支持路径完整串行，不能将P3完成理解为任意玩法或Mod可并行。
 
 同产物557项受影响JUnit、3项选定GameTest、28份P3四模式语料（56玩法子场景）、schema3 144/schema4 180、13套P2兼容/故障/网络/退役矩阵及321项proof篡改负控制通过；96份独立verdict和88套隔离安装由最终审计闭合。四模式A owner(0,0)正常攻击B owner(1,0)均health20→19、客户端health19和一个damage包；两池两入口跨区真实重叠，同区0。oracle仍UNKNOWN_MOD/worker=0。

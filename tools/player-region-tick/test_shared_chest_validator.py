@@ -32,7 +32,14 @@ def main():
   elif kind=='owner':next(x for x in r['opened']['players'] if x['name']=='WorkerB')['regionX']=0
   elif kind=='client':r['clientsConfirmed']['WorkerB']['window']['items'][-1]['itemCount']=12
   f.unlink();f.write_text(json.dumps(r))
- cases=[('worker_missing',lambda p:mutate_trace(p,serial)),('complete_stack_missing',lambda p:mutate_trace(p,original_stack)),('shared_chest_identity',lambda p:mutate_trace(p,chest_identity)),('distinct_menu_identity',lambda p:mutate_trace(p,menu_identity)),('synchronous_validity_false',lambda p:mutate_trace(p,bad_return)),('post_click_visibility_missing',lambda p:mutate_trace(p,remove_zero)),('open_event_missing',lambda p:mutate_trace(p,lambda r:r.remove(next(x for x in r if x['event']=='open-event')))),('close_event_duplicate',lambda p:mutate_trace(p,lambda r:r.insert(-1,dict(next(x for x in r if x['event']=='close-event'))))),*[(kind,lambda p,k=kind:alter_result(p,k)) for kind in ['inventory','owner','client']]]
+ def packet_serial(rows):
+  for row in rows:
+   if row.get('phase')=='PACKET' and 'thread' in row and 'Worker' in row['thread']:row['thread']='Server thread'
+ def packet_stack(rows):
+  for row in rows:
+   if row.get('phase')=='PACKET' and row['event']=='enter':row['stack']=[f for f in row['stack'] if 'ServerGamePacketListenerImpl.handleContainerClick:' not in f]
+ cases=[('owner_packet_worker_missing',lambda p:mutate_trace(p,packet_serial)),('owner_packet_original_handler_missing',lambda p:mutate_trace(p,packet_stack)),('worker_missing',lambda p:mutate_trace(p,serial)),('complete_stack_missing',lambda p:mutate_trace(p,original_stack)),('shared_chest_identity',lambda p:mutate_trace(p,chest_identity)),('distinct_menu_identity',lambda p:mutate_trace(p,menu_identity)),('synchronous_validity_false',lambda p:mutate_trace(p,bad_return)),('post_click_visibility_missing',lambda p:mutate_trace(p,remove_zero)),('open_event_missing',lambda p:mutate_trace(p,lambda r:r.remove(next(x for x in r if x['event']=='open-event')))),('close_event_duplicate',lambda p:mutate_trace(p,lambda r:r.insert(-1,dict(next(x for x in r if x['event']=='close-event'))))),*[(kind,lambda p,k=kind:alter_result(p,k)) for kind in ['inventory','owner','client']]]
+ if not any(x.get('protocol')==2 for x in map(json.loads,(out/'jdi.ndjson').read_text().splitlines())):cases=[c for c in cases if not c[0].startswith('owner_packet_')]
  for name,change in cases:
   with tempfile.TemporaryDirectory(prefix='forgia-shared-chest-') as directory:
    root=Path(directory)

@@ -1,0 +1,36 @@
+{
+  "status": "failed_excluded",
+  "cause": "undetermined",
+  "originalHurtJdi": [
+    20,
+    19
+  ],
+  "debuggerExit": 0,
+  "afterDamageMark": {
+    "outgoingDamagePackets": 0,
+    "healthUpdates": [],
+    "keepaliveReplies": [
+      {
+        "bot": "WorkerA",
+        "nano": "41586347250927"
+      },
+      {
+        "bot": "WorkerB",
+        "nano": "41587998772033"
+      }
+    ],
+    "clientTimeouts": [
+      {
+        "bot": "WorkerA",
+        "nano": "41616357213152",
+        "reason": "keepAliveError"
+      },
+      {
+        "bot": "WorkerB",
+        "nano": "41618001349033",
+        "reason": "keepAliveError"
+      }
+    ]
+  },
+  "note": "Original incident lacks thread dump. Raw data supports observed post-hurt stall; no claim of root cause or production fix. Fresh mapped recovery and two separate strict probes pass."
+}

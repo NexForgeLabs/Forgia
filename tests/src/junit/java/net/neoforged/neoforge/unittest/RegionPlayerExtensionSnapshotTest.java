@@ -151,6 +151,25 @@ class RegionPlayerExtensionSnapshotTest {
         assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "ServerChatEvent", "ItemStackedOnOtherEvent", "level.ChunkWatchEvent$Watch", "level.ChunkWatchEvent$UnWatch",
+            "level.ChunkTicketLevelUpdatedEvent", "entity.player.PlayerEvent$StartTracking", "entity.player.PlayerEvent$StopTracking",
+            "entity.EntityEvent$EnteringSection", "level.BlockEvent$NeighborNotifyEvent"
+    })
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    void packetAndSynchronousPublisherServiceListenersRefuseBeforeOwnerEffects(String name) throws Exception {
+        var bus = BusBuilder.builder().build();
+        Class event = Class.forName("net.neoforged.neoforge.event." + name);
+        Consumer<Event> unknown = value -> {
+            throw new AssertionError("Capture cannot invoke a callback");
+        };
+        bus.addListener(event, unknown);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
+        bus.unregister(unknown);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
+    }
+
     @Test
     void onlyOriginalInheritedRidingDeclarationCanBeBypassed() throws Exception {
         var policy = new Policy();

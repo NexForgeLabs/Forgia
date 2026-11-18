@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "status": "P4_complete_design_section_7_bounded_owner_network_protocols",
+  "generatedAt": "2026-11-18T05:10:53.025952+00:00",
+  "version": "21.1.250.146-beta",
+  "overallStatus": "partial_P5_not_started",
+  "p4Status": "complete_bounded_protocols",
+  "p5Status": "not_started",
+  "stopBeforeP5": true,
+  "installer": {
+    "path": "tmp/player-region-tick-p4-final04/artifacts/neoforge-21.1.250.146-beta-installer.jar",
+    "sha256": "e8482c4830517fc6d18af6b84a2b6e672a136e46595eb1036c2675fe6650bc4a",
+    "bytes": 11544607
+  },
+  "manifest": {
+    "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.146-beta.json",
+    "sha256": "99671241fb4de384ded730a8bf458e3956cca7bc04c00f32d8f174a3ac3d00ac",
+    "bytes": 8056
+  },
+  "evidenceMap": {
+    "path": "tmp/player-region-tick-p4-final04/accepted-evidence.json",
+    "sha256": "60146d85336eeb27f1f40531406820c56aa473d31754e222a17511651f326c2a",
+    "bytes": 29197
+  },
+  "junit": {
+    "tests": 652,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "selectedGameTestsPassed": 3,
+  "persistedPatchProof": {
+    "path": "tmp/player-region-tick-p4-final04/patch-proof.json",
+    "sha256": "79a22a2c0e2901f7928eb5a26883140834af33c44c5a4814f3ac5dc74db03123",
+    "bytes": 4739
+  },
+  "schema3Scenarios": 144,
+  "schema4Scenarios": 180,
+  "independentVerdicts": 110,
+  "acceptedIsolatedInstallations": 102,
+  "p3Corpora": 28,
+  "p4Corpora": 14,
+  "p2Suites": {
+    "functional": "tmp/player-region-tick-p4-final04/functional",
+    "smoke": "tmp/player-region-tick-p4-final04/smoke",
+    "network": "tmp/player-region-tick-p4-final04/network",
+    "same-group": "tmp/player-region-tick-p4-final04/same-group",
+    "fault": "tmp/player-region-tick-p4-final04/fault",
+    "socket": "tmp/player-region-tick-p4-final04/socket",
+    "transitions": "tmp/player-region-tick-p4-final04/transitions",
+    "contract": "tmp/player-region-tick-p4-final04/contract",
+    "network-contract": "tmp/player-region-tick-p4-final04/network-contract",
+    "timers": "tmp/player-region-tick-p4-final04/timers",
+    "lifecycle": "tmp/player-region-tick-p4-final04/lifecycle",
+    "respawn": "tmp/player-region-tick-p4-final04/respawn",
+    "phase-order": "tmp/player-region-tick-p4-final04/phase-order"
+  },
+  "proofNegativeControls": 369,
+  "seedJarHashesUnchanged": 94,
+  "preservedNonzeroOrUnknownCommands": 55,
+  "additionalStrictDiagnosticCorpora": 2,
+  "preservedUnexplainedProbeStall": {
+    "root": "tmp/player-region-tick-p4-final04/p3/server-damage-foreign-on-persistent",
+    "run": "tmp/player-region-tick-p4-final04/p3/run-damage-foreign-on-persistent",
+    "debuggerExit": 0,
+    "originalHurt": [
+      20,
+      19
+    ],
+    "serverExit": -9,
+    "clientKeepaliveTimeouts": 2,
+    "cause": "undetermined; original incident has no pre-termination thread dump",
+    "accepted": false,
+    "recovery": "p3-foreign-persistent-recovery01",
+    "diagnosticReplicates": 2
+  },
+  "indexes": {
+    "inputs": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/inputs.json",
+      "sha256": "bf6050aeb4f57b7b3a03c900d1ea7d8f037d2c5bec28b9f240dda39ce0f5569c",
+      "bytes": 2754511
+    },
+    "sources": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/sources.json",
+      "sha256": "76e74ed4742819f5f75db6bfbed664c9fc83af05aed2534cc2a3ed31624fa329",
+      "bytes": 18102
+    },
+    "isolation": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/isolation.json",
+      "sha256": "2c0820a7785654ca2d2a14b2450d8a5e0b279f737f1523a7cd5b719aa3c5ad81",
+      "bytes": 16561
+    },
+    "acceptedCommands": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/acceptedCommands.json",
+      "sha256": "0575794806e80c61af22e1c1f094d6922c79cd00678fe9ed8b0e20f9229c2522",
+      "bytes": 73373
+    },
+    "commandHistory": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/commandHistory.json",
+      "sha256": "3c7d58d277d880765e55e3911df554d9998c9d4ec888030eae84d231a8399e69",
+      "bytes": 636477
+    },
+    "preservedNonzeroOrUnknownCommands": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/preservedNonzeroOrUnknownCommands.json",
+      "sha256": "f9f57c881f393ae8694df03b1d9423d84f2680bb7c233383b365c71c9e7cb0e7",
+      "bytes": 26094
+    },
+    "proofControls": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/proofControls.json",
+      "sha256": "f4c1e718cca504f836a51b836db994d9e1f256c1e6fab5621919b29c9b95d058",
+      "bytes": 11678
+    },
+    "freshlyReverified": {
+      "path": "tmp/player-region-tick-p4-final04/acceptance-01/freshlyReverified.json",
+      "sha256": "98efedaab522c035ec5cc15b456c9701dc06222a1044f523e0eaa32f937939ed",
+      "bytes": 52176
+    }
+  },
+  "supportedScope": "Original bounded hotbar/unobstructed movement/matching teleport confirmation/plain inventory/shared single chest quickMove and unsigned low-spam ordered filtered-chat completion at current owner; original server fences and physical joins",
+  "limitations": [
+    "One original packet/continuation joins at its original executor position; no new packet concurrency or speedup claim",
+    "One original persistent foreign-starvation probe stalled after JDI hurt returned; initial cause undetermined and no initial thread dump. It remains failed/excluded; fresh mapped recovery and two extra strict probes pass. No unrestricted no-stall/soak guarantee",
+    "General vehicle/input/flight, far/vertical/unsupported movement, arbitrary item/menu/callback and Mod payloads retain complete original serial behavior",
+    "Signed chat, chat spam counter beyond0..180, and obstructed-movement teleport corrections retain complete original server execution",
+    "Teleport/dimension/respawn/reconfiguration retain original complete transition fences; only already-applied exact matching confirmation is an owner packet",
+    "Default false and unknown installed extensions before freeze; MAIN/NETWORK original contracts unchanged; oracle never admitted to workers",
+    "Original two-client bounded installed correctness corpus; no P5 scale/performance/long-soak or graphical GUI pause certificate",
+    "Expected old injected entity boom distinguished from unexpected XP shutdown failure; original failed wrappers/verdicts and bounded-executor counterexample retained and mapped explicitly"
+  ],
+  "baselineHead": "38b2e985a250b74b8863a40c4552b735f116b710",
+  "subAgentUsed": false,
+  "p4CommitPushDeploymentPerformed": false,
+  "existingServerOperations": false
+}

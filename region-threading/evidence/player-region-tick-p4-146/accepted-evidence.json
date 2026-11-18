@@ -1,0 +1,549 @@
+{
+  "version": "21.1.250.146-beta",
+  "manifest": "tools/player-region-tick/reviewed-artifacts/21.1.250.146-beta.json",
+  "p2": {
+    "functional": "tmp/player-region-tick-p4-final04/functional",
+    "smoke": "tmp/player-region-tick-p4-final04/smoke",
+    "network": "tmp/player-region-tick-p4-final04/network",
+    "same-group": "tmp/player-region-tick-p4-final04/same-group",
+    "fault": "tmp/player-region-tick-p4-final04/fault",
+    "socket": "tmp/player-region-tick-p4-final04/socket",
+    "transitions": "tmp/player-region-tick-p4-final04/transitions",
+    "contract": "tmp/player-region-tick-p4-final04/contract",
+    "network-contract": "tmp/player-region-tick-p4-final04/network-contract",
+    "timers": "tmp/player-region-tick-p4-final04/timers",
+    "lifecycle": "tmp/player-region-tick-p4-final04/lifecycle",
+    "respawn": "tmp/player-region-tick-p4-final04/respawn",
+    "phase-order": "tmp/player-region-tick-p4-final04/phase-order"
+  },
+  "p3": [
+    {
+      "kind": "xp",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-xp-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-xp-on-fixed/worker-xp-removal/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-xp-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-xp-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-xp-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/p3/controls-xp-on-fixed"
+      }
+    },
+    {
+      "kind": "xp",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-xp-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-xp-on-persistent/worker-xp-removal/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-xp-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-xp-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-xp-on-persistent"
+      }
+    },
+    {
+      "kind": "xp",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-xp-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-xp-off-fixed/worker-xp-removal/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-xp-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-xp-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-xp-off-fixed"
+      }
+    },
+    {
+      "kind": "xp",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-xp-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-xp-off-persistent/worker-xp-removal/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-xp-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-xp-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-xp-off-persistent"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-item-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-item-on-fixed/worker-item-pickup/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-item-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-item-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-item-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/p3/controls-item-on-fixed"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-item-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-item-on-persistent/worker-item-pickup/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-item-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-item-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-item-on-persistent"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-item-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-item-off-fixed/worker-item-pickup/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-item-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-item-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-item-off-fixed"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-item-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-item-off-persistent/worker-item-pickup/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-item-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-item-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-item-off-persistent"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-chest-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-chest-on-fixed/worker-shared-chest/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-chest-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-chest-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-chest-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/controls-final/chest"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-chest-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-chest-on-persistent/worker-shared-chest/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-chest-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-chest-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-chest-on-persistent"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-chest-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-chest-off-fixed/worker-shared-chest/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-chest-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-chest-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-chest-off-fixed"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-chest-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-chest-off-persistent/worker-shared-chest/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-chest-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-chest-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-chest-off-persistent"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-score-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-score-on-fixed/worker-scoreboard/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-score-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-score-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-score-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/p3/controls-score-on-fixed"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-score-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-score-on-persistent/worker-scoreboard/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-score-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-score-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-score-on-persistent"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-score-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-score-off-fixed/worker-scoreboard/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-score-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-score-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-score-off-fixed"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-score-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-score-off-persistent/worker-scoreboard/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-score-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-score-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-score-off-persistent"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-map-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-map-on-fixed/worker-backpack-map/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-map-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-map-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-map-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/p3/controls-map-on-fixed"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-map-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-map-on-persistent/worker-backpack-map/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-map-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-map-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-map-on-persistent"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-map-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-map-off-fixed/worker-backpack-map/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-map-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-map-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-map-off-fixed"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-map-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-map-off-persistent/worker-backpack-map/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-map-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-map-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-map-off-persistent"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-damage-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-damage-on-fixed/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-damage-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-damage-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-damage-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/p3/controls-damage-on-fixed"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-damage-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-damage-on-persistent/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-damage-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-damage-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-damage-on-persistent"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-damage-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-damage-off-fixed/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-damage-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-damage-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-damage-off-fixed"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-damage-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-damage-off-persistent/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-damage-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-damage-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-damage-off-persistent"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3/server-damage-foreign-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3/server-damage-foreign-on-fixed/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3/install-damage-foreign-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3/run-damage-foreign-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3/verify-damage-foreign-on-fixed"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-foreign-persistent-recovery01/server-damage-foreign-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-foreign-persistent-recovery01/server-damage-foreign-on-persistent/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-foreign-persistent-recovery01/install-damage-foreign-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-foreign-persistent-recovery01/run-damage-foreign-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-foreign-persistent-recovery01/verify-damage-foreign-on-persistent"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-damage-foreign-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/server-damage-foreign-off-fixed/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/install-damage-foreign-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/run-damage-foreign-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-fixed-recovery01/verify-damage-foreign-off-fixed"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-damage-foreign-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/server-damage-foreign-off-persistent/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/install-damage-foreign-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/run-damage-foreign-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/p3-off-persistent-recovery01/verify-damage-foreign-off-persistent"
+      }
+    }
+  ],
+  "p4": [
+    {
+      "kind": "queue",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/queue/server-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/queue/server-on-fixed/packet-queue/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/queue/install-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/queue/run-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/queue/verify-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/controls-final/queue"
+      }
+    },
+    {
+      "kind": "queue",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/queue/server-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/queue/server-on-persistent/packet-queue/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/queue/install-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/queue/run-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/queue/verify-on-persistent"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/routes/server-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/routes/server-on-fixed/owner-routes/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/routes/install-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/routes/run-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/routes/verify-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/controls-final/routes"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/routes/server-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/routes/server-on-persistent/owner-routes/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/routes/install-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/routes/run-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/routes/verify-on-persistent"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/routes/server-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/routes/server-off-fixed/owner-routes/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/routes/install-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/routes/run-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/routes/verify-off-fixed"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/routes/server-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/routes/server-off-persistent/owner-routes/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/routes/install-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/routes/run-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/routes/verify-off-persistent"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/async/server-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/async/server-on-fixed/owner-async/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/async/install-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/async/run-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/async/verify-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/controls-final/async"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/async/server-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/async/server-on-persistent/owner-async/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/async/install-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/async/run-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/async/verify-on-persistent"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/async/server-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/async/server-off-fixed/owner-async/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/async/install-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/async/run-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/async/verify-off-fixed"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/async/server-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/async/server-off-persistent/owner-async/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/async/install-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/async/run-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/async/verify-off-persistent"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "on-fixed",
+      "root": "tmp/player-region-tick-p4-final04/hotbar/server-on-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/hotbar/server-on-fixed/owner-packet/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/hotbar/install-on-fixed",
+        "run": "tmp/player-region-tick-p4-final04/hotbar/run-on-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/hotbar/verify-on-fixed",
+        "controls": "tmp/player-region-tick-p4-final04/controls-final/hotbar"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "on-persistent",
+      "root": "tmp/player-region-tick-p4-final04/hotbar/server-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/hotbar/server-on-persistent/owner-packet/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/hotbar/install-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/hotbar/run-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/hotbar/verify-on-persistent"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "off-fixed",
+      "root": "tmp/player-region-tick-p4-final04/hotbar/server-off-fixed",
+      "verdict": "tmp/player-region-tick-p4-final04/hotbar/server-off-fixed/owner-packet/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/hotbar/install-off-fixed",
+        "run": "tmp/player-region-tick-p4-final04/hotbar/run-off-fixed",
+        "verify": "tmp/player-region-tick-p4-final04/hotbar/verify-off-fixed"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "off-persistent",
+      "root": "tmp/player-region-tick-p4-final04/hotbar/server-off-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/hotbar/server-off-persistent/owner-packet/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/hotbar/install-off-persistent",
+        "run": "tmp/player-region-tick-p4-final04/hotbar/run-off-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/hotbar/verify-off-persistent"
+      }
+    }
+  ],
+  "supplementalControls": {
+    "network-overflow": "tmp/player-region-tick-p4-final04/supplemental/network-overflow",
+    "socket": "tmp/player-region-tick-p4-final04/supplemental/socket",
+    "transition": "tmp/player-region-tick-p4-final04/supplemental/transition",
+    "timer": "tmp/player-region-tick-p4-final04/supplemental/timer",
+    "lifecycle": "tmp/player-region-tick-p4-final04/supplemental/lifecycle",
+    "phase": "tmp/player-region-tick-p4-final04/supplemental/phase"
+  },
+  "checks": [
+    "tmp/player-region-tick-p4-12/build-first",
+    "tmp/player-region-tick-p4-final04/regression-01",
+    "tmp/player-region-tick-p4-final04/gametest-command",
+    "tmp/player-region-tick-p4-final04/static-command",
+    "tmp/player-region-tick-p4-final04/junit-audit-command",
+    "tmp/player-region-tick-p4-final04/tool-controls-0",
+    "tmp/player-region-tick-p4-final04/tool-controls-1",
+    "tmp/player-region-tick-p4-final04/tool-controls-2",
+    "tmp/player-region-tick-p4-final04/static-closeout-command"
+  ],
+  "diagnosticCorpora": [
+    {
+      "root": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-1/server-damage-foreign-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-1/server-damage-foreign-on-persistent/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-1/install-damage-foreign-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-1/run-damage-foreign-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-1/verify-damage-foreign-on-persistent"
+      }
+    },
+    {
+      "root": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-2/server-damage-foreign-on-persistent",
+      "verdict": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-2/server-damage-foreign-on-persistent/worker-starvation-damage/independent-verdict.json",
+      "commands": {
+        "install": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-2/install-damage-foreign-on-persistent",
+        "run": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-2/run-damage-foreign-on-persistent",
+        "verify": "tmp/player-region-tick-p4-final04/diagnostic-foreign-persistent-2/verify-damage-foreign-on-persistent"
+      }
+    }
+  ],
+  "preservedProbeStall": {
+    "root": "tmp/player-region-tick-p4-final04/p3/server-damage-foreign-on-persistent",
+    "run": "tmp/player-region-tick-p4-final04/p3/run-damage-foreign-on-persistent",
+    "debuggerExit": 0,
+    "originalHurt": [
+      20,
+      19
+    ],
+    "serverExit": -9,
+    "clientKeepaliveTimeouts": 2,
+    "cause": "undetermined; original incident has no pre-termination thread dump",
+    "accepted": false,
+    "recovery": "p3-foreign-persistent-recovery01",
+    "diagnosticReplicates": 2
+  }
+}

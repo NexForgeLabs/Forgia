@@ -1,3 +1,56 @@
+## Final P4 .146 acceptance: bounded owner protocols complete; stop before P5
+
+Same-product 652 affected JUnit /21 classes,351 focused cases,three selected GameTests,full schema3(144)/4(180),all13 P2 suites,28 P3 and14 P4 corpora passed. 369 proof controls,110 independent verdicts,102 isolated installs. Receipt/audit: `tmp/player-region-tick-p4-final04/acceptance-01/receipt.json`, `tmp/player-region-tick-p4-final04/acceptance-01/final-audit.json`; explicit accepted map `tmp/player-region-tick-p4-final04/accepted-evidence.json`. Original .115 gates/manifests and all failed/unknown-exit evidence retained. No oracle permission exception.
+
+Original bounded hotbar/unobstructed horizontal movement/current owner publication/matching already-applied confirmation/plain inventory/shared-chest shift-click/unsigned low-spam filtered-chat completion preserve original executor positions/full bodies and physical joins. Signed/high-spam,blocked movement correction,unsupported/global packets and lifecycle transitions remain complete original serial fences. MAIN/NETWORK contracts unchanged,default false,no replay after start,no second queue/executor. No packet concurrency/performance or P5 claim.
+
+`audit_p4_acceptance.py` closes source/core/isolation/command/receipt indexes; daemon-lost top wrappers are unknown,never invented successful exits. See the final Chinese P4 report. P3 was pushed; current P4 changes remain local. Earlier candidate records below are historical.
+
+---
+
+Current candidate is `.146` under `tmp/player-region-tick-p4-final04`: 652 complete affected JUnit, 351 focused cases and three selected GameTests passed. Final same-product matrices are still running. The owner chat continuation is bounded to unsigned input and spam counter 0..180; signed/rate-disconnect paths stay original server FutureChain consumers. Movement requires the original full swept-body noCollision preflight; the added ordinary wall packet uses full serial correction and live client confirmation. No new teleport permission or replay. Earlier candidates and every failure remain historical; do not mix them into `.146` acceptance. Daemon recovery left some top wrappers without exits; only successful recorded child commands may be accepted. P5 has not started.
+
+---
+
+## Current P4 .144 candidate: final same-product acceptance in progress
+
+P3 `38b2e985a` was pushed. P4 is local, with default false, no unknown-extension/oracle worker exceptions, original MAIN/NETWORK contracts, no replay after start, and physical join before cleanup. Stop before P5. `.144` installer SHA256 is `cfbe350359a4ce37735ef46b72ce6f6418d74527aa3d3f245f5a6d9d4579bd14`; the new explicit reviewed manifest retains every historical manifest and both original `.115` hash gates.
+
+Bounded original hotbar, movement, matching already-applied teleport confirmation, plain local inventory/shared single-chest click and original ordered filtered-chat completion now use the current owner at their original executor position. Only the exact synchronous tracking/chat publisher services run while that worker is parked. Unknown/global operations retain full original serial fences. See the production contract and Chinese P4 report for exact limits; no packet concurrency or performance claim.
+
+`run_p4_matrix.py` runs new installations with `--kind routes|async|queue`; hotbar uses `run_owner_packet_matrix.py`. `verify_owner_routes.py`, `verify_owner_async.py`, `verify_packet_queue.py` decode real frames independently, check original JDI stacks and effects, exact receive ordinals across handshake/login/config/play, original save state and zero retired resources. `test_owner_protocol_validator.py` preserves the original corpus and rejects altered proofs. The existing shared-chest verifier supports protocol2 original owner quickMove stacks and retains protocol1 tick checks.
+
+343 focused and 644 complete affected JUnit, plus three selected GameTests, have passed on `.144`. The original broad JUnit wrapper failed an overbroad postcheck on its intentional old `boom` fault; the actual Gradle/XML success and the exact subsequent background-exception audit are preserved separately. Earlier real item-merge and XP shutdown failures remain counterexamples, with fixes/tests, not silently accepted retries. Full final P2/P3/schema3/4 and P4 modes are still running under `tmp/player-region-tick-p4-final02`; no full P4 acceptance yet. `audit_p4_acceptance.py` requires an explicit successful command/corpus map and audits final installed bytes, isolation, source freeze and retained failures.
+
+---
+
+## Current P4 first owner packet proof; overall P4 partial
+
+P3 acceptance was pushed to `origin/main` at `38b2e985a`. Local P4 candidate `.136`
+adds exact empty hotbar selection at the original PacketUtils queue/deferred Connection
+callback position. Both pools off/on original TCP packet/serial stats fences and nine
+proof controls pass; 576 affected JUnit, four-mode explicit NETWORK/MAIN and full-call
+smoke pass. Default false and unknown extensions serial before freeze remain.
+
+**Integration failure retained:** transitions off-persistent crashed in ordinary
+ItemEntity.merge → Entity.discard storage guard after End platform drops; a shutdown
+watchdog report follows. Player ticks were disabled. Attribution to an existing bug
+is not established without a prior-product reproduction. Candidate `.136` is not a
+complete accepted artifact. Receipt explicitly lists 15 passed corpora and the failed
+16th installation: `tmp/player-region-tick-p4-02/acceptance-first-increment/receipt.json`.
+
+Tools: `run_owner_packet_matrix.py` (fresh four modes or `--mode` recovery),
+`run_owner_packet.py`, `verify_owner_packet.py`, `test_owner_packet_validator.py`.
+The accepted packet corpus is `p4-02/gameplay-causal/`: external read-only JDI waits
+for already-received Netty readers to physically return at the original dispatch point;
+no writes/invocations/admission exception and no timeout/worker assertion relaxation.
+All earlier failures, unknown exits, manifests and raw worlds remain. P4 movement,
+teleport confirm, clicks, reconfiguration and async owner protocols remain pending;
+MAIN payload contract unchanged. No new `.136` schema3/4/GameTest/all-P2 acceptance.
+See `region-threading/PLAYER-REGION-TICK-P4.zh.md`. Historical P3 below is unchanged evidence.
+
+---
+
 ## Current final P3 acceptance: .134; stopped before P4
 
 P3 is complete for design section 7's bounded category protocols. P4/P5 have not started.

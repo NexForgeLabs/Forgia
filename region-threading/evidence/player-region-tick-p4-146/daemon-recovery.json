@@ -1,0 +1,77 @@
+{
+  "time": "2026-11-18T04:08:55.118159+00:00",
+  "frozenProductionSourcesVerified": 32,
+  "unknownTopLevelWrappers": [
+    {
+      "command": "tmp/player-region-tick-p4-final04/chain-a-command/command.json",
+      "metadata": {
+        "argv": [
+          "python3",
+          "tmp/player-region-tick-p4-final04/chain-a.py"
+        ],
+        "cwd": "/home/yc/Minecraft/Forgia",
+        "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+        "startNs": 1794974646609673147,
+        "pid": 191148
+      },
+      "acceptance": "unknown_wrapper_exit_not_accepted; inspect surviving child matrix/subcommand results"
+    },
+    {
+      "command": "tmp/player-region-tick-p4-final04/chain-c-command/command.json",
+      "metadata": {
+        "argv": [
+          "python3",
+          "tmp/player-region-tick-p4-final04/chain-c.py"
+        ],
+        "cwd": "/home/yc/Minecraft/Forgia",
+        "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+        "startNs": 1794974538606792467,
+        "pid": 189963
+      },
+      "acceptance": "unknown_wrapper_exit_not_accepted; inspect surviving child matrix/subcommand results"
+    },
+    {
+      "command": "tmp/player-region-tick-p4-final04/p4-controls-final-command/command.json",
+      "metadata": {
+        "argv": [
+          "python3",
+          "tmp/player-region-tick-p4-final04/p4-controls-final.py"
+        ],
+        "cwd": "/home/yc/Minecraft/Forgia",
+        "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+        "startNs": 1794974646690234547,
+        "pid": 191153
+      },
+      "acceptance": "unknown_wrapper_exit_not_accepted; inspect surviving child matrix/subcommand results"
+    },
+    {
+      "command": "tmp/player-region-tick-p4-final04/chain-b-command/command.json",
+      "metadata": {
+        "argv": [
+          "python3",
+          "tmp/player-region-tick-p4-final04/chain-b.py"
+        ],
+        "cwd": "/home/yc/Minecraft/Forgia",
+        "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+        "startNs": 1794974539789607455,
+        "pid": 189988
+      },
+      "acceptance": "unknown_wrapper_exit_not_accepted; inspect surviving child matrix/subcommand results"
+    },
+    {
+      "command": "tmp/player-region-tick-p4-final04/supplemental-command/command.json",
+      "metadata": {
+        "argv": [
+          "python3",
+          "tmp/player-region-tick-p4-final04/supplemental.py"
+        ],
+        "cwd": "/home/yc/Minecraft/Forgia",
+        "javaHome": "/home/yc/.local/opt/jdk-21.0.13+9",
+        "startNs": 1794974646679311947,
+        "pid": 191150
+      },
+      "acceptance": "unknown_wrapper_exit_not_accepted; inspect surviving child matrix/subcommand results"
+    }
+  ],
+  "action": "Surviving child processes continue; no launches repeated; no exits fabricated"
+}

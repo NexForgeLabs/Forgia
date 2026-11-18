@@ -35,6 +35,16 @@ def main():
   s.command('advancement grant @a everything');s.command('clear @a');s.command('experience add @a -1000000 points');s.command('experience set @a 0 levels');s.command('experience set @a 0 points')
   s.command('tp WorkerA 47.5 100 22.5');s.command('tp WorkerB 49.5 100 26.5');time.sleep(3)
   s.command('setblock 48 100 24 minecraft:chest[type=single,facing=north]');s.command('item replace block 48 100 24 container.0 with minecraft:diamond 11')
+  # Observe a real automatic keepalive exchange for both clients before the strict positive window.
+  # The original 15-second challenge otherwise legitimately closes owner admission during JDI setup.
+  until=time.monotonic()+25;primed={}
+  while time.monotonic()<until:
+   for row in read_complete_events(s.output/'packets.ndjson'):
+    if row['direction']=='send' and row['name']=='keep_alive':primed[row['bot']]=row
+   if set(primed)=={'WorkerA','WorkerB'}:break
+   time.sleep(.25)
+  else:raise TimeoutError('Original automatic keepalive preparation did not complete')
+  r['keepalivePreparation']=primed;time.sleep(.5)
   fixture=s.command('data get block 48 100 24');before=s.snapshot('before');actors={x['name']:x['uuid'] for x in before['players']};r.update(fixtureRead=fixture,before=before,actors=actors)
   # Prepare original ChestMenu before attaching, using a real client open and close outside measured window.
   def use(name,seq):s.request('packet',name=name,packet='block_place',data={'hand':0,'location':{'x':48,'y':100,'z':24},'direction':1,'cursorX':.5,'cursorY':1.0,'cursorZ':.5,'insideBlock':False,'sequence':seq})

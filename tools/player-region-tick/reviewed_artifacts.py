@@ -10,6 +10,11 @@ import json
 from pathlib import Path
 
 REVIEWED_MANIFESTS = {
+    'forgia-21.1.250.146-beta-schema3-4': '99671241fb4de384ded730a8bf458e3956cca7bc04c00f32d8f174a3ac3d00ac',
+    'forgia-21.1.250.145-beta-schema3-4': '614e45a50a7cee55ccbbcf9994e61fdcd2192a3e2e9626decda550dbd1497e62',
+    'forgia-21.1.250.144-beta-schema3-4': '51885dcfb4f94a1993b5755e2a16af2f58451f34db57ef57113f1d15639d85b2',
+    'forgia-21.1.250.143-beta-schema3-4': '9d01da11f8877a25ba19ff562974bd343ec2e7eb6ababddbe483740370db0a75',
+    'forgia-21.1.250.136-beta-schema3-4': 'ac35832382f2b3d9703660230424793e12d160476aac56e645fe40de6fef2c8f',
     'forgia-21.1.250.134-beta-schema3-4': '7b7a091e349fbe7b4509bb81a71047cb627f3eba6a34d6f67cb0ec6e562fb721',
     'forgia-21.1.250.133-beta-schema3-4': '3f09c8977a1b130d1ca177b43d8b4d3f03cc32460700104f7667b1f5e431acf2',
     'forgia-21.1.250.127-beta-schema3-4': 'fb5ab729a900f19b9d81e8582e29e662aaf0534d6e2e725352dd605fec55ec56',

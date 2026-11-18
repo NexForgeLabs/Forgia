@@ -360,6 +360,7 @@ public final class RegionPlayerStatePlan {
         // identity snapshots, and cannot populate shared StatType/ObjectiveCriteria caches.
         Map<ResourceLocation, Stat<?>> warmed = new IdentityHashMap<>();
         for (ResourceLocation value : List.of(Stats.PLAY_TIME, Stats.TOTAL_WORLD_TIME, Stats.TIME_SINCE_DEATH, Stats.CROUCH_TIME, Stats.TIME_SINCE_REST)) warmed.put(value, Stats.CUSTOM.get(value));
+        if (RegionPlayerPacketPlan.preparesMovement(player)) warmed.put(Stats.WALK_ONE_CM, Stats.CUSTOM.get(Stats.WALK_ONE_CM));
         if (RegionPlayerDamagePlan.starving(player)) warmed.put(Stats.DAMAGE_TAKEN, Stats.CUSTOM.get(Stats.DAMAGE_TAKEN));
         Map<StatType<?>, Map<?, Stat<?>>> stats = new IdentityHashMap<>();
         stats.put(Stats.CUSTOM, Collections.unmodifiableMap(warmed));

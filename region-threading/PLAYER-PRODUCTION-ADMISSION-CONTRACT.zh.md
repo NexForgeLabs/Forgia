@@ -1,3 +1,34 @@
+P4最终`.146`按当前逐类有界合同完成统一验收，停止在P5前。完整结果/约束与失败见[P4记录](PLAYER-REGION-TICK-P4.zh.md)最后收口，机器回执`tmp/player-region-tick-p4-final04/acceptance-01/receipt.json`。无碰撞有限移动、匹配已生效目标确认、原材料库存/共享单箱及无签名低spam原FutureChain完成具备owner协议；所有未闭合路径完整原串行。默认false、未知扩展freeze前串行、MAIN/NETWORK原合同、无开始后重放与真实join后清理保持。下文进行中/旧产物措辞保留历史。
+
+---
+
+当前`.146`补足：owner移动额外要求**原完整扫掠体noCollision**，遇墙等纠正分支保持完整原server handler；不会在worker放开teleport guard。owner异步完成只支持无签名原聊天、chatSpamTickCount0..180；签名及将触发限流/签名收件人退役的路径仍原FutureChain服务器consumer，不改变原同步终态。652 JUnit/351聚焦/3 GameTest已通过，完整同产物矩阵进行中，未最终收口，P5未开始。下文旧“原过滤聊天”的泛称按此受限合同解释，其余历史说明保留。
+
+---
+
+## P4 当前合同补足（`.144` 同产物整体验收进行中）
+
+P4已接入有限原包与原聊天完成；本节覆盖下文“P4未开始/点击全部串行”的历史描述。当前整体仍partial；P5未开始，完成状态以P4报告最后回执为准。
+
+每条原包/continuation在**原服务器执行器队列位置**重新捕获并真实join，复用原engine、池、ledger、空间和state lease；包诊断独立于ENTITY/CONNECTION原tick计数。不另设执行器/应用队列，不让后包越过未知/全局原任务，不把`isSameThread`整体放宽。原Connection接收ordinal只分配一次；验证实际包/当前player实例/listener/connection，空间/生命周期状态由原admission与ledger重查。原HTTP过滤completion仍在原FutureChain，其原聊天ordinal为origin，按完成时当前owner准入，不能因后来合法移动序号更大而错误拒绝。
+
+| 审核路径 | 有限支持与完整原正文 | 未闭合时 |
+| --- | --- | --- |
+| 快捷栏 | 精确原包、slot0..8、当前/目标均空、无use item | 非法/占槽/未知状态完整原串行 |
+| 移动 | 精确Pos/PosRot/Rot/StatusOnly，有限值、同整数Y、单轴≤.25、onGround，firstGood偏差≤1/lastGood精确当前、无fall/use/转维度、未跨step阈值；完整扫掠身体/原查询/支撑与块足迹 | 远距/垂直/车辆/未加载/未知块/回调及瞬时未落地完整原串行；不截断碰撞/查询 |
+| 传送确认 | 精确匹配awaiting id，原目标XYZ已经等于玩家当前XYZ，无changingDimension；原handler清理/lastGood同步 | 传送、加载、维度、重生、重配置仍为完整原流程fence；只在此typed preparation中允许原teleport清除onGround的瞬时状态 |
+| 本地库存 | 原InventoryMenu、主PICKUP9..44且非选中、初始空cursor，普通原diamond/iron/gold默认组件；有界原预测槽 | 有cursor的后续放置及所有未知菜单/物品/动作完整串行，原同步结果不改为排队成功 |
+| 共享单箱 | 原SINGLE ChestMenu/ChestBlockEntity、QUICK_MOVE0..26/button0、空cursor，全部共享栈和预测≤63槽为已审核普通材料；包含原comparator第二邻居足迹 | 开关箱和其他菜单/动作完整串行；共享原storage仍同lease/原序，原菜单、事件、客户端反馈与守恒保留 |
+| 原过滤聊天 | 原consumer在原FutureChain，exact FilteredText与当前实例，完整原withUnsignedContent/filter/broadcast/detectRateSpam；当前owner重捕获 | 陈旧/未知/未开始则完整原serial continuation；实际断线/关闭取消尚未take封装，清空callback/receipt/weak handles；已take保持到原返回 |
+
+移动的原ChunkMap.move和聊天的原全局broadcast是精确同步publisher服务：同一worker原栈暂停、无其他活动组，publisher只执行当前Call的对应一次请求，原结果/异常同步返回，不泵任意服务器/chunk队列。可达未知ServerChat、ItemStackedOnOther、ChunkWatch/UnWatch、ChunkTicketLevelUpdated、Start/StopTracking、EnteringSection、NeighborNotify注册并入原全局事件检查，freeze及副作用之前拒绝；原EntityTick.Pre/Leave精确内置例外不扩张，不给oracle许可。
+
+PacketUtils原任务封装新增4096待执行上限、一次retain/release、执行/取消原子take；溢出终止在accepted prefix之后用当前原common listener明确协议disconnect，实际退役前保留terminal阻止重开。原P2网络门保持独立原职责，不另建包队列。原聊天chain的新增封装登记同样有界，超登记界保留原串行consumer，不引入第二个completion队列或丢回调。running封装不被取消提前释放资源。关闭engine先等原batch，再等门实际thaw/已开始Deferred/reader返回，且在状态变化之前拒绝当前callback self-wait；不以超时判断完成，不泵通用任务，恢复中断状态。
+
+默认false、未知Mod/变换/监听器在freeze前整次串行、原NeoForge MAIN/NETWORK payload合同和开始后异常不重放不变。`.144`343聚焦、644项完整受影响JUnit及3选定GameTest已通过；真实TCP和schema3/4/P2/P3全矩阵正在统一验证，不能把本节合同当作未完成矩阵的证书。
+
+---
+
 # 玩家两阶段 production 准入合同
 
 P3最终`.134`已按当前逐类有界合同完成统一验收，P4/P5未开始；下文进行中/旧产物措辞保留历史。最新收口与限制见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾及`tmp/player-region-tick-p3-final02/acceptance-01/receipt.json`。

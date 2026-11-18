@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
@@ -114,6 +115,69 @@ class RegionEntityTickPolicyTest {
         final Cow ordinary = this.entity(Cow.class, level, new BlockPos(1, 64, 1));
         assertTrue(this.engine.beginPerEntityTickPlan(level, entity -> true, PARKING_BARRIER).accept(ordinary));
         assertEquals(14L, this.engine.diagnostics().serverThreadOnlyEntityTicksByReason().get("projectile_impact_callbacks"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = { 0, 1, 38, 39, 40, Integer.MAX_VALUE })
+    void itemMergeCapableTickIsAnOriginalSerialFenceBeforeAnyEffects(int beforeTick) throws Exception {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        this.engine.addRegionSection(level, 0, 0);
+        final var source = this.entity(net.minecraft.world.entity.item.ItemEntity.class, level, new BlockPos(1, 64, 1));
+        source.tickCount = beforeTick;
+        boolean mergeTick = (beforeTick + 1) % 2 == 0;
+        var plan = this.engine.beginPerEntityTickPlan(level, entity -> true, PARKING_BARRIER);
+        assertEquals(!mergeTick, plan.accept(source), "Every original 2/40-tick merge can touch a non-ticking storage member");
+        verify(source, never()).tick();
+    }
+
+    @Test
+    void originalItemPairMergeAndDiscardRemainSynchronousOnSerialMergeTick() throws Exception {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        this.engine.addRegionSection(level, 0, 0);
+        final Thread publisher = Thread.currentThread();
+        final var source = this.entity(net.minecraft.world.entity.item.ItemEntity.class, level, new BlockPos(1, 64, 1));
+        final var target = this.entity(net.minecraft.world.entity.item.ItemEntity.class, level, new BlockPos(1, 64, 1));
+        source.tickCount = 1;
+        var sourceStack = new AtomicReference<>(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 1));
+        var targetStack = new AtomicReference<>(new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.COBBLESTONE, 1));
+        when(source.getItem()).thenAnswer(call -> sourceStack.get());
+        when(target.getItem()).thenAnswer(call -> targetStack.get());
+        doAnswer(call -> {
+            sourceStack.set(call.getArgument(0));
+            return null;
+        }).when(source).setItem(any());
+        doAnswer(call -> {
+            targetStack.set(call.getArgument(0));
+            return null;
+        }).when(target).setItem(any());
+        org.mockito.Mockito.doCallRealMethod().when(source).discard();
+        org.mockito.Mockito.doCallRealMethod().when(target).discard();
+        var removed = new AtomicInteger();
+        doAnswer(call -> {
+            assertEquals(publisher, Thread.currentThread());
+            removed.incrementAndGet();
+            return null;
+        }).when(source).remove(any());
+        doAnswer(call -> {
+            assertEquals(publisher, Thread.currentThread());
+            removed.incrementAndGet();
+            return null;
+        }).when(target).remove(any());
+        var merge = net.minecraft.world.entity.item.ItemEntity.class.getDeclaredMethod("tryToMerge", net.minecraft.world.entity.item.ItemEntity.class);
+        merge.setAccessible(true);
+        doAnswer(call -> {
+            merge.invoke(source, target);
+            return null;
+        }).when(source).tick();
+        this.tickList.add(source); // target is stored nearby, but is not a ticking group member.
+        this.plan(level).executeAndAwait();
+        assertEquals(2, sourceStack.get().getCount() + targetStack.get().getCount());
+        assertEquals(1, removed.get());
+        verify(source, times(1)).tick();
+        verify(target, never()).tick();
+        assertEquals(0, this.engine.diagnostics().ownershipViolationCount());
     }
 
     @Test

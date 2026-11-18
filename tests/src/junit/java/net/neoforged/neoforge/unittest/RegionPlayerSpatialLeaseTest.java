@@ -84,6 +84,7 @@ import net.neoforged.neoforge.server.threading.region.RegionPolicy;
 import net.neoforged.neoforge.server.threading.region.RegionScopedEntityQuery;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
 import net.neoforged.neoforge.server.threading.region.RegionWorkerExecutor;
+import net.neoforged.neoforge.server.threading.region.RegionWorkerScope;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1837,6 +1838,622 @@ class RegionPlayerSpatialLeaseTest {
         assertEquals(1, effects.get(), "The entire original serial callback still executes once");
     }
 
+    private void packetWorkerEnvironment(Runnable before) throws Exception {
+        packetWorkerEnvironment(before, false);
+    }
+
+    private void packetWorkerEnvironment(Runnable before, boolean reject) throws Exception {
+        Object actual = field(this.engine, "workerPool");
+        Object observed = mock(actual.getClass(), invocation -> {
+            Method method = invocation.getMethod();
+            method.setAccessible(true);
+            if (method.getName().equals("execute")) {
+                if (reject) return false;
+                Runnable task = invocation.getArgument(1);
+                return method.invoke(actual, invocation.getArgument(0), (Runnable) () -> {
+                    try (var installed = installedBaseEnvironment()) {
+                        before.run();
+                        task.run();
+                    } catch (Exception failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                });
+            }
+            return method.invoke(actual, invocation.getArguments());
+        });
+        field(RegionThreadingEngine.class, this.engine, "workerPool", observed);
+    }
+
+    private Inventory packetLocalState() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        Inventory inventory = new Inventory(this.player);
+        when(this.player.getInventory()).thenReturn(inventory);
+        when(this.player.getUseItem()).thenReturn(ItemStack.EMPTY);
+        when(this.player.getUsedItemHand()).thenReturn(net.minecraft.world.InteractionHand.MAIN_HAND);
+        doCallRealMethod().when(this.player).stopUsingItem();
+        doCallRealMethod().when(this.player).resetLastActionTime();
+        return inventory;
+    }
+
+    private Runnable enqueueOriginalPacket(net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket packet) throws Exception {
+        List<Runnable> queued = new CopyOnWriteArrayList<>();
+        doAnswer(call -> {
+            queued.add(call.getArgument(0));
+            return null;
+        }).when(this.server).executeIfPossible(any());
+        when(this.player.connection.shouldHandleMessage(packet)).thenReturn(true);
+        AtomicReference<Throwable> escaped = new AtomicReference<>();
+        Thread netty = new Thread(() -> {
+            try (var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1))) {
+                packet.handle(this.player.connection);
+            } catch (Throwable failure) {
+                escaped.set(failure);
+            }
+        }, "original packet receive test");
+        netty.start();
+        netty.join(5000);
+        assertFalse(netty.isAlive());
+        assertSame(net.minecraft.server.RunningOnDifferentThreadException.RUNNING_ON_DIFFERENT_THREAD, escaped.get());
+        assertEquals(1, queued.size());
+        return queued.getFirst();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,false", "false,true", "true,false", "true,true" })
+    void ownerPacketRetainsOriginalQueuePositionAndPublisherErrorBoundary(boolean persistent, boolean fail) throws Exception {
+        if (persistent) initialize(true);
+        Inventory inventory = packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        var packet = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1);
+        var sentinel = new IllegalArgumentException("after original selected slot");
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var errors = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call -> {
+            // The first receive entry only schedules; the complete re-entry must be the original worker.
+            if (RegionWorkerScope.isNativeWorkerThread()) calls.incrementAndGet();
+            call.callRealMethod();
+            if (RegionWorkerScope.isNativeWorkerThread()) {
+                assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.isCurrent(packet, this.player.connection));
+                assertFalse(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.isCurrent(
+                        new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1), this.player.connection));
+                assertEquals(1, inventory.selected);
+                if (fail) throw sentinel;
+            }
+            return null;
+        }).when(this.player.connection).handleSetCarriedItem(packet);
+        doAnswer(call -> {
+            assertSame(this.publishing, Thread.currentThread());
+            assertSame(sentinel, call.getArgument(1));
+            assertNull(RegionPlayerStateScope.current());
+            assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+            errors.incrementAndGet();
+            return null;
+        }).when(this.player.connection).onPacketError(eq(packet), any());
+        Runnable queued = enqueueOriginalPacket(packet);
+        assertEquals(0, inventory.selected, "Normal receive thread cannot change selected slot");
+        try (var installed = installedBaseEnvironment()) {
+            queued.run();
+        }
+        assertEquals(1, calls.get(), "A started original packet is never replayed on publisher");
+        assertEquals(fail ? 1 : 0, errors.get());
+        assertEquals(1, inventory.selected, "The next original queue task observes the complete effect");
+        assertFalse(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.isCurrent(packet, this.player.connection));
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        assertTrue(((Set<?>) field(this.engine, "activeTickBatches")).isEmpty());
+        assertTrue(this.engine.playerTicks().snapshot().phases().values().stream().allMatch(counts -> counts.started() == 0));
+        var snapshots = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+        assertEquals(1, snapshots.workers());
+        assertEquals(fail ? 1 : 0, snapshots.failed());
+        assertEquals(1, snapshots.recent().size());
+        assertTrue(snapshots.recent().getFirst().returnNanos() >= snapshots.recent().getFirst().startNanos());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,target", "true,target", "false,listener", "true,listener" })
+    void ownerPacketLateChangesRefuseBeforeOriginalHandler(boolean persistent, String change) throws Exception {
+        if (persistent) initialize(true);
+        Inventory inventory = packetLocalState();
+        packetWorkerEnvironment(() -> {
+            if (change.equals("target")) inventory.setItem(1, new ItemStack(net.minecraft.world.item.Items.DIAMOND));
+            else this.player.connection.player = mock(ServerPlayer.class);
+        });
+        var packet = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1);
+        var bodies = new java.util.concurrent.atomic.AtomicInteger();
+        try (var installed = installedBaseEnvironment()) {
+            assertEquals(false, invoke(this.engine, "tryRunPlayerPacket",
+                    new Class<?>[] { net.minecraft.network.protocol.Packet.class, ServerGamePacketListenerImpl.class, Runnable.class },
+                    packet, this.player.connection, (Runnable) bodies::incrementAndGet));
+        }
+        assertEquals(0, bodies.get());
+        assertEquals(0, inventory.selected);
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "unknownMod", "occupied", "invalid", "off", "unknownPacket" })
+    void unapprovedOwnerPacketsRefuseWithoutNetworkFreeze(String kind) throws Exception {
+        Inventory inventory = packetLocalState();
+        if (kind.equals("occupied")) inventory.setItem(1, new ItemStack(net.minecraft.world.item.Items.DIAMOND));
+        if (kind.equals("off")) this.engine.configurePlayerTickPlanningForTesting(false);
+        var freezes = new java.util.concurrent.atomic.AtomicInteger();
+        var boundary = mock(net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.class, call -> {
+            if (call.getMethod().getName().equals("freeze")) freezes.incrementAndGet();
+            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+        });
+        field(RegionThreadingEngine.class, this.engine, "playerNetworkGate", boundary);
+        var listener = this.player.connection;
+        java.util.function.BooleanSupplier run = () -> kind.equals("unknownPacket")
+                ? net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(new net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket(1), listener)
+                : net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(kind.equals("invalid") ? 9 : 1), listener);
+        if (kind.equals("unknownMod")) assertFalse(run.getAsBoolean());
+        else try (var installed = installedBaseEnvironment()) {
+            assertFalse(run.getAsBoolean());
+        }
+        assertEquals(0, freezes.get());
+        assertEquals(0, inventory.selected);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,false", "false,true", "true,false", "true,true" })
+    void deferredNetworkPacketUsesCurrentOwnerWithoutSecondEnqueue(boolean persistent, boolean fail) throws Exception {
+        if (persistent) initialize(true);
+        Inventory inventory = packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        var packet = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1);
+        var sentinel = new IllegalArgumentException("after original deferred packet effect");
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call -> {
+            assertTrue(RegionWorkerScope.isNativeWorkerThread());
+            calls.incrementAndGet();
+            call.callRealMethod();
+            if (fail) throw sentinel;
+            return null;
+        }).when(this.player.connection).handleSetCarriedItem(packet);
+        doAnswer(call -> {
+            throw new AssertionError("Deferred original callback cannot enqueue behind later packets");
+        }).when(this.server).executeIfPossible(any());
+        var dispatch = Connection.class.getDeclaredMethod("genericsFtw", net.minecraft.network.protocol.Packet.class, net.minecraft.network.PacketListener.class);
+        dispatch.setAccessible(true);
+        try (var installed = installedBaseEnvironment();
+                var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1))) {
+            if (fail) assertSame(sentinel, assertThrows(InvocationTargetException.class, () -> dispatch.invoke(null, packet, this.player.connection)).getCause());
+            else dispatch.invoke(null, packet, this.player.connection);
+        }
+        assertEquals(1, calls.get());
+        assertEquals(1, inventory.selected);
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void rejectedOwnerPacketRunsOriginalServerHandlerOnceAfterLeaseCleanup(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        Inventory inventory = packetLocalState();
+        packetWorkerEnvironment(() -> {}, true);
+        var packet = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1);
+        var bodies = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call -> {
+            if (Thread.currentThread() == this.publishing) {
+                assertNull(RegionPlayerStateScope.current());
+                assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+                assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+                bodies.incrementAndGet();
+            }
+            return call.callRealMethod();
+        }).when(this.player.connection).handleSetCarriedItem(packet);
+        Runnable queued = enqueueOriginalPacket(packet);
+        try (var installed = installedBaseEnvironment()) {
+            queued.run();
+        }
+        assertEquals(1, bodies.get());
+        assertEquals(1, inventory.selected);
+        var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+        assertEquals(0, snapshot.workers());
+        assertEquals(1, snapshot.refused());
+        assertFalse(snapshot.recent().getFirst().started());
+    }
+
+    private void packetMovementState() throws Exception {
+        packetLocalState();
+        when(this.level.noCollision(eq(this.player), any(AABB.class))).thenReturn(true);
+        for (String name : List.of("firstGoodX", "lastGoodX")) field(ServerGamePacketListenerImpl.class, this.player.connection, name, this.player.getX());
+        for (String name : List.of("firstGoodY", "lastGoodY")) field(ServerGamePacketListenerImpl.class, this.player.connection, name, this.player.getY());
+        for (String name : List.of("firstGoodZ", "lastGoodZ")) field(ServerGamePacketListenerImpl.class, this.player.connection, name, this.player.getZ());
+        field(ServerGamePacketListenerImpl.class, this.player.connection, "tickCount", 1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,false", "false,true", "true,false", "true,true" })
+    void originalMovementTrackingServiceSynchronouslyReturnsOnPublisherWithoutQueuePump(boolean persistent, boolean fail) throws Exception {
+        if (persistent) initialize(true);
+        packetMovementState();
+        packetWorkerEnvironment(() -> {});
+        var map = mock(net.minecraft.server.level.ChunkMap.class);
+        field(ServerChunkCache.class, this.level.getChunkSource(), "chunkMap", map);
+        var sequence = new java.util.concurrent.atomic.AtomicInteger();
+        var sentinel = new IllegalArgumentException("original tracking failed");
+        doAnswer(call -> {
+            assertSame(this.publishing, Thread.currentThread());
+            assertNull(RegionPlayerStateScope.current());
+            assertTrue(this.engine.playerNetworkGate().snapshot().frozen());
+            assertEquals(1, sequence.getAndIncrement());
+            if (fail) throw sentinel;
+            return null;
+        }).when(map).move(this.player);
+        var packet = new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(47.75, 64, 8.5, true);
+        Runnable original = () -> {
+            assertTrue(RegionWorkerScope.isNativeWorkerThread());
+            assertEquals(0, sequence.getAndIncrement());
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.moveTrackingOnPublisher(map, this.player));
+            assertEquals(2, sequence.getAndIncrement());
+        };
+        try (var installed = installedBaseEnvironment()) {
+            if (fail) {
+                var thrown = assertThrows(IllegalArgumentException.class, () -> invoke(this.engine, "tryRunPlayerPacket",
+                        new Class<?>[] { net.minecraft.network.protocol.Packet.class, ServerGamePacketListenerImpl.class, Runnable.class }, packet, this.player.connection, original));
+                assertSame(sentinel, thrown);
+            } else assertEquals(true, invoke(this.engine, "tryRunPlayerPacket",
+                    new Class<?>[] { net.minecraft.network.protocol.Packet.class, ServerGamePacketListenerImpl.class, Runnable.class }, packet, this.player.connection, original));
+        }
+        assertEquals(fail ? 2 : 3, sequence.get());
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void exactOriginalTeleportConfirmationUpdatesListenerInsideCurrentOwner(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        packetMovementState();
+        when(this.player.forgiaStationarySpatialInputs()).thenReturn(false); // Vanilla teleport may clear onGround before the matching ack.
+        packetWorkerEnvironment(() -> {});
+        var packet = new net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket(41);
+        field(ServerGamePacketListenerImpl.class, this.player.connection, "awaitingTeleport", 41);
+        field(ServerGamePacketListenerImpl.class, this.player.connection, "awaitingPositionFromClient", this.player.position());
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call -> {
+            assertTrue(RegionWorkerScope.isNativeWorkerThread());
+            calls.incrementAndGet();
+            return call.callRealMethod();
+        }).when(this.player.connection).handleAcceptTeleportPacket(packet);
+        try (var installed = installedBaseEnvironment();
+                var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1))) {
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(packet, this.player.connection));
+        }
+        assertEquals(1, calls.get());
+        assertNull(field(this.player.connection, "awaitingPositionFromClient"));
+        assertEquals(this.player.getX(), field(this.player.connection, "lastGoodX"));
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void originalLocalInventoryClickRetainsSynchronousCursorAndResourceResult(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        Inventory inventory = packetLocalState();
+        inventory.setItem(9, new ItemStack(net.minecraft.world.item.Items.DIAMOND, 5));
+        var menu = new net.minecraft.world.inventory.InventoryMenu(inventory, true, this.player);
+        field(net.minecraft.world.entity.player.Player.class, this.player, "inventoryMenu", menu);
+        this.player.containerMenu = menu;
+        when(this.level.enabledFeatures()).thenReturn(net.minecraft.world.flag.FeatureFlags.VANILLA_SET);
+        packetWorkerEnvironment(() -> {});
+        var changed = new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<ItemStack>();
+        changed.put(9, ItemStack.EMPTY);
+        var packet = new net.minecraft.network.protocol.game.ServerboundContainerClickPacket(0, 0, 9, 0,
+                net.minecraft.world.inventory.ClickType.PICKUP, new ItemStack(net.minecraft.world.item.Items.DIAMOND, 5), changed);
+        doCallRealMethod().when(this.player.connection).handleContainerClick(packet);
+        try (var installed = installedBaseEnvironment();
+                var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1))) {
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(packet, this.player.connection));
+        }
+        assertEquals(5, menu.getCarried().getCount());
+        assertTrue(inventory.getItem(9).isEmpty());
+        assertEquals(0, this.player.totalExperience);
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void originalReceiveSequenceRejectsReplayedReceiptAndRetiresWithoutLiveConnection(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        var first = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1);
+        var second = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(2);
+        doCallRealMethod().when(this.player.connection).handleSetCarriedItem(any());
+        var router = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.class;
+        try (var installed = installedBaseEnvironment()) {
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(first, this.player.connection,
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), first, 7)));
+            assertFalse(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(second, this.player.connection,
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), second, 7)));
+            assertEquals(1, this.player.getInventory().selected);
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(second, this.player.connection,
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), second, 9)));
+        }
+        assertEquals(2, this.player.getInventory().selected);
+        net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.retireConnection(this.player.connection.getConnection());
+        var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+        assertEquals(0, snapshot.connections());
+        assertEquals(2, snapshot.workers());
+        assertEquals(List.of(7L, 7L, 9L), snapshot.recent().stream().map(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Execution::receiveSequence).toList());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,false", "false,true", "true,false", "true,true" })
+    void originalFilteredChatCompletionRunsOnceWithSynchronousPublisherBroadcastOrCancels(boolean persistent, boolean cancel) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var broadcasts = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.function.Consumer<net.minecraft.server.network.FilteredText> original = text -> {
+            assertTrue(RegionWorkerScope.isNativeWorkerThread());
+            assertEquals("original", text.raw());
+            calls.incrementAndGet();
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatBroadcastOnPublisher(this.player.connection,
+                    net.minecraft.network.chat.PlayerChatMessage.unsigned(this.player.getUUID(), text.raw()), () -> {
+                        assertSame(this.publishing, Thread.currentThread());
+                        assertNull(RegionPlayerStateScope.current());
+                        broadcasts.incrementAndGet();
+                    }));
+            assertEquals(1, broadcasts.get());
+        };
+        java.util.function.Consumer<net.minecraft.server.network.FilteredText> callback;
+        try (var installed = installedBaseEnvironment()) {
+            callback = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatCompletion(this.player.connection, original);
+            org.junit.jupiter.api.Assertions.assertNotSame(original, callback);
+            if (cancel) net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.retireConnection(this.player.connection.getConnection());
+            callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"));
+            callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"));
+        }
+        assertEquals(cancel ? 0 : 1, calls.get());
+        assertEquals(cancel ? 0 : 1, broadcasts.get());
+        assertNull(field(callback, "original"));
+        assertNull(field(callback, "listener"));
+        assertNull(field(callback, "player"));
+        assertNull(field(callback, "connection"));
+        var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+        assertEquals(0, snapshot.chatPending());
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void sharedSingleChestQuickMoveUsesCompleteOriginalPacketAndConservesItems(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        var chest = singleChest();
+        var menu = playerChestMenu(chest);
+        when(this.level.enabledFeatures()).thenReturn(net.minecraft.world.flag.FeatureFlags.VANILLA_SET);
+        packetWorkerEnvironment(() -> {});
+        var changed = new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<ItemStack>();
+        var packet = new net.minecraft.network.protocol.game.ServerboundContainerClickPacket(1, menu.getStateId(), 0, 0,
+                net.minecraft.world.inventory.ClickType.QUICK_MOVE, ItemStack.EMPTY, changed);
+        doCallRealMethod().when(this.player.connection).handleContainerClick(packet);
+        try (var installed = installedBaseEnvironment();
+                var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1))) {
+            assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(packet, this.player.connection));
+        }
+        assertTrue(chest.getItem(0).isEmpty());
+        assertEquals(11, this.player.getInventory().items.stream().mapToInt(ItemStack::getCount).sum());
+        assertTrue(menu.getCarried().isEmpty());
+        assertEquals(0, this.player.totalExperience);
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "far", "vertical", "nan", "airborne", "lastGood", "dimension", "step", "awaiting", "collision" })
+    void unboundedOrStaleMovementRefusesBeforeAnyOriginalEffect(String change) throws Exception {
+        packetMovementState();
+        net.minecraft.network.protocol.Packet<?> packet = switch (change) {
+            case "far" -> new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(49, 64, 8.5, true);
+            case "vertical" -> new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(47.75, 65, 8.5, true);
+            case "nan" -> new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(Double.NaN, 64, 8.5, true);
+            case "airborne" -> new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(47.75, 64, 8.5, false);
+            default -> new net.minecraft.network.protocol.game.ServerboundMovePlayerPacket.Pos(47.75, 64, 8.5, true);
+        };
+        switch (change) {
+            case "collision" -> {
+                packetWorkerEnvironment(() -> {});
+                when(this.level.noCollision(eq(this.player), any(AABB.class))).thenReturn(false);
+            }
+            case "lastGood" -> field(ServerGamePacketListenerImpl.class, this.player.connection, "lastGoodX", 40D);
+            case "dimension" -> when(this.player.isChangingDimension()).thenReturn(true);
+            case "step" -> this.player.moveDist = 100;
+            case "awaiting" -> field(ServerGamePacketListenerImpl.class, this.player.connection, "awaitingPositionFromClient", this.player.position());
+        }
+        var effects = new java.util.concurrent.atomic.AtomicInteger();
+        try (var installed = installedBaseEnvironment()) {
+            assertEquals(false, invoke(this.engine, "tryRunPlayerPacket",
+                    new Class<?>[] { net.minecraft.network.protocol.Packet.class, ServerGamePacketListenerImpl.class, Runnable.class }, packet, this.player.connection, (Runnable) effects::incrementAndGet));
+        }
+        assertEquals(0, effects.get());
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "id", "destination", "dimension" })
+    void unknownTeleportConfirmationKeepsCompleteOriginalSerialPath(String change) throws Exception {
+        packetMovementState();
+        field(ServerGamePacketListenerImpl.class, this.player.connection, "awaitingTeleport", 41);
+        field(ServerGamePacketListenerImpl.class, this.player.connection, "awaitingPositionFromClient", change.equals("destination") ? this.player.position().add(1, 0, 0) : this.player.position());
+        if (change.equals("dimension")) when(this.player.isChangingDimension()).thenReturn(true);
+        var packet = new net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket(change.equals("id") ? 40 : 41);
+        try (var installed = installedBaseEnvironment()) {
+            assertEquals(false, invoke(this.engine, "tryRunPlayerPacket",
+                    new Class<?>[] { net.minecraft.network.protocol.Packet.class, ServerGamePacketListenerImpl.class, Runnable.class }, packet, this.player.connection, (Runnable) () -> {
+                        throw new AssertionError("Unapproved confirmation started");
+                    }));
+        }
+        assertNotNull(field(this.player.connection, "awaitingPositionFromClient"));
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "packet", "listener", "player", "connection", "zero", "negative" })
+    void staleReceiveEnvelopeCannotAcquireCurrentPlayerPermission(String change) throws Exception {
+        packetLocalState();
+        var packet = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1);
+        var received = new net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Received(
+                change.equals("connection") ? mock(Connection.class) : this.player.connection.getConnection(),
+                change.equals("packet") ? new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(1) : packet,
+                change.equals("listener") ? mock(ServerGamePacketListenerImpl.class) : this.player.connection,
+                change.equals("player") ? mock(ServerPlayer.class) : this.player,
+                change.equals("zero") ? 0 : change.equals("negative") ? -1 : 1);
+        try (var installed = installedBaseEnvironment()) {
+            assertFalse(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.tryHandle(packet, this.player.connection, received));
+        }
+        assertEquals(0, this.player.getInventory().selected);
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertTrue(((Set<?>) field(this.engine, "activeTickBatches")).isEmpty());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,failure", "true,failure", "false,close", "true,close", "false,stale", "true,stale", "false,thread", "true,thread" })
+    void filteredContinuationFailureShutdownStaleIdentityAndWrongThreadReleaseReferences(boolean persistent, String outcome) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var sentinel = new IllegalArgumentException("original broadcast after effect");
+        var router = field(this.engine, "playerPackets");
+        java.util.function.Consumer<net.minecraft.server.network.FilteredText> callback;
+        try (var installed = installedBaseEnvironment()) {
+            callback = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatCompletion(this.player.connection, text -> {
+                calls.incrementAndGet();
+                if (outcome.equals("stale")) {
+                    assertSame(this.publishing, Thread.currentThread());
+                    assertFalse(RegionWorkerScope.isNativeWorkerThread());
+                } else {
+                    assertTrue(RegionWorkerScope.isNativeWorkerThread());
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatBroadcastOnPublisher(this.player.connection,
+                            net.minecraft.network.chat.PlayerChatMessage.unsigned(this.player.getUUID(), text.raw()), () -> {
+                                assertSame(this.publishing, Thread.currentThread());
+                                throw sentinel;
+                            });
+                }
+            });
+            if (outcome.equals("close")) invoke(router, "close", new Class<?>[0]);
+            if (outcome.equals("stale")) when(this.player.connection.getConnection().getPacketListener()).thenReturn(mock(ServerGamePacketListenerImpl.class));
+            if (outcome.equals("thread")) when(this.server.isSameThread()).thenReturn(false);
+            if (outcome.equals("failure")) assertSame(sentinel, assertThrows(IllegalArgumentException.class, () -> callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"))));
+            else if (outcome.equals("thread")) assertThrows(IllegalStateException.class, () -> callback.accept(net.minecraft.server.network.FilteredText.passThrough("original")));
+            else callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"));
+            callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"));
+        }
+        assertEquals(outcome.equals("failure") || outcome.equals("stale") ? 1 : 0, calls.get());
+        for (String name : List.of("engine", "issuer", "listener", "player", "connection", "original", "receipt")) assertNull(field(callback, name), name);
+        var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(router, "snapshot", new Class<?>[0]);
+        assertEquals(0, snapshot.chatPending());
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+    }
+
+    @Test
+    void originalPacketUtilsExecutorDoesNotAccumulateEmptyTasksAfterExplicitTerminal() throws Exception {
+        packetLocalState();
+        var queued = new CopyOnWriteArrayList<Runnable>();
+        doAnswer(call -> {
+            queued.add(call.getArgument(0));
+            return null;
+        }).when(this.server).executeIfPossible(any());
+        doCallRealMethod().when(this.player.connection).handleSetCarriedItem(any());
+        var failure = new AtomicReference<Throwable>();
+        Thread receiver = new Thread(() -> {
+            try {
+                for (int ordinal = 1; ordinal <= 4200; ordinal++) {
+                    var packet = new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(0);
+                    try (var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                            net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, ordinal))) {
+                        assertSame(net.minecraft.server.RunningOnDifferentThreadException.RUNNING_ON_DIFFERENT_THREAD,
+                                assertThrows(net.minecraft.server.RunningOnDifferentThreadException.class, () -> packet.handle(this.player.connection)));
+                    }
+                }
+            } catch (Throwable problem) {
+                failure.set(problem);
+            }
+        }, "original PacketUtils bounded receive");
+        receiver.start();
+        receiver.join(10000);
+        assertFalse(receiver.isAlive());
+        assertNull(failure.get());
+        assertEquals(4097, queued.size(), "4096 accepted bodies plus one terminal; later packets cannot enqueue empty executor tasks");
+        var router = field(this.engine, "playerPackets");
+        invoke(router, "close", new Class<?>[0]);
+        for (Runnable task : queued) task.run();
+        var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(router, "snapshot", new Class<?>[0]);
+        assertEquals(0, invoke(snapshot.tasks(), "pending", new Class<?>[0]));
+        assertEquals(0, invoke(snapshot.tasks(), "terminals", new Class<?>[0]));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,spam", "true,spam", "false,signed", "true,signed" })
+    void unauditedChatDisconnectAndSignedRecipientPathsRemainOriginalSerial(boolean persistent, String kind) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        var worker = new java.util.concurrent.atomic.AtomicBoolean();
+        var effects = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.function.Consumer<net.minecraft.server.network.FilteredText> original = value -> {
+            worker.set(RegionWorkerScope.isNativeWorkerThread());
+            effects.incrementAndGet();
+        };
+        var packet = mock(net.minecraft.network.protocol.game.ServerboundChatPacket.class);
+        if (kind.equals("signed")) when(packet.signature()).thenReturn(new net.minecraft.network.chat.MessageSignature(new byte[256]));
+        else field(ServerGamePacketListenerImpl.class, this.player.connection, "chatSpamTickCount", 181);
+        try (var installed = installedBaseEnvironment()) {
+            var callback = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatCompletion(this.player.connection,
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1), original);
+            if (kind.equals("signed")) assertSame(original, callback, "Signed chat can disconnect an uncaptured recipient while actor lease is parked");
+            callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"));
+        }
+        assertEquals(1, effects.get());
+        assertFalse(worker.get(), "A callback that can synchronously retire a connection cannot enter this bounded worker protocol");
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void unsignedChatAtExactNonDisconnectSpamBoundaryRetainsOriginalCounter(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        packetWorkerEnvironment(() -> {});
+        field(ServerGamePacketListenerImpl.class, this.player.connection, "chatSpamTickCount", 180);
+        var effects = new java.util.concurrent.atomic.AtomicInteger();
+        try (var installed = installedBaseEnvironment()) {
+            var callback = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatCompletion(this.player.connection, value -> {
+                assertTrue(RegionWorkerScope.isNativeWorkerThread());
+                effects.incrementAndGet();
+                assertTrue(net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.chatBroadcastOnPublisher(this.player.connection,
+                        net.minecraft.network.chat.PlayerChatMessage.unsigned(this.player.getUUID(), value.raw()), () -> {
+                            assertSame(this.publishing, Thread.currentThread());
+                            try {
+                                invoke(this.player.connection, "detectRateSpam", new Class<?>[0]);
+                            } catch (Exception problem) {
+                                throw new IllegalStateException(problem);
+                            }
+                        }));
+            });
+            callback.accept(net.minecraft.server.network.FilteredText.passThrough("original"));
+        }
+        assertEquals(1, effects.get());
+        assertEquals(200, field(this.player.connection, "chatSpamTickCount"));
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+    }
+
     private net.minecraft.server.level.ChunkMap xpWatcherMap(Entity orb,
             net.minecraft.server.network.ServerPlayerConnection... watchers) throws Exception {
         var map = mock(net.minecraft.server.level.ChunkMap.class);
@@ -2003,7 +2620,14 @@ class RegionPlayerSpatialLeaseTest {
             return null;
         }).when(callback).onRemove(Entity.RemovalReason.DISCARDED);
         RuntimeException sentinel = new RuntimeException("after committed original XP");
-        Thread stopper = new Thread(this.engine::shutdown, "shutdown after committed XP");
+        var shutdownFailure = new AtomicReference<Throwable>();
+        Thread stopper = new Thread(() -> {
+            try {
+                this.engine.shutdown();
+            } catch (Throwable failure) {
+                shutdownFailure.set(failure);
+            }
+        }, "shutdown after committed XP");
         Object dispatch;
         assertEquals(true, invoke(this.engine.playerNetworkGate(), "freeze", new Class<?>[] { MinecraftServer.class }, this.server));
         try (var installed = installedBaseEnvironment()) {
@@ -2063,12 +2687,15 @@ class RegionPlayerSpatialLeaseTest {
             } finally {
                 this.parent.close();
                 this.parent = null;
+                if (outcome.equals("shutdown")) assertTrue(stopper.isAlive(), "Shutdown still awaits the original frozen boundary");
+                invoke(this.engine.playerNetworkGate(), "thaw", new Class<?>[0]);
                 if (stopper.isAlive()) stopper.join(5000);
             }
             assertFalse(stopper.isAlive());
+            assertNull(shutdownFailure.get(), "Original shutdown must complete after committed effects and thaw");
             assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
         } finally {
-            invoke(this.engine.playerNetworkGate(), "thaw", new Class<?>[0]);
+            if (this.engine.playerNetworkGate().snapshot().frozen()) invoke(this.engine.playerNetworkGate(), "thaw", new Class<?>[0]);
         }
     }
 

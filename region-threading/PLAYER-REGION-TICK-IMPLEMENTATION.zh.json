@@ -1,11 +1,11 @@
 {
   "schemaVersion": 4,
-  "task": "Complete all P3; stop before P4/P5",
-  "status": "partial",
+  "task": "Implement P4 owner packet routing; retain P3 acceptance",
+  "status": "partial_P5_not_started",
   "p2Status": "complete",
   "stopBeforeP3": false,
-  "generatedAt": "2026-11-17T18:35:45.165385+00:00",
-  "currentStatusSource": "P3 .134 final bounded category protocols accepted; stop before P4",
+  "generatedAt": "2026-11-18T05:12:23.294692+00:00",
+  "currentStatusSource": "P4 .146 bounded owner protocols complete; final same-product receipt and audit; stopped before P5",
   "baseline": {
     "gitHead": "1943dc5919acea387bcac28352b2eeb748cadc63",
     "protectedFiles": [
@@ -98,7 +98,33 @@
       }
     },
     "P4": {
-      "status": "not_started"
+      "status": "complete_bounded_protocols",
+      "record": "region-threading/PLAYER-REGION-TICK-P4.zh.md",
+      "version": "21.1.250.146-beta",
+      "receipt": "tmp/player-region-tick-p4-final04/acceptance-01/receipt.json",
+      "proofAudit": "tmp/player-region-tick-p4-final04/acceptance-01/final-audit.json",
+      "junit": {
+        "tests": 652,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "focusedJUnit": 351,
+      "selectedGameTestsPassed": 3,
+      "proofNegativeControls": 369,
+      "independentVerdicts": 110,
+      "acceptedIsolatedInstallations": 102,
+      "scope": "Original bounded hotbar/unobstructed movement/matching teleport confirmation/plain inventory/shared single chest quickMove and unsigned low-spam ordered filtered-chat completion at current owner; original server fences and physical joins",
+      "limitations": [
+        "One original packet/continuation joins at its original executor position; no new packet concurrency or speedup claim",
+        "One original persistent foreign-starvation probe stalled after JDI hurt returned; initial cause undetermined and no initial thread dump. It remains failed/excluded; fresh mapped recovery and two extra strict probes pass. No unrestricted no-stall/soak guarantee",
+        "General vehicle/input/flight, far/vertical/unsupported movement, arbitrary item/menu/callback and Mod payloads retain complete original serial behavior",
+        "Signed chat, chat spam counter beyond0..180, and obstructed-movement teleport corrections retain complete original server execution",
+        "Teleport/dimension/respawn/reconfiguration retain original complete transition fences; only already-applied exact matching confirmation is an owner packet",
+        "Default false and unknown installed extensions before freeze; MAIN/NETWORK original contracts unchanged; oracle never admitted to workers",
+        "Original two-client bounded installed correctness corpus; no P5 scale/performance/long-soak or graphical GUI pause certificate",
+        "Expected old injected entity boom distinguished from unexpected XP shutdown failure; original failed wrappers/verdicts and bounded-executor counterexample retained and mapped explicitly"
+      ]
     },
     "P5": {
       "status": "not_started"
@@ -13023,5 +13049,79 @@
     "historicalAcceptanceReceiptsUnmodified": true
   },
   "p3Status": "complete_bounded_protocols",
-  "stopBeforeP4": true
+  "stopBeforeP4": false,
+  "historicalP4Before144Candidate": {
+    "status": "partial_first_owner_packet_proof_passed_integration_failure",
+    "record": "region-threading/PLAYER-REGION-TICK-P4.zh.md",
+    "candidate": "21.1.250.136-beta",
+    "evidence": "tmp/player-region-tick-p4-02",
+    "scope": "First original empty-hotbar packet owner protocol; PacketUtils and deferred Connection callback entrances; full P4 movement/teleport/inventory/async protocols pending",
+    "junit": {
+      "tests": 576,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "receipt": "tmp/player-region-tick-p4-02/acceptance-first-increment/receipt.json",
+    "acceptedInstaller": false,
+    "proofNegativeControls": 9,
+    "passedIndependentVerdicts": 15,
+    "integrationFailure": "tmp/player-region-tick-p4-02/transitions/server-off-persistent/crash-reports/crash-2026-11-18_08.55.09-server.txt"
+  },
+  "p4Status": "complete_bounded_protocols",
+  "stopBeforeP5": true,
+  "historicalP4Before145Candidate": {
+    "status": "in_progress_same_product_acceptance",
+    "record": "region-threading/PLAYER-REGION-TICK-P4.zh.md",
+    "candidate": "21.1.250.144-beta",
+    "evidence": "tmp/player-region-tick-p4-final02",
+    "acceptedInstaller": false,
+    "junit": {
+      "tests": 644,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "selectedGameTestsPassed": 3,
+    "focusedJUnit": 343,
+    "sourceFreeze": 32,
+    "persistedPatches": 12,
+    "scope": "Bounded original packet/current-owner async protocols; full final compatibility matrices running; no P5"
+  },
+  "historicalP4Before146Candidate": {
+    "status": "in_progress_same_product_acceptance",
+    "record": "region-threading/PLAYER-REGION-TICK-P4.zh.md",
+    "candidate": "21.1.250.145-beta",
+    "evidence": "tmp/player-region-tick-p4-final03",
+    "acceptedInstaller": false,
+    "junit": {
+      "tests": 645,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "selectedGameTestsPassed": 3,
+    "focusedJUnit": 344,
+    "sourceFreeze": 32,
+    "persistedPatches": 12,
+    "scope": "Bounded original owner packets/current-owner original chat completion; explicit terminal prevents later empty executor tasks; final whole matrices running"
+  },
+  "historicalP4BeforeFinal146Acceptance": {
+    "status": "in_progress_same_product_acceptance",
+    "record": "region-threading/PLAYER-REGION-TICK-P4.zh.md",
+    "candidate": "21.1.250.146-beta",
+    "evidence": "tmp/player-region-tick-p4-final04",
+    "acceptedInstaller": false,
+    "junit": {
+      "tests": 652,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "selectedGameTestsPassed": 3,
+    "focusedJUnit": 351,
+    "sourceFreeze": 32,
+    "persistedPatches": 12,
+    "scope": "Bounded original owner packets; unobstructed swept movement; unsigned low-spam ordered filtered completion; complete serial fences for collision correction, signed chat and lifecycle thresholds; final same-product matrices in progress"
+  }
 }

@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/level/ChunkMap.java
 +++ b/net/minecraft/server/level/ChunkMap.java
-@@ -200,6 +_,9 @@
+@@ -200,6 +200,9 @@
              p_214836_.getServer(),
              p_214836_
          );
@@ -10,7 +10,7 @@
          this.setServerViewDistance(p_214847_);
          this.worldGenContext = new WorldGenContext(p_214836_, p_214843_, p_214839_, this.lightEngine, this.mainThreadMailbox);
      }
-@@ -395,6 +_,7 @@
+@@ -395,6 +398,7 @@
                  this.modified = true;
              }
  
@@ -18,7 +18,7 @@
              return p_140179_;
          }
      }
-@@ -510,6 +_,7 @@
+@@ -510,12 +514,16 @@
                  if (this.pendingUnloads.remove(p_140182_, p_140183_) && chunkaccess != null) {
                      if (chunkaccess instanceof LevelChunk levelchunk) {
                          levelchunk.setLoaded(false);
@@ -26,17 +26,16 @@
                      }
  
                      this.save(chunkaccess);
-@@ -517,6 +_,9 @@
+                     if (chunkaccess instanceof LevelChunk levelchunk1) {
                          this.level.unload(levelchunk1);
                      }
- 
++
 +                    net.neoforged.neoforge.common.CommonHooks.onChunkUnload(this.poiManager, chunkaccess); // Neo: Must be called for all chunk unloading. Not just LevelChunks.
 +                    this.chunkTypeCache.remove(chunkaccess.getPos().toLong()); // Neo: Prevent chunk type cache from permanently retaining data for unloaded chunks
-+
+ 
                      this.lightEngine.updateChunkStatus(chunkaccess.getPos());
                      this.lightEngine.tryScheduleUpdate();
-                     this.progressListener.onStatusChange(chunkaccess.getPos(), null);
-@@ -756,6 +_,7 @@
+@@ -756,6 +764,7 @@
  
                  this.level.getProfiler().incrementCounter("chunkSave");
                  CompoundTag compoundtag = ChunkSerializer.write(this.level, p_140259_);
@@ -44,7 +43,7 @@
                  this.write(chunkpos, compoundtag).exceptionally(p_351776_ -> {
                      this.level.getServer().reportChunkSaveFailure(p_351776_, this.storageInfo(), chunkpos);
                      return null;
-@@ -817,9 +_,11 @@
+@@ -817,9 +826,11 @@
  
      private static void markChunkPendingToSend(ServerPlayer p_295834_, LevelChunk p_296281_) {
          p_295834_.connection.chunkSender.markChunkPendingToSend(p_296281_);
@@ -56,7 +55,15 @@
          p_294215_.connection.chunkSender.dropChunk(p_294215_, p_294758_);
      }
  
-@@ -1018,6 +_,7 @@
+@@ -987,6 +998,7 @@
+     }
+ 
+     public void move(ServerPlayer p_140185_) {
++        if (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.moveTrackingOnPublisher(this, p_140185_)) return;
+         for (ChunkMap.TrackedEntity chunkmap$trackedentity : this.entityMap.values()) {
+             if (chunkmap$trackedentity.entity == p_140185_) {
+                 chunkmap$trackedentity.updatePlayers(this.level.players());
+@@ -1018,6 +1030,7 @@
                  this.playerMap.unIgnorePlayer(p_140185_);
              }
  
@@ -64,7 +71,7 @@
              this.updateChunkTracking(p_140185_);
          }
      }
-@@ -1069,7 +_,7 @@
+@@ -1069,7 +1082,7 @@
      }
  
      protected void addEntity(Entity p_140200_) {
@@ -73,10 +80,12 @@
              EntityType<?> entitytype = p_140200_.getType();
              int i = entitytype.clientTrackingRange() * 16;
              if (i != 0) {
-@@ -1199,6 +_,46 @@
+@@ -1197,6 +1210,46 @@
+                 chunkholder.addSendDependency(this.lightEngine.waitForPendingTasks(p_300775_.x, p_300775_.z));
+             }
          });
-     }
- 
++    }
++
 +    // Neo: Getter for players watching an entity.
 +    public List<ServerPlayer> getPlayersWatching(Entity entity) {
 +        var trackedEntity = entityMap.get(entity.getId());
@@ -115,16 +124,13 @@
 +        }
 +        var tracked = this.entityMap.get(entity.getId());
 +        return tracked != null && tracked.entity == entity && tracked.seenBy.isEmpty();
-+    }
-+
+     }
+ 
      class DistanceManager extends net.minecraft.server.level.DistanceManager {
-         protected DistanceManager(Executor p_140459_, Executor p_140460_) {
-             super(p_140459_, p_140460_);
-@@ -1313,5 +_,20 @@
-                 this.updatePlayer(serverplayer);
+@@ -1314,4 +1367,19 @@
              }
          }
-+    }
+     }
 +
 +    /**
 +     * Neo: PR #937
@@ -139,5 +145,5 @@
 +     */
 +    public void scheduleOnMainThreadMailbox(ChunkTaskPriorityQueueSorter.Message<Runnable> msg) {
 +        mainThreadMailbox.tell(msg);
-     }
++    }
  }

@@ -149,10 +149,11 @@ public final class RegionPlayerSpatialPlan {
             return refused(Refusal.MOVEMENT_UNBOUNDED);
         // Player.aiStep's exact non-riding pickup box also contains LivingEntity.pushEntities' box.
         // EntitySectionStorage adds its own -2/+2 horizontal, -4/+0 vertical search padding.
-        AABB query = body.inflate(1, .5, 1);
+        AABB extent = RegionPlayerPacketPlan.bodyExtent(player, body);
+        AABB query = extent.inflate(1, .5, 1);
         // Base/inside-block, fluid/eyes, poses, collision/support and listener noBlocksAround.
         // No displacement is possible in this admitted intrinsic profile (verified solid support).
-        AABB blocks = RegionPlayerContainerPlan.blockBounds(player, body.inflate(1, 1, 1).expandTowards(0, -1, 0));
+        AABB blocks = RegionPlayerPacketPlan.blockExtent(player, RegionPlayerContainerPlan.blockBounds(player, extent.inflate(1, 1, 1).expandTowards(0, -1, 0)));
         final RegionPlayerFootprint footprint;
         try {
             footprint = RegionPlayerFootprint.of(level, engine.regionLayout().regionChunkSize(), query, blocks, RegionPlayerDamagePlan.extraLeaseBounds(player, blocks));
@@ -198,6 +199,7 @@ public final class RegionPlayerSpatialPlan {
     }
 
     private static boolean knownBlocks(ServerPlayer player, RegionPlayerFootprint footprint, AABB body, RegionPlayerTickCoordinator.Phase phase) {
+        body = RegionPlayerPacketPlan.bodyExtent(player, body);
         ServerLevel level = footprint.level();
         AABB blocks = footprint.blockBounds();
         for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(blocks.minX, blocks.minY, blocks.minZ), BlockPos.containing(blocks.maxX, blocks.maxY, blocks.maxZ))) {
@@ -207,6 +209,10 @@ public final class RegionPlayerSpatialPlan {
                 return false;
             if (!level.getFluidState(pos).isEmpty() || level.getBlockEntity(pos) != null) return false;
         }
+        // The original movement handler can invoke server-only teleport correction on collision.
+        // Audit the complete swept body before effects rather than grant teleport permission or
+        // discover this branch after moving the player. Obstructed moves retain their full serial handler.
+        if (RegionPlayerPacketPlan.preparesMovement(player) && !level.noCollision(player, body)) return false;
         // Every column beneath the standing box has a full inert support cube. A zero-input,
         // zero-horizontal-velocity player with nonpositive Y velocity cannot leave this box.
         if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION) {
@@ -239,7 +245,11 @@ public final class RegionPlayerSpatialPlan {
                 || player.isAutoSpinAttack() || player.getAbilities().flying || !player.getActiveEffects().isEmpty()
                 || player.isOnFire() || player.getTicksFrozen() != 0 || !player.getShoulderEntityLeft().isEmpty() || !player.getShoulderEntityRight().isEmpty())
             return Refusal.MOVEMENT_UNBOUNDED;
-        if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION && !player.forgiaStationarySpatialInputs()) return Refusal.MOVEMENT_UNBOUNDED;
+        // The exact matching confirmation only reapplies the already-published destination; it
+        // does not run physics. Vanilla teleport may have cleared onGround before the client ack.
+        if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION && !player.forgiaStationarySpatialInputs()
+                && !RegionPlayerPacketPlan.permitsAwaitingTeleport(player))
+            return Refusal.MOVEMENT_UNBOUNDED;
         // Exact default plain materials have a no-op vanilla inventoryTick. Equipment stays empty;
         // candidate capacity, original menu/criteria and callback admission remain separate gates.
         if (!RegionPlayerInventoryPlan.supportedInventory(player)) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;

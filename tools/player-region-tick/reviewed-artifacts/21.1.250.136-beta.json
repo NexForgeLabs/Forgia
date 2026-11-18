@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "id": "forgia-21.1.250.136-beta-schema3-4",
+  "version": "21.1.250.136-beta",
+  "contract": "unknown-extension-whole-call-serial",
+  "installerSha256": "4440e1ebcf522231a0655b3508ef2c69fb39b30a877ab88471c6ecd9b899757d",
+  "installedJars": {
+    "server": "be055ced867685ba014687a16f4100912af9707ad54a512ab22b54732427d77e",
+    "universal": "b582fde5beefa2147965630c60cf0577fbe6e561d6b92bce65120a0ea9427d0c"
+  },
+  "oracleSha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe",
+  "review": {
+    "kind": "parent-agent-source-and-artifact-review",
+    "date": "2026-11-18",
+    "reviewer": "parent Codex agent; no human or independent approval claimed",
+    "evidence": [
+      "tmp/player-region-tick-p4-02/build-final-command/result.json",
+      "tmp/player-region-tick-p4-02/build-final-command/junit-summary.json",
+      "tmp/player-region-tick-p4-02/patch-proof-01.json",
+      "tmp/player-region-tick-p4-02/gameplay/server-on-fixed/owner-packet/independent-verdict.json"
+    ],
+    "findings": [
+      "P4 first audited empty hotbar packet uses original PacketUtils task or original deferred Connection callback position; complete handler and synchronous physical join",
+      "Unknown extensions refused before added state reads/freeze; MAIN/NETWORK payload contract unchanged",
+      "576 affected JUnit passed including both pools original queue/handler, post-effect failure without replay, stale target/instance and rejected submission cleanup",
+      "First .135 real TCP counterexample found deferred Connection callback bypass; .136 adds same exact entry and preserves both original exception boundaries",
+      ".136 fixed real TCP original packet/serial-stat fences and nine proof mutation controls passed; full P4 and compatibility suites remain separately required; no performance/P5 claim"
+    ],
+    "sources": {
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerPacketRouter.java": "22185536a7072216e70aeeca18da0736c1f7ad4c61d5eb9d52d7469619a480fc",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java": "3363c1c0f3ddf4f71c5dd039da6f02799d68e250daed89bd0329d649a1f9a2db",
+      "patches/net/minecraft/network/protocol/PacketUtils.java.patch": "7dfcf0cf4ce4776cf685893016c2f34f0009400d6067455843dd3033b1134ff6",
+      "patches/net/minecraft/network/Connection.java.patch": "899eb7a3648abe56a01cee7c71e0d7d23cfdaead7ecaac00a89d549d5d62028b"
+    }
+  }
+}

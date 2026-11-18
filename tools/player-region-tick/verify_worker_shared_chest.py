@@ -40,9 +40,11 @@ def verify(root,installer):
  require(all(re.search(r': 0\s*$',v) for v in result['xpReads'].values()),'shared chest changed XP')
  rows=lines(out/'jdi.ndjson');require(rows[0]['event']=='armed' and rows[-1]['event']=='observed' and rows[-1]['complete'] and [x['seq'] for x in rows]==list(range(1,len(rows)+1)),'chest original observer incomplete')
  require(set(rows[0]['actors'])==set(actors.values()),'chest observer actor mismatch')
- active={};calls=[];events=[]
+ active={};calls=[];events=[];preparations=[]
  for row in rows[1:-1]:
   require(row['actor'] in actors.values() and (row['thread']=='Server thread' or 'Worker' in row['thread']),'chest unknown observer owner/thread')
+  if row['event']=='queue-quiescent':
+   require(row['thread']=='Server thread' and row['readers']==0,'shared click preparation not quiescent publisher');preparations.append(row);continue
   if row['event'] in ['open-event','close-event']:
    require(row['thread']=='Server thread' and any('ServerGamePacketListenerImpl.' in x for x in row['stack']),'chest lifecycle event escaped original packet fence');events.append(row);continue
   key=row['thread']
@@ -51,8 +53,11 @@ def verify(root,installer):
    require(row['method'] in ['stillValid','broadcastChanges'] and row['phase'] in ['ENTITY','CONNECTION','PACKET'] and row['count'] in [0,11],'unknown original chest method/state')
    if 'Worker' in key:
     require(not any('Worker' in k for k in active if k!=key),'same shared chest methods overlap on different workers')
-    require(row['phase'] in ['ENTITY','CONNECTION'] and any('RegionPlayerTickDispatch.runOriginal:' in x for x in row['stack']),'chest method escaped original full worker')
-    require(any(('ServerPlayer.tick:' if row['phase']=='ENTITY' else 'ServerPlayer.doTick:') in x for x in row['stack']),'chest stage stack mismatch')
+    if row['phase']=='PACKET':
+     require(any('RegionPlayerPacketRouter$Call.run:' in x for x in row['stack']) and any('ServerGamePacketListenerImpl.handleContainerClick:' in x for x in row['stack']) and any('ServerboundContainerClickPacket.handle:' in x for x in row['stack']),'chest packet escaped original full handler')
+    else:
+     require(any('RegionPlayerTickDispatch.runOriginal:' in x for x in row['stack']),'chest method escaped original full worker')
+     require(any(('ServerPlayer.tick:' if row['phase']=='ENTITY' else 'ServerPlayer.doTick:') in x for x in row['stack']),'chest stage stack mismatch')
    if row['phase']=='CONNECTION':require(any('Connection.tick:' in x for x in row['stack']),'chest connection body incomplete')
   elif row['event']=='return':
    entry=active.pop(key,None);require(entry is not None and all(row[k]==entry[k] for k in ['actor','menu','chest','method','phase','count']),'chest original entry/return mismatch or concurrent inventory mutation')
@@ -67,7 +72,19 @@ def verify(root,installer):
    measured=[x for x,_ in calls if x['actor']==actor and x['phase']==phase and x['method']==method]
    require(measured and any(x['count']==11 for x in measured) and any(x['count']==0 for x in measured),'original chest state visibility incomplete '+phase+method)
    require(all(('Worker' in x['thread'])==install['playerPlanningRequested'] for x in measured),'unexpected shared chest worker coverage')
+ if rows[0].get('protocol')==2:
+  require(len(preparations)==1 and preparations[0]['actor']==actors['WorkerB'],'missing original click preparation')
+  packet_calls=[x for x,_ in calls if x['phase']=='PACKET' and x['actor']==actors['WorkerB'] and any('ServerGamePacketListenerImpl.handleContainerClick:' in f for f in x['stack'])]
+  require(packet_calls and all(('Worker' in x['thread'])==install['playerPlanningRequested'] for x in packet_calls),'shared quickMove did not use original expected packet executor')
  def window(label):return [r for r in raw if marks[label+'_before']<r['seq']<marks[label+'_after']]
+ if 'keepalivePreparation' in result:
+  keepalive=[json.loads(x) for x in subprocess.check_output(['node',str(TOOLS/'decode_owner_routes.cjs'),str(out/'packets.ndjson'),'keepalive'],text=True).splitlines()]
+  require(set(result['keepalivePreparation'])==set(actors),'missing actual keepalive preparation actors')
+  for name,prepared in result['keepalivePreparation'].items():
+   require(prepared in packets and prepared['direction']=='send' and prepared['name']=='keep_alive' and prepared['seq']<marks['shared_open_before'],'invented original keepalive response')
+   replies=[x for x in keepalive if x['bot']==name and x['direction']=='frame_send' and x['data']==prepared['data'] and x['seq']<marks['shared_open_before']]
+   challenges=[x for x in keepalive if x['bot']==name and x['direction']=='frame' and x['data']==prepared['data']]
+   require(len(replies)==len(challenges)==1 and challenges[0]['seq']<replies[0]['seq'],'preparation not the original normal wire challenge/reply')
  opened=window('shared_open');click=window('shared_click');closed=window('shared_close')
  for name,actor in actors.items():
   use=[x for x in opened if x['bot']==name and x['direction']=='frame_send' and x['name']=='block_place'];require(len(use)==1 and use[0]['data']['location']=={'x':48,'y':100,'z':24},'shared chest open not normal client block-use')
@@ -85,9 +102,10 @@ def verify(root,installer):
  require(feedback[0]['data']==result['clientsConfirmed']['WorkerB']['window'],'invented confirmed client slots')
  require(sum(stack.get('itemCount',0) for stack in result['clientsAfterClick']['WorkerA']['window']['items'][27:] if stack.get('itemId')==805)==0,'non-clicking client acquired duplicate inventory')
  final=load(out/'final.json');require(final in states and not final['players'] and final['phases']['owners']==final['phases']['pending']==final['phases']['running']==final['activeBatches']==final['stateClaims']==0,'shared chest logout retained owner/claim')
+ if 'packets' in final:require(final['packets']['connections']==final['packets']['chatPending']==final['packets']['tasks']['pending']==final['packets']['tasks']['terminals']==0,'shared chest retained packet/chat references')
  require(not final['network']['frozen'] and final['network']['pending']==final['network']['readers']==final['network']['terminals']==0,'shared chest network resources retained')
  require(not any(x in (out/'boot-1.server.log').read_text() for x in ['Failed to handle packet','Caused by:','Error executing task']),'original shared chest server failed')
- return dict(status='passed',version=install['version'],requested=install['playerPlanningRequested'],persistent=install['persistent'],originalMenuCalls=len(calls),workerMenuCalls=sum('Worker' in x['thread'] for x,_ in calls),sharedOriginalChestIdentities=1,distinctOriginalMenus=2,originalOpenEvents=2,originalCloseEvents=2,diamondsTransferred=11,xp=0,scope='Exact shared single-chest full worker menu ticks and original synchronous validity/slot feedback; normal packet open/click remain original server fences; P4 owner packet routing not started')
+ return dict(status='passed',version=install['version'],requested=install['playerPlanningRequested'],persistent=install['persistent'],originalMenuCalls=len(calls),workerMenuCalls=sum('Worker' in x['thread'] for x,_ in calls),sharedOriginalChestIdentities=1,distinctOriginalMenus=2,originalOpenEvents=2,originalCloseEvents=2,diamondsTransferred=11,xp=0,scope='Exact shared single-chest full worker menu ticks and original synchronous validity/slot feedback; normal open/close remain server fences; protocol2 observes bounded original quickMove owner packet')
 
 def main():
  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--server',type=Path,required=True);p.add_argument('--installer',type=Path,required=True);p.add_argument('--output',type=Path);a=p.parse_args();out=a.output or a.server/'worker-shared-chest/independent-verdict.json';require(not out.exists(),'preserve prior chest verdict')

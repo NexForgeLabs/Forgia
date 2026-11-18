@@ -198,7 +198,7 @@ public final class RegionPlayerAdmissionPlan {
                     || (boolean) value(listener, ServerCommonPacketListenerImpl.class, "keepAlivePending")
                     || (boolean) value(listener, ServerGamePacketListenerImpl.class, "clientIsFloating")
                     || (boolean) value(listener, ServerGamePacketListenerImpl.class, "clientVehicleIsFloating")
-                    || value(listener, ServerGamePacketListenerImpl.class, "awaitingPositionFromClient") != null
+                    || (value(listener, ServerGamePacketListenerImpl.class, "awaitingPositionFromClient") != null && !RegionPlayerPacketPlan.permitsAwaitingTeleport(player))
                     || player.server.getPlayerIdleTimeout() != 0)
                 return check(Refusal.NETWORK_TRANSITION, "connection/teleport/keepalive/idle transition");
             Queue<?> pending = (Queue<?>) value(connection, Connection.class, "pendingActions");

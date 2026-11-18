@@ -71,7 +71,21 @@ class Session:
 
     def command(self, text):
         before = time.monotonic_ns()
-        response = self.rcon.command(text)
+        try:
+            response = self.rcon.command(text)
+        except OSError as error:
+            # Preserve VM state before the existing failure cleanup terminates this isolated server.
+            if self.process is not None and self.process.poll() is None:
+                stem = self.output / ('rcon-failure-' + str(time.monotonic_ns()))
+                detail = dict(command=text, pid=self.process.pid, error=repr(error))
+                try:
+                    with stem.with_suffix('.threads.log').open('xb') as capture:
+                        dump = subprocess.run([shutil.which('jcmd') or 'jcmd', str(self.process.pid), 'Thread.print', '-l'], stdout=capture, stderr=subprocess.STDOUT, timeout=15)
+                    detail['threadDumpExit'] = dump.returncode
+                except Exception as diagnostic:
+                    detail['threadDumpError'] = repr(diagnostic)
+                stem.with_suffix('.json').write_text(json.dumps(detail, indent=2)+'\n')
+            raise
         self.commands.write(json.dumps({'boot': self.boot, 'command': text, 'response': response, 'startNs': before, 'endNs': time.monotonic_ns()})+'\n')
         self.commands.flush()
         assert not any(e in response for e in ['Unknown or incomplete command', 'Incorrect argument', 'That position is not loaded', 'No entity was found']), response

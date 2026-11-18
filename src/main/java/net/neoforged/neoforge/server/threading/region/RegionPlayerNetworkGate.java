@@ -34,6 +34,7 @@ public final class RegionPlayerNetworkGate {
     private boolean frozen;
     private boolean closed;
     private int executing;
+    private final Map<Thread, Integer> callbackThreads = new IdentityHashMap<>();
     private long deferred;
     private long cancelled;
     private long refusedFreezes;
@@ -53,6 +54,7 @@ public final class RegionPlayerNetworkGate {
     synchronized void thaw() {
         if (!this.frozen) throw new IllegalStateException("Player network boundary is not frozen");
         this.frozen = false;
+        this.notifyAll();
     }
 
     public synchronized Snapshot snapshot() {
@@ -77,6 +79,7 @@ public final class RegionPlayerNetworkGate {
         if (this.closed) return UNRESTRICTED;
         if (!this.frozen && !this.pending.containsKey(connection) && !this.overflow.containsKey(connection)) {
             this.readers++;
+            this.callbackThreads.merge(Thread.currentThread(), 1, Integer::sum);
             return new Scope(this);
         }
         if (this.queued >= MAX_PENDING) {
@@ -119,7 +122,10 @@ public final class RegionPlayerNetworkGate {
     /** Called by the original publisher after physical join, before lifecycle removal. */
     public static void retireConnection(Connection connection) {
         if (RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Cannot retire a worker connection before join");
-        if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) engine.playerNetworkGate().cancel(connection);
+        if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) {
+            engine.playerNetworkGate().cancel(connection);
+            engine.retirePlayerPackets(connection);
+        }
     }
 
     private synchronized void cancel(Connection connection) {
@@ -131,10 +137,43 @@ public final class RegionPlayerNetworkGate {
 
     /** The engine has joined all player bodies. Queued server envelopes retain no live references. */
     synchronized void close() {
-        if (this.frozen || this.executing != 0) throw new IllegalStateException("Cannot close active player network callbacks");
+        if (this.frozen || this.executing != 0 || this.readers != 0) throw new IllegalStateException("Cannot close active player network callbacks");
         this.closed = true;
         for (Connection connection : List.copyOf(this.pending.keySet())) this.cancel(connection);
         for (Deferred terminal : List.copyOf(this.overflow.values())) terminal.cancel();
+    }
+
+    synchronized boolean isCallbackOnCurrentThread() {
+        return this.callbackThreads.containsKey(Thread.currentThread());
+    }
+
+    /**
+     * A completed player batch may still be inside its publisher's thaw/finally or an outer original
+     * network callback. Shutdown cannot release those references until they physically return.
+     * No tasks are pumped, no timeout grants completion, and interruption is restored after cleanup.
+     */
+    synchronized void closeAfterCallbacks() {
+        if (this.isCallbackOnCurrentThread()) throw new IllegalStateException("Cannot wait for the current network callback");
+        boolean interrupted = false;
+        while (this.frozen || this.executing != 0 || this.readers != 0) {
+            try {
+                this.wait();
+            } catch (InterruptedException ignored) {
+                interrupted = true;
+            }
+        }
+        try {
+            this.close();
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt();
+        }
+    }
+
+    private void callbackReturned(Thread thread) {
+        int count = this.callbackThreads.get(thread);
+        if (count == 1) this.callbackThreads.remove(thread);
+        else this.callbackThreads.put(thread, count - 1);
+        this.notifyAll();
     }
 
     private static final class Deferred implements Runnable {
@@ -187,6 +226,7 @@ public final class RegionPlayerNetworkGate {
                 body = this.original;
                 this.running = true;
                 current.executing++;
+                current.callbackThreads.merge(Thread.currentThread(), 1, Integer::sum);
             }
             try {
                 body.run();
@@ -194,6 +234,7 @@ public final class RegionPlayerNetworkGate {
                 synchronized (current) {
                     this.detach(current);
                     current.executing--;
+                    current.callbackReturned(Thread.currentThread());
                 }
             }
         }
@@ -213,9 +254,12 @@ public final class RegionPlayerNetworkGate {
     public static final class Scope implements AutoCloseable {
         @Nullable
         private RegionPlayerNetworkGate gate;
+        @Nullable
+        private Thread owner;
 
         private Scope(@Nullable RegionPlayerNetworkGate gate) {
             this.gate = gate;
+            this.owner = gate == null ? null : Thread.currentThread();
         }
 
         @Override
@@ -224,8 +268,10 @@ public final class RegionPlayerNetworkGate {
             if (current == null) return;
             synchronized (current) {
                 current.readers--;
+                current.callbackReturned(this.owner);
             }
             this.gate = null;
+            this.owner = null;
         }
     }
 }

@@ -317,4 +317,75 @@ class RegionPlayerNetworkGateTest {
         }
         assertTrue(graphs.stream().allMatch(reference -> reference.get() == null), "Cancelled/completed closures must release their captured object graphs");
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "frozen", "reader", "deferred" })
+    @org.junit.jupiter.api.Timeout(15)
+    void retirementWaitsForActualThawAndOriginalCallbackReturnWithoutEarlyRetainRelease(String kind) throws Exception {
+        var resource = Unpooled.buffer(1);
+        var failure = new java.util.concurrent.atomic.AtomicReference<Throwable>();
+        var closerEntered = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        RegionPlayerNetworkGate.Scope reader = null;
+        Thread callback = null;
+        if (kind.equals("reader")) reader = enter(() -> {}, null);
+        else {
+            assertTrue(freeze());
+            enter(() -> {
+                try {
+                    assertTrue(release.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                } catch (InterruptedException problem) {
+                    throw new AssertionError(problem);
+                }
+            }, resource);
+            resource.release();
+            if (kind.equals("deferred")) {
+                thaw();
+                callback = new Thread(this.queued.remove(), "original deferred callback");
+                callback.start();
+                long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+                while (callback.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < until) Thread.yield();
+                assertEquals(Thread.State.TIMED_WAITING, callback.getState());
+            }
+        }
+        Thread closer = new Thread(() -> {
+            closerEntered.countDown();
+            try {
+                invoke("closeAfterCallbacks", new Class<?>[0]);
+            } catch (Throwable problem) {
+                failure.set(problem);
+            }
+        }, "actual gate retirement");
+        closer.start();
+        assertTrue(closerEntered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+        long until = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        while (closer.getState() != Thread.State.WAITING && System.nanoTime() < until) Thread.yield();
+        assertEquals(Thread.State.WAITING, closer.getState());
+        assertFalse(this.gate.snapshot().closed());
+        if (!kind.equals("reader")) assertEquals(1, resource.refCnt());
+        if (kind.equals("frozen")) thaw();
+        if (reader != null) reader.close();
+        release.countDown();
+        if (callback != null) callback.join(5000);
+        closer.join(5000);
+        assertFalse(closer.isAlive());
+        assertNull(failure.get());
+        assertTrue(this.gate.snapshot().closed());
+        assertEquals(0, this.gate.snapshot().pending());
+        if (kind.equals("reader")) resource.release();
+        assertEquals(0, resource.refCnt());
+        for (Runnable envelope : this.queued) assertInert(envelope);
+    }
+
+    @Test
+    void currentOriginalCallbackCannotWaitForItsOwnRetirement() throws Exception {
+        try (var reader = enter(() -> {}, null)) {
+            assertEquals(true, invoke("isCallbackOnCurrentThread", new Class<?>[0]));
+            assertThrows(InvocationTargetException.class, () -> invoke("closeAfterCallbacks", new Class<?>[0]));
+            assertFalse(this.gate.snapshot().closed());
+        }
+        assertEquals(false, invoke("isCallbackOnCurrentThread", new Class<?>[0]));
+        invoke("closeAfterCallbacks", new Class<?>[0]);
+        assertTrue(this.gate.snapshot().closed());
+    }
 }

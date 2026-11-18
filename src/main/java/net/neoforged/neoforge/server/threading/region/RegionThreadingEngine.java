@@ -270,6 +270,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final PlayerRegionTransitions playerRegions = new PlayerRegionTransitions();
     private final RegionPlayerTickCoordinator playerTicks = new RegionPlayerTickCoordinator(this);
     private final RegionPlayerNetworkGate playerNetworkGate = new RegionPlayerNetworkGate();
+    private final RegionPlayerPacketRouter playerPackets = new RegionPlayerPacketRouter();
     private final Map<String, AtomicLong> playerAdmissionRefusals = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, String> playerAdmissionLastRefusal = new java.util.concurrent.ConcurrentHashMap<>();
     // Mutable local-object aliases are resource conflicts, never a second entity identity ledger.
@@ -4676,6 +4677,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         values.put("persistent", this.workerPool.isPersistent());
         values.put("phases", this.playerTicks.snapshot());
         values.put("network", this.playerNetworkGate.snapshot());
+        values.put("packets", this.playerPackets.snapshot());
         values.put("refusals", this.playerAdmissionRefusals());
         values.put("lastRefusal", Map.copyOf(this.playerAdmissionLastRefusal));
         values.put("activeBatches", this.activeTickBatches.size());
@@ -4692,6 +4694,147 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     public RegionPlayerNetworkGate playerNetworkGate() {
         return this.playerNetworkGate;
+    }
+
+    void retirePlayerPackets(net.minecraft.network.Connection connection) {
+        this.playerPackets.retire(connection);
+    }
+
+    RegionPlayerPacketRouter playerPackets() {
+        return this.playerPackets;
+    }
+
+    /** One original PacketUtils queue position; later packets/continuations cannot overtake its join. */
+    boolean tryRunPlayerPacket(net.minecraft.network.protocol.Packet<?> packet,
+            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original) {
+        return this.tryRunPlayerOperation(packet, listener, original, false);
+    }
+
+    boolean tryRunPlayerChatCompletion(net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original) {
+        return this.tryRunPlayerOperation(null, listener, original, true);
+    }
+
+    private boolean tryRunPlayerOperation(@Nullable net.minecraft.network.protocol.Packet<?> packet,
+            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original, boolean chatCompletion) {
+        ServerPlayer player = listener.player;
+        if (!this.playerCriterionStorageEnabled() || !player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()
+                || (!chatCompletion && (packet == null || !RegionPlayerPacketPlan.known(packet))) || !this.activeTickBatches.isEmpty()
+                || this.regionWorkAdmission.isOwner() || !this.regionWorkAdmission.tryEnter(this::isQuiescentForParallelApi))
+            return false;
+        RegionPlayerTickDispatch.Lifecycle parent = null;
+        RegionPlayerSpatialLease lease = null;
+        RegionPlayerPacketRouter.Call call = null;
+        RegionPlayerPacketPlan.Preparation preparation = null;
+        RegionPlayerTickDispatch effects = null;
+        boolean frozen = false;
+        boolean regionPhase = false;
+        long sequence = 0;
+        try {
+            // Preserve explicit NETWORK handlers of unknown extensions on their original thread.
+            if (RegionPlayerExtensionSnapshot.capture().refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
+            var packetPlan = chatCompletion ? RegionPlayerPacketPlan.chat(listener) : RegionPlayerPacketPlan.capture(packet, listener);
+            if (packetPlan == null) return false;
+            if (!this.playerNetworkGate.freeze(player.server)) return false;
+            frozen = true;
+            preparation = packetPlan.prepare();
+            this.playerRegions.publishAtPlayerStage(this, player);
+            var capture = this.capturePlayerAdmissionPlan(player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            if (capture.plan() == null) return false;
+            parent = new RegionPlayerTickDispatch.Lifecycle(player.serverLevel());
+            if (this.publishTickBatch(parent, player.serverLevel()) != TickBatchPublication.PUBLISHED) {
+                parent.finish();
+                parent = null;
+                return false;
+            }
+            parent.markExecutingOnCurrentThread();
+            effects = new RegionPlayerTickDispatch(this, parent);
+            lease = this.reservePlayerSpatial(parent, effects, List.of(capture.plan().spatial()));
+            if (lease == null || lease.bindPlayerState(List.of(capture.plan().state())) != RegionPlayerStatePlan.Refusal.NONE
+                    || !capture.plan().revalidate())
+                return false;
+            call = new RegionPlayerPacketRouter.Call(packet, listener, capture.plan(), packetPlan, original);
+            sequence = this.playerPackets.next();
+            if (!chatCompletion && !this.playerPackets.consume(call.received)) return false;
+            var invocation = call;
+            var ownership = lease;
+            var work = new RegionTaskBatch();
+            work.add("original player packet", parent.groupWork(() -> invocation.run(ownership)));
+            parent.externalWaveActive(true);
+            this.beginRegionPhase(parent.level());
+            regionPhase = true;
+            var joined = work.submit(this.workerPool);
+            call.await(joined); // Only exact synchronous packet services; no server/chunk queue pump.
+            joined.throwIfFailed();
+            if (call.failure != null) throwUnchecked(call.failure); // Original PacketUtils catches on publisher.
+            return call.started;
+        } catch (Throwable problem) {
+            if (call != null && call.failure != null && call.failure != problem) {
+                accumulateFailure(call.failure, problem);
+                throwUnchecked(call.failure);
+            }
+            throwUnchecked(problem);
+            return false; // throwUnchecked always throws.
+        } finally {
+            Throwable cleanup = null;
+            try {
+                if (regionPhase) this.levelTickPhaseState(parent.level()).endRegionPhase();
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            }
+            try {
+                if (parent != null) parent.externalWaveActive(false);
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            }
+            try {
+                if (lease != null) lease.close();
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            }
+            try {
+                if (call != null) this.playerPackets.finish(sequence, call);
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            }
+            try {
+                if (effects != null) {
+                    this.applyDeferredRemovals(parent.level(), effects.removals.drain(), effects.removals.isSeamClosed(), true);
+                    this.applyDeferredSectionUpdates(parent.level(), effects.sections.drain(), effects.sections.isSeamClosed());
+                }
+                if (call != null && call.started) this.playerRegions.publishAtPlayerStage(this, player);
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            }
+            try {
+                if (parent != null) {
+                    parent.completeExternalWaves();
+                    parent.finish();
+                }
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            } finally {
+                try {
+                    if (parent != null) {
+                        this.activeTickBatches.remove(parent);
+                        parent.clearExecutingOnCurrentThread();
+                    }
+                } finally {
+                    try {
+                        if (preparation != null) preparation.close();
+                    } finally {
+                        try {
+                            if (frozen) this.playerNetworkGate.thaw();
+                        } finally {
+                            this.regionWorkAdmission.exit();
+                        }
+                    }
+                }
+            }
+            if (cleanup != null) {
+                if (call != null && call.failure != null) accumulateFailure(call.failure, cleanup);
+                else throwUnchecked(cleanup);
+            }
+        }
     }
 
     /** One bounded contiguous prefix. Every acquired capability is released after real physical join. */
@@ -11592,7 +11735,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // must be refused from now on, and the updates and removals that already wait are released.
                 this.closeDeferredSeams();
                 this.awaitActiveTickBatches(null);
-                this.playerNetworkGate.close();
+                this.playerNetworkGate.closeAfterCallbacks();
+                this.playerPackets.close();
                 this.playerTicks.close();
                 this.playerRegions.close();
                 this.awaitSubmittedRegionTasks(null);
@@ -11716,6 +11860,9 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     private void rejectLifecycleSelfWait(String action, @Nullable ServerLevel level) {
+        if (this.playerNetworkGate.isCallbackOnCurrentThread()) {
+            throw new IllegalStateException("Cannot " + action + " from its current network callback");
+        }
         if (this.workerPool.isWorkerThread(Thread.currentThread())) {
             throw new IllegalStateException("Cannot " + action + " from a region worker thread");
         }

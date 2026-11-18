@@ -30,7 +30,7 @@ final class RegionPlayerExtensionSnapshot {
         }
     }
 
-    // Both complete calls share this deliberately conservative union. ListenerList includes inherited
+    // Both complete calls and audited packets/services share this deliberately conservative union. ListenerList includes inherited
     // registrations (including Event/EntityEvent/PlayerEvent), not just listeners on a concrete event.
     private static final List<String> EVENTS = List.of(
             "tick.EntityTickEvent$Pre", "tick.EntityTickEvent$Post",
@@ -45,7 +45,11 @@ final class RegionPlayerExtensionSnapshot {
             "entity.player.PlayerXpEvent$XpChange", "entity.player.PlayerXpEvent$LevelChange",
             "entity.player.ItemEntityPickupEvent$Pre", "entity.player.ItemEntityPickupEvent$Post",
             "entity.player.PlayerXpEvent$PickupXp", "entity.EntityLeaveLevelEvent", "entity.player.AdvancementEvent$AdvancementEarnEvent",
-            "entity.player.AdvancementEvent$AdvancementProgressEvent");
+            "entity.player.AdvancementEvent$AdvancementProgressEvent",
+            "ServerChatEvent", "ItemStackedOnOtherEvent",
+            "level.ChunkWatchEvent$Watch", "level.ChunkWatchEvent$UnWatch", "level.ChunkTicketLevelUpdatedEvent",
+            "entity.player.PlayerEvent$StartTracking", "entity.player.PlayerEvent$StopTracking",
+            "entity.EntityEvent$EnteringSection", "level.BlockEvent$NeighborNotifyEvent");
 
     private static final Set<String> SERVICES = Set.of(
             "cpw.mods.modlauncher.api.ITransformationService",

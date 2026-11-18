@@ -30,6 +30,14 @@ def main():
   s.command('advancement grant @a everything');s.command('experience add @a -1000000 points');s.command('experience set @a 0 levels');s.command('experience set @a 0 points');s.command('clear @a');s.command('effect clear @a');s.command('attribute WorkerA minecraft:generic.max_health base set 20');s.command('tp WorkerA 47.5 100 24.5');s.command('tp WorkerB 120.5 100 24.5');time.sleep(2)
   if not a.foreign_watcher:s.request('disconnect',name='WorkerB')
   time.sleep(2)
+  prepared=s.snapshot('observer-preparation');actor=next(x['uuid'] for x in prepared['players'] if x['name']=='WorkerA');r['actor']=actor
+  trace=s.output/'jdi.ndjson';debug=subprocess.Popen(['python3',str(TOOLS/'run_command.py'),'--output',str(s.output/'debugger'),'--',JAVA,'--add-modules','jdk.jdi',str(TOOLS/'jdi/PlayerStarvationDamage.java'),str(port),str(trace),actor,str(s.output/'observer-done')])
+  until=time.monotonic()+25
+  while time.monotonic()<until:
+   if trace.exists() and any(x['event']=='armed' for x in read_complete_events(trace)):break
+   if debug.poll() is not None:raise AssertionError('Damage observer exited before arm')
+   time.sleep(.1)
+  else:raise TimeoutError('Original damage observer did not arm before fixture')
   s.command('effect give WorkerA minecraft:hunger 20 255 true')
   until=time.monotonic()+12
   while time.monotonic()<until:
@@ -39,12 +47,6 @@ def main():
   s.command('effect clear WorkerA');time.sleep(.6);s.command('tick freeze')
   before=s.snapshot('before');actor=next(x['uuid'] for x in before['players'] if x['name']=='WorkerA');r['actor']=actor;r['before']=before;r['foodBefore']=s.command('data get entity WorkerA foodLevel');r['healthBefore']=s.command('data get entity WorkerA Health')
   assert re.search(r': 20\.0f\s*$',r['healthBefore']) and re.search(r': 0\s*$',r['foodBefore']), 'Original fixture is not full-health empty-food'
-  trace=s.output/'jdi.ndjson';debug=subprocess.Popen(['python3',str(TOOLS/'run_command.py'),'--output',str(s.output/'debugger'),'--',JAVA,'--add-modules','jdk.jdi',str(TOOLS/'jdi/PlayerStarvationDamage.java'),str(port),str(trace),actor,str(s.output/'observer-done')])
-  until=time.monotonic()+25
-  while time.monotonic()<until:
-   if trace.exists() and any(x['event']=='armed' for x in read_complete_events(trace)):break
-   if debug.poll() is not None:raise AssertionError('Damage observer exited before arm')
-   time.sleep(.1)
   s.request('mark',label='damage_before');s.request('packet',name='WorkerA',packet='position_look',data={'x':47.5,'y':100,'z':24.5,'yaw':0,'pitch':0,'onGround':True});s.command('tick unfreeze');
   debug.wait(timeout=18);assert debug.returncode==0;debug=None;s.command('tick freeze')
   r['after']=s.snapshot('after');r['healthAfter']=s.command('data get entity WorkerA Health');r['foodAfter']=s.command('data get entity WorkerA foodLevel');r['stats']=s.command('data get entity WorkerA');s.request('mark',label='damage_after');(s.output/'observer-done').write_text('normal movement and original starvation tick complete\n')

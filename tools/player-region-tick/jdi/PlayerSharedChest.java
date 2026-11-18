@@ -48,13 +48,20 @@ public class PlayerSharedChest {
                 var prepare=vm.eventRequestManager().createClassPrepareRequest();prepare.addClassFilter(type);prepare.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);prepare.enable();
             }else for(var constructor:classes.getFirst().methodsByName("<init>","(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/inventory/AbstractContainerMenu;)V")){var bp=vm.eventRequestManager().createBreakpointRequest(constructor.location());bp.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);bp.enable();}
         }
-        var active=new HashMap<Long,Active>();long deadline=System.nanoTime()+150_000_000_000L;log("armed",Map.of("actors",List.copyOf(actors)));
+        var engine=vm.classesByName("net.neoforged.neoforge.server.threading.region.RegionThreadingEngine").getFirst();var preparation=vm.eventRequestManager().createBreakpointRequest(engine.methodsByName("tryRunPlayerPacket").getFirst().location());preparation.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);preparation.enable();
+        var active=new HashMap<Long,Active>();long deadline=System.nanoTime()+150_000_000_000L;log("armed",Map.of("actors",List.copyOf(actors),"protocol",2));
         try{
             while((!Files.exists(done)||!active.isEmpty())&&System.nanoTime()<deadline){var events=vm.eventQueue().remove(500);if(events==null)continue;
                 try{for(var event:events){
                     if(event instanceof ClassPrepareEvent prepared){for(var constructor:prepared.referenceType().methodsByName("<init>","(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/inventory/AbstractContainerMenu;)V")){var bp=vm.eventRequestManager().createBreakpointRequest(constructor.location());bp.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);bp.enable();}vm.eventRequestManager().deleteEventRequest(prepared.request());}
                     else if(event instanceof BreakpointEvent hit){
                         var method=hit.location().method();var frame=hit.thread().frame(0);
+                        if(method.name().equals("tryRunPlayerPacket")){
+                            var packet=(ObjectReference)frame.getArgumentValues().getFirst();if(!packet.referenceType().name().equals("net.minecraft.network.protocol.game.ServerboundContainerClickPacket"))continue;
+                            var listener=(ObjectReference)frame.getArgumentValues().get(1);var player=(ObjectReference)field(listener,"player");if(!actors.contains(uuid(player)))continue;
+                            var gate=(ObjectReference)field(frame.thisObject(),"playerNetworkGate");long until=System.nanoTime()+2_000_000_000L;while(number(gate,"readers")!=0&&System.nanoTime()<until)Thread.sleep(1);
+                            if(number(gate,"readers")!=0)throw new AssertionError("Original receive reader did not physically return");log("queue-quiescent",Map.of("actor",uuid(player),"thread",hit.thread().name(),"readers",0));continue;
+                        }
                         if(method.name().equals("<init>")){
                             var player=(ObjectReference)frame.getArgumentValues().getFirst();var menu=(ObjectReference)frame.getArgumentValues().get(1);
                             if(actors.contains(uuid(player))&&menu.referenceType().name().equals(chestType.name()))log(method.declaringType().name().endsWith("$Open")?"open-event":"close-event",Map.of("actor",uuid(player),"menu",menu.uniqueID(),"chest",((ObjectReference)field(menu,"container")).uniqueID(),"thread",hit.thread().name(),"stack",stack(hit.thread())));
@@ -66,7 +73,7 @@ public class PlayerSharedChest {
                         var exit=vm.eventRequestManager().createMethodExitRequest();exit.addClassFilter(method.declaringType());exit.addThreadFilter(hit.thread());exit.setSuspendPolicy(EventRequest.SUSPEND_EVENT_THREAD);exit.enable();
                         var value=new Active(menu,chest,player,method,exit,chestCount(chest),frames,stage);
                         if(active.put(hit.thread().uniqueID(),value)!=null)throw new AssertionError("Nested original menu method");
-                        log("enter",Map.of("actor",uuid(player),"menu",menu.uniqueID(),"chest",chest.uniqueID(),"method",method.name(),"phase",stage,"thread",hit.thread().name(),"count",value.count(),"stack",frames));
+                        log("enter",Map.of("actor",uuid(player),"menu",menu.uniqueID(),"chest",chest.uniqueID(),"method",method.name(),"phase",stage,"thread",hit.thread().name(),"count",value.count(),"stack",frames,"keepAlivePending",((BooleanValue)field((ObjectReference)field(player,"connection"),"keepAlivePending")).value(),"awaitingTeleport",field((ObjectReference)field(player,"connection"),"awaitingPositionFromClient")!=null));
                     }else if(event instanceof MethodExitEvent hit){
                         var value=active.get(hit.thread().uniqueID());if(value==null||!value.method().equals(hit.method()))continue;active.remove(hit.thread().uniqueID());vm.eventRequestManager().deleteEventRequest(value.request());
                         log("return",Map.of("actor",uuid(value.player()),"menu",value.menu().uniqueID(),"chest",value.chest().uniqueID(),"method",hit.method().name(),"phase",value.phase(),"thread",hit.thread().name(),"count",chestCount(value.chest()),"valid",hit.method().equals(valid)?((BooleanValue)hit.returnValue()).value():true));

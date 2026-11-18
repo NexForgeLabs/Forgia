@@ -1,0 +1,728 @@
+{
+  "p4": [
+    {
+      "kind": "queue",
+      "mode": "on-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": false,
+        "actualNormalPackets": 4201,
+        "pendingBound": 4096,
+        "originalTerminals": 1,
+        "pendingAtTerminal": 0,
+        "finalPending": 0,
+        "finalTerminals": 0,
+        "scope": "Original PacketUtils queue bound and full accepted prefix drained before explicit protocol terminal; actual disconnect retirement"
+      }
+    },
+    {
+      "kind": "queue",
+      "mode": "on-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": true,
+        "actualNormalPackets": 4201,
+        "pendingBound": 4096,
+        "originalTerminals": 1,
+        "pendingAtTerminal": 0,
+        "finalPending": 0,
+        "finalTerminals": 0,
+        "scope": "Original PacketUtils queue bound and full accepted prefix drained before explicit protocol terminal; actual disconnect retirement"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "on-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": false,
+        "originalMoves": 4,
+        "originalConfirmations": 1,
+        "originalClicks": 2,
+        "workerHandlers": 6,
+        "serialStatsFences": 1,
+        "diamonds": 5,
+        "xp": 0,
+        "ownerCrossing": [
+          0,
+          1
+        ],
+        "originalWallCorrections": 1,
+        "scope": "Bounded original packet handlers; physical join at original task; current-owner publication and exact synchronous tracking service"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "on-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": true,
+        "originalMoves": 4,
+        "originalConfirmations": 1,
+        "originalClicks": 2,
+        "workerHandlers": 5,
+        "serialStatsFences": 1,
+        "diamonds": 5,
+        "xp": 0,
+        "ownerCrossing": [
+          0,
+          1
+        ],
+        "originalWallCorrections": 1,
+        "scope": "Bounded original packet handlers; physical join at original task; current-owner publication and exact synchronous tracking service"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "off-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": false,
+        "persistent": false,
+        "originalMoves": 4,
+        "originalConfirmations": 1,
+        "originalClicks": 2,
+        "workerHandlers": 0,
+        "serialStatsFences": 1,
+        "diamonds": 5,
+        "xp": 0,
+        "ownerCrossing": [
+          0,
+          1
+        ],
+        "originalWallCorrections": 1,
+        "scope": "Bounded original packet handlers; physical join at original task; current-owner publication and exact synchronous tracking service"
+      }
+    },
+    {
+      "kind": "routes",
+      "mode": "off-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": false,
+        "persistent": true,
+        "originalMoves": 4,
+        "originalConfirmations": 1,
+        "originalClicks": 2,
+        "workerHandlers": 0,
+        "serialStatsFences": 1,
+        "diamonds": 5,
+        "xp": 0,
+        "ownerCrossing": [
+          0,
+          1
+        ],
+        "originalWallCorrections": 1,
+        "scope": "Bounded original packet handlers; physical join at original task; current-owner publication and exact synchronous tracking service"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "on-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": false,
+        "orderedOriginalCompletions": 3,
+        "workerCompletions": 3,
+        "currentOwner": 1,
+        "protocolBroadcastsPerClient": 3,
+        "disconnectedPendingBroadcasts": 0,
+        "cancelledCompletions": 1,
+        "scope": "Original FutureChain and normal chat wire; current owner after delayed filter; exact publisher broadcast and real disconnect cancellation"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "on-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": true,
+        "orderedOriginalCompletions": 3,
+        "workerCompletions": 3,
+        "currentOwner": 1,
+        "protocolBroadcastsPerClient": 3,
+        "disconnectedPendingBroadcasts": 0,
+        "cancelledCompletions": 1,
+        "scope": "Original FutureChain and normal chat wire; current owner after delayed filter; exact publisher broadcast and real disconnect cancellation"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "off-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": false,
+        "persistent": false,
+        "orderedOriginalCompletions": 3,
+        "workerCompletions": 0,
+        "currentOwner": 1,
+        "protocolBroadcastsPerClient": 3,
+        "disconnectedPendingBroadcasts": 0,
+        "cancelledCompletions": 0,
+        "scope": "Original FutureChain and normal chat wire; current owner after delayed filter; exact publisher broadcast and real disconnect cancellation"
+      }
+    },
+    {
+      "kind": "async",
+      "mode": "off-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": false,
+        "persistent": true,
+        "orderedOriginalCompletions": 3,
+        "workerCompletions": 0,
+        "currentOwner": 1,
+        "protocolBroadcastsPerClient": 3,
+        "disconnectedPendingBroadcasts": 0,
+        "cancelledCompletions": 0,
+        "scope": "Original FutureChain and normal chat wire; current owner after delayed filter; exact publisher broadcast and real disconnect cancellation"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "on-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": false,
+        "originalSelections": 6,
+        "workerSelections": 3,
+        "serialStatsFences": 6,
+        "clientStatsReplies": 6,
+        "selected": [
+          0,
+          1
+        ],
+        "diamonds": 1,
+        "xp": 0,
+        "scope": "P4 first bounded empty hotbar selection only; original PacketUtils queue/handler/error boundary; other packet/async owner protocols and P4-wide acceptance remain pending"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "on-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": true,
+        "persistent": true,
+        "originalSelections": 6,
+        "workerSelections": 3,
+        "serialStatsFences": 6,
+        "clientStatsReplies": 6,
+        "selected": [
+          0,
+          1
+        ],
+        "diamonds": 1,
+        "xp": 0,
+        "scope": "P4 first bounded empty hotbar selection only; original PacketUtils queue/handler/error boundary; other packet/async owner protocols and P4-wide acceptance remain pending"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "off-fixed",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": false,
+        "persistent": false,
+        "originalSelections": 6,
+        "workerSelections": 0,
+        "serialStatsFences": 6,
+        "clientStatsReplies": 6,
+        "selected": [
+          0,
+          1
+        ],
+        "diamonds": 1,
+        "xp": 0,
+        "scope": "P4 first bounded empty hotbar selection only; original PacketUtils queue/handler/error boundary; other packet/async owner protocols and P4-wide acceptance remain pending"
+      }
+    },
+    {
+      "kind": "hotbar",
+      "mode": "off-persistent",
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.146-beta",
+        "requested": false,
+        "persistent": true,
+        "originalSelections": 6,
+        "workerSelections": 0,
+        "serialStatsFences": 6,
+        "clientStatsReplies": 6,
+        "selected": [
+          0,
+          1
+        ],
+        "diamonds": 1,
+        "xp": 0,
+        "scope": "P4 first bounded empty hotbar selection only; original PacketUtils queue/handler/error boundary; other packet/async owner protocols and P4-wide acceptance remain pending"
+      }
+    }
+  ],
+  "smoke": [
+    {
+      "mode": "off-fixed",
+      "crossRegionAttack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          }
+        }
+      }
+    },
+    {
+      "mode": "on-persistent",
+      "crossRegionAttack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 254,
+            "workerCalls": 254,
+            "overlapCount": 64,
+            "overlapExamples": [
+              {
+                "tick": 231,
+                "nanos": 141000,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  498,
+                  497
+                ]
+              },
+              {
+                "tick": 232,
+                "nanos": 197000,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  502,
+                  501
+                ]
+              },
+              {
+                "tick": 233,
+                "nanos": 172600,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  506,
+                  505
+                ]
+              },
+              {
+                "tick": 234,
+                "nanos": 153100,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  510,
+                  509
+                ]
+              },
+              {
+                "tick": 235,
+                "nanos": 201700,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  514,
+                  513
+                ]
+              }
+            ]
+          },
+          "CONNECTION": {
+            "sampledCalls": 254,
+            "workerCalls": 254,
+            "overlapCount": 74,
+            "overlapExamples": [
+              {
+                "tick": 231,
+                "nanos": 1237600,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  500,
+                  499
+                ]
+              },
+              {
+                "tick": 232,
+                "nanos": 1068100,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  504,
+                  503
+                ]
+              },
+              {
+                "tick": 233,
+                "nanos": 2933900,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  508,
+                  507
+                ]
+              },
+              {
+                "tick": 234,
+                "nanos": 262100,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  512,
+                  511
+                ]
+              },
+              {
+                "tick": 235,
+                "nanos": 1389900,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  516,
+                  515
+                ]
+              }
+            ]
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 238,
+            "workerCalls": 238,
+            "overlapCount": 0,
+            "overlapExamples": []
+          },
+          "CONNECTION": {
+            "sampledCalls": 238,
+            "workerCalls": 238,
+            "overlapCount": 0,
+            "overlapExamples": []
+          }
+        }
+      }
+    },
+    {
+      "mode": "on-fixed",
+      "crossRegionAttack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 270,
+            "workerCalls": 270,
+            "overlapCount": 19,
+            "overlapExamples": [
+              {
+                "tick": 203,
+                "nanos": 265600,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  374,
+                  373
+                ]
+              },
+              {
+                "tick": 204,
+                "nanos": 157000,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  378,
+                  377
+                ]
+              },
+              {
+                "tick": 206,
+                "nanos": 199900,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  386,
+                  385
+                ]
+              },
+              {
+                "tick": 209,
+                "nanos": 179900,
+                "threads": [
+                  "NeoForge Region Worker #1",
+                  "NeoForge Region Worker #2"
+                ],
+                "ids": [
+                  398,
+                  397
+                ]
+              },
+              {
+                "tick": 210,
+                "nanos": 185200,
+                "threads": [
+                  "NeoForge Region Worker #1",
+                  "NeoForge Region Worker #2"
+                ],
+                "ids": [
+                  402,
+                  401
+                ]
+              }
+            ]
+          },
+          "CONNECTION": {
+            "sampledCalls": 270,
+            "workerCalls": 270,
+            "overlapCount": 77,
+            "overlapExamples": [
+              {
+                "tick": 198,
+                "nanos": 1211200,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  356,
+                  355
+                ]
+              },
+              {
+                "tick": 201,
+                "nanos": 282500,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  368,
+                  367
+                ]
+              },
+              {
+                "tick": 202,
+                "nanos": 1610400,
+                "threads": [
+                  "NeoForge Region Worker #2",
+                  "NeoForge Region Worker #1"
+                ],
+                "ids": [
+                  372,
+                  371
+                ]
+              },
+              {
+                "tick": 203,
+                "nanos": 1299900,
+                "threads": [
+                  "NeoForge Region Worker #1",
+                  "NeoForge Region Worker #2"
+                ],
+                "ids": [
+                  376,
+                  375
+                ]
+              },
+              {
+                "tick": 204,
+                "nanos": 1146600,
+                "threads": [
+                  "NeoForge Region Worker #1",
+                  "NeoForge Region Worker #2"
+                ],
+                "ids": [
+                  380,
+                  379
+                ]
+              }
+            ]
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 258,
+            "workerCalls": 258,
+            "overlapCount": 0,
+            "overlapExamples": []
+          },
+          "CONNECTION": {
+            "sampledCalls": 258,
+            "workerCalls": 258,
+            "overlapCount": 0,
+            "overlapExamples": []
+          }
+        }
+      }
+    },
+    {
+      "mode": "off-persistent",
+      "crossRegionAttack": {
+        "before": 20.0,
+        "after": 19.0,
+        "clientDamageEvents": 1,
+        "clientHealth": 19,
+        "distance": 2.0,
+        "regions": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ]
+        ]
+      },
+      "windows": {
+        "independent": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          }
+        },
+        "same-region": {
+          "ENTITY": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          },
+          "CONNECTION": {
+            "sampledCalls": 0,
+            "workerCalls": 0,
+            "overlapCount": 0,
+            "overlapExamples": []
+          }
+        }
+      }
+    }
+  ]
+}
