@@ -10,7 +10,6 @@ theme:
   language: en
   logo: assets/forgia-mark.svg
   favicon: assets/forgia-mark.svg
-  custom_dir: docs/overrides
   features:
     - navigation.tabs
     - navigation.sections
