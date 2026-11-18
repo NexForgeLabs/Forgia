@@ -1,0 +1,808 @@
+# Forgia status
+
+English | [中文](status.zh.md)
+
+Historical workload tables below were measured on a 4-core/8-thread machine, JDK 21, ZGC generational,
+fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off"
+means the same build with region threading disabled. These are not new C6/canary performance results;
+the accepted optional-service profile uses its separately recorded G1/compressed-pointer configuration.
+
+`.107` 通用扩展另提供 [Audited original-tick API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md)：
+显式安装的受审计 adapter 通过同一 registrar 提供实现/分支/资源合同，核心不保存 Mod 类名或专用兼容逻辑。
+[Create 0.2.0](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md) 是首个消费者，范围为稳态传动/离合器/动力转向器；
+原始 C5 request-only 接口仍保持完整 serial fence。结果和未覆盖项见[本轮方案](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)。
+这条新路线是明确的 trusted-adapter 合同，不将类指纹表述为自动语义证明。
+
+## Measured performance work and runtime commands — bounded implementation
+
+The [performance report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-OPTIMIZATION-REPORT.md), [controlled measurements](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md),
+[regression analysis](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-REGRESSION-ANALYSIS.md) and [runtime command guide](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/RUNTIME-OBSERVABILITY.md)
+record this engineering session. It removes pre-deadline drain submissions, reuses furnace catalog lookahead only
+inside an unexecuted canonical prefix, preserves fresh proof/fence/alias boundaries, and adds native tick history,
+region rankings, Worker/pool counters and `/forgia` administration commands. Fixed-pool close physically joins its
+original Threads; history is confined to each owning server thread with weak server identity.
+
+The equivalent installed64-furnace fixture verifies full before/after NBT/output equality across14JVMs/28windows.
+The optimized worker path's four unsampled mean windows fall from10.28–10.43ms to2.34–3.09ms; allocation falls
+about253→19MiB/s. Stock NeoForge and Forgia serial remain substantially faster on this light workload. This is
+removal of a measured regression, not a general faster-than-vanilla or modpack claim. Original failures remain
+retained and distinct from later successful attempts. Exact final validation and source/artifact receipts are in
+the performance report; the frozen C6/lifecycle certificates are unchanged.
+
+Final source validation includes1,424JUnit passes independently for Fixed and Persistent, four original-Mod
+GameTests per profile, and actual stopped-server Level GC certification for both. The selected15-batch Fixed
+GameTest run passes; Persistent attempts retain13/15and14/15results with chunk-load/timeout prerequisites.
+A later unmonitored6000tick soak also fails a live-bat region mapping invariant; its timing is excluded from
+passing comparisons. This leaves the current mixed-world correctness gate open. Complete commands, actual
+exits, source identities, measurements and failed evidence are bound in the [session receipt](PERFORMANCE-SESSION-RECEIPT.json).
+
+[Generation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-GENERATION-PARALLELISM-AUDIT.md), [loading](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-LOADING-PARALLELISM-AUDIT.md) and
+[player execution](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PLAYER-WORKER-EXECUTION-AUDIT.md) have explicit safety matrices/boundaries. No new generation,
+reconstruction or player tick admission is claimed. Existing vanilla noise/biome/I/O futures and player snapshot
+queries are distinguished from newly implemented work. Unknown callbacks/Create remain serial. Region metrics
+explicitly disclose omitted canonical BE/serial-fallback coverage and unavailable values; no alternate scheduler,
+pool, Ticket/resource authority, effect queue or mod hot-unload support is introduced.
+
+## Controlled canary preparation — source preserved; installed-server gates remain open
+
+The [production readiness report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-READINESS.md), [complete configuration matrix](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md),
+[canary/rollback procedure](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CONTROLLED-CANARY.md) and [read-only audit tools/templates](https://github.com/NexForgeLabs/Forgia/blob/main/tools/production-readiness/README.md)
+cover the first controlled deployment. A fresh fetch leaves `origin/main` at
+`a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1`. All1955 certified production files match fingerprint
+`f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787`;123 C6 and372 lifecycle evidence
+references verify locally, and both optional runtime artifact pins match. The
+[machine re-audit](PRODUCTION-READINESS-AUDIT.json) records these checks without claiming new runtime tests.
+
+The matrix covers all24 TOML keys (16 default-false switches), compiled budgets, native-service restrictions,
+proof/fence gates and retirement/recovery. Fixed and Persistent templates preserve the exact C6 values;
+a separate explicit serial template supports baseline and rollback. The queue-drain Worker switch is not a
+master tick-slice switch; instance/world config precedence and native-agent removal require stopped-server,
+new-JVM rollback. No installed canary pack, multiplayer/long soak, restore drill or hard-kill workload was
+executed in this preparation. These remain launch gates. C6/lifecycle certificates and production defaults,
+authority and admission are unchanged. No deployment, C7 or new Worker-enabled Adapter occurred.
+
+## Lifecycle certification — real-Level GC certified; runtime Mod hot-unload not certified
+
+This is a separate result from the frozen C6 acceptance below. The
+[lifecycle report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.md),
+[machine receipt](LIFECYCLE-CERTIFICATION-2026-11-15.json) and
+[ownership/transition audit](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-AUDIT.md) record:
+
+- **Real-Level GC: CERTIFIED** with the existing Fixed and Persistent pools. Both use the original Mod
+  Worker path and normal server Level unload/close/shutdown. All28 tracked references, including all three
+  actual Levels, clear and enqueue; four actual collections give three consecutive complete observations.
+  The shutdown engine and six actual access callbacks stay strongly reachable; twelve foreign callback
+  read/write checks are refused per profile.
+- **Runtime Mod hot-unload: NOT CERTIFIED.** Installed FML4.0.42/ModLauncher11.0.5 has no supported runtime
+  Mod unload/reload boundary. The same original Mod container and defining classloader remain loaded after
+  server retirement. Four genuine hot-unload/reload scenarios are Not Processed, never passed coverage.
+- New deterministic component races cover queued/rebind/running/releasing work, the production unload
+  callback, repeated unload, shutdown during cleanup and every retained old callback attempted with zero
+  forbidden state changes. Exact selected regression counts and real exits are in the separate receipt.
+
+Production code, native/verified-Core artifacts, canonical profile definitions and both C6 documents are
+unchanged; all123 frozen receipt references verify. No C6 evidence is invalidated. Another complete
+unfiltered C6 profile pair was not required or run for these opt-in test, diagnostic and documentation
+changes. Original prelaunch, compilation, integrity-refusal and failed-GC evidence remains preserved,
+including the heap-identified observer Thread/startup-lambda retention path. The stopped-server graph is
+certified; live-server dimension detachment and Mod class unloading are not. No production deployment,
+second Worker Adapter, compatibility expansion or C7 occurred.
+
+## C6 acceptance — complete unfiltered Persistent and Fixed profiles PASS
+
+`C6 FINAL ARCHITECTURE ACCEPTANCE: PASS`
+
+The [final acceptance report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) and
+[machine receipt](C6-FINAL-ACCEPTANCE-2026-11-15.json) record both complete profiles on clean `main`
+at source HEAD `afa7e4bc781257a756a3d0f6040cc64eebc84d62`. Persistent finished before Fixed started;
+both naturally completed saving, reports and server shutdown. Actual Gradle and server exits are0 for each.
+
+| Complete GameTest profile | Passed | Failed | Skipped | Not Processed | Aborted |
+|---|---:|---:|---:|---:|---:|
+| Persistent —180 functions /74 batches |170|0|10|0|0|
+| Fixed —180 functions /74 batches |170|0|10|0|0|
+
+The overlapping framework population is independently **168 Passed /0 Failed /10 Skipped /4 Not Processed
+/0 Aborted** per profile. The ten unchanged disabled soak/benchmark/hard-kill workloads and four framework-only
+manual/registration/event IDs remain excluded from Passed. Raw tracker180 successes, framework178 successes
+and234 duplicate XML rows are not acceptance pass totals. Exact IDs and diagnostics are in the receipt.
+Both profiles retain identical complete batch membership, the same test-definition hashes and the existing
+failure-injection-last invariant; resources remain ON for both, with persistent Workers the only config difference.
+
+No production or test fixture changed. Production revision `0ede20061`, test-source revision `39352097f` and
+production fingerprint `f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787` are unchanged.
+The28 VM command steps (18 runtime controls),419-case Java authority baseline,3 weak-owner/default-off tests,
+11 associated original-Mod cases and their148-body/counter delta (72 Worker/76 Serial, overlap2) remain valid;
+they were not rerun separately. Historical failed/aborted profiles and the new observer-only prelaunch failure
+are retained. Final raw evidence: `tmp/c6-profile-pair-20261115-2205/`.
+
+At the frozen C6 checkpoint, whole-server real-Level GC and independent runtime Mod hot-unload were unverified.
+The separate lifecycle result above now certifies stopped-server real-Level GC; Mod hot-unload stays unsupported.
+Level clear/shutdown, binding preflight, callback-retention unit tests and VM components retain their separate
+scopes. Core remains the sole coordinator/Kernel/Ticket/Claims/reservation/Lease/Scope/pool authority; physical join and ordered cleanup,
+unknown/Create Serial Fences, default-off service and Native/Furnace/v1 admission are unchanged. No production
+deployment, second Worker-enabled Mod Adapter or C7 occurred.
+
+## Historical optional Mod runtime implementation checkpoint — C6 acceptance pending
+
+The [runtime design and checkpoint](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOD-WORKER-RUNTIME-DESIGN.md) now include production Core code,
+an optional Linux/JDK21 bootstrap/JVMTI service and repository-owned opt-in test tools. Actual installed
+hidden code is read from the VM. A small semantic closure is converted into original Claims, reservation,
+Lease, Scope and Kernel authority; neither Mod identity nor Adapter declarations certify it. Unknown and
+periodic paths retain full Serial Fences. Startup without the optional service keeps Mod tickers serial.
+
+Earlier complete real-Mod checkpoints demonstrate two actual Region Workers/overlap2, ten rejected
+foreign-writer paths and failure cleanup followed by fresh Worker execution without replay. A subsequent
+multi-batch pilot also checks original Ticket/Claims/Lease identity and retirement, but was aborted before
+its final batch completed and is not a full pass. The latest boundary fixes a separately reproduced nested
+callback bypass and freezes exact Core BlockPos storage instead of watching all coordinate reads. Its
+component controls do not substitute for a renewed real-Mod run. See the [machine receipt](MOD-WORKER-RUNTIME-CHECKPOINT.json)
+for source/result hashes, real exits and earlier-candidate boundaries.
+
+**This is an implementation checkpoint, not completed C6 architecture acceptance.** Remaining work includes
+renewed final-revision Mod tests, queued/releasing/unload/rebind/alias cases, weak-owner lifecycle controls,
+two full unfiltered GameTest profiles and final Mod architecture acceptance. Existing default switches, phase budgets,
+registration limits and Native/Furnace admission remain. No second Worker Adapter/C7, installed-server
+validation or MSPT improvement is claimed. [Reproduction instructions](https://github.com/NexForgeLabs/Forgia/blob/main/tools/runtime-proof/README.md)
+require the original upstream jar locally and preserve private raw evidence.
+
+## Earlier C6.2 investigation checkpoint — before the optional runtime implementation
+
+The following section records published baseline `2fe7ff74a`; its missing-verifier/zero-Worker state is
+superseded for current code by the implementation checkpoint above.
+
+[The C6.2 continuation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOD-CLOSURE-LINKAGE-AND-WRITER-BOUNDARY.md) develops a private original-JVM-factory
+linkage experiment and observes the exact hidden ticker inside real LevelChunk bindings. The original
+piq_fc_arcade0.31.0-alpha.61 pair remains completely serial; final full profiles observe84/84/84 and82/82/82
+body/counter/linkage totals, workers0. Runtime writer method snapshots match the audited original before
+a controlled negative actor executes. While the original canonical Serial Permit is paused, that separate
+test actor has no Permit,Scope or Worker identity yet invokes the public original method once; the following
+canonical body adds one more update,total2. This establishes a missing writer-participation prerequisite,
+not a reserved-Lease failure or a production Worker grant. It does not claim an upstream asynchronous writer.
+
+C6.1 original source investigation is delivered. C6.2 **still lacks a production Core Closure Verifier,
+Trusted Manifest and complete independent writer exclusion**. C6.3 Claims conversion,C6.4 Mod Workers and
+C6.5 first-Mod architecture validation are not completed. A descriptive function-origin record, runtime
+snapshot or Dedicated assertion does not authorize execution. All Canonical Mod tickers remain serial;
+the intentional test-only foreign method call is explicitly outside Core authority.
+
+New actual regression: Core1400/1400, all1400case outcomes/multiplicity match prior XML;84canonical and
+Native/Furnace overlap2/2 preserved. Two full unfiltered private observer+original-Mod GameTest profiles
+pass179/179required each,exit0/noCrash. Their233grouped entries/181uniqueIDs retain4NotProcessed; all231old
+framework rows match the prior177required baseline after removing the two new private audit IDs. Standard
+shipped tests stay unchanged. Earlier three419configuration/legacy adapter results are retained historical
+unchanged-baseline evidence, not new continuation runs. Final default compilation removes private classes.
+
+[The first target audit](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/FIRST-TRUSTED-MOD-EXECUTION-CLOSURE.md) preserves the earlier hidden-definition
+counterexample, alternate candidates and initial serial/regression results. The new agent/JDK bootstrap
+bridge, audit tests, jars and raw evidence remain local; no production API/build/patch/admission/default/
+budget or existing-test bytes changed. No installed-server verification,second Adapter/C7 or MSPT claim.
+
+## Earlier Core-controlled Mod execution proof — C5.1–C5.5
+
+[Core proof readiness](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CORE-MOD-EXECUTION-PROOF-READINESS.md) audits the existing authority chain and adds
+a Core refusal gate on each original invocation Ticket. Inspection and every validator remain inside the
+actual canonical Serial Fence; Core independently recaptures the exact source/delegate/Level binding and
+registration lifecycle after callbacks. Pending/failed checks cannot succeed or be promoted into Worker
+authority; retirement follows the original kernel. A post-audit freeze race was reproduced before its small
+publication-lock correction. Every actual registered test-Mod body asserts the original kernel refusal.
+
+At that C5 checkpoint there was **no positive Mod closure backend**: declarations, CURRENT, Dedicated metadata and copied resource
+identities never become Claims, Reservations or Leases. Existing Native/Furnace proofs and actual ownership
+remain the sole Worker paths. Arbitrary JVM closures, dynamic/shared handlers, asynchronous writers and
+in-flight Mod version protection are not certified. A first serial Dedicated Adapter can be developed;
+a Worker-enabled Dedicated Adapter still requires a narrow independent closure and manifest/conversion
+implementation. See the report for the final matrix and the precise implemented/design-only boundary.
+No C6, concrete Mod Adapter, Bootstrap rewrite, installed-server soak or MSPT optimization is included.
+Final Core1400/1400 and three related419/419 configurations pass; two complete unfiltered parallel
+GameTest suites each177/177required pass, exit0/noCrash. All1375C5baseline and original1328/1244cases
+actually rerun/pass;84original canonical per configuration and Native/Furnace overlap2/2 remain. Each
+full GameTest XML keeps231grouped entries/179uniqueIDs/4NotProcessed, never called all executed. Existing
+Create16+unknown1, MobSpawnController25+unknown1 and unknown Furnace1 pass; API60class facade/20class
+pure package and all baseline public binary descriptors verified. Red freeze/fixture/parser evidence stays.
+
+## Earlier General Mod Adapter — C5 conservative request foundation
+
+[C5 architecture and validation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GENERAL-MOD-ADAPTER-ARCHITECTURE.md) adds a platform-neutral request API,
+server-owned registration/lifecycle management and one short-lived request session attached to the original
+published canonical batch. `BlockEntityAdapter`, `BlockEntityAdapters` and `DedicatedBlockEntityAdapter`
+describe exact target ids, execution requests, resources, current dependencies and audit provenance. New
+optional methods/capability preserve v1 API major1 and share the original128registration bound and id/type
+transaction. No concrete Dedicated Adapter, pool, scheduler, Ticket, Permit, Lease or effect queue is added.
+
+**C5 registered targets remain full Serial Fences: there is no generic Worker proof backend.** Inspection
+runs at the actual cursor inside the existing serial Permit after physical join/necessary commit, followed by
+the complete original ticker once. Unknown resources/providers are not probed; declarations/CURRENT/audit
+metadata never become Claims or permission. Existing identity planning is diagnostic only. Callbacks and
+all temporary subject/resource references retire on failure, invalidation, unregister and phase close; cleanup
+failures remain visible and do not skip other cleanup. Dedicated audit runs outside registry locks, with live/
+identity/shared-budget validation repeated after the callback. The lifecycle lock-order correction is an
+independent production commit with red/green evidence. Unregistered Native Hopper/Furnace paths retain
+all original proofs, admission, physical joins and commit behavior. Final full core1375/1375 and three
+related394/394 configurations pass, including all1328C4.2 cases/original1244 and84original canonical per
+configuration. Two unfiltered full parallel GameTests each pass177/177required with exit0/noCrash; framework
+XML231entries/179uniqueIDs/4NotProcessed remains explicit. Real Mod startup registration keeps unknown
+shared callbacks serial while Native overlap2 persists; mixed JUnit Native/Furnace overlap2/2 uses one batch.
+Legacy Create16+unknown1, MobSpawnController25+unknown1 and unknown Furnace1 also pass. All failed
+prototypes, a real probe crash and a sparse random-sampling fixture failure remain; the final full games
+use a complete isolated section while preserving every original worker/ownership assertion. Pure C5 API
+20classes compile without Minecraft;60class facade bytes match compiled output and contain no runtime.
+No admission/default/budget change, Bootstrap rewrite, C6/Create integration or MSPT optimization. C5 stops
+here; see the report for commands/raw evidence and manual/framework/installed-server coverage limits.
+
+## Earlier C4.2 required GameTest gate checkpoint
+
+[C4.2 compatibility and regression](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C42-GAMETEST-COMPATIBILITY.md) resolves the four
+C4.1 required failures and the all-slice plant crash through actual contract/fixture validation. Both full
+unfiltered parallel profiles (Persistent/resources ON and Fixed/OFF) pass176/176required GameTests, real
+Gradle exit0, no crash report. The framework XML separately has230case entries (178unique test IDs, grouped
+entries repeat),226passed and4Not Processed; the old dumper's empty optional label is preserved, not called
+an executed pass. Manual/client and legacy logging-only test-Mod diagnostics remain explicit limitations.
+
+The custom BE remains a full server Serial Fence with exactly-once cross-Region transfer and real Native
+prefix/suffix work. Single furnaces remain serial; two independent original burning furnaces run actual fine
+Worker bodies, smelt once and commit notifications. A same-Region Beacon does not poison unrelated prefixes.
+Observers record per-body threads, canonical Fence ordering and burn/cook/inventory conservation after real
+production admission. No test grants authority. The plant fixture supports explicit directions, retains wrong
+soil/direction checks and survives/grows through original Cactus callbacks even with the bridge off. Regionized
+POI Villagers are observed by exact-entity Post events with their real HOME/JOB_SITE memories on the Worker;
+feature flags check both the actual all-flags GameTest Level and live selected pack requests.
+
+The explicit `:tests:runCanonicalGameTestServer` profile supplies POI/entity/chunk/BE/Furnace prerequisites.
+Real disk reload reconstructs25chunks/13BEs/9entities and preserves all old block/NBT/UUID/position/POI/ticket/
+Region assertions. A related JUnit format fixture's unjoined reference IO is corrected without changing its
+full comparison assertions; all1328C4.1 cases and three expanded329runs pass,84canonical per configuration.
+Every failed attempt, command, exit, XML and original C4.1 crash remains. All production Java/patches/API/
+admission/defaults/budgets/Adapters stay byte-for-byte unchanged, so no production fix or long-soak repeat.
+C4.2 stops here; no C5/Create Adapter/MSPT work or general Modpack certification.
+
+## Earlier C4.1 lifecycle fixes and installed soak checkpoint — GameTest gate was non-green
+
+[C4.1 lifecycle and soak evidence](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C41-LIFECYCLE-AND-SOAK.md) fixes server/Worker
+self-waits before acquiring cleanup's engine monitor and protects Native prepare callbacks with the same
+already-published phase batch. Each production fix is independently committed, with real failing-before probes;
+existing test expectations, grants, cohorts, API, defaults and budgets remain. Fourteen new invocation cases
+exercise mixed failure/recovery, actual pool closure/rejection, chunk binding replacement/pending membership,
+Region retirement/merge, complete-phase cleanup and200 consecutive mixed phases. Full core1328 and each
+other worker/resource setting262 pass,0failure/error/skip; all1244original cases and C1 goals rerun/pass.
+
+The exact-source installed Minecraft1.21.1/G1/4-Worker runs complete a60-minute mixed core soak and10-minute
+raw Create load, plus real chunk holder unload/reload and saved-world new-JVM restarts.85400checked active
+ticks/10322400bodies,33quiescent snapshots and14direct heap field audits retain no invocation authority/batch;
+RegionState counts match actual regionizer sets, Worker count stays4. Four idle Native scope objects/128B are
+bounded reusable caches with inactive/null-reference fields, not live authority. Main core wall3832.426s;
+Create long run wall780.320s. Transformed Create stays completely serial under UNVERIFIED_RUNTIME, no
+Create adapter/protocol certification. No uncaught installed tick exception;18ERROR/FATAL lines match9Vanilla
+perf dummy Level test reports,73WARN lines classified and preserved. Timing is progress data, no speedup claim.
+
+**Full GameTest remains non-green.** Two completed BE-focused framework runs each have4required failures
+(old declared source/single-furnace/region-fallback Worker contracts and save/reload configuration); the extra
+all-slice run crashes during the test sustaining block's Cactus direction callback. Original tests are retained,
+with separate raw XML/summary/crash evidence; no parallel switch is disabled to manufacture green results.
+C4.1 implementation/soak work stops with this explicit incomplete GameTest gate; no C5/C6/MSPT expansion.
+
+## Earlier C4 single-phase Native/Furnace integration checkpoint
+
+[C4 implementation and validation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C4-UNIFIED-FURNACE.md) routes the actual Level path
+through one phase Coordinator/active batch/kernel/Ticket set/cursor with Furnace Waves OFF or ON. Original
+Native and protected Furnace bodies use separate contiguous prefixes under their original coarse/fine grants;
+Unknown/refusal/binding changes form complete joined/committed Serial Fences followed by fresh suffix checks.
+Original furnace auditing, whole-phase aliases, resource budgets, dependency/validator/all-or-none reservation,
+complete ticker and canonical notifications remain. Per-phase mailbox callbacks run on the server under the
+original lease before fresh proofs; genuine level-end timing, RNG and operation state are preserved.
+Full core1314/1314 and three targeted248/248 runs pass,0failure/error/skip; all1244originals actually rerun,
+all original C1 goals pass. Mixed single-batch tests show actual different-Region Native overlap2 and Furnace
+overlap2, one observed active batch and original Tickets; whole fixture states equal independent serial oracles.
+Unknown capability/shared handler/Generic callbacks stay serial. Native is limited to exact cooling/disabled
+Hoppers with the original PrimaryLevelData clock; Furnace remains its prior protected cohort. Defaults/budgets/
+API unchanged, legacy internal explicit/indexed contract bridges retained; no C5/Create/MSPT expansion.
+
+## Earlier C3-C Native cursor checkpoint
+
+[C3-C Native Coordinator](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C3C-NATIVE-COORDINATOR.md) owns one phase batch/kernel/Ticket
+set and a canonical cursor. It dispatches only contiguous proven prefixes after all fresh/reservation/v1 owner
+checks, physically joins/commits before complete Serial Fences, and re-proves the unstarted suffix. A participating
+server work-admission boundary prevents unrelated Region/GlobalRegion work from starting during the phase;
+this grants no world authority. Original Region leases remain held through join/commit; phase RNG survives Fences.
+All original C1 target expectations pass. Full core1309 and all three targeted243 runs pass,0failure/error/skip;
+all1244original cases reexecuted. Seven new coordinator cases plus real Native overlap2 pass. Furnace Waves ON
+still uses its protected bridge until C4; defaults/budgets/API/Create unchanged.
+
+## Earlier C3-B invocation effects checkpoint
+
+[C3-B minimum effect bridge](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C3B-INVOCATION-EFFECT-BRIDGE.md) records continuations on
+the original Ticket with generation/ordinal/effect index, physically joins and commits in canonical order while
+holding original Region leases. Actual level-end entity/cascade producers retain Post-before-drain timing.
+Unknown bodies remain serial even with a v1 ADMITTED boolean; v1 checks only narrow the core-proven cohort.
+Five new real-path cases and prior Native visibility pass. Full core1302=1299pass/3enabled C3-C targets,
+0error/skip; all1244original cases actually rerun/pass. Other three configurations each236=233pass/3targets.
+C3-C cursor and C4 remain pending; defaults/budgets/API/operation queues/RNG/notification order unchanged.
+
+## Earlier C3-A2 minimum Native subset checkpoint
+
+[C3-A2 minimum Native admission](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C3A2-MINIMUM-NATIVE-ADMISSION.md) adds production
+original-function/binding/runtime/fresh-branch checks for exact Hopper cooldown>1 or disabled branches.
+Both cohorts execute original bodies with real different-Region Worker overlap=2; active unknown providers,
+shared handlers and replacement functions stay fully serial on the actual Level path. Original C1 assertions
+remain; Native fixtures now use original Hopper tickers and observation after admission. Full core1297:
+1293pass/4later-stage target failures,0error/skip, all1244original cases pass. Fixed/Persistent × Resources OFF/ON
+are actually rerun, including12Native admission/inventory invocations passing. C3-B/C3-C and C4 remain pending;
+no unified cursor or invocation effect bridge yet. Defaults, budgets, API and Create unchanged.
+
+## Earlier C3-A inventory checkpoint — historical blocked proof gate
+
+The [C2 implementation and validation record](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C2-COLLECTION.md) captures the actual
+Level ticker list after pending merge and fresh onLoad, copies only references under the membership lock,
+and assigns one phase ordinal per entry. Cached creation sequences no longer define this Level path's order.
+Native canonical fallback now merges by ordinal, and initially ineligible suffix entries remain available for
+fresh server eligibility checks. Five of the eight C1 failures are fixed; three native fence/prefix assertions
+remain enabled. Eight new collection cases pass. Original Native/Furnace/Adapter/kernel/resource/lifecycle
+regressions are rerun across real fixed/persistent × resources off/on, with the full core result in the report.
+No unified Coordinator yet; both execution drivers and their old indexed/explicit helper bridges remain.
+Admission, switches and budgets stay unchanged. The [C3 native effect bridge audit](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C3-NATIVE-BLOCKERS.md)
+reproduced the level-end visibility gap. The subsequent [C3-A production inventory](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C3A-NATIVE-EFFECT-INVENTORY.md)
+traces16effect classes/31source files, separates invocation effects from later phase timing, and tests the
+original Hopper ticker through real capability dispatch. An unaudited provider executes on the native Worker;
+a nonmutating shared-handler probe confirms two different Regions overlap on the same root. A complete
+pre-body callback/root proof is missing. Stop at C3-A; C3-B/C3-C, C4 and C5 are not entered.
+Six new invocations yield5pass/1failure; full core reruns1291=1286pass/5target failures,0errors/skips, with all
+1244original cases passing. The same5failures reproduce in fixed/persistent × resource off/on; original C1
+assertions remain unchanged, with5of8fixed by C2 and3still red. Four new retained-bridge protections cover
+real cross-Region Hopper overlap, task failure/exactly-once/level-end order, scheduled mutation/event timing,
+and Region RNG continuity. No production code, defaults, budgets or admission changed; no new bridge or
+Coordinator is implemented. No compatibility, performance or installed-server claim.
+
+## Canonical Block Entity Coordinator — C1 behavior tests (historical baseline)
+
+The [C1 execution and failure record](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-C1-TESTS.md) adds31behavior cases using the actual
+Level serial loop, original native/Furnace drivers, complete original furnace bodies, controlled fixed dispatch
+and real persistent workers with latches. Each fixed/persistent × resource-off/on configuration has23new cases
+passing and8target-contract failures: cross-chunk/global fence order, foreign insertion, post-refusal prefixes,
+mixed native ordering and eligibility changed by a fence. The failures remain active in the ordinary JUnit task;
+this is a recorded red baseline for the next migration, not an all-pass coordinator result. The22protected cases
+cover actual prefix join/commit, fresh rejection, v1 callbacks, body/fence/commit failures, interrupt/cancellation
+and unload/shutdown cleanup; the mixed Furnace target also passes. Production/API/patch/build/config/admission
+and existing tests remain unchanged. No new coordinator, Create support, installed-server or performance claim.
+
+## Canonical Block Entity Coordinator — C0 design phase
+
+The [source map, interface design, migration and test plan](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-COORDINATOR.md) is based on
+`233905042`. It identifies distinct native group/fallback and Furnace wave/commit drivers, mixed sequence
+provenance, missing post-fence v1 preparation guarantees and native effect-queue ordering limits. The proposal
+uses the real level ticker-list order, a shared coordinator over existing tickets/permits/guards, contiguous
+worker prefixes and complete serial fences with fresh suffix audits. Furnace preparation, resource ownership
+and notification commits remain protected; Create remains independent. That C0 round changed three documentation
+files only, with no new runtime/test result. Resource Ownership MSPT tuning remains frozen; C1 now establishes
+behavior tests before new production routing.
+
+## Modded Block Entity Multithreading Adaptation
+
+The stage began with a [source architecture investigation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE.md)
+based on `4ea694316`. The [first execution-contract migration](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-EXECUTION-CONTRACT.md) now shares
+an internal batch/ticket/permit implementation between native adapter ticks and protected Furnace Waves.
+Region guards exclude coarse ownership from subordinate resource bodies, require real Scope return and
+seal after join before canonical commits; failed/retired tickets cannot replay. Existing preparation,
+callback timing, dispatch, switches, serial fallback and commit implementations remain in place. There is
+no new adapter registration protocol, BE admission, capability/inventory permission or multi-home support.
+Core1244, ordinary-pool resource-on181, persistent199, actual unknown Furnace Mixin1, independent Create16
+and unknown Create Mixin1 pass, with formatting/license and API-facade checks. These are transformed JVM
+correctness tests, not new installed-server or performance measurements. Additional Resource Ownership
+MSPT tuning is frozen; the single canonical generic coordinator remains a later migration.
+
+## General block-entity resource ownership
+
+The `.57-beta` [phase-one resource ownership foundation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GENERAL-BLOCK-ENTITY-RESOURCE-OWNERSHIP.md)
+adds object identities, bounded READ/WRITE claims, nonblocking wave reservation and one-shot scopes
+subordinate to the existing Region exclusion. Furnace waves are the first audited consumer; a separate
+`enableRegionThreadingBlockEntityResources` flag remains false by default. This does not admit arbitrary
+container, hopper, capability or Create callbacks. The [`.58` performance follow-up](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-OWNERSHIP-OPTIMIZATION.md)
+shares immutable READ footprints only within fresh audited preparation, separates compact execution waves
+from graph diagnostics and avoids per-lease permission-table copies. Full mechanism paired p50/p95 and
+allocation records include fresh revalidation; they are not server MSPT or a whole-server speedup.
+The follow-up [tail investigation and actual `.58` installed-server A/B](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-TAIL-AND-SERVER-AB.md)
+uses a fixed2GiB G1 heap, resource-on/off with waves enabled in both, and1/2/4/8workers; these definitions
+are separate from the historical measurements in the opening paragraph and tables below. It completed
+36resource-on/off pairs and two independent long-window reverse-order repeats. Resource-on increased
+mean MSPT in35/36short-matrix pairs; both long repeats also regressed, so admission expansion and
+default-on use remain unsupported. Full native tick values, CPU/GC/phase counters and equivalence checks
+are in [the server performance record](BLOCK-ENTITY-RESOURCE-SERVER-AB-PROFILE.json).
+The [`.59` allocation and validation-cost follow-up](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-HOT-PATH-REDUCTION.md) retains
+all current-operation validation and reduces proof-table construction with immutable arrays and packed
+identity tables. Two independent build pairs with2/64/256furnaces and4workers lower real allocation
+and mean MSPT relative to resource-on `.58`; defaults and BE admission remain unchanged. See
+[complete cost data](BLOCK-ENTITY-RESOURCE-HOT-PATH-PROFILE.json), including controls and independent repeats.
+The [mixed-workload validation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-MIXED-VALIDATION.md) completed16accepted installed
+server processes,94windows and separate30-minute ON/OFF checks on the frozen`.59`binary. Supported
+furnace bodies coexist with conservative serial BE fences, world/entity ticks and legal dynamic changes;
+full state/work checks pass. Resource-on regresses mean/p95 in3/4short independent pairs; the long pair
+increases mean18.8%,p9534.2% and allocation82.5%. Connected Hopper pipelines remain serial where fenced.
+This bounded validation strengthens correctness evidence within the audited scope; it does not support
+default-on use, arbitrary callback safety or BE admission expansion. Complete records are in the
+[mixed workload profile](BLOCK-ENTITY-RESOURCE-MIXED-PROFILE.json), separate from the historical full-region soak below.
+The [`.60` cost-attribution follow-up](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-COST-ATTRIBUTION.md) first traces fresh catalog,
+Claims/Binding and planning/reservation costs, then shares immutable same-phase local descriptions and
+cleared scratch capacity. It retains current validators, one-shot leases, lifecycle/Region checks, default-off
+and the same BE admission. Four reversed independent build/condition pairs lower the resource allocation
+increment from3.54–3.61to2.28–2.30MB/s (35.1–36.6%). Mean/p95 improve in only1/4build pairs; the eight-wave
+fence control regresses in latency. The10-minute ON/OFF check increases mean16.9%,p9551.9%,p99146.3%
+and allocation51.2%, so stable full-tick latency benefit is not established. Core1230,fixed121,persistent121,
+actual unknown-Mixin1 and Python19pass; mixed/dynamic/pipeline regressions are retained, including an
+explicit one-body route difference after asynchronous unload/reload. See [full data](BLOCK-ENTITY-RESOURCE-COST-PROFILE.json).
+
+## Slices
+
+| Workload | Off (server thread) | Regionized | Speedup |
+|---|---|---|---|
+| 1024 cows | 27.3 / 19.3 mspt | 6.0 / 5.8 mspt | 4.5× / 3.4× |
+| 1024 zombies | 22.8 / 22.2 | 6.6 / 8.8 | 3.4× / 2.5× |
+| 1024 villagers (bed + workstation) | 54.5 / 52.0 | 25.7 / 22.0 | 2.1× / 2.4× |
+| 1024 chunks of random ticks (9×9 regions) | 5.59 / 5.87 ms slice | 4.80 / 4.64 | 1.15–1.27× |
+| 1024 chunks of random ticks (3×3 regions, interior rule lifted) | 6.88–6.92 ms slice | 5.54 | 1.24–1.25× |
+| 289 chunks of natural spawning | 4.13–4.62 ms slice | 2.79–3.93 | 1.15–1.65× |
+| 2048 hoppers | 3.27 mspt | 3.74–3.97 | 0.82–0.87× (slower) |
+| 4096 furnaces | 2.60 mspt | 2.70–3.34 | 0.78–0.96× (slower, −19% with the light-load changes) |
+
+## Correctness evidence
+
+| Area | How it is proven |
+|---|---|
+| POI | Randomized world compared against a real single-threaded `PoiManager`: every query type, every region perspective, region sizes 3/4/8 — same records, same order, same free tickets |
+| Redstone | 49 layouts from real blocks across borders at offsets 1..15, run twice (on/off) for 60 ticks: 5 880 tick comparisons of block states, block-entity states, first-appearance ticks and the block event stream position by position |
+| Chunk random ticks | Per-chunk derivation proven independent of region layout, worker count, tick order and thread |
+| Spawning | Region states partition the level counts; the level-wide cap is enforced with an atomic check-and-reserve |
+| Cross-region reads | Seqlock: never torn; a stale read re-runs the region that made it (the test fails with the check disabled) |
+| Production soak | 6 000 ticks on generated terrain with villagers, mobs, a hopper/furnace line, a farm, a border-crossing redstone clock and a moving fake player: 0 ownership violations, 0 tick failures, item conservation, redstone identical in 6 200/6 200 ticks |
+| Game events | Six sculk tests compare the full tick-by-tick trace against the inline run (power, comparator, calibrated filtering, two-region ties, a two-border radius, a shrieker summoning its warden); all fail with the replay short-circuited |
+| Save and crash | Save/reload compares 114 blocks, 13 block entities, 9 entity UUIDs, 10 POI records with tickets and the rebuilt region mapping; a hard kill mid-tick recovers in three directions (on to on, on to off, off to on) |
+| Players | Walking, a 1000-block teleport, a teleport during a batch, a nether round trip and two players swapping regions all keep a player in exactly one region |
+| Save and reload | A whole fixture world saved, unloaded and reloaded from disk: every block, block entity, entity UUID and position, POI record with its free-ticket count and region mapping equal, with region threading on and off and across the two configurations |
+| Crash recovery | Six runs in three pairs kill the JVM mid-tick and restart on the same world: the save point is intact, no duplicate UUID, no leaked ticket, no dangling deferral, 600 further ticks green |
+
+## Entity query surface of a region worker
+
+Every entity query entry point a modded tick can reach is answered from data the worker may read, and the
+answers are counted per operation (`/neoforge regionthreading status`, line `Region entity queries:`).
+
+| Entry point | Worker answer | Counter |
+|---|---|---|
+| `LevelEntityGetter.get(int)`, `ServerLevel.getEntity(int)`, `getEntityOrPart(int)` | the region's entity index, once the level's index is published | `local`; `refused` for an entity of another region, for an entity whose removal is deferred in this batch, and for a level whose index is not published |
+| `LevelEntityGetter.get(UUID)`, `ServerLevel.getEntity(UUID)` | the region's entity index (projectile owner resolution), once the level's index is published | `local`; `refused` as above |
+| `LevelEntityGetter.getAll()`, `ServerLevel.getAllEntities()` | the region's entity index, in tick-list order | `local`, `truncated` when the level's index holds more entities |
+| `get(EntityTypeTest, consumer)`, `ServerLevel.getEntities(EntityTypeTest, Predicate, List, int)` | the region's entity index | `local`, `truncated` as above |
+| `get(AABB, Consumer)`, `get(EntityTypeTest, AABB, Consumer)`, `Level.getEntities(...)` | the region's physical section bucket, box clamped to the lease; `Level.getEntities` additionally appends the parts of the multipart owners the lease answered, where vanilla appends the level's parts | `local`, `truncated` on a clamp |
+| `getEntitiesOfClass(Player.class, box)` and every `Player` subtype query | the region bucket plus the players of the level's published snapshot whose recorded bounding box intersects the box; a player the bucket already answered is not added twice | `local` + `published` |
+| `players()`, `getNearestPlayer`, `getPlayerByUUID`, `getNearbyPlayers`, `hasNearbyAlivePlayer`, `getPlayers`, `getRandomPlayer` | the level's per-tick player snapshot; a worker of a level without a published snapshot is refused, never handed the live list | `published`; `refused` when no snapshot is published |
+| `EntityStorageGuardedGetter` (the section manager's own view) | still refused: the manager has no level, so there is no lease to answer from | `refused` |
+| entity transfer journal, identity ledger, section partitions, entity admission | still refused: they mutate server-owned state, they are not queries | violation counter |
+
+The player snapshot is published on the server thread at the head of the level tick (`RegionPlayerSnapshots`),
+replaced (never mutated) once per tick, and dropped when the level unloads. It is at most one tick old: a
+player who joined, left or changed dimension after the publication is not in it, and a recorded bounding box is
+the one the player had when the tick opened. A box query intersects that recorded bounding box, so a box that
+clips a player's body answers like the vanilla section scan. The entity a caller receives is live, so its own
+predicate and targeting test read the current state exactly like the vanilla loop. The snapshot exists because
+a player is an always-ticking entity that only the server thread ticks: it is in no worker's region, and the
+level's live player list is a mutable `ArrayList` a worker must not walk. A worker of a level that has no
+snapshot - the level tick never opened through the bridge, or its state was cleared on unload - is refused with
+the same `IllegalStateException` as every other storage guard and counted as `refused`; it never falls back to
+the live list, which stays for every non-worker caller.
+
+Multipart parts are appended by the two `Level.getEntities` shapes from the owners the lease answered, because
+vanilla appends `Level.getPartEntities()` - the live part map of the server thread - after its section scan, and
+a worker may not read that map. A part belongs to the region of its owner, so a part of an owner outside the
+lease stays outside the answer exactly like its owner. The `LevelEntityGetter` box shapes stay entity-only,
+which is what vanilla does.
+
+## Production soak (everything on, 3-chunk regions)
+
+| Milestone | on (mspt mean) | off (mspt mean) | ratio |
+|---|---|---|---|
+| before deferred cross-region writes | 7.35–8.28 | 6.48–7.60 | 0.97–1.23× (median 1.14× slower) |
+| after deferred cross-region writes + interior rule lifted | 6.13–6.72 | 6.25–6.70 | **median 0.983, mean 0.976, range 0.941–1.014** |
+| after persistent workers + packed leases (off by default) | 6.69 | 7.35 (baseline regionized) | −9% |
+
+The first row was measured before the cross-region write path existed: with 3-chunk regions only the centre
+chunk of a region had all eight neighbours inside it, so 89 % of chunk ticks and 94 % of block-entity ticks
+stayed on the server thread while the barrier was paid in full. Lifting that rule — a worker write outside
+its lease is now recorded and applied by the target region in the same tick — moved **100 % of the dispatched
+chunk ticks** onto workers (1.31 M ticks, zero boundary fallbacks) and the soak now lands at or below inline,
+with the median p50 at 5.60 ms against 6.22 ms.
+
+The historical block entity soak had ~8 % on workers under the shared interior rule. Furnace-family bodies
+now have a narrower boundary admission: with border propagation enabled and the neighboring chunks loaded,
+they can tick their own inventory/block on a worker and defer neighbor/comparator effects. Hoppers and
+pack-admitted machines keep the interior rule because they read and mutate live neighboring containers.
+Mixed chunks retain whole-chunk fallback. The new boundary path is not yet benchmarked; the contract,
+validation boundary and subsequent cross-region/mod API and scheduled-tick work are described in
+[BLOCK-ENTITY-PARALLELISM.md](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md).
+
+## Cross-region operations and scheduled callbacks
+
+The experimental public facade now includes complete two-owner block entity operations and bounded sided
+Container transfers at the quiescent server completion stage. Callers receive explicit at-most-once task
+outcomes; worker acceptance is not a synchronous transfer result. References retain exact instance identity
+and cannot authorize a same-position replacement. Arbitrary modded machine ticks remain subject to their
+existing compatibility admission. See [the protocol and examples](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md).
+
+Production scheduled tick admission supports complete lamp-only phases with a loaded, region-contained
+radius-two inert vanilla footprint. Unknown block callbacks, fluids, mixed phases and unsafe neighborhoods
+retain the original live serial LevelTicks queue. Callback failures are reported without replay or silent
+successful truncation. Per-phase counters and bounded p50/p95/p99 timing are exposed through ParallelApi
+and `regionthreading compat`. These are correctness/protocol milestones; historical performance tables
+above do not establish a speedup for the new paths.
+
+## Structure claims: measured, not built
+
+A piston move runs inside the server-thread block event phase, and every block event of a level tick is
+serialized there: `PistonBaseBlock.triggerEvent` resolves the structure and writes the blocks on the server
+thread. The mechanism a claim would add — claim the chunks a move touches, run the move on the region worker,
+make the target region skip the claimed chunks — was measured before it was built, with the `benchmarkPiston`
+GameTest: 128 sticky pistons on a 20-tick farm clock, columns of 1..12 blocks, half of them pushing across a
+3-chunk region border, 200 warmup + 600 measured ticks. The table below is the measurement that rejected the
+claim (f58c3a883); the phase it reports has since been made a quiescent scope, see the next section.
+
+| profile | moves/tick | block event phase ms/tick | share of a 50 ms tick | mspt mean | p95 | p99 |
+|---|---|---|---|---|---|---|
+| off (vanilla) | 13.0 | 0.82 | 1.6 % | 2.78 | 10.4 | 13.2 |
+| on, border updates off | 13.0 | 0.76 | 1.5 % | 4.66 | 10.8 | 16.5 |
+| on, every move inside its region | 13.0 | 0.76 | 1.5 % | 4.61 | 12.7 | 17.5 |
+| on (everything) | 14.4 | 2.18 | 4.4 % | 5.92 | 22.8 | 38.9 |
+| off, 512 pistons | 51.9 | 1.66 | 3.3 % | 3.95 | 16.3 | 27.0 |
+
+The move itself costs 30–60 µs, so the phase is 1.5 % of a tick for a workload that already moves a column
+every tick; the regionized cross-border path added 1.4 ms per tick of capture and fixpoint work for the half
+of the moves that cross a border, which is the cost a claim would have to remove and does not. The phase also
+sits between the chunk tick batch and the entity and block-entity slices of the same level tick, so no region
+slice runs while a move runs and a claim has nothing to exclude today; running the move on a worker would
+first require moving the phase into the batch, which changes the tick order. The mechanism was therefore not
+built; the numbers and the reasoning are in `.pi/tasks/structure-claims.md` (a scratch note kept outside
+the repository; the mechanism itself is not implemented).
+
+## Block event phase: quiescent scope, no capture
+
+The block event phase is the one part of the level tick that is not a region slice. It drains the level's
+ordered block event set on the server thread after every region batch of the tick returned
+(`ServerLevel.tick`: block ticks, raids, chunk source, then block events), so no worker runs and no region is
+leased by another thread: the whole level is quiescent for the phase. It therefore runs as a scope
+(`RegionThreadingEngine.beginBlockEventPhase`) that takes the lease of each region its events run in once,
+keeps it until the phase ends and captures no border update. A write of an event body to another region is
+the vanilla inline call: nothing is queued for a fixpoint, so the phase runs none, and the body reads back
+what it wrote. Every other server-thread region lease (a scheduled-tick or block-entity fallback) still
+captures and flushes exactly as before, and so does every worker.
+
+Two measurements motivated it. First, the per-event cost: the phase took a lease, ran one event and flushed a
+border fixpoint after each of them, which cost 2.68 ms/tick at 128 pistons and 7.88 ms/tick at 512 while the
+same workload inside one region cost 0.67/1.53 ms. Second, the event stream: the phase produced 12.5 % more
+block events than the inline run. A west sticky piston whose column crosses the border wrote the moving
+piston one block across the border; that write was captured, so the piston's own neighbour callback read the
+head position back as the block that was there *before* the move, resolved the structure against it and
+queued a second extend event for the same piston in the same tick. Inline the same callback reads the moving
+piston, the resolver fails and no second event is queued. With the phase applying its writes inline the
+stream matches inline position by position.
+
+Paired A/B of the same build and config (`benchmarkPiston`, 200 warmup + 600 measured ticks, half the moves
+across a border, 4 workers, 3×3 regions):
+
+| profile | block events | events/tick | phase ms/tick | phase max ms | mspt mean | p50 | p95 | p99 |
+|---|---|---|---|---|---|---|---|---|
+| 128, phase captures (before) | 8 640 | 14.35 | 2.68 | 78.4 | 4.84 | 1.22 | 26.5 | 38.7 |
+| 128, quiescent scope (after) | 7 680 | 12.76 | 0.53 | 10.4 | 3.85 | 1.40 | 19.2 | 26.2 |
+| 128, inline (off) | 7 680 | 12.76 | 0.82 | 12.6 | 2.30 | 0.77 | 9.9 | 13.0 |
+| 128, regionized, no border update | 7 680 | 12.76 | 0.67 | 11.4 | 2.36 | 1.19 | 8.0 | 12.9 |
+| 512, phase captures (before) | 34 560 | 57.41 | 7.88 | 113.7 | 12.01 | 1.20 | 80.0 | 107.8 |
+| 512, quiescent scope (after) | 30 720 | 51.03 | 1.36 | 26.2 | 8.11 | 1.02 | 53.8 | 71.7 |
+| 512, inline (off) | 30 720 | 51.03 | 1.40 | 38.4 | 3.32 | 0.73 | 14.4 | 22.6 |
+| 512, regionized, no border update | 30 720 | 51.03 | 1.53 | 31.4 | 3.82 | 0.91 | 16.1 | 26.8 |
+
+The phase cost is now at the interior-only and inline cost and the event count equals the inline count at both
+sizes; a final confirmation run of the same build at 128 pistons measured 0.47 ms/tick and 7 680 events. The
+regionized mspt stays above inline because the piston workload is dominated by the serialized server-thread
+moves themselves (the same rows show 19–54 ms of p95 for a workload that moves a column every tick on a
+4-worker engine), not by the phase. The remaining block-event work is the move: it runs on the server thread
+because the phase sits outside every batch, which is the tick-order constraint the structure claim would have
+to remove.
+
+Regression checks of the same build: hopper 2048 (block-entity slice, paired before/after with the scope
+disabled at runtime) 4.35/4.92 vs 4.83/4.57 mspt mean, i.e. no difference beyond the run-to-run spread;
+furnace 4096 and the entity workload fire no block events at all, so the phase scope cannot enter them. The
+production soak reports `phases=19875/leases=0/events=0/fixpoints=0` for its window - the phase opens as a
+scope every level tick, its redstone clock fires no block event, and no phase enters a fixpoint - and is green
+with 0 ownership violations, 0 tick failures, item conservation and redstone identical in 6 200/6 200 ticks,
+at 6.53 mspt mean (p50 5.84, p95 10.1, p99 13.8) against 6.35 (5.93/9.2/12.0) for the threading-off reference.
+The one class of work the phase still serializes is the move itself, which runs on the server thread because
+the phase sits outside every region batch.
+
+## Barrier accounting: why a region cannot run ahead (A3, refuted)
+
+`RegionBarrierAttribution` (off by default) splits the wait of every batch of every slice into **dispatch**
+(submit to first group start), **span** (first to last group end - the worker makespan) and **tail** (last group
+end to the end of the wait), and records the **handoff** after the barrier and the server-thread interval
+between two barriers. `dispatch + span + tail` is the await, so `dispatch + tail` is the part of the wait no
+worker work explains. Measured on the baseline with 200 warmup + 600 measured ticks, two repeats, ZGC; the
+shares are what the milestone turns on, the milliseconds are from a session whose absolute values are 30-90 %
+above the tables above because other work was running on the machine.
+
+| workload | mspt | sum await | sum span | sum overhead | overhead share | await share |
+|---|---|---|---|---|---|---|
+| production soak, 3-chunk, 4w | 11.774 / 10.470 | 5.556 / 4.835 | 4.412 / 3.609 | 1.143 / 1.224 | 9.7 % / 11.7 % | 47.2 % / 46.2 % |
+| 9x9 chunk ticks, 1024 chunks | 6.512 / 5.904 | 3.582 / 3.354 | 3.358 / 3.106 | 0.224 / 0.248 | 3.4 % / 4.2 % | 55.0 % / 56.8 % |
+| furnace 4096, 3-chunk | 5.103 | 2.463 | 2.170 | 0.293 | 5.7 % | 48.3 % |
+| hopper 2048, 3-chunk | 6.203 | 2.989 | 2.678 | 0.311 | 5.0 % | 48.2 % |
+| 1024 zombies, 3-chunk | 26.769 / 27.793 | 23.408 / 24.226 | 23.092 / 23.915 | 0.317 / 0.310 | 1.2 % / 1.1 % | 87.4 % / 87.2 % |
+
+The per-slice p50s of the soak (entity 2.576 / 2.120 await against 2.400 / 1.952 span; chunk 0.488 / 0.464
+against 0.360 / 0.312; spawn 0.792 / 0.672 against 0.624 / 0.544; block entity 0.232 / 0.232 against
+0.120 / 0.104; propagation 0.232 / 0.256 against 0.080 / 0.072) show the same shape as the means.
+
+The conclusion is that the barrier wait is the work: 75-99 % of it is the makespan of the slice's own groups,
+and the remaining 1.1-11.7 % of a tick is dispatch and completion detection, which the persistent-worker and
+packed-lease submission path (A2) already removes. The naive bound - both lanes fully overlapped, which would
+save 34-48 % of a soak or chunk-tick tick - is unreachable, because the server thread's work between two
+barriers *builds the next batch*: the plan of slice k+1 is computed from the state the handoff of slice k
+writes, the handoff must land before slice k+1's bodies run, and the interval across the tick boundary contains
+the collection of the next tick's first batch. The full tables, the per-state ordering table (game time,
+day time, weather, `LevelTicks`, `ChunkMap`/tickets, POI tickets, block events, `ServerLevel` counters,
+per-chunk seeds, spawn caps, the mailbox, cross-region writes, the game-event replay) and the list of what a
+two-tick window would make observable are in `tmp/continuous-tick/SUMMARY.md`; the refutation is
+`region-threading/EXPERIMENTS.md` §5.
+
+## Save, reload and crash recovery
+
+A world saved with region threading enabled reloads to the same state, and a hard kill leaves a world that
+loads with the state of its last save point. Both are proven, not argued: one JUnit test drives the regionized
+POI storage through a save and a reload and compares it with a vanilla manager over the same directory, one
+GameTest saves a whole fixture world, unloads every chunk and loads it back from disk, and three pairs of
+runs kill the JVM in the middle of the activity and check what the next process loads.
+
+### What is authoritative and what is derived
+
+| State | Kind | Where it lives | Across a save/load |
+|---|---|---|---|
+| Chunk block states, block entities, entities | authoritative | region files + entity files, written by the vanilla save | written at the save point, read back by the chunk load |
+| POI records and their free-ticket counts | authoritative | the level's POI region files, written by `RegionPoiStorage.saveColumn` (`RegionPoiStorage.java:684`) in the vanilla `Sections`/`DataVersion` format | written by the level tick, by the save of their chunk and by `flushAll`; read by `loadColumn` (`:530`) |
+| Region mapping (chunk -> region coordinate) | derived | `RegionLayout` (`RegionLayout.java`) | a pure function of the position; nothing to persist |
+| Section partitions, admission caches, ticker indexes | derived | `FixedEntitySectionPartitions`, `RegionBlockEntityTickChunkCache`, `RegionEntityTickIndex` | rebuilt as the chunks load and the entities are ticked |
+| Entity identity ledger (`EntityIdentityLedger`) | derived | in memory, one per level | rebuilt on load from the vanilla UUID set; the process that died leaves nothing behind |
+| Deferred block updates, entity additions, removals, section updates | per tick batch | `RegionTickBatch` and its deferred queues | drained by the barrier of the batch, inside the level tick that published it; empty at a save point |
+| Border update fixpoint queue, mailbox, pending entity transfers | cross tick | `RegionThreadingEngine.borderUpdates`, `RegionMailbox`, `RegionEntityTransferJournal` | deferred work by design; a crash loses it, exactly like a block update of a tick that never ran |
+| Region entity storage mode, worker pool, leases | derived | `RegionWorkerPool`, `RegionState` | rebuilt on load |
+
+### What a save can observe
+
+`ServerLevel.save` brackets the save with `RegionThreadingHooks.beginLevelSave` / `endLevelSave`
+(`patches/net/minecraft/server/level/ServerLevel.java.patch`). `beginLevelSave`
+(`RegionThreadingEngine.java:6457`) asserts that the save observes a completed level tick:
+
+* a batch in flight is a violation and is counted in `savesWithBatchInFlight`. It cannot happen on a server
+  thread save: the server thread publishes and awaits a batch itself, so it can only save between two level
+  ticks, and the vanilla autosave runs after `tickChildren` returned.
+* deferred effects a barrier has not applied are counted in `savesWithTickDeferredWork`. Every per-tick queue
+  is drained by the barrier of its own batch, so both counters are zero in production; the mechanics seam that
+  could break that is counted instead of silently producing a half-applied world.
+* cross-tick work (border updates delayed to the next tick, mailbox messages, pending transfer decisions and
+  POI columns the tick has not written) is counted in `savesWithCrossTickDeferredWork`,
+  `crossTickDeferredEntries` and `dirtyPoiColumns`. It is not a violation - it is work the design defers
+  across a tick boundary - but a crash loses it, so it is counted instead of being invisible.
+
+The counters are in `RegionThreadingDiagnostics.SaveCounters` (`RegionThreadingDiagnostics.java:390`) and are
+asserted by the save/reload GameTest and by the hard-kill test.
+
+### One repair, and why it was needed
+
+The vanilla `SectionStorage` schedules its column writes on its own `IOWorker` and its `close()` drops the
+writes that worker has not picked up yet, and `ServerLevel.save(flush=true)` only waits for the chunk and
+entity IO. A POI write of the last tick could therefore be lost by a clean shutdown or by a save that reported
+flushing. `RegionPoiStorage.flushAll()` (`RegionPoiStorage.java:663`) writes the remaining columns and waits
+for its IO worker; it runs at every flushing save (`endLevelSave`, `RegionThreadingEngine.java:6508`) and at
+`close()` (`:674`). A world that never crashes sees one extra IO wait at the save point (10-20 ms in the
+fixture run) and nothing else: no behaviour changes, no data changes, and the level's data is the same as
+before because the wait only orders writes that were already scheduled. The vanilla POI path is untouched
+when the switch is off.
+
+### Evidence
+
+| What | Test | Result |
+|---|---|---|
+| POI save/reload equivalence | `RegionPoiSaveReloadTest` (JUnit): the same script of adds, removes and ticket changes into a vanilla `PoiManager` and into the regionized storage, both closed and reopened, then compared record by record and ticket by ticket | 4 tests: reloaded records, types, free tickets and village distance equal the vanilla manager's; the stored `Sections` compound is byte-equal to the vanilla one; every reloaded section answers from the region that owns its chunk with zero server-thread fallbacks; a close without a tick keeps every column the storage holds |
+| Save/reload of a whole world | `savesAndReloadsRegionThreadingState` (GameTest, batch `saveReload`): 5x5 chunks across two region borders with beds and workstations, containers with item stacks, a sign, a bee nest, a bell, a 5x5 farm, a lever-fed circuit that crosses the border, 3 villagers and 6 cows; save, release every ticket, wait until the chunk source reports every chunk absent, force them again, compare | 114 blocks, 13 block entities, 9 entities, 10 POI records and 2 taken tickets equal before and after the reload; 0 save-point violations |
+| Same state with region threading on and off | `runSaveReloadGameTestServer` and `runSaveReloadGameTestServerReference` | the reference run's reloaded state equals the on-run's reloaded state, position by position (114/13/9/10) |
+| Hard kill, same configuration twice | `runCrashPrepareGameTestServer` then `runCrashRecoverGameTestServer` on one world directory | the world loads, the save point is intact, 9 unique entity UUIDs, no leaked ticket, nothing deferred left, 600 further ticks green |
+| Hard kill, on saved and off loaded | `runCrashSaveOnGameTestServer` then `runCrashLoadOffGameTestServer` | same |
+| Hard kill, off saved and on loaded | `runCrashSaveOffGameTestServer` then `runCrashLoadOnGameTestServer` | same |
+
+The kill is a real hard kill: the prepare phase saves, records the state of that save point, keeps ticking and
+then calls `Runtime.halt(0)` from another thread while the server thread is in the middle of a tick. No
+shutdown hook, no chunk/entity/POI write and no flush of anything runs after the save point. What the next
+process loads is the save point, which is exactly vanilla's guarantee for the same situation: the block
+update, item transfer, entity move or POI write of the tick that never returned is lost, and nothing that was
+applied before the save point is. No entity is admitted twice (the durable identity of an entity is its UUID
+in one chunk's entity list, written once from a quiescent state), no identity reservation survives (the ledger
+is derived and rebuilt per process), and no POI ticket leaks (a ticket is the `free_tickets` field of a record
+that is written with its column, and the records are reconciled with the block states at chunk load by
+`checkConsistencyWithBlocks`, the vanilla mechanism).
+
+### Save and load wall time
+
+`saveReload` fixture, 5x5 chunks, 3-chunk regions, 25 chunks force-loaded, one flushing save plus a full
+unload and reload of the area:
+
+| profile | save (ms) | reload (ms) | blocks | block entities | entities | POI records | taken tickets |
+|---|---|---|---|---|---|---|---|
+| on (4 workers) | 765 | 8 | 114 | 13 | 9 | 10 | 2 |
+| off (vanilla) | 754 | 243 | 114 | 13 | 9 | 10 | 2 |
+
+The save time is dominated by the vanilla chunk save of 25 chunks and is the same on both sides. The reload is
+the force-load of the same chunks: with region threading on the chunk tasks are dispatched to the region
+workers, with it off they stay on the server thread, which is the 30x difference of this small fixture and not
+a claim about a large world. The hard-kill recovery of the same world (load, compare, 600 ticks) takes 20-30 s
+per pair, of which 600 ticks at 20 TPS dominate.
+
+## Roadmap
+
+| # | Milestone | State |
+|---|---|---|
+| A1 | Deferred cross-region block writes, then relax the interior-chunk rule | **done** (e82a76c47) |
+| A2 | Persistent workers + multi-region group leases (light-load overhead) | **done, off by default** (af9a44429): furnace −19 %, hopper −6 %, but the entity slice loses 2.3–2.7 ms because the per-worker slot loses the executor's dynamic balancing |
+| A2b | Work-stealing dispatch and per-ticker wrapper attribution | **dispatcher implemented, default off**: persistent batches use bounded runners and steal half of unstarted ranges; furnace waves use the same dispatcher. [Implementation and dispatch-only measurements](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/WORK-STEALING-DISPATCHER.md). Full workload-matrix performance acceptance remains pending. |
+| A3 | Continuous region ticking (tick clock instead of a per-tick barrier) | **refuted** (measured, see below): the barrier wait is 75-99 % worker makespan and the barrier's own cost is 1.1-11.7 % of a tick, which A2's submission path already removes; the naive overlap bound is unreachable because the server thread's work between two barriers produces the next batch |
+| A4 | Dynamic region size (split/merge by load) | planned |
+| B1 | Cross-region game events (sculk vibration) | **done** (dbebf9803): per-column capture, same-tick replay on the target worker, 1650 events / 5657 deferred columns in the soak, none lost. Found and fixed that worker-posted events were silently dropped before |
+| B2 | Structure leases (piston multi-block moves, Create contraptions) | measured, not worth it (see above) |
+| B3 | Player regionization (teleport, portals, cross-dimension) | **done** (f2f529272): explicit transitions by kind, exactly-one-region audit, ledger handover across dimensions, 6356 assertions in the soak with 0 failures |
+| B4 | Large randomized redstone soak | planned |
+| B5 | Region-scoped entity query surface + per-tick player snapshot | **done**: `getAll`, the type-filtered and box shapes and every player lookup answered from the lease or the published snapshot; a player the region bucket answered is not added twice, a removed entity is not answered from the index, `Level.getEntities` appends the parts of the owners the lease answered, and the by-id/by-uuid lookups of a foreign entity, a worker without a lease, a shared-storage level and a level whose region index is not published stay refused with the operation name |
+| C1 | Save/load and crash recovery of regionized state | **done** |
+| C2 | Long-run soak (6+ hours, drift and leak detection) | planned - the 6000-tick soak is green but six hours is a different regime |
+| C3 | Multiplayer concurrency (players, view distance, tickets) | planned |
+| D1 | Mod compatibility declarations (policy registry, conflict detection) | planned |
+| D2 | 170-mod pack bring-up (bare → all mods off → all mods on → one at a time) | planned |
+| D3 | Automated performance regression baselines | planned |
+| D4 | Documentation and production configuration guide | Initial source audit, configuration matrix, templates and canary/rollback procedure prepared; installed-server gates remain open. See [readiness](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-READINESS.md). |
+
+Dependency spine: A1 → A2 → A2b → A4, then B1 → B2 → B3 → B4, then C1 → C2 → C3, then D1 → D2 → D3 → D4.
+A3 was removed from the spine by its phase-1 measurement (see "Barrier accounting" below): the remaining lever is
+the worker makespan, not the barrier schedule.
+
+## Known limitations
+
+- Region size is static; a region that becomes hot cannot be split.
+- The per-tick barrier bounds light-load performance, but the accounting below shows it is not what a
+  scheduling change can recover: 75-99 % of the wait is the worker makespan of the slice, and the barrier's own
+  cost (dispatch + completion detection) is 1.1-11.7 % of a tick. A region cannot run ahead of the server
+  thread, because the server thread's work between two barriers builds the next batch from the state the
+  previous barrier's handoff wrote.
+- Raw internal chunk mutation (the block-entity map, the section array, the raw heightmap array) is outside
+  the seqlock contract; only the normal entry points are covered.
+- A worker write outside its lease is deferred to the target region's same-tick fixpoint; a write that
+  cannot be expressed as (position, state, flags) — a block entity with data, a block-entity removal, a
+  heightmap-only write, a multi-position move — is still refused.
+- A callback that writes outside its lease and then reads the same position in the same tick sees the
+  pre-write state. Counted, never silent. The block event phase is exempt because it captures nothing: its
+  writes are inline and an event body reads back what it wrote.
+- The persistent worker pool and packed leases are off by default. The historical slice measurements above
+  predate the [batched work-stealing dispatcher](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/WORK-STEALING-DISPATCHER.md); that dispatcher improves its
+  synthetic dispatch workloads, while the full slice/whole-server performance matrix still needs rerunning.
+- Cross-region effects are ordered per target region, not in one global vanilla order.
+- Modded callbacks that reach beyond the admitted radius are refused, not analysed. An entity tick that reaches
+  such a chunk is truncated and counted in `truncatedEntityTicks`, and its runtime class is declared
+  server-thread-only with reason `chunk_unavailable`, so the loss happens once per class and later ticks of it
+  run where the read is legal. The truncated tick is lost, not replayed: its body already wrote entity fields and
+  deferred effects when the read failed. Four production crashes (`crash-2026-11-09_11.45.26`, `11.51.15`,
+  `2026-11-08_03.33.25`, `2026-11-10_05.59.18`) were this path.
+- A worker's player view is the snapshot of the level tick: membership and the recorded bounding boxes are
+  at most one tick old. A player lookup that must see a player who joined in the current tick is not
+  answered by the snapshot, and a worker of a level without a snapshot is refused instead of reading the
+  live list.
+- A region-scoped `getAll()` returns the entities of the worker's region that the level's entity tick
+  index holds, not the level's whole entity view; the truncation counter reports every call where the
+  two differ.
+- A region-scoped box query appends the parts of the multipart owners it answered, not every part of the
+  level: a part of an owner outside the lease is outside the answer, exactly like its owner.
+
+## Patch placement notes
+
+- `LevelChunk.removeBlockEntity`: the `removeBlockEntityTicker` call sits inside the added
+  `beginChunkMutation`/`endChunkMutation` scope, not after it as in vanilla. It stays there on purpose - the
+  ticker removal bumps the chunk's ticker revision and rebinds the removed wrapper, so the chunk mutation
+  covers both - and the patch carries a comment saying so. It is not drift: a worker must not leave a stale
+  ticker behind after the block entity is gone.
