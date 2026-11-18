@@ -1875,6 +1875,183 @@ class RegionPlayerSpatialLeaseTest {
         return inventory;
     }
 
+    private record DeclaredPayload(int value) implements net.minecraft.network.protocol.common.custom.CustomPacketPayload {
+        private static final Type<DeclaredPayload> TYPE = new Type<>(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("declared_payload_test", "local"));
+        @Override
+        public Type<DeclaredPayload> type() { return TYPE; }
+    }
+
+    @SuppressWarnings("unchecked")
+    private AutoCloseable declarePayload(net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<DeclaredPayload> handler) throws Exception {
+        var f = net.neoforged.neoforge.network.registration.NetworkRegistry.class.getDeclaredField("PAYLOAD_REGISTRATIONS");
+        f.setAccessible(true);
+        var registry = (Map<net.minecraft.network.ConnectionProtocol, Map<net.minecraft.resources.ResourceLocation, net.neoforged.neoforge.network.registration.PayloadRegistration<?>>>) f.get(null);
+        var plays = registry.get(net.minecraft.network.ConnectionProtocol.PLAY);
+        var prior = plays.put(DeclaredPayload.TYPE.id(), new net.neoforged.neoforge.network.registration.PayloadRegistration<>(DeclaredPayload.TYPE,
+                net.minecraft.network.codec.StreamCodec.unit(new DeclaredPayload(0)), handler, List.of(net.minecraft.network.ConnectionProtocol.PLAY),
+                java.util.Optional.of(net.minecraft.network.protocol.PacketFlow.SERVERBOUND), "1", true));
+        return () -> { if (prior == null) plays.remove(DeclaredPayload.TYPE.id()); else plays.put(DeclaredPayload.TYPE.id(), prior); };
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,success", "true,success", "false,failure", "true,failure", "false,reject", "true,reject", "false,off", "true,off" })
+    void declaredPayloadRunsOnlyExactHandlerUnderOriginalLeaseAndNeverApprovesModTicks(boolean persistent, String outcome) throws Exception {
+        if (persistent) initialize(true);
+        packetLocalState();
+        when(this.player.connection.getPlayer()).thenReturn(this.player);
+        if (outcome.equals("reject")) packetWorkerEnvironment(() -> {}, true);
+        if (outcome.equals("off")) this.engine.configurePlayerTickPlanningForTesting(false);
+        var bodies = new java.util.concurrent.atomic.AtomicInteger();
+        var escapedContext = new AtomicReference<net.neoforged.neoforge.network.handling.IRegionPayloadContext>();
+        var failure = new IllegalArgumentException("declared side effect then throw");
+        boolean expectedWorker = !outcome.equals("reject") && !outcome.equals("off");
+        var declaration = new net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<>(DeclaredPayload.TYPE, DeclaredPayload.class, (payload, context) -> {
+            assertEquals(expectedWorker, RegionWorkerScope.isNativeWorkerThread());
+            assertEquals(expectedWorker, context.isRegionWorker());
+            assertSame(this.player, context.player());
+            assertEquals(expectedWorker, RegionPlayerStateScope.current() != null);
+            assertEquals(expectedWorker, this.engine.playerNetworkGate().snapshot().frozen());
+            assertEquals(73, payload.value());
+            bodies.incrementAndGet();
+            escapedContext.set(context);
+            if (outcome.equals("failure")) throw failure;
+        });
+        var packet = new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(new DeclaredPayload(73));
+        var context = new net.neoforged.neoforge.network.handling.ServerPayloadContext(this.player.connection, DeclaredPayload.TYPE.id());
+        try (var registered = declarePayload(declaration);
+                var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(this.player.connection.getConnection(), packet, 1))) {
+            // Intentionally no installedBaseEnvironment(): unknown test extensions cannot authorize ticks.
+            if (outcome.equals("failure")) assertSame(failure, assertThrows(IllegalArgumentException.class, () -> declaration.handle((DeclaredPayload) packet.payload(), context)));
+            else declaration.handle((DeclaredPayload) packet.payload(), context);
+        }
+        assertEquals(1, bodies.get());
+        assertThrows(IllegalStateException.class, () -> escapedContext.get().player());
+        assertNull(RegionPlayerStateScope.current());
+        assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+        assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        assertTrue(((Set<?>) field(this.engine, "activeTickBatches")).isEmpty());
+        var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+        assertEquals(expectedWorker ? 1 : 0, snapshot.workers());
+        assertEquals(outcome.equals("failure") ? 1 : 0, snapshot.failed());
+        assertTrue(this.engine.playerTicks().snapshot().phases().values().stream().allMatch(counts -> counts.worker() == 0));
+        if (!outcome.equals("off")) {
+            assertNull(this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.ENTITY).plan(), "Payload declaration cannot approve an unknown mod's full player tick");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "success", "failure", "unregistered", "missingReceipt", "retire", "close", "oldInstance", "configuration", "disconnect" })
+    void declaredPayloadOriginalQueueCancelsOldSessionsAndCleansReferences(String outcome) throws Exception {
+        packetLocalState();
+        var listener = this.player.connection;
+        var connection = listener.getConnection();
+        when(listener.getPlayer()).thenReturn(this.player);
+        doReturn(this.server).when(listener).getMainThreadEventLoop();
+        var queue = new ArrayList<Runnable>();
+        doAnswer(call -> {
+            Runnable task = call.getArgument(0);
+            queue.add(task);
+            return null;
+        }).when(this.server).executeIfPossible(any(Runnable.class));
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        var sentinel = new IllegalArgumentException("expected declared queued failure");
+        var declaration = new net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<>(DeclaredPayload.TYPE, DeclaredPayload.class, (payload, context) -> {
+            assertEquals(!outcome.equals("unregistered") && !outcome.equals("missingReceipt"), context.isRegionWorker());
+            calls.incrementAndGet();
+            if (outcome.equals("failure")) throw sentinel;
+        });
+        var packet = new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(new DeclaredPayload(73));
+        var context = new net.neoforged.neoforge.network.handling.ServerPayloadContext(listener, DeclaredPayload.TYPE.id());
+        try (var registration = declarePayload(declaration)) {
+            var escaped = new AtomicReference<Throwable>();
+            Thread netty = new Thread(() -> {
+                try (var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(outcome.equals("missingReceipt") ? null :
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(connection, packet, 1))) {
+                    declaration.handle((DeclaredPayload) packet.payload(), context);
+                } catch (Throwable failure) { escaped.set(failure); }
+            }, "declared payload original receive");
+            netty.start(); netty.join(5000);
+            assertFalse(netty.isAlive()); assertNull(escaped.get());
+            assertEquals(0, calls.get()); assertEquals(1, queue.size());
+            switch (outcome) {
+                case "retire" -> invoke(this.engine, "retirePlayerPackets", new Class<?>[] { Connection.class }, connection);
+                case "close" -> invoke(field(this.engine, "playerPackets"), "close", new Class<?>[0]);
+                case "oldInstance" -> listener.player = mock(ServerPlayer.class);
+                case "configuration" -> when(connection.getPacketListener()).thenReturn(mock(net.minecraft.server.network.ServerConfigurationPacketListenerImpl.class));
+                case "disconnect" -> when(connection.isConnected()).thenReturn(false);
+                case "unregistered" -> registration.close();
+            }
+            queue.forEach(Runnable::run);
+            assertEquals(Set.of("success", "failure", "unregistered", "missingReceipt").contains(outcome) ? 1 : 0, calls.get());
+            if (!outcome.equals("missingReceipt")) queue.forEach(Runnable::run);
+            assertEquals(Set.of("success", "failure", "unregistered", "missingReceipt").contains(outcome) ? 1 : 0, calls.get(), "No replay after return, failure or cancellation");
+            var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+            assertEquals(0, invoke(snapshot.tasks(), "pending", new Class<?>[0]));
+            assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "success", "retire", "close", "configuration", "rejection", "stopped" })
+    void declaredMainEscapeWaitsForPhysicalJoinAndCannotRetainRetiredPlayer(String outcome) throws Exception {
+        packetLocalState();
+        var listener = this.player.connection;
+        when(listener.getPlayer()).thenReturn(this.player);
+        var tasks = new ArrayList<Runnable>();
+        var bodies = new java.util.concurrent.atomic.AtomicInteger();
+        var callbacks = new java.util.concurrent.atomic.AtomicInteger();
+        var future = new AtomicReference<java.util.concurrent.CompletableFuture<Void>>();
+        var rejection = new java.util.concurrent.RejectedExecutionException("original executor rejected MAIN escape");
+        doAnswer(call -> {
+            assertTrue(RegionWorkerScope.isNativeWorkerThread());
+            if (outcome.equals("rejection")) throw rejection;
+            Runnable task = call.getArgument(0);
+            tasks.add(task);
+            return null;
+        }).when(this.server).executeIfPossible(any(Runnable.class));
+        if (outcome.equals("stopped")) {
+            // Real MinecraftServer.scheduleExecutables returns false once stopped; submit then
+            // inlines on the native worker. The declared MAIN escape must reject before that path.
+            when(this.server.isStopped()).thenReturn(true);
+            doCallRealMethod().when(this.server).submit(any(Runnable.class));
+            doCallRealMethod().when(this.server).scheduleExecutables();
+            doCallRealMethod().when(this.server).executeIfPossible(any(Runnable.class));
+        }
+        var declaration = new net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<>(DeclaredPayload.TYPE, DeclaredPayload.class, (payload, context) -> {
+            bodies.incrementAndGet();
+            assertTrue(context.isRegionWorker());
+            future.set(context.enqueueWork(main -> {
+                assertSame(this.publishing, Thread.currentThread());
+                assertNull(RegionPlayerStateScope.current());
+                assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+                assertSame(this.player, main.player());
+                callbacks.incrementAndGet();
+            }));
+            assertFalse(future.get().isDone());
+            assertEquals(0, callbacks.get());
+        });
+        var packet = new net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket(new DeclaredPayload(73));
+        try (var registration = declarePayload(declaration);
+                var arrival = net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.receive(
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.received(listener.getConnection(), packet, 1))) {
+            Runnable entry = () -> declaration.handle((DeclaredPayload) packet.payload(), new net.neoforged.neoforge.network.handling.ServerPayloadContext(listener, DeclaredPayload.TYPE.id()));
+            if (outcome.equals("stopped")) assertThrows(java.util.concurrent.RejectedExecutionException.class, entry::run);
+            else if (outcome.equals("rejection")) assertSame(rejection, assertThrows(java.util.concurrent.RejectedExecutionException.class, entry::run));
+            else entry.run();
+            assertEquals(1, bodies.get());
+            if (outcome.equals("retire")) invoke(this.engine, "retirePlayerPackets", new Class<?>[] { Connection.class }, listener.getConnection());
+            if (outcome.equals("close")) invoke(field(this.engine, "playerPackets"), "close", new Class<?>[0]);
+            if (outcome.equals("configuration")) when(listener.getConnection().getPacketListener()).thenReturn(mock(net.minecraft.server.network.ServerConfigurationPacketListenerImpl.class));
+            tasks.forEach(Runnable::run);
+            assertEquals(outcome.equals("success") ? 1 : 0, callbacks.get());
+            if (!outcome.equals("rejection") && !outcome.equals("stopped")) assertTrue(future.get().isDone());
+            var snapshot = (net.neoforged.neoforge.server.threading.region.RegionPlayerPacketRouter.Snapshot) invoke(field(this.engine, "playerPackets"), "snapshot", new Class<?>[0]);
+            assertEquals(0, invoke(snapshot.tasks(), "pending", new Class<?>[0]));
+        }
+    }
+
     private Runnable enqueueOriginalPacket(net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket packet) throws Exception {
         List<Runnable> queued = new CopyOnWriteArrayList<>();
         doAnswer(call -> {

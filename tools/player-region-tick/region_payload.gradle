@@ -1,0 +1,16 @@
+// Public declared-payload API fixture. No production permission hooks or oracle exemptions.
+gradle.projectsEvaluated {
+    def core = rootProject.findProject(':neoforge')
+    if (core == null) return
+    def probe = core.sourceSets.create('regionPayloadProbe') {
+        java.srcDir rootProject.file('tools/player-region-tick/region-payload/java')
+        resources.srcDir rootProject.file('tools/player-region-tick/region-payload/resources')
+        compileClasspath += core.sourceSets.main.output + core.sourceSets.main.compileClasspath
+    }
+    core.tasks.register('regionPayloadProbeJar', Jar) {
+        dependsOn core.tasks.named('regionPayloadProbeClasses')
+        archiveBaseName = 'forgia-region-payload-probe'
+        archiveVersion = '1.0'
+        from probe.output
+    }
+}

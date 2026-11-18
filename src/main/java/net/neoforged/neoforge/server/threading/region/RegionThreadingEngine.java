@@ -4707,20 +4707,27 @@ public final class RegionThreadingEngine implements RegionThreading {
     /** One original PacketUtils queue position; later packets/continuations cannot overtake its join. */
     boolean tryRunPlayerPacket(net.minecraft.network.protocol.Packet<?> packet,
             net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original) {
-        return this.tryRunPlayerOperation(packet, listener, original, false);
+        return this.tryRunPlayerOperation(packet, listener, original, false, null);
     }
 
     boolean tryRunPlayerChatCompletion(net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original) {
-        return this.tryRunPlayerOperation(null, listener, original, true);
+        return this.tryRunPlayerOperation(null, listener, original, true, null);
+    }
+
+    boolean tryRunPlayerPayload(net.minecraft.network.protocol.Packet<?> packet,
+            net.minecraft.server.network.ServerGamePacketListenerImpl listener,
+            net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> declaration, Runnable original) {
+        return this.tryRunPlayerOperation(packet, listener, original, false, declaration);
     }
 
     private boolean tryRunPlayerOperation(@Nullable net.minecraft.network.protocol.Packet<?> packet,
-            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original, boolean chatCompletion) {
+            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original, boolean chatCompletion,
+            @Nullable net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> payload) {
         ServerPlayer player = listener.player;
         if (!this.playerCriterionStorageEnabled() || !player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()
-                || (!chatCompletion && (packet == null || !RegionPlayerPacketPlan.known(packet))) || !this.activeTickBatches.isEmpty()
+                || (!chatCompletion && payload == null && (packet == null || !RegionPlayerPacketPlan.known(packet))) || !this.activeTickBatches.isEmpty()
                 || this.regionWorkAdmission.isOwner() || !this.regionWorkAdmission.tryEnter(this::isQuiescentForParallelApi))
-            return false;
+            return this.playerPackets.refusePayload(payload, "DEPENDENCIES_OR_BUSY");
         RegionPlayerTickDispatch.Lifecycle parent = null;
         RegionPlayerSpatialLease lease = null;
         RegionPlayerPacketRouter.Call call = null;
@@ -4731,30 +4738,33 @@ public final class RegionThreadingEngine implements RegionThreading {
         long sequence = 0;
         try {
             // Preserve explicit NETWORK handlers of unknown extensions on their original thread.
-            if (RegionPlayerExtensionSnapshot.capture().refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
-            var packetPlan = chatCompletion ? RegionPlayerPacketPlan.chat(listener) : RegionPlayerPacketPlan.capture(packet, listener);
-            if (packetPlan == null) return false;
-            if (!this.playerNetworkGate.freeze(player.server)) return false;
+            if (payload == null && RegionPlayerExtensionSnapshot.capture().refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
+            var packetPlan = payload != null ? RegionPlayerPacketPlan.payload(packet, listener, payload)
+                    : chatCompletion ? RegionPlayerPacketPlan.chat(listener) : RegionPlayerPacketPlan.capture(packet, listener);
+            if (packetPlan == null) return this.playerPackets.refusePayload(payload, "UNREGISTERED_OR_STALE_PAYLOAD");
+            if (payload == null ? !this.playerNetworkGate.freeze(player.server) : !this.playerNetworkGate.freezePreservingNetworkThread(player.server))
+                return this.playerPackets.refusePayload(payload, "NETWORK_CALLBACKS");
             frozen = true;
             preparation = packetPlan.prepare();
             this.playerRegions.publishAtPlayerStage(this, player);
-            var capture = this.capturePlayerAdmissionPlan(player, RegionPlayerTickCoordinator.Phase.CONNECTION);
-            if (capture.plan() == null) return false;
+            var capture = payload == null ? this.capturePlayerAdmissionPlan(player, RegionPlayerTickCoordinator.Phase.CONNECTION)
+                    : RegionPlayerAdmissionPlan.capture(this, player, RegionPlayerTickCoordinator.Phase.CONNECTION, packetPlan);
+            if (capture.plan() == null) return this.playerPackets.refusePayload(payload, "ADMISSION_" + capture.refusal().name());
             parent = new RegionPlayerTickDispatch.Lifecycle(player.serverLevel());
             if (this.publishTickBatch(parent, player.serverLevel()) != TickBatchPublication.PUBLISHED) {
                 parent.finish();
                 parent = null;
-                return false;
+                return this.playerPackets.refusePayload(payload, "BATCH_PUBLICATION");
             }
             parent.markExecutingOnCurrentThread();
             effects = new RegionPlayerTickDispatch(this, parent);
             lease = this.reservePlayerSpatial(parent, effects, List.of(capture.plan().spatial()));
             if (lease == null || lease.bindPlayerState(List.of(capture.plan().state())) != RegionPlayerStatePlan.Refusal.NONE
                     || !capture.plan().revalidate())
-                return false;
+                return this.playerPackets.refusePayload(payload, "LEASE_OR_STATE_REVALIDATION");
             call = new RegionPlayerPacketRouter.Call(packet, listener, capture.plan(), packetPlan, original);
             sequence = this.playerPackets.next();
-            if (!chatCompletion && !this.playerPackets.consume(call.received)) return false;
+            if (!chatCompletion && !this.playerPackets.consume(call.received)) return this.playerPackets.refusePayload(payload, "STALE_RECEIVE");
             var invocation = call;
             var ownership = lease;
             var work = new RegionTaskBatch();
@@ -4766,7 +4776,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             call.await(joined); // Only exact synchronous packet services; no server/chunk queue pump.
             joined.throwIfFailed();
             if (call.failure != null) throwUnchecked(call.failure); // Original PacketUtils catches on publisher.
-            return call.started;
+            return call.started || this.playerPackets.refusePayload(payload, "PRE_BODY_REVALIDATION_OR_REJECTION");
         } catch (Throwable problem) {
             if (call != null && call.failure != null && call.failure != problem) {
                 accumulateFailure(call.failure, problem);
@@ -4824,8 +4834,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                     } finally {
                         try {
                             if (frozen) this.playerNetworkGate.thaw();
+                        } catch (Throwable problem) {
+                            cleanup = accumulateFailure(cleanup, problem);
                         } finally {
-                            this.regionWorkAdmission.exit();
+                            try {
+                                this.regionWorkAdmission.exit();
+                            } catch (Throwable problem) {
+                                cleanup = accumulateFailure(cleanup, problem);
+                            }
                         }
                     }
                 }

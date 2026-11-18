@@ -22,7 +22,7 @@ import net.neoforged.neoforge.common.NeoForgeEventHandler;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
 
-/** Actual installed environment, never a mod's self-declared worker permission. */
+/** Installed environment for complete player ticks/vanilla packets; not an opt-in payload declaration. */
 final class RegionPlayerExtensionSnapshot {
     record Check(RegionPlayerAdmissionPlan.Refusal refusal, String detail) {
         static Check ok() {

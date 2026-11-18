@@ -13123,5 +13123,42 @@
     "sourceFreeze": 32,
     "persistedPatches": 12,
     "scope": "Bounded original owner packets; unobstructed swept movement; unsigned low-spam ordered filtered completion; complete serial fences for collision correction, signed chat and lifecycle thresholds; final same-product matrices in progress"
+  },
+  "payloadWorkerApi": {
+    "status": "complete_bounded_declared_server_play_payload_api",
+    "version": "21.1.250.152-beta",
+    "report": "region-threading/PLAYER-REGION-PAYLOAD-API.zh.md",
+    "evidenceRoot": "tmp/player-region-payload-api01",
+    "junit": {
+      "classes": 22,
+      "tests": 684,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "p5Started": false,
+    "p4Commit": "9b4859bb830f3c0beb0dc2f7cd44eee32699dbdd",
+    "installerSha256": "29d5f44f4d269d7488dc8e5232fb360c316a368e37d615141302ac2912747c19",
+    "selectedGameTestsPassed": 3,
+    "apiFourModes": "passed",
+    "onPoolWorkerBodies": [
+      20,
+      19
+    ],
+    "onPoolMeasuredBodies": 22,
+    "offWorkerBodies": 0,
+    "manifest": {
+      "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.152-beta.json",
+      "sha256": "fca333dd8eaffdee7d41500e70351694fafba3e8a16b9db76f883601812d02eb",
+      "bytes": 8637
+    },
+    "receipt": "tmp/player-region-payload-api01/acceptance152-01/receipt.json",
+    "receiptSha256": "14264d00d817a868a51d050efc52bdd9a3365fbfa05163fe284e48b36bfe8fd7",
+    "finalAudit": "tmp/player-region-payload-api01/acceptance152-01/final-audit.json",
+    "independentInstallations": 34,
+    "proofNegativeControls": 208,
+    "schema3Scenarios": 144,
+    "schema4Scenarios": 180,
+    "commitPushPerformed": false
   }
 }

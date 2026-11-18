@@ -16,6 +16,8 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.handling.IPayloadHandler;
 import net.neoforged.neoforge.network.handling.MainThreadPayloadHandler;
+import net.neoforged.neoforge.network.handling.IRegionPayloadHandler;
+import net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler;
 
 /**
  * Builder-style helper for registering {@link CustomPacketPayload}s, used for modded networking.
@@ -51,6 +53,23 @@ public class PayloadRegistrar {
      */
     public <T extends CustomPacketPayload> PayloadRegistrar playToServer(CustomPacketPayload.Type<T> type, StreamCodec<? super RegistryFriendlyByteBuf, T> reader, IPayloadHandler<T> handler) {
         register(type, reader, handler, List.of(ConnectionProtocol.PLAY), Optional.of(PacketFlow.SERVERBOUND), version, optional);
+        return this;
+    }
+
+    /**
+     * Explicitly declares one server PLAY payload handler safe for the sender's captured player scope.
+     * Uses the existing region pool and joins at the original MAIN queue position. Disabled workers,
+     * stale ownership, unsupported player state or rejected submission use complete MAIN fallback;
+     * a started handler is never replayed. The declaration covers this exact payload class and handler,
+     * not the mod's other callbacks. See {@link IRegionPayloadHandler} for the developer's obligations.
+     *
+     * <p>This method always uses MAIN fallback regardless of {@link #executesOn}; it never registers
+     * client/configuration or NETWORK handlers. Existing registration methods keep their contracts.
+     */
+    public <T extends CustomPacketPayload> PayloadRegistrar playToServerRegion(CustomPacketPayload.Type<T> type,
+            StreamCodec<? super RegistryFriendlyByteBuf, T> reader, Class<T> payloadClass, IRegionPayloadHandler<T> handler) {
+        NetworkRegistry.register(type, reader, new RegionThreadPayloadHandler<>(type, payloadClass, handler),
+                List.of(ConnectionProtocol.PLAY), Optional.of(PacketFlow.SERVERBOUND), version, optional);
         return this;
     }
 

@@ -776,3 +776,53 @@ still pin the historical `.115` baseline and must acquire an explicit reviewed a
 being used to certify another core. Retain their original hash gates and their baseline evidence.
 Full mixed-mod/callback support, the complete failure/lifecycle/packet matrix and final entity/block/
 container/XP conservation on the new worker artifact remain handoff work.
+# Declared server PLAY payload worker API (supplement after P4)
+
+`PayloadRegistrar.playToServerRegion(type, codec, Payload.class, handler)` explicitly declares **one**
+handler safe within the sender's captured local player scope. The declaration includes its transitive
+callbacks, installed transformations and listeners; the developer must audit them. It does not approve
+the mod's ticks, other packets or arbitrary world/global state. Existing MAIN (the default), explicit
+NETWORK, client and configuration registrations keep their contracts. Player workers remain disabled
+by default. The exact class/type/registered handler/session and all existing player/spatial/state
+prerequisites are checked; unsupported calls execute the complete same handler on MAIN. A begun handler
+is never replayed. This API joins one handler at the original server queue position, with no new pool,
+generic main-task pump or packet concurrency claim.
+
+```java
+event.registrar("1").playToServerRegion(MyPayload.TYPE, MyPayload.STREAM_CODEC, MyPayload.class,
+        (payload, context) -> {
+            updateAuditedOwnerLocalState(context.player(), payload);
+            context.reply(new MyReply(/* ... */));
+            context.enqueueWork(main -> performGlobalOperation(main.player()));
+        });
+```
+
+`IRegionPayloadContext` is invocation-scoped: `player`, `isRegionWorker`, `reply`, `enqueueWork` and
+deferred `disconnect`. Do not retain it or the player, directly move/change identity/menu, touch another
+player/uncaptured state, or wait on a MAIN future. Worker-origin MAIN work runs only after physical
+return and is cancelled on session retirement; a stopped server rejects it using the original
+`executeIfPossible` boundary. MAIN fallback keeps original inline `enqueueWork` semantics: a later inline
+task may precede earlier queued worker-origin work. Code requiring synchronous global ordering/return
+values should keep ordinary default MAIN registration. A declaration is a developer promise, not a
+sandbox or automatic proof of arbitrary code. See
+[the Chinese API contract and retained failures](../../region-threading/PLAYER-REGION-PAYLOAD-API.zh.md).
+
+The explicit handler's network fence resumes incoming callbacks on their original Connection Netty
+event loop after join; explicit NETWORK handlers never become MAIN/worker handlers. Ordinary unknown-Mod
+player ticks/vanilla packets stay serial before freeze, including the historical oracle Mod.
+
+Build the ordinary API fixture with `-I tools/player-region-tick/region_payload.gradle
+:neoforge:regionPayloadProbeJar`. Use `run_region_payload_matrix.py` with a fresh `--output`, frozen
+`--installer`, `--version`, private `--libraries`, existing accepted `--eula` and `--mod`. It verifies both
+native pools/off-on using real TCP client payloads, default MAIN fences, NETWORK callbacks during a live
+worker, replies, slot/XP conservation, one deliberate post-effect failure, disconnect cancellation and
+new-instance reconnect. `verify_region_payload.py` decodes original raw frames, matches receive ordinals,
+checks original server reads and saved player NBT; `test_region_payload_validator.py` rejects nine proof
+mutations per positive pool. No fixture grants itself production worker permission. The artifact
+manifest gate still preserves the original `.115` schema 3/4 checks and every historical manifest.
+
+Final `.152` passes 684 JUnit/22 classes, three selected GameTests and supplementary same-product acceptance:
+34 isolated installations, schema3 144/schema4 180 and 208 proof negative controls. Receipt and final audit:
+`tmp/player-region-payload-api01/acceptance152-01/`. This covers the declared API and the listed supplementary
+compatibility suites; it does not rerun every historical P2/P3 suite or claim P5 performance/soak completion.
+P5 has not started; no commit/push/deployment was performed for this increment.

@@ -32,6 +32,9 @@ public final class RegionPlayerNetworkGate {
     private int readers;
     private int queued;
     private boolean frozen;
+    private boolean preserveNetworkThread;
+    private int networkPending;
+    private static final ThreadLocal<Replay> REPLAY = new ThreadLocal<>();
     private boolean closed;
     private int executing;
     private final Map<Thread, Integer> callbackThreads = new IdentityHashMap<>();
@@ -42,19 +45,48 @@ public final class RegionPlayerNetworkGate {
     public record Snapshot(boolean frozen, int readers, int pending, long deferred, long refusedFreezes, boolean closed, int terminals, long cancelled) {}
 
     synchronized boolean freeze(MinecraftServer server) {
+        return this.freeze(server, false);
+    }
+
+    synchronized boolean freezePreservingNetworkThread(MinecraftServer server) {
+        return this.freeze(server, true);
+    }
+
+    private boolean freeze(MinecraftServer server, boolean preserveNetworkThread) {
         if (!server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Network freeze requires the server publisher");
-        if (this.closed || this.frozen || this.readers != 0) {
+        if (this.closed || this.frozen || this.readers != 0 || this.networkPending != 0
+                || preserveNetworkThread && (this.executing != 0 || this.queued != 0 || !this.overflow.isEmpty())) {
             this.refusedFreezes++;
             return false;
         }
         this.frozen = true;
+        this.preserveNetworkThread = preserveNetworkThread;
         return true;
     }
 
     synchronized void thaw() {
         if (!this.frozen) throw new IllegalStateException("Player network boundary is not frozen");
         this.frozen = false;
+        this.preserveNetworkThread = false;
+        // Explicitly declared payloads may coexist with NETWORK handlers. Those callbacks resume
+        // on their ORIGINAL event loop after physical join; they never become server-thread handlers.
+        List<Deferred> resume = new ArrayList<>();
+        this.pending.values().forEach(resume::addAll);
+        resume.addAll(this.overflow.values());
+        Throwable failure = null;
+        for (Deferred callback : resume) {
+            if (callback.networkThread && !callback.scheduled) {
+                try {
+                    this.submit(null, callback);
+                } catch (RuntimeException | Error problem) {
+                    if (failure == null) failure = problem;
+                    else failure.addSuppressed(problem);
+                }
+            }
+        }
         this.notifyAll();
+        if (failure instanceof RuntimeException problem) throw problem;
+        if (failure instanceof Error problem) throw problem;
     }
 
     public synchronized Snapshot snapshot() {
@@ -76,27 +108,43 @@ public final class RegionPlayerNetworkGate {
 
     @Nullable
     private synchronized Scope enter(MinecraftServer server, Connection connection, Runnable original, @Nullable Object retained) {
+        Replay replay = REPLAY.get();
+        if (replay != null && replay.gate == this && replay.connection == connection) {
+            // The physically executing callback owns this exact connection until return. Its nested
+            // disconnect/send failures must retain original synchronous behavior too; the active
+            // callback count prevents any worker freeze across the whole dynamic call stack.
+            return UNRESTRICTED;
+        }
         if (this.closed) return UNRESTRICTED;
         if (!this.frozen && !this.pending.containsKey(connection) && !this.overflow.containsKey(connection)) {
             this.readers++;
             this.callbackThreads.merge(Thread.currentThread(), 1, Integer::sum);
             return new Scope(this);
         }
+        List<Deferred> previous = this.pending.get(connection);
+        Deferred terminal = this.overflow.get(connection);
+        boolean networkThread = this.frozen && this.preserveNetworkThread
+                || previous != null && !previous.isEmpty() && previous.getFirst().networkThread
+                || terminal != null && terminal.networkThread;
         if (this.queued >= MAX_PENDING) {
             // Terminal protocol error, never an invisible dropped movement/click. At most one terminal
             // continuation per connection; it runs after its earlier callbacks and every worker joined.
             if (!this.overflow.containsKey(connection)) {
-                Deferred terminal = new Deferred(this, connection, () -> disconnectOverflow(connection), null, true);
-                this.overflow.put(connection, terminal);
-                this.submit(server, terminal);
+                Deferred overflow = new Deferred(this, connection, () -> disconnectOverflow(connection), null, true, networkThread);
+                this.overflow.put(connection, overflow);
+                if (networkThread) this.networkPending++;
+                this.submit(server, overflow);
             }
             return null;
         }
+        // Once terminal, no later callback can pass or create another queued envelope.
+        if (terminal != null) return null;
         ReferenceCountUtil.retain(retained);
-        Deferred callback = new Deferred(this, connection, original, retained, false);
+        Deferred callback = new Deferred(this, connection, original, retained, false, networkThread);
         this.pending.computeIfAbsent(connection, key -> new ArrayList<>()).add(callback);
         this.queued++;
         this.deferred++;
+        if (networkThread) this.networkPending++;
         this.submit(server, callback);
         return null;
     }
@@ -110,9 +158,12 @@ public final class RegionPlayerNetworkGate {
         else connection.disconnect(reason);
     }
 
-    private void submit(MinecraftServer server, Deferred callback) {
+    private void submit(@Nullable MinecraftServer server, Deferred callback) {
+        if (callback.networkThread && this.frozen) return;
+        callback.scheduled = true;
         try {
-            server.execute(callback);
+            if (callback.networkThread) callback.connection.channel().eventLoop().execute(callback);
+            else server.execute(callback);
         } catch (RuntimeException | Error failure) {
             callback.cancel();
             throw failure;
@@ -182,14 +233,17 @@ public final class RegionPlayerNetworkGate {
         private Runnable original;
         private Object retained;
         private final boolean terminal;
+        private final boolean networkThread;
+        private boolean scheduled;
         private boolean running;
 
-        private Deferred(RegionPlayerNetworkGate gate, Connection connection, Runnable original, @Nullable Object retained, boolean terminal) {
+        private Deferred(RegionPlayerNetworkGate gate, Connection connection, Runnable original, @Nullable Object retained, boolean terminal, boolean networkThread) {
             this.gate = gate;
             this.connection = connection;
             this.original = original;
             this.retained = retained;
             this.terminal = terminal;
+            this.networkThread = networkThread;
         }
 
         // All fields are protected by the gate; cancelled envelopes are inert even if the server's
@@ -210,6 +264,7 @@ public final class RegionPlayerNetworkGate {
                 current.queued--;
             }
             ReferenceCountUtil.release(this.retained);
+            if (this.networkThread) current.networkPending--;
             this.gate = null;
             this.connection = null;
             this.original = null;
@@ -221,22 +276,36 @@ public final class RegionPlayerNetworkGate {
             RegionPlayerNetworkGate current = this.gate;
             if (current == null) return;
             Runnable body;
+            Replay previous = REPLAY.get();
             synchronized (current) {
                 if (this.gate == null || this.running) return;
                 body = this.original;
                 this.running = true;
                 current.executing++;
                 current.callbackThreads.merge(Thread.currentThread(), 1, Integer::sum);
+                if (this.networkThread) REPLAY.set(new Replay(current, this.connection));
             }
             try {
                 body.run();
             } finally {
+                if (previous == null) REPLAY.remove();
+                else REPLAY.set(previous);
                 synchronized (current) {
                     this.detach(current);
                     current.executing--;
                     current.callbackReturned(Thread.currentThread());
                 }
             }
+        }
+    }
+
+    private static final class Replay {
+        private final RegionPlayerNetworkGate gate;
+        private final Connection connection;
+
+        private Replay(RegionPlayerNetworkGate gate, Connection connection) {
+            this.gate = gate;
+            this.connection = connection;
         }
     }
 

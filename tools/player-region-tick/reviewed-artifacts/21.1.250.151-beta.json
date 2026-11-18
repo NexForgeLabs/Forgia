@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "id": "forgia-21.1.250.151-beta-schema3-4",
+  "version": "21.1.250.151-beta",
+  "contract": "unknown-extension-whole-call-serial",
+  "installerSha256": "05eec0287a0866cd0cd5607640f77dc9a5eb7afad72a48c47b5a03b0e801ee91",
+  "installedJars": {
+    "server": "9262a2a96f2b6e80a92bbaa8d1dec8d6d6503fd4009a4fc88d09dfd839772fea",
+    "universal": "c121c35dfe2d5574b06100d80b7e6aee52f3a4b3966fd52dd715b7347133559f"
+  },
+  "oracleSha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe",
+  "review": {
+    "kind": "parent-agent-source-and-artifact-review",
+    "date": "2026-11-18",
+    "reviewer": "parent Codex agent; no human or independent approval claimed",
+    "evidence": [
+      "tmp/player-region-payload-api01/build-and-regression06/result.json",
+      "tmp/player-region-payload-api01/junit-regression06-xml.json",
+      "tmp/player-region-payload-api01/terminal-retain-counterexample/result.json",
+      "tmp/player-region-payload-api01/legacy-replay-counterexample/result.json"
+    ],
+    "findings": [
+      "Explicit playToServerRegion server PLAY handler declaration is checked by exact registry identity, class, type and received packet/session; no HandlerThread default changes",
+      "Developer opt-in promises all transitive callback and transformation safety only for that invocation; full ENTITY/CONNECTION and undeclared packets still refuse unknown mods and oracle remains serial",
+      "Same engine/pool/batch/admission/spatial-state leases and original MAIN queue position with physical join; rejected before body serial fallback, begun exceptions never replay",
+      "Invocation-scoped context and bounded cancellable MAIN escapes; stale disconnected/reconfigured instances cannot execute; no arbitrary publisher queue pumping",
+      "Declared payload network freeze resumes callbacks on original Connection event loop after join; pending direct/network callbacks prevent new freeze",
+      "683 tests in22 classes pass including fail-first post-terminal reference-retain leak correction; default remains false, no P5 or throughput claim",
+      "Full same-product compatibility and real TCP four-mode acceptance remain mandatory; this source review is not their result",
+      "Legacy original server-executor replay can still freeze and dispatch its original vanilla packet; only NETWORK replay callbacks block new admission. Original P4 routes fail-first and native regression preserved"
+    ],
+    "sources": {
+      "patches/net/minecraft/network/Connection.java.patch": "9b0368b6c35647f2b1d9478779aec67f7077ea01007fa32e98dc26ad3fa31ffb",
+      "patches/net/minecraft/network/protocol/PacketUtils.java.patch": "3f346c43696245e75b7e66675f187e08e3dba94caca5918a0f978569070d52be",
+      "patches/net/minecraft/server/ServerScoreboard.java.patch": "b4ac1e2a2b0923fc07c31800827d0ff5552a1c13cc7c4196b7c4207e7455c954",
+      "patches/net/minecraft/server/level/ChunkMap.java.patch": "f94ef317c4f689c946bd35e311339ed291f9ec92374cb4dd7894377496b8cc08",
+      "patches/net/minecraft/server/level/ServerLevel.java.patch": "fd4fa10df8780d7d0a8de38d1fe97733e160de9a6f74d9e4f13293f5103ceb97",
+      "patches/net/minecraft/server/level/ServerPlayer.java.patch": "1a501ebaf3d1527ae82c7e8a811045b219c48badd1c0992dee8552aab3468ec3",
+      "patches/net/minecraft/server/network/ServerGamePacketListenerImpl.java.patch": "bc802fdea2d1579c4b603dcc7df7184f46ff8704cb043355d5a43b257c953e45",
+      "patches/net/minecraft/world/entity/player/Inventory.java.patch": "23908327f30af50529db7954f87c0d0c807b75ef82b9ca4123841f14d4c12069",
+      "patches/net/minecraft/world/inventory/AbstractContainerMenu.java.patch": "456efa367869751a20a15b73bf9cea8767230d3e1caf6953ca5907cb5e8d7c97",
+      "patches/net/minecraft/world/level/block/entity/ChestBlockEntity.java.patch": "1cf78f535290d316799f5b7fb29d4ab59776be1b0a36c7a6aa43d7fd4678f2d9",
+      "patches/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java.patch": "81933abac18e043d8f543f925cf96e17a7ccdb7261464f3b3c7b7b16e91a70d5",
+      "patches/net/minecraft/world/scores/Scoreboard.java.patch": "e13acfbc0751b564779d264dedc1d8448b57a0b01df40dbe119b86731987e241",
+      "src/main/java/net/neoforged/neoforge/network/handling/IRegionPayloadContext.java": "bbb92480db5dea750f31c7afa8c3b100c884b2d8880da54ce211d638ccb71eb4",
+      "src/main/java/net/neoforged/neoforge/network/handling/IRegionPayloadHandler.java": "ecd867a703a5aaf77f04e7f1feebc4f48a9a2583ee11cbe4220cff31e02b7adf",
+      "src/main/java/net/neoforged/neoforge/network/handling/RegionThreadPayloadHandler.java": "4001a646e447a8124e5aefefa446f7876da3f8646838e6c85ef1b7666f707069",
+      "src/main/java/net/neoforged/neoforge/network/registration/NetworkRegistry.java": "9b0ccbd8269be187979615ee244e8fdfb5b688f28137e8818b09f81b943d7ff9",
+      "src/main/java/net/neoforged/neoforge/network/registration/PayloadRegistrar.java": "f61a18e8ab79cbe247b1eaf4dfdd4db565b140b602eaf44e2f07aac7a438a9c4",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPolicy.java": "fe47d76e760978a3addc483e419eb2be56c9871522d5a192f0a80a99f14e050a",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerAdmissionPlan.java": "5885219acb2ffd077c478fe82f01aebb827ad9b50078968986e67401486c4360",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerChatCompletion.java": "db837222cd0e45fc40cbba0f5a0e88bb954d2f51a9ce71660177875cde027e13",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerConflictPlan.java": "921535e7f7ed839f75a6e6b730a23f4f5ce4972f8fe22b307f781b5d2a88f333",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerContainerPlan.java": "20d74851f55e0875442a42eafcb76ad12acac845b657389d914ccd26e9d1890a",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerDamagePlan.java": "22473b857297c548fd0ba8995b9b2e25e82ff1218e046ca3cc7447b2f93f17fd",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerExtensionSnapshot.java": "b49c5fde300cce58369932dc1b84c16c6b266ecb445c8143b08ef31ff6d9bf9e",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerFootprint.java": "005a1566b629e36eaa6291b9aaa7f1d484b127beb0c987a8dea312873d0895c8",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerInventoryPlan.java": "959979f450e18ed30d37602387778703dff3cbbcad5c317e2d4ef4cde90dddee",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerMapPlan.java": "23c93bba6129535f9a700105f37a9e4944f5089604331b9742d43c52fdde9b90",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerNetworkGate.java": "43293650a2c712496ff37fb48b343088a372c27b45267a5d752d0e66acb26556",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerPacketPlan.java": "10a7f41bb7b07b32471b5392c8c6cb47fb3e4a15c5cd8dc746ad63c0fde7322f",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerPacketRouter.java": "dd3a0f112b608169f573020005f0703df98bdbc893ef6efa2d606af4a8f3fc2d",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerPacketTasks.java": "8cf16be36527759d18c06d2dc464fa4af10a96962af68273ccd2c346c4847f07",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerScoreboardPlan.java": "61c92f52e840020d55c3cfe43252bc2067db963a5e5458c3d211a43943e71685",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSpatialPlan.java": "e7ddfe3f72c5ebcad06e4e435a239d27ed0c6c17eb3e5bd28b803fe6d02095cf",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStatePlan.java": "70ef399f3d9795262c31d26a31f59738d0f923d7c5e50efe0b1e6661b011f0ac",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStateScope.java": "4d6dbb3f948511999b4392952c9b019f1f4efeab6bbe1b7b40314560249cf2c3",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickDispatch.java": "8eafab4ed70b0b195d5f568129b18a34e04fc7d4dd1364978812714b8681c966",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java": "43266f2eb419c2c9464ac774d909be428c692bbb63eeff849c770f42b4a3f524"
+    }
+  }
+}

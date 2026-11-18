@@ -41,17 +41,27 @@ public final class RegionPlayerPacketRouter {
     private long refused;
     private long failed;
     private final ArrayDeque<Execution> recent = new ArrayDeque<>();
+    private final Map<String, Long> payloadSerialReasons = new java.util.TreeMap<>();
 
     public record Execution(long sequence, long receiveSequence, UUID player, String packet, String dimension, int regionX, int regionZ,
             int initialRegionX, int initialRegionZ, UUID serverSession, long identityEpoch, long criterionGeneration,
             int playerInstance, int listenerInstance, int connectionInstance,
-            boolean started, String thread, long startNanos, long returnNanos, @Nullable String failureClass) {}
+            boolean started, String thread, long startNanos, long returnNanos, @Nullable String failureClass, @Nullable String payloadId) {}
 
     public record Snapshot(long attempted, long workers, long refused, long failed, int connections, int chatPending, long chatCancelled,
-            RegionPlayerPacketTasks.Snapshot tasks, List<Execution> recent) {}
+            RegionPlayerPacketTasks.Snapshot tasks, List<Execution> recent, Map<String, Long> payloadSerialReasons) {}
 
     public synchronized Snapshot snapshot() {
-        return new Snapshot(sequence, workers, refused, failed, consumedReceives.size(), chatPending, chatCancelled, tasks.snapshot(), List.copyOf(recent));
+        return new Snapshot(sequence, workers, refused, failed, consumedReceives.size(), chatPending, chatCancelled, tasks.snapshot(), List.copyOf(recent), Map.copyOf(payloadSerialReasons));
+    }
+
+    synchronized boolean refusePayload(@Nullable net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> declaration, String reason) {
+        if (declaration != null) {
+            String key = declaration.id() + ":" + reason;
+            if (payloadSerialReasons.size() >= 256 && !payloadSerialReasons.containsKey(key)) key = "other";
+            payloadSerialReasons.merge(key, 1L, Long::sum);
+        }
+        return false;
     }
 
     /** Original channel arrival metadata only. No world/ledger lookup or callback on the Netty thread. */
@@ -138,6 +148,78 @@ public final class RegionPlayerPacketRouter {
 
     public static void rejectedTask(Runnable task) {
         if (task instanceof RegionPlayerPacketTasks.Task pending) pending.cancel();
+    }
+
+    /** A declared payload keeps its original MAIN queue position and original guarded error boundary. */
+    public static void handlePayload(net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> declaration,
+            net.minecraft.network.protocol.common.custom.CustomPacketPayload payload,
+            net.neoforged.neoforge.network.handling.IPayloadContext context, Runnable original) {
+        if (!(context instanceof net.neoforged.neoforge.network.handling.ServerPayloadContext serverContext)
+                || !(serverContext.listener() instanceof ServerGamePacketListenerImpl listener))
+            throw new IllegalArgumentException("Region payloads require a server PLAY context");
+        Received arrival = RECEIVING.get();
+        Received received = arrival != null && arrival.listener == listener && arrival.player == listener.player
+                && arrival.connection == listener.getConnection()
+                && arrival.packet instanceof net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket custom
+                && custom.payload() == payload ? arrival : null;
+        var expected = listener.player;
+        var connection = listener.getConnection();
+        Runnable callback = () -> {
+            // A queued old-session body must never bind to a replacement player/configuration listener.
+            if (listener.player != expected || expected.connection != listener || connection.getPacketListener() != listener
+                    || !connection.isConnected() || !listener.isAcceptingMessages()) return;
+            try (var receipt = receive(received)) {
+                if (received != null && RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine
+                        && engine.tryRunPlayerPayload(received.packet, listener, declaration, original)) return;
+                original.run();
+            }
+        };
+        Runnable queued = callback;
+        if (received != null && RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine && engine.playerTickPlanningRequested())
+            queued = engine.playerPackets().tasks.prepare(connection, payload, callback);
+        Runnable task = queued;
+        try {
+            if (listener.player.server.isSameThread()) task.run();
+            else {
+                // Attach rejection cleanup BEFORE guard() consumes the original MAIN exception.
+                var pending = CompletableFuture.runAsync(task, listener.player.server::executeIfPossible);
+                pending.whenComplete((unused, failure) -> { if (failure != null) rejectedTask(task); });
+                net.neoforged.neoforge.network.registration.NetworkRegistry.guard(pending, declaration.id());
+            }
+        } catch (RuntimeException | Error failure) {
+            rejectedTask(task);
+            throw failure;
+        }
+    }
+
+    public static boolean isPayloadWorker() {
+        Call call = CURRENT.get();
+        return call != null && call.plan.payload != null && call.started && RegionWorkerScope.isNativeWorkerThread();
+    }
+
+    /** Declared handler's MAIN escape uses the same bounded, cancellable original task envelopes. */
+    public static java.util.concurrent.CompletableFuture<Void> enqueuePayloadWork(
+            net.neoforged.neoforge.network.handling.IPayloadContext context, Runnable original) {
+        if (!isPayloadWorker()) return context.enqueueWork(original);
+        Call call = CURRENT.get();
+        var listener = call.listener;
+        var player = call.player;
+        var connection = listener.getConnection();
+        var engine = (RegionThreadingEngine) RegionThreadingManager.currentOrNull();
+        Runnable task = engine.playerPackets().tasks.prepare(connection, null, () -> {
+            if (listener.player == player && player.connection == listener && connection.getPacketListener() == listener
+                    && connection.isConnected() && listener.isAcceptingMessages()) original.run();
+        });
+        try {
+            // MinecraftServer.submit()/execute() may inline on the caller after isStopped().
+            // executeIfPossible rejects that terminal state and keeps every accepted task on MAIN.
+            var pending = CompletableFuture.runAsync(task, player.server::executeIfPossible);
+            pending.whenComplete((unused, failure) -> { if (failure != null) rejectedTask(task); });
+            return net.neoforged.neoforge.network.registration.NetworkRegistry.guard(pending, call.plan.payload.id());
+        } catch (RuntimeException | Error failure) {
+            rejectedTask(task);
+            throw failure;
+        }
     }
 
     public static java.util.function.Consumer<net.minecraft.server.network.FilteredText> chatCompletion(
@@ -230,7 +312,7 @@ public final class RegionPlayerPacketRouter {
                 call.initialRegion.regionX(), call.initialRegion.regionZ(), call.serverSession, call.identityEpoch, call.criterionGeneration,
                 System.identityHashCode(call.player), System.identityHashCode(call.listener), System.identityHashCode(call.listener.getConnection()),
                 call.started, call.thread, call.startNanos, call.returnNanos,
-                call.failure == null ? null : call.failure.getClass().getName()));
+                call.failure == null ? null : call.failure.getClass().getName(), call.plan.payload == null ? null : call.plan.payload.id().toString()));
         while (recent.size() > HISTORY_LIMIT) recent.removeFirst();
     }
 

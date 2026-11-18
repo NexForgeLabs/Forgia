@@ -1,3 +1,7 @@
+最终声明 payload API（2026-11-18）：**已按单处理器有界合同完成，产物 21.1.250.152-beta。** 新增 `playToServerRegion(type, codec, Payload.class, handler)`；现有 MAIN 默认和显式 NETWORK 不变，未知 Mod 完整玩家 Tick/未声明包继续串行。684 项/22 类 JUnit、3 项选定 GameTest、四模式真实 TCP 声明包、完整 schema3 144/schema4 180、P4 routes/async/queue、双入口 smoke、原 MAIN/NETWORK 和共享箱子补充验收通过，共 34 个隔离安装、208 项 proof 负控制。详见 [API 合同及完整失败记录](PLAYER-REGION-PAYLOAD-API.zh.md)最后收口；回执 `tmp/player-region-payload-api01/acceptance152-01/receipt.json`。默认 false、开始后不重放和真实 join 后清理保持。本增量无并发吞吐/性能结论；P5 未开始，整体仍 partial。P4 已推送 `9b4859bb8`，本增量未 commit/push/deploy。以下旧状态保留历史。
+
+当前增量（2026-11-18）：用户要求在 P5 前实现开发者显式声明的自定义 payload worker API。P4 已提交并推送 `9b4859bb8`；新增 `playToServerRegion` 仅声明单个服务端 PLAY 处理器，不放行整个 Mod/玩家 Tick，原 MAIN/NETWORK 默认合同保持。`.152` 冻结候选通过 684 项/22 类 JUnit 和三个选定 GameTest，四组声明 API 真实 TCP 已通过、同产物兼容矩阵验收进行中，尚未整体完成；P5 未开始。详见 [payload API 记录](PLAYER-REGION-PAYLOAD-API.zh.md)。下文旧状态保留历史。
+
 当前最终结论（2026-11-18）：**P4按设计第7节逐类有界owner网络协议完成，同产物21.1.250.146-beta；停在P5前，P5未开始，整体仍partial。** 652项JUnit、3选定GameTest、完整schema3 144/schema4 180、13套P2、28份P3/14份P4、369项proof控制、110份verdict/102隔离安装通过。回执`tmp/player-region-tick-p4-final04/acceptance-01/receipt.json`及`final-audit.json`，详细边界/全部失败见[P4记录](PLAYER-REGION-TICK-P4.zh.md)末尾。默认false、未知扩展freeze前串行、MAIN合同、不重放和真实join保持；签名/高spam/碰撞纠正等仍完整串行。P3已推送，P4代码本地未提交。以下所有旧状态保留历史。
 
 ---

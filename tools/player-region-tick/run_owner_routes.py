@@ -20,6 +20,21 @@ def main():
   for name in ['WorkerA','WorkerB']:s.request('connect',name=name,port=s.install['port'])
   s.command('advancement grant @a everything');s.command('clear @a');s.command('experience add @a -1000000 points');s.command('experience set @a 0 levels');s.command('experience set @a 0 points')
   s.command('tp WorkerA 47.5 100 24.5');s.command('tp WorkerB 120.5 100 24.5');s.command('item replace entity WorkerA inventory.0 with minecraft:diamond 5');time.sleep(3)
+  # Method-entry JDI adds several seconds to the trace. Start just after BOTH clients complete an
+  # actual original keepalive challenge/reply, so a routine next challenge does not accidentally
+  # turn the optional landing packet into a NETWORK_TRANSITION during the debugger window.
+  # Never alter connection fields, admission or the verifier's expected owner coverage.
+  old={name:max([row['seq'] for row in read_complete_events(s.output/'packets.ndjson') if row['bot']==name and row['direction']=='send' and row['name']=='keep_alive'],default=0) for name in ['WorkerA','WorkerB']}
+  until=time.monotonic()+30;r['keepalivePreparation']={}
+  while time.monotonic()<until:
+   frames=read_complete_events(s.output/'packets.ndjson')
+   for name in old:
+    replies=[row for row in frames if row['bot']==name and row['direction']=='send' and row['name']=='keep_alive' and row['seq']>old[name]]
+    if replies:r['keepalivePreparation'][name]=replies[-1]
+   if len(r['keepalivePreparation'])==2:break
+   time.sleep(.1)
+  else:raise TimeoutError('Route fixture did not observe original keepalive replies')
+  time.sleep(.3)
   r['before']=s.snapshot('before');r['actor']=next(x['uuid'] for x in r['before']['players'] if x['name']=='WorkerA');r['inventoryBefore']=s.command('data get entity WorkerA Inventory');r['walkBefore']=s.command('data get entity WorkerA')
   trace=s.output/'jdi.ndjson';debug=subprocess.Popen(['python3',str(TOOLS/'run_command.py'),'--output',str(s.output/'debugger'),'--',JAVA,'--add-modules','jdk.jdi',str(TOOLS/'jdi/PlayerOwnerRoutes.java'),str(port),str(trace),r['actor'],str(s.output/'done')])
   until=time.monotonic()+25

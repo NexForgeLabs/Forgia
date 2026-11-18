@@ -1,13 +1,25 @@
 #!/usr/bin/env python3
 """Original full movement/teleport-confirm/local click evidence, independently joined to actual wire/save."""
 import re
+import json
+import subprocess
 from owner_proof import base, cli, lines, load, require, saved, window
+from owner_proof import TOOLS
 from verify_resources import nbt_items
 
 
 def verify(root, installer):
     out, r, install, commands, states, raw, marks, rows, final = base(root, installer, 'owner-routes')
     enabled = install['playerPlanningRequested']
+    if 'keepalivePreparation' in r:
+        keepalive = [json.loads(line) for line in subprocess.check_output(['node', str(TOOLS / 'decode_owner_routes.cjs'), str(out / 'packets.ndjson'), 'keepalive'], text=True).splitlines()]
+        packets = lines(out / 'packets.ndjson')
+        require(set(r['keepalivePreparation']) == {'WorkerA', 'WorkerB'}, 'Missing route keepalive preparation actors')
+        for name, prepared in r['keepalivePreparation'].items():
+            require(prepared in packets and prepared['direction'] == 'send' and prepared['name'] == 'keep_alive' and prepared['seq'] < marks['move-0_before'], 'Invented route keepalive preparation')
+            replies = [row for row in keepalive if row['bot'] == name and row['direction'] == 'frame_send' and row['data'] == prepared['data'] and row['seq'] < marks['move-0_before']]
+            challenges = [row for row in keepalive if row['bot'] == name and row['direction'] == 'frame' and row['data'] == prepared['data']]
+            require(len(replies) == len(challenges) == 1 and challenges[0]['seq'] < replies[0]['seq'], 'Route preparation was not a real original wire challenge/reply')
     require(rows[-1].get('complete') is True, 'Incomplete original routes observer')
     for key in ['before', 'confirmed', 'after']:
         require(r[key] in states, 'Invented original route diagnostic ' + key)

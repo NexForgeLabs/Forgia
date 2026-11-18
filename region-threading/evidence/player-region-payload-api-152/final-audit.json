@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "receipt": {
+    "path": "tmp/player-region-payload-api01/acceptance152-01/receipt.json",
+    "sha256": "14264d00d817a868a51d050efc52bdd9a3365fbfa05163fe284e48b36bfe8fd7",
+    "bytes": 2530
+  },
+  "installations": 34,
+  "acceptedCommands": 142,
+  "schema3Scenarios": 144,
+  "schema4Scenarios": 180,
+  "preservedFailedOrUnknownCommands": 28,
+  "p5Started": false
+}

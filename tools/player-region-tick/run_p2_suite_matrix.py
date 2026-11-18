@@ -9,6 +9,7 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['output','installer','libraries','eula','artifact-manifest']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--version',required=True);p.add_argument('--oracle',type=Path);p.add_argument('--contract-mod',type=Path)
+ p.add_argument('--mode',choices=['on-fixed','on-persistent','off-fixed','off-persistent'],help='Run an explicitly selected mode in a fresh independent matrix')
  p.add_argument('--link-library-dependencies',action='store_true',help='Share immutable dependency jars; core and installer metadata remain private')
  p.add_argument('--network-mod',type=Path)
  p.add_argument('--suite',required=True,choices=['functional','smoke','network','same-group','fault','socket','transitions','contract','timers','lifecycle','respawn','phase-order','network-contract'])
@@ -33,6 +34,9 @@ def main():
  manifest=['--artifact-manifest',a.artifact_manifest];installer=['--installer',a.installer]
  try:
   modes=['on-fixed','on-persistent'] if a.suite in ['network','same-group','fault','socket'] else ['on-fixed','on-persistent','off-fixed','off-persistent']
+  if a.mode:
+   if a.mode not in modes:raise ValueError('Unsupported mode for this suite')
+   modes=[a.mode]
   for mode in modes:
    if a.suite=='functional':
     for kind in ['interactions','resources']:

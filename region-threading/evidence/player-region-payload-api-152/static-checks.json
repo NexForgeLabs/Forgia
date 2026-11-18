@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "productionSources": 37,
+  "unchangedStrictP4MinecraftPatches": 12,
+  "nativeApiClassesInUniversal": 3,
+  "fixtureClassesInUniversal": 0,
+  "diffCheckExit": 0,
+  "p5Started": false
+}

@@ -62,6 +62,51 @@ class RegionPlayerNetworkGateTest {
         return (RegionPlayerNetworkGate.Scope) invoke("enter", new Class<?>[] { MinecraftServer.class, Connection.class, Runnable.class, Object.class }, this.server, this.connection, work, retained);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "success", "failure", "cancel", "close", "rejected" })
+    void declaredPayloadCallbacksResumeOnOriginalNetworkLoopOnlyAfterThaw(String outcome) throws Exception {
+        var channel = mock(io.netty.channel.Channel.class);
+        var loop = mock(io.netty.channel.EventLoop.class);
+        when(this.connection.channel()).thenReturn(channel);
+        when(channel.eventLoop()).thenReturn(loop);
+        var network = new ArrayDeque<Runnable>();
+        doAnswer(call -> { network.add(call.getArgument(0)); return null; }).when(loop).execute(any(Runnable.class));
+        assertTrue((boolean) invoke("freezePreservingNetworkThread", new Class<?>[] { MinecraftServer.class }, this.server));
+        var packet = Unpooled.buffer(1);
+        var observed = new ArrayList<Integer>();
+        var sentinel = new IllegalArgumentException("network callback after side effect");
+        assertNull(enter(() -> {
+            observed.add(1);
+            try (var replay = enter(() -> { throw new AssertionError("Original callback must not requeue itself"); }, null)) {
+                assertNotNull(replay);
+                assertFalse(freeze(), "The begun callback still owns the network boundary");
+            } catch (Exception failure) { throw new AssertionError(failure); }
+            if (outcome.equals("failure")) throw sentinel;
+        }, packet));
+        packet.release();
+        assertNull(enter(() -> observed.add(2), null));
+        assertTrue(network.isEmpty());
+        assertTrue(this.queued.isEmpty(), "An explicit NETWORK callback is never put on the server executor");
+        if (outcome.equals("rejected")) doThrow(new java.util.concurrent.RejectedExecutionException("closed event loop")).when(loop).execute(any(Runnable.class));
+        if (outcome.equals("rejected")) {
+            assertThrows(InvocationTargetException.class, this::thaw);
+            assertEquals(0, packet.refCnt());
+            assertEquals(0, this.gate.snapshot().pending());
+            return;
+        }
+        thaw();
+        assertFalse(freeze(), "A new worker cannot overtake queued NETWORK callbacks");
+        assertNull(enter(() -> observed.add(3), null));
+        if (outcome.equals("cancel")) invoke("cancel", new Class<?>[] { Connection.class }, this.connection);
+        if (outcome.equals("close")) invoke("close", new Class<?>[0]);
+        if (outcome.equals("failure")) assertSame(sentinel, assertThrows(IllegalArgumentException.class, () -> network.remove().run()));
+        while (!network.isEmpty()) network.remove().run();
+        assertEquals(outcome.equals("cancel") || outcome.equals("close") ? List.of() : List.of(1, 2, 3), observed);
+        assertEquals(0, packet.refCnt());
+        assertEquals(0, this.gate.snapshot().pending());
+        if (!outcome.equals("close")) { assertTrue(freeze()); thaw(); }
+    }
+
     @Test
     void runningDirectCallbackRefusesFreezeBeforeAnyBody() throws Exception {
         try (var callback = enter(() -> {}, null)) {
@@ -121,6 +166,37 @@ class RegionPlayerNetworkGateTest {
         while (!this.queued.isEmpty()) this.queued.remove().run();
         verify(this.connection, times(1)).disconnect(any(net.minecraft.network.chat.Component.class));
         assertEquals(0, this.gate.snapshot().pending());
+    }
+
+    @Test
+    void pendingOverflowTerminalCannotLeakLaterPacketRetainsAfterPrefixStartsDraining() throws Exception {
+        assertTrue(freeze());
+        for (int i = 0; i < 4097; i++) assertNull(enter(() -> {}, null));
+        thaw();
+        this.queued.remove().run(); // The terminal remains; pending falls below the global limit.
+        var late = Unpooled.buffer(1);
+        assertNull(enter(() -> { throw new AssertionError("Cannot pass pending terminal"); }, late));
+        try {
+            assertEquals(1, late.refCnt(), "A rejected post-terminal packet was never retained");
+        } finally {
+            while (late.refCnt() > 0) late.release();
+            while (!this.queued.isEmpty()) this.queued.remove().run();
+        }
+        assertEquals(0, this.gate.snapshot().pending());
+    }
+
+    @Test
+    void legacyOriginalServerReplayCanAdmitItsOriginalOwnerPacket() throws Exception {
+        assertTrue(freeze());
+        assertNull(enter(() -> {
+            try {
+                assertTrue(freeze(), "The original server replay has no live Netty reader and may run its original owner packet");
+                thaw();
+            } catch (Exception failure) { throw new AssertionError(failure); }
+        }, null));
+        thaw();
+        this.queued.remove().run();
+        assertFalse(this.gate.snapshot().frozen());
     }
 
     @Test

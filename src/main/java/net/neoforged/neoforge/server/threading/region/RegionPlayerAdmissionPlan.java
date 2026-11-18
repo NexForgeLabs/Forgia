@@ -51,12 +51,20 @@ public final class RegionPlayerAdmissionPlan {
     private final RegionPlayerSpatialPlan spatial;
     private final RegionPlayerStatePlan state;
     private final List<Object> localObjects;
+    @Nullable
+    private final RegionPlayerPacketPlan declaredPayload;
 
     private RegionPlayerAdmissionPlan(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, RegionPlayerStatePlan state) {
+        this(engine, spatial, state, null);
+    }
+
+    private RegionPlayerAdmissionPlan(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, RegionPlayerStatePlan state,
+            @Nullable RegionPlayerPacketPlan declaredPayload) {
         this.engine = engine;
         this.spatial = spatial;
         this.state = state;
         this.localObjects = localObjects(spatial.player());
+        this.declaredPayload = declaredPayload;
     }
 
     public RegionPlayerSpatialPlan spatial() {
@@ -89,7 +97,7 @@ public final class RegionPlayerAdmissionPlan {
     boolean current() {
         ServerPlayer player = spatial.player();
         if (!engine.playerCriterionStorageEnabled() || engine.playerServerOnlyReason(player) != null) return false;
-        if (RegionPlayerExtensionSnapshot.capture().refusal() != Refusal.NONE) return false;
+        if (declaredPayload == null ? RegionPlayerExtensionSnapshot.capture().refusal() != Refusal.NONE : !declaredPayload.current()) return false;
         if (intrinsic(player).refusal() != Refusal.NONE) return false;
         List<Object> current = localObjects(player);
         for (int i = 0; i < localObjects.size(); i++) if (current.get(i) != localObjects.get(i)) return false;
@@ -97,12 +105,23 @@ public final class RegionPlayerAdmissionPlan {
     }
 
     static Capture capture(RegionThreadingEngine engine, ServerPlayer player, RegionPlayerTickCoordinator.Phase phase) {
+        return capture(engine, player, phase, null);
+    }
+
+    // Only the engine's exact registered payload entry can use this callback promise. Ordinary
+    // ENTITY/CONNECTION/vanilla-packet admission always retains the unknown-extension refusal.
+    static Capture capture(RegionThreadingEngine engine, ServerPlayer player, RegionPlayerTickCoordinator.Phase phase,
+            @Nullable RegionPlayerPacketPlan declaredPayload) {
         if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Production capture requires the publishing thread");
         if (!engine.playerCriterionStorageEnabled()) return refused(Refusal.DEPENDENCIES, "player phase dependencies disabled");
         String declared = engine.playerServerOnlyReason(player);
         if (declared != null) return refused(Refusal.SERVER_ONLY_DECLARATION, declared);
-        var extensions = RegionPlayerExtensionSnapshot.capture();
-        if (extensions.refusal() != Refusal.NONE) return refused(extensions.refusal(), extensions.detail());
+        if (declaredPayload == null) {
+            var extensions = RegionPlayerExtensionSnapshot.capture();
+            if (extensions.refusal() != Refusal.NONE) return refused(extensions.refusal(), extensions.detail());
+        } else if (declaredPayload.payload == null || declaredPayload.player != player || !declaredPayload.current()) {
+            return refused(Refusal.UNKNOWN_LOCAL_CALLBACK, "stale or unregistered payload declaration");
+        }
         var intrinsic = intrinsic(player);
         if (intrinsic.refusal() != Refusal.NONE) return refused(intrinsic.refusal(), intrinsic.detail());
         var geometry = engine.capturePlayerSpatialPlan(player, phase);
@@ -112,7 +131,7 @@ public final class RegionPlayerAdmissionPlan {
         if (!touchCallbacksSupported(geometry.plan())) return refused(Refusal.TOUCH_CALLBACK, "uncaptured touch or outbound recipient");
         var local = engine.capturePlayerStatePlan(geometry.plan());
         if (local.plan() == null) return refused(Refusal.STATE, local.refusal().name());
-        var plan = new RegionPlayerAdmissionPlan(engine, geometry.plan(), local.plan());
+        var plan = new RegionPlayerAdmissionPlan(engine, geometry.plan(), local.plan(), declaredPayload);
         local.plan().bindAdmission(plan);
         return new Capture(plan, Refusal.NONE, "");
     }

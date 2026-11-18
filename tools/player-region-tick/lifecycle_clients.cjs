@@ -131,6 +131,10 @@ async function execute (request) {
     send(bot, 'custom_payload', { channel: request.channel || 'forgia_p2:probe', data: Buffer.concat([Buffer.from([data.length]), data]) })
     return { sent: true }
   }
+  if (op === 'register_channels') {
+    send(bot, 'custom_payload', { channel: 'minecraft:register', data: Buffer.from(request.channels.join('\0'), 'utf8') })
+    return { sent: true }
+  }
   if (op === 'packet') { send(bot, request.packet, request.data); return { sent: true, nano: process.hrtime.bigint().toString() } }
   if (op === 'disconnect') { bot.client.end('test disconnect'); await waitFor(() => bot.ended); clients.delete(name); return { ended: true } }
   if (op === 'close') {

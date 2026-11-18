@@ -287,6 +287,13 @@ public class NetworkRegistry {
         }
     }
 
+    /** Exact registration identity; declaring one handler never approves a whole mod or channel family. */
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static boolean isRegionPayloadHandler(ResourceLocation id, net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> handler) {
+        PayloadRegistration<?> registration = PAYLOAD_REGISTRATIONS.get(ConnectionProtocol.PLAY).get(id);
+        return registration != null && registration.handler() == handler && registration.flow().equals(Optional.of(PacketFlow.SERVERBOUND));
+    }
+
     /**
      * Handles modded payloads on the client. Invoked after built-in handling.
      * <p>

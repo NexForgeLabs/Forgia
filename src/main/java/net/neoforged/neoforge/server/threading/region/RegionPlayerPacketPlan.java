@@ -31,10 +31,18 @@ final class RegionPlayerPacketPlan {
     final double x, y, z, targetX, targetY, targetZ;
     final boolean movement;
     final boolean confirmation;
+    @Nullable
+    final net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> payload;
 
     private RegionPlayerPacketPlan(@Nullable Packet<?> packet, ServerGamePacketListenerImpl listener) {
+        this(packet, listener, null);
+    }
+
+    private RegionPlayerPacketPlan(@Nullable Packet<?> packet, ServerGamePacketListenerImpl listener,
+            @Nullable net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> payload) {
         this.packet = packet;
         this.listener = listener;
+        this.payload = payload;
         this.player = listener.player;
         x = player.getX();
         y = player.getY();
@@ -68,8 +76,21 @@ final class RegionPlayerPacketPlan {
         return plan.current() ? plan : null;
     }
 
+    @Nullable
+    static RegionPlayerPacketPlan payload(Packet<?> packet, ServerGamePacketListenerImpl listener,
+            net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> declaration) {
+        if (!(packet instanceof net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket) || listener.player == null) return null;
+        var plan = new RegionPlayerPacketPlan(packet, listener, declaration);
+        return plan.current() ? plan : null;
+    }
+
     boolean current() {
         if (listener.player != player || player.connection != listener || player.getX() != x || player.getY() != y || player.getZ() != z) return false;
+        if (payload != null) {
+            return packet instanceof net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket custom
+                    && payload.matches(custom.payload())
+                    && net.neoforged.neoforge.network.registration.NetworkRegistry.isRegionPayloadHandler(payload.id(), payload);
+        }
         try {
             if (packet == null) {
                 // detectRateSpam adds 20. A synchronous disconnect/retirement must stay entirely

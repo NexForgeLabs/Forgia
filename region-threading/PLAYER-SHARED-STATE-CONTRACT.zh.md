@@ -1,3 +1,5 @@
+声明 payload API 增量（2026-11-18，`.152`）：显式 `playToServerRegion` 只对精确注册的单个服务端 PLAY 处理器及其传递回调提供开发者承诺，沿用原 admission/空间-state lease/池/队列位置和真实 join。其他 Mod 玩家 Tick、原版/未声明包仍使用下文未知扩展拒绝；默认 MAIN 和显式 NETWORK 不变。MAIN 逃逸使用原 executeIfPossible，worker 返回后执行且退役取消/停止拒绝。完整合同与验证范围见 [API 记录](PLAYER-REGION-PAYLOAD-API.zh.md)。P5 未开始；以下旧阶段合同保留历史。
+
 P4最终`.146`按当前逐类有界合同完成统一验收，停止在P5前。完整结果/约束与失败见[P4记录](PLAYER-REGION-TICK-P4.zh.md)最后收口，机器回执`tmp/player-region-tick-p4-final04/acceptance-01/receipt.json`。无碰撞有限移动、匹配已生效目标确认、原材料库存/共享单箱及无签名低spam原FutureChain完成具备owner协议；所有未闭合路径完整原串行。默认false、未知扩展freeze前串行、MAIN/NETWORK原合同、无开始后重放与真实join后清理保持。下文进行中/旧产物措辞保留历史。
 
 ---
