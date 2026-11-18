@@ -162,4 +162,19 @@ class RegionPlayerFootprintTest {
         assertTrue(prefix.oversizedConflict());
         assertEquals(1, prefix.groups().size());
     }
+
+    @Test
+    void explicitSharedResourceMergesDistantPlayersAndEqualityDoesNotAlias() {
+        var a = entry(mock(Entity.class), 8, 8, List.of());
+        var b = entry(mock(Entity.class), 104, 8, List.of());
+        Object shared = new Object();
+        var first = new RegionPlayerConflictPlan.Entry(a.player(), a.home(), a.footprint(), a.targets(), List.of(shared));
+        var second = new RegionPlayerConflictPlan.Entry(b.player(), b.home(), b.footprint(), b.targets(), List.of(shared));
+        var prefix = RegionPlayerConflictPlan.prefix(List.of(first, second));
+        assertEquals(1, prefix.groups().size());
+        assertTrue(prefix.groups().getFirst().reasons().contains(RegionPlayerConflictPlan.Conflict.SHARED_RESOURCE));
+        var equalFirst = new RegionPlayerConflictPlan.Entry(a.player(), a.home(), a.footprint(), a.targets(), List.of(new String("equal")));
+        var equalSecond = new RegionPlayerConflictPlan.Entry(b.player(), b.home(), b.footprint(), b.targets(), List.of(new String("equal")));
+        assertEquals(2, RegionPlayerConflictPlan.prefix(List.of(equalFirst, equalSecond)).groups().size());
+    }
 }

@@ -1,3 +1,27 @@
+当前结论（2026-11-18）：**P3已按设计第7节的逐类有界协议完成统一验收，最终产物21.1.250.134-beta；停在P4前，P4/P5未开始。整体设计仍partial。** XP末次/单球、普通材料库存拾取、共享单箱子原菜单tick、非显示计分板、真实背包地图及一次非致命自饥饿伤害均有完整原worker正文、事件/同步结果、客户端反馈和守恒证据。一般PvP/实体/方块/开箱点击等正常包继续原服务器fence，未知/未支持路径完整串行，不能将P3完成理解为任意玩法或Mod可并行。
+
+同产物557项受影响JUnit、3项选定GameTest、28份P3四模式语料（56玩法子场景）、schema3 144/schema4 180、13套P2兼容/故障/网络/退役矩阵及321项proof篡改负控制通过；96份独立verdict和88套隔离安装由最终审计闭合。四模式A owner(0,0)正常攻击B owner(1,0)均health20→19、客户端health19和一个damage包；两池两入口跨区真实重叠，同区0。oracle仍UNKNOWN_MOD/worker=0。
+
+产物`tmp/player-region-tick-p3-final02/artifacts/neoforge-21.1.250.134-beta-installer.jar`，SHA256 `87680bb6ee3ff05b059a2bf4ac5aae6442387565801877a0cf577b2af513a670`。最终机器回执`tmp/player-region-tick-p3-final02/acceptance-01/receipt.json`、`final-audit.json`，接受路径映射`tmp/player-region-tick-p3-final02/accepted-evidence.json`。详细边界和全部失败见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾。默认false、未知扩展freeze前拒绝、开始后不重放、真实join后清理保持。保留全部源码、世界、失败及旧manifest/hash gate；未commit/push/deploy、reset/clean或操作现用服。以下旧“当前”段落均保留历史。
+
+---
+
+当前P3进度（2026-11-18）：`.134`已实现XP末次/单球、普通材料库存拾取、共享单箱子菜单、非显示计分板、真实背包地图和一次非致命自饥饿伤害的有界原正文协议。557项受影响JUnit、3项选定GameTest通过，统一四模式玩法/schema3/4/完整P2安装矩阵正在验收，**P3整体尚未收口**。地图原地换ID反例在`.134`正文前拒绝；外部XP观察器开销失败保留，新目录复验继续。详见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾；最终证据根`tmp/player-region-tick-p3-final02/`。P4/P5未开始。以下旧“当前”段落全部保留历史，不覆盖本段。
+
+---
+
+当前P3进度（2026-11-17）：**整体仍进行中，用户要求自主完成整个P3，P4/P5不开始。** `.128`已通过两池on的末次/单球XP原worker拾取与真实join后存储移除；`.129`已通过两池on的普通材料原worker拾取/Pre/Post/库存/统计/客户端反馈与守恒。`.130`共享单箱子已通过214项聚焦/524项受影响JUnit，真实客户端与原菜单/事件观察正在收尾；`.131`不显示计分板候选正在构建。中间增量的off、schema3/4、GameTest及完整P2安装矩阵尚未重新验收，最终P3必须同产物复验。详见[P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾；`tmp/player-region-tick-p3-02/receipt.json`、`p3-03/receipt.json`。历史`.127`及P2证据保留。默认关闭、未知扩展整次串行、开始后不重放、真实join后清理保持。
+
+---
+
+当前P3进度（2026-11-17）：**首个受限XP拾取增量已通过，整体P3仍partial。** `.127`已在两种原生池的完整Connection/doTick中实际拾取合并XP球的非末次份额；最后一次、单球、外来观察者和超预算仍整次串行。493 JUnit、四模式XP及P2 smoke、同产物完整schema3 144/schema4 180和独立负控制通过。详细范围、失败、未覆盖项及下步见[ P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾。机器回执`tmp/player-region-tick-p3-01/receipt.json`，最终审计`tmp/player-region-tick-p3-01/final-audit.json`。默认false、未知扩展整次串行、开始后不重放、真实join后清理保持；P4/P5未开始。
+
+---
+
+当前工作（2026-11-17）：用户已授权开始 P3。P3 实际玩法 worker 扩展现为 in progress，首个候选为合并 XP 球的非末次拾取；详细范围、发现和未完成验证见 [P3 实施记录](PLAYER-REGION-TICK-P3.zh.md)。下面“停在 P2 / P3 未开始”等措辞均保留为此前验收历史，不再是当前任务限制。
+
+---
+
 后续维护（2026-11-17）：用户已另行授权将全部更改提交/推送GitHub并清理WSL测试文件。源码及精简验收证据已推送，已删除约74.4 GiB的隔离测试世界、重复依赖、构建输出与Gradle/Node缓存。当前最终产物保留于 `tmp/retained-player-region-tick-2026-11-17/artifacts/neoforge-21.1.250.126-beta-installer.jar`；原始日志/帧/失败证据23376文件已压缩并逐项校验，其中最终3409原始输入全部保留。Git内精简回执见 `region-threading/evidence/player-region-tick-p2-126/`。原验收回执中的HEAD、未提交/未推送、旧路径存在等字段仅描述验收当时状态。WSL内部空间已释放；D盘仍需离线VHD压缩，当前尚未执行停止Debian的操作，见cleanup-2026-11-17.json。P3仍未开始。
 
 ---
@@ -833,3 +857,79 @@ Level卸载只证明原引擎入口和native池/lease的活动退役，不是任
 
 所有源码、世界和失败证据保留，未reset/clean、commit/push/deploy或操作现用服；未使用SubAgent。
 最终审计检查本轮所属server/debugger JVM已退出、HEAD未变且未暂存。**到此停止，不开始P3。**
+
+
+## P3 首个增量验收：合并 XP 球的非末次拾取（2026-11-17）
+
+**本增量通过；整体 P3 仍 partial。** `.127` 只扩大了已审计的合并原版 XP 球非末次拾取，未交付一般移动、
+库存/物品拾取、共享容器、一般伤害、计分板/地图；P4/P5 未开始。所有未支持状态保持完整原串行。
+默认 false、未知扩展在网络 freeze 之前整次拒绝、开始后不重放、真实物理返回/join 后清理均保持。
+
+生产改动限于两个 plan 类和一个持久 Minecraft patch：RegionPlayerAdmissionPlan 允许精确 ExperienceOrb、
+原 EntityType、无 attachment/骑乘、正值且满足已有总增量≤7预算、Count≥2；RegionPlayerStatePlan 复查完整触碰 XP 候选集合，
+不允许后进入查询范围的对象绕过捕获预算；ChunkMap 新增精确 entityMap/seenBy 身份检查，要求观察连接恰好为拾取者当前 listener。
+发布线程捕获与 native consume 均复查；native 读取还必须处于原完整空间 lease，拥有球和玩家。
+原球拾取、事件、mending 的空装备分支、XP/等级、计数递减和 Collect 广播正文全部执行；没有简化副本、截断查询或包重路由。
+
+Count≥2 保证本次完整原正文不会进入 discard。原玩家派发器的 removal 接缝继续关闭，Count=1/单球整次串行。
+有其他观察者、空/旧观察连接、超预算、未知事件/扩展、非空库存等均拒绝。本增量没有把所有观察者连接称为安全，
+也没有把通知延迟到服务器队列来改变同步顺序。
+
+### 实际原始正文与守恒
+
+四模式 `fixed/persistent × off/on`，每模式四场景：孤立合并球、外来观察者、单球和超预算，共16场景通过。
+两个普通 TCP 客户端、无 oracle/测试 Mod。游戏动作由一个正常 position_look 包发起；命令只建夹具和读独立状态。
+原 Player 查询触碰框完整包含另一 Region 的球：玩家 x=47.5、实际 owner(0,0)，球服务端原 NBT 与客户端出生包均为
+x=48.5/y=100/z=24.5，对应 Region(1,0)。原 UUID 与 JDI 入口/返回身份匹配，原 Collect ID 与出生包 ID 匹配。
+
+两池 on 的 Count3/value7 原调用链均为：移动后的第一调用 Count3→2、XP0→7 在 Server thread；
+静止条件满足后，**Count2→1、XP7→14 在实际 NeoForge Region Worker**；最后 Count1→0、XP14→21 在 Server thread。
+原栈包含 Connection.tick → listener → ServerPlayer.doTick → Player/LivingEntity.tick/aiStep → Player.touch → ExperienceOrb.playerTouch，
+worker 栈还必须包含 RegionPlayerTickDispatch.runOriginal；没有侧任务冒充完整正文。
+每次入口/返回均检查 `playerXp + remainingCount × value = 21`，最终球消失、三个实际 Collect 包、客户端 totalExperience=21。
+实际 XP delay 导致的无副作用调用同样保留，不伪造或删除。关闭模式所有效果均为 Server thread。
+外来观察者的21 XP、单球7 XP、超预算16 XP均守恒，且 on/off 都无 worker 拾取；外来观察者确实收到原广播的3个 Collect 包。
+
+### 同产物回归与证据
+
+- 493 项 JUnit、20 类，零失败/错误/跳过；包括原完整受影响回归和新增15项XP/晚失效测试。
+- 四模式 P2 production-only smoke 全部通过，两个入口有跨区原正文重叠、同区重叠0；四组 A owner(0,0)攻击B owner(1,0)，
+  服务端health20→19、客户端health19且恰好一个伤害包。
+- 同一`.127`完整schema3 **144**场景、schema4 **180**场景、100功能负控制、40原阶段负控制全部通过。
+  实体/PvP/方块/BE/共享容器/物品XP竞争/死亡重生的原状态、事件、原帧与资源守恒均保持。
+  oracle仍UNKNOWN_MOD，两阶段worker=0；这些是玩法兼容性证明，不是上述玩法获得worker支持。
+- XP独立校验10项负控制通过，覆盖丢失worker、末次/外来观察者错误进入worker、重复XP、缺原完整栈/返回、
+  篡改原出生位置/UUID、原始Collect数量和客户端XP。manifest六项、committed NDJSON三项工具单测通过。
+- 三个安装隔离反例测试通过；安装前所有输入私有，成功后只共享校验一致的第三方依赖。
+  种子94jar哈希保持，Minecraft/核心jar的inode在16套接受的隔离服中均私有。
+- 持久ChunkMap patch严格非更新apply成功、应用archive与生成源码逐字节一致；全部Python/Node工具语法通过。
+  原`.115` verifier、默认false、原engine/network/extension门及设计文档保持不变。
+
+| 模式 | ENTITY worker | ENTITY重叠 | CONNECTION worker | CONNECTION重叠 | 同区两阶段重叠 | 跨区攻击 |
+| --- | --- | --- | --- | --- | --- | --- |
+| on-fixed | 242 | 74 | 242 | 96 | 0/0 | 20→19 |
+| on-persistent | 244 | 116 | 244 | 113 | 0/0 | 20→19 |
+| off-fixed | 0 | 0 | 0 | 0 | 0/0 | 20→19 |
+| off-persistent | 0 | 0 | 0 | 0 | 0/0 | 20→19 |
+
+没有重新运行选定GameTest及整个P2故障/生命周期矩阵；其历史完整认证属于`.126`。
+本增量只报告上述实际复验，不引用旧3项GameTest作为`.127`新通过。没有性能、广泛尾延迟或长期soak结论。
+JDI仅为loopback外部只读断点，没有Mod、Java instrumentation agent、类重定义、权限例外或游戏状态写入；其暂停时间不作为性能数据。
+
+最终产物：`tmp/player-region-tick-p3-01/artifacts/neoforge-21.1.250.127-beta-installer.jar`，SHA256 `b5cd2be82ad217b2d15c82a4bc329b633ac78b305c7091c673ea40d9219afdb3`。
+显式审核manifest：`tools/player-region-tick/reviewed-artifacts/21.1.250.127-beta.json`，SHA256 `fb5ab729a900f19b9d81e8582e29e662aaf0534d6e2e725352dd605fec55ec56`；
+主Agent源码/产物审核，不声称人工或独立审批，历史`.115` gate和所有旧manifest保留。
+当前通过语料只采用 `tmp/player-region-tick-p3-01/recheck01/`；P2 smoke三模式重试映射由smoke-final-result.json显式给出。
+最终24份独立verdict、源码/输入/命令hash与失败退出记录见 `tmp/player-region-tick-p3-01/receipt.json` 和 `final-audit.json`。
+
+### 失败保留与磁盘
+
+编译匹配器歧义、离线缺依赖、Mockito夹具错误及其失败XML/源码、最初Count2缺worker证据全部保留。
+安装前直接硬链接的测试工具缺陷导致另服GameProtocols类加载崩溃；原失败矩阵/崩溃/中断wrapper保留，
+该安装机制下的旧XP通过观察不计最终接受语料。修复后全新重跑。一个中断包装缺少真实退出码，按exit unknown保留。
+隔离修复后一次持久池smoke因authlib启动后台从Mojang取得非JSON文本而被原严格校验拒绝；没有放宽校验或改旧日志，
+全新三模式重试通过，最初失败状态原样保留。
+
+本轮证据目录当前约 3.19 GiB（含所有失败、私有Minecraft产物及新世界），避免恢复旧66 GiB测试目录。
+原P2压缩证据和最终产物继续保留，未操作现用服、未使用SubAgent、未commit/push/deploy或reset/clean。
+下一步仍在P3：闭合单球/最后一次XP的移除和tracking发布、多个观察者连接的原顺序与互斥，再扩展一般物品/库存/共享容器/伤害等。

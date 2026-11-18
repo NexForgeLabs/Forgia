@@ -1,3 +1,98 @@
+## Current final P3 acceptance: .134; stopped before P4
+
+P3 is complete for design section 7's bounded category protocols. P4/P5 have not started.
+Supported full original calls: final/single XP, plain-material inventory/pickup, shared
+single-chest menu ticks, untracked scoreboard, real backpack map, one nonfatal sole-player
+starvation hit. Unsupported branches remain complete serial calls. General PvP/entity/block
+and open/click packets retain original server fences. Default false and unknown extensions
+refused before network freeze remain unchanged; oracle has no worker exception.
+
+Final installer: `tmp/player-region-tick-p3-final02/artifacts/neoforge-21.1.250.134-beta-installer.jar`,
+SHA256 `87680bb6ee3ff05b059a2bf4ac5aae6442387565801877a0cf577b2af513a670`.
+557 affected JUnit, three selected GameTests, 28 P3 four-mode corpora (56 gameplay subcases),
+full schema 3 (144)/4 (180), all 13 P2 suites and 321 proof negative controls passed.
+All four production smokes show A region(0,0) normally attacking B region(1,0), health20→19,
+client health19 and one damage packet; on-mode full calls overlap across regions, never within
+one region. Oracle schema corpora remain serial and only prove compatibility/conservation.
+
+Accepted paths: `tmp/player-region-tick-p3-final02/accepted-evidence.json`.
+Receipt and final audit: `tmp/player-region-tick-p3-final02/acceptance-01/`.
+`audit_p3_acceptance.py --product-root ... --evidence-map ... --output NEW_DIRECTORY`
+checks actual command exits, all category/mode pairs, original schema counts, reviewed core
+bytes, production/build snapshots, persisted patches, proof controls, private core/Minecraft
+inodes and unchanged seed jars, then hashes closed inputs and changed source snapshots.
+All failures/unknown exits and old manifests/.115 gates are retained. No performance, mixed-Mod
+parallelism, long soak or owner packet routing claim. See the Chinese P3 report for exact limits.
+
+Everything below is retained historical progress.
+
+---
+
+## Current P3 final candidate .134: unified acceptance in progress
+
+The bounded protocols now include terminal/single XP and plain-material original pickups,
+shared single-chest full menu ticks, untracked scoreboard objectives, a real non-selected
+backpack map, and one nonfatal original starvation hit. Full original world/connection
+calls, default false, unknown extensions refused before freeze, no replay after start,
+and physical join before cleanup remain mandatory. Open/click and general PvP packets
+retain original server fences; P4/P5 have not started.
+
+Final candidate: `tmp/player-region-tick-p3-final02/artifacts/neoforge-21.1.250.134-beta-installer.jar`,
+SHA256 `87680bb6ee3ff05b059a2bf4ac5aae6442387565801877a0cf577b2af513a670`.
+The explicit reviewed manifest `.134` preserves all older manifests and original `.115` gates.
+557 affected JUnit and three selected GameTests passed. Final four-mode gameplay,
+complete schema 3/4 and the 13 P2 suites are still running; this is not a P3 completion claim.
+See `region-threading/PLAYER-REGION-TICK-P3.zh.md` for current scope, failures and evidence.
+
+`run_p3_gameplay_matrix.py` creates fresh isolated installations for seven kinds
+(`xp`, `item`, `chest`, `score`, `map`, `damage`, `damage-foreign`) in four modes.
+Use `--kind`/`--mode` for explicit recovery in a new output directory. Failed commands,
+worlds and raw inputs are preserved; a failed matrix never implicitly becomes passed.
+Install arguments are `--output`, `--installer`, `--libraries`, `--eula`, `--version`
+and optional `--link-library-dependencies`. Identical third-party dependencies are
+shared only after successful installation; Minecraft and core jars remain private.
+
+The first final XP observer stalled normal clients by globally tracing exits during
+preflight reads. The failed corpus is retained in `final02/gameplay/`; the scoped
+observer attaches exit requests only to an active target/primer invocation and its
+exact storage callback thread. Fresh `gameplay-retry01/` is the current run. No client
+timeout or verifier requirement was relaxed. Historical sections below remain evidence.
+
+---
+
+## Current P3 first increment (.127); overall P3 is partial
+
+The merged vanilla XP orb non-final branch has passed original complete-call worker proof on both native
+pools. Exact vanilla type, count>=2, empty inventory, captured XP budget<=7 and exactly the collector's
+current original tracker connection are required; final/single pickups, foreign observers and unsupported
+gameplay remain complete serial calls. The original body/events/results/collect broadcast are unchanged.
+This is the first P3 increment, not completion of all gameplay support, P4 routing or P5 performance.
+
+`run_worker_xp_pickup.py` uses normal TCP movement, independent server NBT/XP reads and the read-only
+external `jdi/PlayerXpPickup.java` observer inside original playerTouch. The Count3 fixture preserves the
+first serial movement call, requires an actual stationary Count2->1 worker effect, and requires final
+Count1->0 on the original Server thread. `verify_worker_xp_pickup.py` independently checks complete
+Connection/doTick/native stacks, UUID/position, original spawn/collect/XP frames, every intermediate sum,
+all four modes and logout cleanup. `test_worker_xp_validator.py` has ten proof mutation controls.
+
+493 JUnit, all four XP modes (16 cases), four production P2 smokes, full schema3 144/schema4 180 and
+100 functional/40 original-phase controls pass on `.127`. Oracle remains UNKNOWN_MOD/worker=0;
+the old `.115` checks and all older reviewed manifests remain unchanged. No new GameTest or complete
+P2 failure/lifecycle matrix rerun is claimed for this increment. See the current Chinese P3 report and
+`tmp/player-region-tick-p3-01/receipt.json` / `final-audit.json` for accepted paths and preserved failures.
+
+For bounded disk use, `install.py` and `run_p2_suite_matrix.py` accept `--link-library-dependencies`.
+**Every installer input is copied privately first.** Only after a successful installer exit may identical,
+verified third-party jars share an inode; Minecraft generated jars, NeoForge core jars and metadata stay
+private. Linking before installer execution was found unsafe: processors can truncate/rewrite jars in use
+by an already-running server. The failed original corpora remain preserved; only fresh `recheck01/`
+corpora with `installerInputsPrivate=true` are accepted. Three adversarial installer tests cover it.
+
+Everything below is retained P2 historical context. The `.126` complete conclusion concerns its bounded
+P2 contract; `.127` is a P3 partial increment with its own explicit reviewed artifact manifest.
+
+---
+
 ## Current final P2 acceptance: .126; stopped before P3
 
 Final artifact `21.1.250.126-beta`, installer SHA256

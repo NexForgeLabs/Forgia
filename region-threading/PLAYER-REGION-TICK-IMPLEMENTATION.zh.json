@@ -1,11 +1,11 @@
 {
   "schemaVersion": 4,
-  "task": "Complete P2 and stop before P3",
+  "task": "Complete all P3; stop before P4/P5",
   "status": "partial",
   "p2Status": "complete",
-  "stopBeforeP3": true,
-  "generatedAt": "2026-11-17T11:14:07.171243+00:00",
-  "currentStatusSource": "p2Final126Closeout",
+  "stopBeforeP3": false,
+  "generatedAt": "2026-11-17T18:35:45.165385+00:00",
+  "currentStatusSource": "P3 .134 final bounded category protocols accepted; stop before P4",
   "baseline": {
     "gitHead": "1943dc5919acea387bcac28352b2eeb748cadc63",
     "protectedFiles": [
@@ -45,8 +45,63 @@
       "scope": "Design section 7 P2 first audited full ENTITY/world parent call and full CONNECTION.tick branch; no gameplay admission expansion, owner routing or performance stage",
       "receipt": "tmp/player-region-tick-p2-final05/receipt-final126.json"
     },
-    "P3_P4_P5": {
-      "status": "not_started; explicitly stopped before P3"
+    "P3": {
+      "status": "complete_bounded_protocols",
+      "record": "region-threading/PLAYER-REGION-TICK-P3.zh.md",
+      "version": "21.1.250.134-beta",
+      "receipt": "tmp/player-region-tick-p3-final02/acceptance-01/receipt.json",
+      "proofAudit": "tmp/player-region-tick-p3-final02/acceptance-01/final-audit.json",
+      "junit": {
+        "tests": 557,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "selectedGameTestsPassed": 3,
+      "proofNegativeControls": 321,
+      "independentVerdicts": 96,
+      "acceptedIsolatedInstallations": 88,
+      "historyBeforeFinalAcceptance": {
+        "status": "in_progress",
+        "record": "region-threading/PLAYER-REGION-TICK-P3.zh.md",
+        "firstIncrement": "merged vanilla XP non-final pickup; count>=2, bounded XP, sole exact collector listener",
+        "receipt": "tmp/player-region-tick-p3-01/receipt.json",
+        "receiptSha256": "312c5c3bd6805d108ae73753be76589455e4cf42f07e7f9cf8c6d80977877159",
+        "terminalXpIncrement": {
+          "version": "21.1.250.128-beta",
+          "receipt": "tmp/player-region-tick-p3-02/receipt.json",
+          "sha256": "aee7f6ecdcea3df91a87a54f75d9abd6d388759a401111a7e39d1d8ae3cb125c",
+          "newlyTestedModes": [
+            "on-fixed",
+            "on-persistent"
+          ],
+          "scope": "final/single XP original worker pickup and committed storage removal"
+        },
+        "currentCandidate": {
+          "version": "21.1.250.134-beta",
+          "evidence": "tmp/player-region-tick-p3-final02",
+          "status": "final same-product four-mode gameplay/schema3/4/P2 acceptance in progress",
+          "junit": 557,
+          "selectedGameTestsPassed": 3,
+          "installerSha256": "87680bb6ee3ff05b059a2bf4ac5aae6442387565801877a0cf577b2af513a670"
+        },
+        "materialIncrement": {
+          "version": "21.1.250.129-beta",
+          "receipt": "tmp/player-region-tick-p3-03/receipt.json",
+          "junit": 510,
+          "proofControls": 16,
+          "newlyTestedModes": [
+            "on-fixed",
+            "on-persistent"
+          ]
+        }
+      }
+    },
+    "P4": {
+      "status": "not_started"
+    },
+    "P5": {
+      "status": "not_started"
     }
   },
   "configuration": {
@@ -241,7 +296,7 @@
       "sharedStateCloseout": {
         "schemaVersion": 1,
         "taskRun": "2026-11-17T02-37-21-743Z-9f3f0ab7",
-        "task": "TODO 1 \u2014 \u6536\u5c3e\u5f53\u524d\u5171\u4eab\u72b6\u6001\u524d\u7f6e\u534f\u8bae",
+        "task": "TODO 1 — 收尾当前共享状态前置协议",
         "attempt": 2,
         "status": "done",
         "overallGoalStatus": "partial; both complete original player worker entrances remain unimplemented",
@@ -294,7 +349,7 @@
       "continuationTodo3": {
         "schemaVersion": 5,
         "goalRunId": "goal-2026-11-16T22-31-56-455Z-5f270fb0",
-        "task": "TODO 3 \u2014 \u5b9e\u73b0\u73a9\u5bb6\u5b8c\u6574\u7a7a\u95f4\u8db3\u8ff9\u3001\u591a\u533a\u6743\u9650\u4e0e\u51b2\u7a81\u7ec4",
+        "task": "TODO 3 — 实现玩家完整空间足迹、多区权限与冲突组",
         "status": "done",
         "overallGoalStatus": "partial; complete player worker entrances remain unimplemented",
         "completedAt": "2026-11-17T01:27:14.779091+00:00",
@@ -354,15 +409,15 @@
           "overallGoalDone": false
         },
         "remaining": [
-          "criteria/reward/shared-state closure and comprehensive production callback admission in TODO 4\u20135",
-          "actual two complete original player worker entrances in TODO 6\u20137",
+          "criteria/reward/shared-state closure and comprehensive production callback admission in TODO 4–5",
+          "actual two complete original player worker entrances in TODO 6–7",
           "final installer, schema 3/4 real clients, lifecycle/network exclusion and performance acceptance"
         ]
       },
       "continuationTodo2": {
         "schemaVersion": 4,
         "goalRunId": "goal-2026-11-16T22-31-56-455Z-5f270fb0",
-        "task": "TODO 2 \u2014 \u8865\u9f50\u8de8\u754c\u65b9\u5757\u3001\u5bb9\u5668\u4e0e\u62fe\u53d6\u5b88\u6052\u57fa\u7ebf",
+        "task": "TODO 2 — 补齐跨界方块、容器与拾取守恒基线",
         "status": "done",
         "overallGoalStatus": "partial; complete player workers remain unimplemented",
         "completedAt": "2026-11-16T23:51:02.451243+00:00",
@@ -439,7 +494,7 @@
       "continuationTodo1": {
         "schemaVersion": 3,
         "goalRunId": "goal-2026-11-16T22-31-56-455Z-5f270fb0",
-        "task": "TODO 1 \u2014 \u8865\u9f50\u771f\u5b9e\u5ba2\u6237\u7aef\u8fb9\u754c PvP \u4e0e\u666e\u901a\u5b9e\u4f53\u4ea4\u4e92\u57fa\u7ebf",
+        "task": "TODO 1 — 补齐真实客户端边界 PvP 与普通实体交互基线",
         "status": "done",
         "overallGoalStatus": "partial; both complete player worker entrances remain unimplemented",
         "completedAt": "2026-11-16T22:55:26.236697+00:00",
@@ -513,7 +568,7 @@
         ]
       },
       "goalRunId": "goal-2026-11-16T18-28-20-556Z-d7a3841a",
-      "task": "TODO 1 \u2014 P0\u2192P1\u2192P2\uff1a\u51bb\u7ed3\u771f\u5b9e\u57fa\u7ebf\u5e76\u5b9e\u73b0\u53cc\u5165\u53e3\u5b8c\u6574 worker tick",
+      "task": "TODO 1 — P0→P1→P2：冻结真实基线并实现双入口完整 worker tick",
       "attempt": 2,
       "status": "partial",
       "generatedAt": "2026-11-16T20:36:32.396080+00:00",
@@ -523,7 +578,7 @@
         "receipt": {
           "schemaVersion": 1,
           "goalRunId": "goal-2026-11-16T18-28-20-556Z-d7a3841a",
-          "task": "TODO 1 \u2014 P0\u2192P1\u2192P2\uff1a\u51bb\u7ed3\u771f\u5b9e\u57fa\u7ebf\u5e76\u5b9e\u73b0\u53cc\u5165\u53e3\u5b8c\u6574 worker tick",
+          "task": "TODO 1 — P0→P1→P2：冻结真实基线并实现双入口完整 worker tick",
           "status": "partial",
           "generatedAt": "2026-11-16T19:10:09.321483+00:00",
           "specification": {
@@ -12805,7 +12860,7 @@
       },
       "handoff": {
         "mayAdvanceToTodo4": true,
-        "continue": "TODO 4 \u2014 \u95ed\u5408\u5fc5\u7ecf criteria \u4e0e\u5171\u4eab\u72b6\u6001\u524d\u7f6e\u534f\u8bae",
+        "continue": "TODO 4 — 闭合必经 criteria 与共享状态前置协议",
         "incrementStatus": "TODO 3 done; overall goal partial",
         "spatialContract": "region-threading/PLAYER-SPATIAL-FOOTPRINT-CONTRACT.zh.md",
         "interfaces": [
@@ -12821,7 +12876,7 @@
       },
       "handoffAfterTodo2": {
         "mayAdvanceToTodo3": true,
-        "continue": "TODO 3 \u2014 \u5b9e\u73b0\u73a9\u5bb6\u5b8c\u6574\u7a7a\u95f4\u8db3\u8ff9\u3001\u591a\u533a\u6743\u9650\u4e0e\u51b2\u7a81\u7ec4",
+        "continue": "TODO 3 — 实现玩家完整空间足迹、多区权限与冲突组",
         "incrementStatus": "TODO 2 done; overall goal partial",
         "gameplaySuites": [
           "tools/player-region-tick/run_interactions.py",
@@ -12964,7 +13019,9 @@
     "cleanupRecord": "region-threading/evidence/player-region-tick-p2-126/cleanup-2026-11-17.json",
     "removedAllocatedBytes": 79906963456,
     "retainedEvidenceDirectory": "tmp/retained-player-region-tick-2026-11-17",
-    "windowsCompaction": "pending_user_approval_to_stop_current_Debian_session",
+    "windowsCompaction": "user attempted native command; result exit -1, not successful",
     "historicalAcceptanceReceiptsUnmodified": true
-  }
+  },
+  "p3Status": "complete_bounded_protocols",
+  "stopBeforeP4": true
 }

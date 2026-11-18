@@ -112,7 +112,7 @@ public final class RegionPlayerSpatialPlan {
         for (var entry : this.chunks.entrySet()) {
             if (this.footprint.level().getChunkSource().getChunkNow(ChunkPos.getX(entry.getKey()), ChunkPos.getZ(entry.getKey())) != entry.getValue()) return false;
         }
-        if (indexed != this.members.size() || !knownBlocks(this.footprint, this.initialBox, this.phase)) return false;
+        if (indexed != this.members.size() || !knownBlocks(this.player, this.footprint, this.initialBox, this.phase)) return false;
         for (Entity entity : this.footprint.level().getEntities(this.player, this.footprint.queryBounds(), target -> true)) {
             if (!this.members.containsKey(entity)) return false;
         }
@@ -152,10 +152,10 @@ public final class RegionPlayerSpatialPlan {
         AABB query = body.inflate(1, .5, 1);
         // Base/inside-block, fluid/eyes, poses, collision/support and listener noBlocksAround.
         // No displacement is possible in this admitted intrinsic profile (verified solid support).
-        AABB blocks = body.inflate(1, 1, 1).expandTowards(0, -1, 0);
+        AABB blocks = RegionPlayerContainerPlan.blockBounds(player, body.inflate(1, 1, 1).expandTowards(0, -1, 0));
         final RegionPlayerFootprint footprint;
         try {
-            footprint = RegionPlayerFootprint.of(level, engine.regionLayout().regionChunkSize(), query, blocks);
+            footprint = RegionPlayerFootprint.of(level, engine.regionLayout().regionChunkSize(), query, blocks, RegionPlayerDamagePlan.extraLeaseBounds(player, blocks));
         } catch (IllegalArgumentException refusal) {
             return refused(Refusal.FOOTPRINT_TOO_LARGE);
         }
@@ -193,15 +193,16 @@ public final class RegionPlayerSpatialPlan {
         for (Entity target : level.getEntities(player, query, entity -> true)) {
             if (!members.containsKey(target)) return refused(Refusal.OWNER_PUBLICATION_PENDING);
         }
-        if (!knownBlocks(footprint, body, phase)) return refused(Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN);
+        if (!knownBlocks(player, footprint, body, phase)) return refused(Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN);
         return new Capture(new RegionPlayerSpatialPlan(engine, player, phase, footprint, members, chunks), Refusal.NONE);
     }
 
-    private static boolean knownBlocks(RegionPlayerFootprint footprint, AABB body, RegionPlayerTickCoordinator.Phase phase) {
+    private static boolean knownBlocks(ServerPlayer player, RegionPlayerFootprint footprint, AABB body, RegionPlayerTickCoordinator.Phase phase) {
         ServerLevel level = footprint.level();
         AABB blocks = footprint.blockBounds();
         for (BlockPos pos : BlockPos.betweenClosed(BlockPos.containing(blocks.minX, blocks.minY, blocks.minZ), BlockPos.containing(blocks.maxX, blocks.maxY, blocks.maxZ))) {
             var state = level.getBlockState(pos);
+            if (RegionPlayerContainerPlan.knownChestAt(player, pos)) continue;
             if (!(state.is(Blocks.AIR) || state.is(Blocks.STONE) || state.is(Blocks.DIRT) || state.is(Blocks.GRASS_BLOCK) || state.is(Blocks.BEDROCK)))
                 return false;
             if (!level.getFluidState(pos).isEmpty() || level.getBlockEntity(pos) != null) return false;
@@ -233,15 +234,15 @@ public final class RegionPlayerSpatialPlan {
             return Refusal.LIFECYCLE;
         if (player.isPassenger() || !player.getPassengers().isEmpty()) return Refusal.RIDING;
         if (player.gameMode.forgiaHasActiveBlockDestruction()) return Refusal.ACTIVE_BLOCK_BREAK;
-        if (player.containerMenu != player.inventoryMenu) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
+        if (!RegionPlayerContainerPlan.supportedMenu(player)) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
         if (player.getPose() != Pose.STANDING || player.isSleeping() || player.isSpectator() || player.isFallFlying()
                 || player.isAutoSpinAttack() || player.getAbilities().flying || !player.getActiveEffects().isEmpty()
                 || player.isOnFire() || player.getTicksFrozen() != 0 || !player.getShoulderEntityLeft().isEmpty() || !player.getShoulderEntityRight().isEmpty())
             return Refusal.MOVEMENT_UNBOUNDED;
         if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION && !player.forgiaStationarySpatialInputs()) return Refusal.MOVEMENT_UNBOUNDED;
-        // Item/effect/custom callbacks are NOT proved by geometry. Empty inventory closes only
-        // inventoryTick's intrinsic reach; the separate callback/global-state gate remains mandatory.
-        for (int i = 0; i < player.getInventory().getContainerSize(); i++) if (!player.getInventory().getItem(i).isEmpty()) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
+        // Exact default plain materials have a no-op vanilla inventoryTick. Equipment stays empty;
+        // candidate capacity, original menu/criteria and callback admission remain separate gates.
+        if (!RegionPlayerInventoryPlan.supportedInventory(player)) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
         return Refusal.NONE;
     }
 }

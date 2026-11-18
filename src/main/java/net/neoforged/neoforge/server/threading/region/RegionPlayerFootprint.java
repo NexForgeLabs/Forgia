@@ -36,9 +36,14 @@ public final class RegionPlayerFootprint {
      * Riding expansion is supplied as the full vehicle/player union, never as a smaller radius.
      */
     public static RegionPlayerFootprint of(ServerLevel level, int regionChunks, AABB queries, AABB blocks) {
-        if (regionChunks <= 0 || !finite(queries) || !finite(blocks)) throw new IllegalArgumentException("Unbounded player footprint");
+        return of(level, regionChunks, queries, blocks, blocks);
+    }
+
+    /** Lease-only effect extent never expands or replaces the original entity or block query. */
+    static RegionPlayerFootprint of(ServerLevel level, int regionChunks, AABB queries, AABB blocks, AABB effectExtent) {
+        if (regionChunks <= 0 || !finite(queries) || !finite(blocks) || !finite(effectExtent)) throw new IllegalArgumentException("Unbounded player footprint");
         AABB sections = new AABB(queries.minX - 2, queries.minY - 4, queries.minZ - 2, queries.maxX + 2, queries.maxY, queries.maxZ + 2);
-        AABB extent = sections.minmax(blocks);
+        AABB extent = sections.minmax(blocks).minmax(effectExtent);
         int minX = Math.floorDiv(SectionPos.posToSectionCoord(extent.minX), regionChunks);
         int minZ = Math.floorDiv(SectionPos.posToSectionCoord(extent.minZ), regionChunks);
         int maxX = Math.floorDiv(SectionPos.posToSectionCoord(extent.maxX), regionChunks);

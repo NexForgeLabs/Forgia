@@ -11,12 +11,13 @@
              ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(p_143455_.containerId, p_143456_, p_143457_));
          }
      };
-@@ -490,6 +_,33 @@
+@@ -490,6 +_,34 @@
 +    /** Original local object and optional-state prerequisites, independent of callback admission. */
 +    public boolean forgiaHasLocalStateBindings() {
-+        return this.containerMenu == this.inventoryMenu && this.inventoryMenu.getClass() == net.minecraft.world.inventory.InventoryMenu.class
++        return net.neoforged.neoforge.server.threading.region.RegionPlayerContainerPlan.supportedMenu(this) && this.inventoryMenu.getClass() == net.minecraft.world.inventory.InventoryMenu.class
 +            && this.inventoryMenu.forgiaIsLocalTo(this)
 +            && this.inventoryMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer)
++            && (this.containerMenu == this.inventoryMenu || this.containerMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer))
 +            && this.getFoodData().getClass() == net.minecraft.world.food.FoodData.class
 +            && this.getCooldowns().getClass() == net.minecraft.world.item.ServerItemCooldowns.class
 +            && this.getStats().getClass() == net.minecraft.stats.ServerStatsCounter.class;
@@ -24,8 +25,8 @@
 +
 +    public boolean forgiaHasSimpleSharedState() {
 +        return this.levitationStartPos == null && this.startingToFallPosition == null && this.enteredLavaOnVehiclePosition == null
-+            && this.getCamera() == this && !this.isSleeping() && this.getFoodData().getFoodLevel() > 0
-+            && this.getInventory().isEmpty() && this.getActiveEffects().isEmpty() && this.getUseItem().isEmpty();
++            && this.getCamera() == this && !this.isSleeping() && this.getFoodData().getFoodLevel() >= 0
++            && net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedInventory(this) && this.getActiveEffects().isEmpty() && this.getUseItem().isEmpty();
 +    }
 +
 +    /** Neo: spatial prerequisite only; never a callback, lifecycle or worker-admission proof. */
@@ -76,6 +77,9 @@
          boolean flag = this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES);
          if (flag) {
              Component component = this.getCombatTracker().getDeathMessage();
+@@ -758,1 +_,2 @@
+     public boolean hurt(DamageSource p_9037_, float p_9038_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkDamage(this, p_9037_, p_9038_);
 @@ -826,7 +_,7 @@
              return BedBlock.findStandUpPosition(EntityType.PLAYER, p_348505_, p_348607_, blockstate.getValue(BedBlock.FACING), p_348481_)
                  .map(p_348148_ -> ServerPlayer.RespawnPosAngle.of(p_348148_, p_348607_));

@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/inventory/AbstractContainerMenu.java
 +++ b/net/minecraft/world/inventory/AbstractContainerMenu.java
-@@ -167,2 +_,21 @@
+@@ -167,2 +_,28 @@
 +    /** Mutable menu objects participate in original-identity alias checks and pre-body validation. */
 +    public java.util.List<Object> forgiaPlayerLocalMenuObjects() {
 +        java.util.List<Object> objects = new java.util.ArrayList<>(java.util.List.of(this.slots, this.lastSlots,
@@ -8,6 +8,12 @@
 +        objects.addAll(this.slots);
 +        objects.addAll(this.containerListeners);
 +        if (this.synchronizer != null) objects.add(this.synchronizer);
++        for (var stacks : java.util.List.of(this.lastSlots, this.remoteSlots)) for (ItemStack stack : stacks) {
++            if (!stack.isEmpty()) {
++                objects.add(stack);
++                objects.add(stack.getComponents());
++            }
++        }
 +        return objects;
 +    }
 +
@@ -16,7 +22,8 @@
 +        return this.containerListeners.size() == 1 && this.containerListeners.getFirst() == listener
 +            && this.synchronizer == sync && sync != null && this.dataSlots.isEmpty() && this.quickcraftStatus == 0 && this.quickcraftSlots.isEmpty()
 +            && this.lastSlots.size() == this.slots.size() && this.remoteSlots.size() == this.slots.size()
-+            && this.lastSlots.stream().allMatch(ItemStack::isEmpty) && this.remoteSlots.stream().allMatch(ItemStack::isEmpty) && this.remoteCarried.isEmpty();
++            && this.lastSlots.stream().allMatch(net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan::supportedStack)
++            && this.remoteSlots.stream().allMatch(net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan::supportedStack) && this.remoteCarried.isEmpty();
 +    }
 +
      public void broadcastChanges() {

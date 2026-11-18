@@ -1,5 +1,31 @@
 # 玩家两阶段 production 准入合同
 
+P3最终`.134`已按当前逐类有界合同完成统一验收，P4/P5未开始；下文进行中/旧产物措辞保留历史。最新收口与限制见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾及`tmp/player-region-tick-p3-final02/acceptance-01/receipt.json`。
+
+## P3 当前候选 .134 的逐类准入（2026-11-18，最终统一验收进行中）
+
+本节覆盖下文保留的`.127`/P2历史限制；最终通过范围与证据以[P3实施记录](PLAYER-REGION-TICK-P3.zh.md)最后结论为准。完整原世界父调用和完整Connection.tick仍是执行单位，默认false、未知扩展在网络freeze前整次串行、开始后不重放与真实join后清理不变。P4/P5未开始。
+
+| 新增支持 | 完整原正文与权限 | 不支持时的原路径 |
+| --- | --- | --- |
+| 合并/单球/末次XP | 精确vanilla球、Count≥1、每次XP及奖励总预算≤7、原tracker观察连接恰为拾取者；原XP/Collect/removed标记同步，原存储onRemove在前缀真实join后由publisher一次提交，已提交拾取不因stop-new-admission丢弃 | 外来/旧/空观察者、其他回调及超预算整次串行 |
+| 普通材料背包/拾取 | diamond/iron_ingot/gold_ingot原Item、默认components，选中/装备仍空；全部候选可完全并入已有非选中栈，原inventory.tick/Pre/Post/add/stat/menu/Collect保持；不模拟add | 容量不够、未知components/thrower/target/criteria、其他物品或装备整次串行 |
+| 共享单箱子菜单 | 精确ChestMenu/ChestBlockEntity/SINGLE、原stillValid完整块范围、原listener/synchronizer和全部共享storage/栈资源；同资源合并原冲突组、同lease按原序执行 | 双箱子/未知BE/菜单/回调/普通未声明别名整次串行；开关箱及点击仍原服务器包fence |
+| 实际计分板 | 精确ServerScoreboard/Objective、未tracked/displayAutoUpdate=false、唯一原createData安装的saved-data dirty回调；非空目标加入整个board共享资源，原迭代/consumer/score/dirty同步 | 显示/未知dirty回调等整次串行；空objective不强加全局冲突 |
+| 实际背包地图 | 单张真实有效MAP_ID、精确MapItem/MapItemSavedData、仅ID组件、非选中/非装备、无外来carrier/banner/frame/自定义图标；原inventoryTick/carrier/decorations/getUpdatePacket和保存状态 | 选中地形更新、多张/外来carrier/未知组件等整次串行；开始前逐格复查实际ID内容，原地换ID也拒绝 |
+| 一次非致命自饥饿伤害 | 唯一服务器玩家、health20、food0、空装备效果/吸收/活跃战斗；原starve source、1伤害预算；半径16完整chunk/section原空registry加入lease，原hurt/6类hook/gameEvent/sound/返回/统计保留 | 一般PvP/其他伤害/外来玩家或观察者/非空registry等整次串行 |
+
+新增事件检查包括ItemEntityPickup.Pre/Post、EntityLeaveLevel、EntityInvulnerabilityCheck、LivingIncomingDamage、LivingShieldBlock、LivingDamage.Pre/Post、VanillaGameEvent、PlayLevelSound.AtPosition/AtEntity；同样检查继承注册。只有精确内置NeoForgeEventHandler的原EntityTick.Pre和EntityLeaveLevel注册身份可接受，Bus8原final SubscribeEventListener.getWithoutCheck解包身份同样精确匹配；不运行或删除监听器，也不给oracle/未知Mod例外。
+
+state计划的显式共享资源身份进入原连续前缀冲突规划；只允许同一有序lease内双方都显式声明的共享资源别名。普通本地别名仍整组拒绝。菜单、库存、地图ID内容、原callback/载体/registry和预算在未开始consume时再复查，原同步返回值不改为排队成功。共享资源与新创建的内部成员由整个原容器/board/map的独占组保护；没有第二个池、权限或身份来源。
+
+以下`.127`及P2段落均为历史审计基础，不能用其“Count1串行/空库存/目标必须为空”等旧措辞替代本节当前源码合同。
+
+---
+
+当前P3增量（`.127`，2026-11-17）：仅扩展合并原版XP球的非末次完整原拾取，整体P3仍partial。精确ExperienceOrb/EntityType、Count≥2、正值且已有奖励/球预算≤7、空库存、无attachment/骑乘；实体map身份和seenBy必须恰为本玩家当前listener。捕获/发布/consume复查，worker读取还要求完整原空间lease拥有球和玩家。原查询、事件、同步XP/计数和Collect广播保持；单球/Count1、外来/旧/空观察者及所有未知路径整次串行。派发器仍不开放玩家实体removal。state计划还精确复查当前XP触碰候选集合。下文表格保留P2基础合同，触碰XP的唯一新增例外以本段及P3实施记录为准。两池真实完整原调用的Count2→1/XP7→14已观察到worker；最终Count1→0仍Server thread。没有oracle worker特批；默认false不变。
+
+
 接续 05 最终收口（2026-11-17）：本受限合同的P2完整双入口已在`.126`完成验收，P3未开始；下表支持清单不扩大。478 JUnit、三个选定GameTest、完整schema3/4及故障/网络/生命周期矩阵通过，证据见实施报告末尾、`tmp/player-region-tick-p2-final05/receipt-final126.json`和`final-proof-audit-final126.json`。`.125`的完成草稿因NETWORK合同反例撤回，旧receipt.json和反例均保留。未知/不可检查扩展在freeze之前拒绝；后续逐调用capture/revalidate/consume继续完整复查。四模式每组500 NETWORK保持原Netty线程、500 MAIN回流保持Server线程，worker=0、deferred=0。溢出终止经当前common listener原协议disconnect，在accepted前缀和真实join后执行。默认false、未知扩展整次串行、开始后不重放、真实join后清理保持。
 
 

@@ -587,7 +587,11 @@ class RegionPlayerSpatialLeaseTest {
     }
 
     private void productionLocalState() throws Exception {
-        localState(net.minecraft.advancements.AdvancementRewards.Builder.experience(7).build());
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.Builder.experience(7).build());
+    }
+
+    private void productionLocalState(net.minecraft.advancements.AdvancementRewards reward) throws Exception {
+        localState(reward);
         doReturn(net.minecraft.world.entity.EntityType.PLAYER).when(this.player).getType();
         when(this.server.getProfiler()).thenReturn(InactiveProfiler.INSTANCE);
         when(this.player.getAirSupply()).thenReturn(300);
@@ -1831,5 +1835,737 @@ class RegionPlayerSpatialLeaseTest {
         assertEquals(0, this.engine.playerTicks().snapshot().phases().get(phase).worker());
         this.engine.tickPlayerSerial(this.player, this.player.connection.getConnection(), phase, effects::incrementAndGet);
         assertEquals(1, effects.get(), "The entire original serial callback still executes once");
+    }
+
+    private net.minecraft.server.level.ChunkMap xpWatcherMap(Entity orb,
+            net.minecraft.server.network.ServerPlayerConnection... watchers) throws Exception {
+        var map = mock(net.minecraft.server.level.ChunkMap.class);
+        field(net.minecraft.server.level.ChunkMap.class, map, "level", this.level);
+        Class<?> type = Class.forName("net.minecraft.server.level.ChunkMap$TrackedEntity");
+        Object tracked = mock(type);
+        field(type, tracked, "entity", orb);
+        field(type, tracked, "seenBy", new it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet<>(List.of(watchers)));
+        var entities = new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<>();
+        entities.put(orb.getId(), tracked);
+        field(net.minecraft.server.level.ChunkMap.class, map, "entityMap", entities);
+        field(ServerChunkCache.class, this.level.getChunkSource(), "chunkMap", map);
+        when(map.forgiaHasExclusiveEntityWatcher(any(), any())).thenCallRealMethod();
+        return map;
+    }
+
+    private net.minecraft.world.entity.ExperienceOrb mergedXpOrb(int count, int value) throws Exception {
+        var orb = mock(net.minecraft.world.entity.ExperienceOrb.class);
+        field(net.minecraft.world.entity.ExperienceOrb.class, orb, "count", count);
+        field(net.minecraft.world.entity.ExperienceOrb.class, orb, "value", value);
+        when(orb.getValue()).thenCallRealMethod();
+        doReturn(net.minecraft.world.entity.EntityType.EXPERIENCE_ORB).when(orb).getType();
+        this.add(orb, 48.5, 8.5, new AABB(48.25, 64, 8.25, 48.75, 64.5, 8.75));
+        xpWatcherMap(orb, this.player.connection);
+        return orb;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void originalMergedXpPickupRunsInsideNativeOwnerAndFinalPickupHasCapturedPermission(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var orb = mergedXpOrb(2, 7);
+        doCallRealMethod().when(orb).playerTouch(this.player);
+        when(this.player.getItemBySlot(any())).thenReturn(ItemStack.EMPTY);
+        doCallRealMethod().when(this.player).take(orb, 1);
+        var packets = new java.util.concurrent.atomic.AtomicInteger();
+        var chunkSource = this.level.getChunkSource();
+        doAnswer(call -> {
+            assertNotNull(RegionPlayerStateScope.current());
+            assertSame(orb, call.getArgument(0));
+            var packet = (net.minecraft.network.protocol.game.ClientboundTakeItemEntityPacket) call.getArgument(1);
+            assertEquals(orb.getId(), packet.getItemId());
+            assertEquals(this.player.getId(), packet.getPlayerId());
+            packets.incrementAndGet();
+            return null;
+        }).when(chunkSource).broadcast(eq(orb), org.mockito.ArgumentMatchers.<net.minecraft.network.protocol.Packet<?>>any());
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.NONE, capture.refusal(), capture.detail());
+            try (var lease = reserve(capture.plan().spatial())) {
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(capture.plan().state())));
+                worker(() -> {
+                    try (var observedBase = installedBaseEnvironment(); var space = lease.open(); var owner = lease.openPlayerState(capture.plan().state())) {
+                        orb.playerTouch(this.player);
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+            }
+            assertEquals(7, this.player.totalExperience);
+            assertEquals(1, field(orb, "count"));
+            assertEquals(1, packets.get());
+            assertTrue(this.effects.isEmpty(), "Non-final original pickup has no storage removal");
+            var finalPickup = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(finalPickup.plan(), finalPickup.detail());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "zero", "negative", "attachment", "riding", "foreignWatcher", "noWatcher", "staleTracker", "type", "xpBound", "newCandidate" })
+    void xpTouchAndOutboundChangesInvalidateUnstartedFullPlan(String change) throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var orb = mergedXpOrb(2, 7);
+        try (var installed = installedBaseEnvironment()) {
+            var plan = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION).plan();
+            assertNotNull(plan);
+            switch (change) {
+                case "zero" -> field(net.minecraft.world.entity.ExperienceOrb.class, orb, "count", 0);
+                case "negative" -> field(net.minecraft.world.entity.ExperienceOrb.class, orb, "count", -1);
+                case "attachment" -> when(orb.hasAttachments()).thenReturn(true);
+                case "riding" -> when(orb.isPassenger()).thenReturn(true);
+                case "foreignWatcher" -> xpWatcherMap(orb, this.player.connection, mock(ServerGamePacketListenerImpl.class));
+                case "noWatcher" -> xpWatcherMap(orb);
+                case "staleTracker" -> {
+                    var map = xpWatcherMap(orb, this.player.connection);
+                    ((it.unimi.dsi.fastutil.ints.Int2ObjectMap<?>) field(map, "entityMap")).clear();
+                }
+                case "type" -> doReturn(net.minecraft.world.entity.EntityType.ITEM).when(orb).getType();
+                case "xpBound" -> field(net.minecraft.world.entity.ExperienceOrb.class, orb, "value", 8);
+                case "newCandidate" -> mergedXpOrb(2, 1);
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(plan.revalidate());
+            assertEquals(0, this.player.totalExperience);
+            assertEquals(0, this.engine.playerTicks().snapshot().phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION).worker());
+        }
+    }
+
+    @Test
+    void xpPickupListenerRemainsUnknownAndCaptureNeverInvokesIt() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        mergedXpOrb(2, 7);
+        try (var installed = installedBaseEnvironment()) {
+            assertNotNull(this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION).plan());
+            var events = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.function.Consumer<net.neoforged.neoforge.event.entity.player.PlayerXpEvent.PickupXp> callback = event -> events.incrementAndGet();
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.entity.player.PlayerXpEvent.PickupXp.class, callback);
+            try {
+                var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+                assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, capture.refusal());
+                assertEquals(0, events.get());
+            } finally {
+                net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(callback);
+            }
+        }
+    }
+
+    @Test
+    void xpEnteringOriginalQueryAfterCaptureCannotBypassCapturedBudget() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var orb = mergedXpOrb(2, 3);
+        var oldMap = this.level.getChunkSource().chunkMap;
+        var candidate = mergedXpOrb(2, 3);
+        var map = this.level.getChunkSource().chunkMap;
+        var records = (it.unimi.dsi.fastutil.ints.Int2ObjectMap) field(map, "entityMap");
+        records.putAll((it.unimi.dsi.fastutil.ints.Int2ObjectMap) field(oldMap, "entityMap"));
+        when(candidate.getBoundingBox()).thenReturn(new AABB(50, 64, 8.25, 50.5, 64.5, 8.75));
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            var originalBox = orb.getBoundingBox();
+            when(candidate.getBoundingBox()).thenReturn(originalBox);
+            assertFalse(capture.plan().revalidate(), "New touch candidate was never part of the captured XP budget");
+            assertEquals(0, this.player.totalExperience);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({ "false,normal", "true,normal", "false,failure", "true,failure", "false,shutdown", "true,shutdown" })
+    void finalXpStorageCommitsOnceAfterPhysicalReturnIncludingFailureAndShutdown(boolean persistent, String outcome) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var orb = mergedXpOrb(1, 7);
+        var callback = mock(EntityInLevelCallback.class);
+        field(Entity.class, orb, "levelCallback", callback);
+        when(orb.getLevelCallback()).thenCallRealMethod();
+        when(orb.isRemoved()).thenCallRealMethod();
+        doCallRealMethod().when(orb).playerTouch(this.player);
+        doCallRealMethod().when(orb).discard();
+        doCallRealMethod().when(orb).remove(any());
+        doCallRealMethod().when(orb).setRemoved(any());
+        when(this.player.getItemBySlot(any())).thenReturn(ItemStack.EMPTY);
+        var callbacks = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(call -> {
+            assertSame(this.publishing, Thread.currentThread());
+            assertNull(RegionPlayerStateScope.current());
+            assertEquals(1, this.engine.playerTicks().snapshot().running(), "Only the outer serial publisher remains");
+            assertEquals(1, this.engine.playerTicks().snapshot().phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION).joined());
+            assertTrue(orb.isRemoved());
+            assertEquals(7, this.player.totalExperience);
+            callbacks.incrementAndGet();
+            field(Entity.class, orb, "levelCallback", EntityInLevelCallback.NULL);
+            return null;
+        }).when(callback).onRemove(Entity.RemovalReason.DISCARDED);
+        RuntimeException sentinel = new RuntimeException("after committed original XP");
+        Thread stopper = new Thread(this.engine::shutdown, "shutdown after committed XP");
+        Object dispatch;
+        assertEquals(true, invoke(this.engine.playerNetworkGate(), "freeze", new Class<?>[] { MinecraftServer.class }, this.server));
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            // The publisher fence is the other original phase, not another invocation of this phase.
+            this.parent = this.engine.beginPlayerSerial(this.player, this.player.connection.getConnection(), RegionPlayerTickCoordinator.Phase.ENTITY);
+            assertNotNull(this.parent);
+            this.batch = ((Set<?>) field(this.engine, "activeTickBatches")).iterator().next();
+            dispatch = construct("RegionPlayerTickDispatch", new Class<?>[] { RegionThreadingEngine.class, Class.forName(PKG + "RegionTickBatch") }, this.engine, this.batch);
+            Class<?> effectsType = Class.forName(PKG + "RegionOwnershipLeaseGroup");
+            try (var lease = (RegionPlayerSpatialLease) invoke(this.engine, "reservePlayerSpatial",
+                    new Class<?>[] { Class.forName(PKG + "RegionTickBatch"), effectsType, List.class }, this.batch, dispatch, List.of(capture.plan().spatial()))) {
+                assertNotNull(lease);
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(capture.plan().state())));
+                var ticket = this.engine.playerTicks().prepare(this.player, this.player.connection.getConnection(), RegionPlayerTickCoordinator.Phase.CONNECTION);
+                assertTrue(this.engine.playerTicks().admit(ticket));
+                Object call = dispatchCall(capture.plan().state(), ticket, () -> {
+                    orb.playerTouch(this.player);
+                    assertEquals(0, callbacks.get());
+                    if (outcome.equals("failure")) throw sentinel;
+                });
+                Object gate = construct("RegionPlayerTickDispatch$StartGate", new Class<?>[] { int.class }, 1);
+                worker(() -> {
+                    try (var observed = installedBaseEnvironment()) {
+                        dispatchGroup(dispatch, lease, call, gate).run();
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+                assertTrue(ticket.started());
+                assertSame(outcome.equals("failure") ? sentinel : null, field(call, "failure"));
+                assertEquals(0, callbacks.get());
+                assertTrue(orb.isRemoved());
+                assertEquals(0, field(orb, "count"));
+                assertEquals(7, this.player.totalExperience);
+                invoke(this.engine.playerTicks(), "joinWorker", new Class<?>[] { RegionPlayerTickCoordinator.Plan.class }, ticket);
+                assertFalse(ticket.retainsLiveBinding());
+            }
+            if (outcome.equals("shutdown")) {
+                stopper.start();
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                while (!(boolean) field(this.engine, "shutdown") && System.nanoTime() < deadline) Thread.yield();
+                assertEquals(true, field(this.engine, "shutdown"));
+                assertTrue(stopper.isAlive(), "Shutdown must await the publisher's committed-effects fence");
+            }
+            try {
+                Object removals = field(dispatch, "removals");
+                assertEquals(1, invoke(removals, "pendingCount", new Class<?>[0]));
+                Object drain = invoke(removals, "drain", new Class<?>[0]);
+                invoke(this.engine, "applyDeferredRemovals", new Class<?>[] { ServerLevel.class, drain.getClass(), boolean.class, boolean.class }, this.level, drain, false, true);
+                assertEquals(1, callbacks.get());
+                // A stale repeated drain cannot run the original storage callback a second time.
+                invoke(this.engine, "applyDeferredRemovals", new Class<?>[] { ServerLevel.class, drain.getClass(), boolean.class, boolean.class }, this.level, drain, false, true);
+                assertEquals(1, callbacks.get());
+                assertEquals(0, invoke(removals, "pendingCount", new Class<?>[0]));
+            } finally {
+                this.parent.close();
+                this.parent = null;
+                if (stopper.isAlive()) stopper.join(5000);
+            }
+            assertFalse(stopper.isAlive());
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        } finally {
+            invoke(this.engine.playerNetworkGate(), "thaw", new Class<?>[0]);
+        }
+    }
+
+    private Inventory materialInventory() {
+        Inventory inventory = new Inventory(this.player);
+        inventory.selected = 8;
+        inventory.setItem(9, new ItemStack(net.minecraft.world.item.Items.DIAMOND, 1));
+        when(this.player.getInventory()).thenReturn(inventory);
+        return inventory;
+    }
+
+    private net.minecraft.world.entity.item.ItemEntity materialPickup(int count) throws Exception {
+        var item = mock(net.minecraft.world.entity.item.ItemEntity.class);
+        doReturn(net.minecraft.world.entity.EntityType.ITEM).when(item).getType();
+        when(item.getItem()).thenReturn(new ItemStack(net.minecraft.world.item.Items.DIAMOND, count));
+        this.add(item, 48.5, 8.5, new AABB(48.25, 64, 8.25, 48.75, 64.5, 8.75));
+        xpWatcherMap(item, this.player.connection);
+        return item;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void plainBackpackInventoryAndOriginalItemMergeRunInsideNativeState(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        Inventory inventory = materialInventory();
+        var item = materialPickup(5);
+        doCallRealMethod().when(item).playerTouch(this.player);
+        field(ServerPlayer.class, this.player, "stats", this.player.getStats());
+        doCallRealMethod().when(this.player).awardStat(any(net.minecraft.stats.Stat.class), anyInt());
+        try (var installed = installedBaseEnvironment()) {
+            var result = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(result.plan(), result.detail());
+            try (var lease = reserve(result.plan().spatial())) {
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(result.plan().state())));
+                worker(() -> {
+                    try (var base = installedBaseEnvironment(); var space = lease.open(); var owner = lease.openPlayerState(result.plan().state())) {
+                        inventory.tick();
+                        item.playerTouch(this.player);
+                        assertEquals(6, inventory.getItem(9).getCount());
+                        assertTrue(inventory.getItem(8).isEmpty());
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+            }
+            assertEquals(6, inventory.getItem(9).getCount());
+            assertEquals(5, item.getItem().getCount(), "Original pickup restores removed entity's display count");
+            assertEquals(5, this.player.getStats().getValue(net.minecraft.stats.Stats.ITEM_PICKED_UP.get(net.minecraft.world.item.Items.DIAMOND)));
+            org.mockito.Mockito.verify(item).discard();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "selected", "component", "unknownItem", "capacity", "thrower", "target", "count", "newCandidate", "foreignWatcher", "criterion" })
+    void materialPickupChangesRefuseBeforeOriginalEffects(String change) throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        Inventory inventory = materialInventory();
+        var item = materialPickup(5);
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            switch (change) {
+                case "selected" -> inventory.selected = 9;
+                case "component" -> inventory.getItem(9).set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("unknown component"));
+                case "unknownItem" -> inventory.setItem(9, new ItemStack(net.minecraft.world.item.Items.FILLED_MAP));
+                case "capacity" -> inventory.getItem(9).setCount(64);
+                case "thrower" -> field(net.minecraft.world.entity.item.ItemEntity.class, item, "thrower", UUID.randomUUID());
+                case "target" -> field(net.minecraft.world.entity.item.ItemEntity.class, item, "target", UUID.randomUUID());
+                case "count" -> item.getItem().setCount(6);
+                case "newCandidate" -> materialPickup(1);
+                case "foreignWatcher" -> {
+                    Object tracked = ((it.unimi.dsi.fastutil.ints.Int2ObjectMap<?>) field(this.level.getChunkSource().chunkMap, "entityMap")).get(item.getId());
+                    ((Set) field(tracked, "seenBy")).add(mock(ServerGamePacketListenerImpl.class));
+                }
+                case "criterion" -> {
+                    var trigger = net.minecraft.advancements.CriteriaTriggers.INVENTORY_CHANGED;
+                    var holder = net.minecraft.advancements.Advancement.Builder.advancement().addCriterion("inventory", trigger.createCriterion(new net.minecraft.advancements.critereon.InventoryChangeTrigger.TriggerInstance(java.util.Optional.empty(), net.minecraft.advancements.critereon.InventoryChangeTrigger.TriggerInstance.Slots.ANY, List.of()))).build(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("state_test", "inventory"));
+                    trigger.addPlayerListener(this.player.getAdvancements(), new net.minecraft.advancements.critereon.SimpleCriterionTrigger.Listener(holder.value().criteria().get("inventory").triggerInstance(), holder, "inventory"));
+                }
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(capture.plan().revalidate());
+            assertEquals(0, this.player.getStats().getValue(net.minecraft.stats.Stats.ITEM_PICKED_UP.get(net.minecraft.world.item.Items.DIAMOND)));
+        }
+    }
+
+    private net.minecraft.world.level.block.entity.ChestBlockEntity singleChest() {
+        var chest = org.mockito.Mockito.spy(new net.minecraft.world.level.block.entity.ChestBlockEntity(new BlockPos(48, 64, 10), Blocks.CHEST.defaultBlockState()));
+        org.mockito.Mockito.doNothing().when(chest).startOpen(any());
+        chest.setLevel(this.level);
+        chest.setItem(0, new ItemStack(net.minecraft.world.item.Items.DIAMOND, 11));
+        var pos = chest.getBlockPos();
+        when(this.level.getBlockEntity(pos)).thenReturn(chest);
+        doAnswer(call -> {
+            BlockPos at = call.getArgument(0);
+            return at.equals(pos) ? chest.getBlockState() : at.getY() < 64 ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState();
+        }).when(this.level).getBlockState(any());
+        when(this.level.hasChunkAt(pos)).thenReturn(true);
+        when(this.player.canInteractWithBlock(eq(pos), org.mockito.ArgumentMatchers.anyDouble())).thenReturn(true);
+        return chest;
+    }
+
+    private net.minecraft.world.inventory.ChestMenu playerChestMenu(net.minecraft.world.level.block.entity.ChestBlockEntity chest) throws Exception {
+        Inventory inventory = new Inventory(this.player);
+        inventory.selected = 8;
+        when(this.player.getInventory()).thenReturn(inventory);
+        var menu = new net.minecraft.world.inventory.ChestMenu(net.minecraft.world.inventory.MenuType.GENERIC_9x3, 1, inventory, chest, 3);
+        var listener = mock(net.minecraft.world.inventory.ContainerListener.class);
+        var synchronizer = mock(net.minecraft.world.inventory.ContainerSynchronizer.class);
+        menu.addSlotListener(listener);
+        menu.setSynchronizer(synchronizer);
+        field(ServerPlayer.class, this.player, "containerListener", listener);
+        field(ServerPlayer.class, this.player, "containerSynchronizer", synchronizer);
+        this.player.containerMenu = menu;
+        return menu;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void exactSingleChestOriginalValidityAndSlotSynchronizationRunInNativeState(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var chest = singleChest();
+        // Opening callbacks are fixture work; native tick must only run the complete menu's original reads/sync.
+        var menu = playerChestMenu(chest);
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            assertTrue(capture.plan().spatial().footprint().containsBlock(this.level, chest.getBlockPos()));
+            var local = capture.plan().state();
+            Object shared = invoke(local, "sharedResources", new Class<?>[0]);
+            assertTrue(((List<?>) shared).contains(chest));
+            var sync = (net.minecraft.world.inventory.ContainerSynchronizer) field(this.player, "containerSynchronizer");
+            // This server fence establishes a legitimate unsent slot result without mutating the captured chest stack identity.
+            field(net.minecraft.world.inventory.AbstractContainerMenu.class, menu, "remoteSlots", net.minecraft.core.NonNullList.withSize(63, ItemStack.EMPTY));
+            capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            try (var lease = reserve(capture.plan().spatial())) {
+                local = capture.plan().state();
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(local)));
+                var captured = local;
+                worker(() -> {
+                    try (var base = installedBaseEnvironment(); var space = lease.open(); var owner = lease.openPlayerState(captured)) {
+                        assertTrue(menu.stillValid(this.player));
+                        menu.broadcastChanges();
+                        assertEquals(11, menu.getSlot(0).getItem().getCount());
+                        assertEquals(11, chest.getItem(0).getCount());
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+            }
+            org.mockito.Mockito.verify(sync).sendSlotChange(eq(menu), eq(0), org.mockito.ArgumentMatchers.argThat(stack -> stack.is(net.minecraft.world.item.Items.DIAMOND) && stack.getCount() == 11));
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "replaced", "removed", "attachment", "loot", "customStack", "carried", "slot", "range", "synchronizer" })
+    void singleChestLateChangesRejectWholeCallBeforeAnyMenuBody(String change) throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var chest = singleChest();
+        var menu = playerChestMenu(chest);
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            switch (change) {
+                case "replaced" -> when(this.level.getBlockEntity(chest.getBlockPos())).thenReturn(null);
+                case "removed" -> chest.setRemoved();
+                case "attachment" -> when(chest.hasAttachments()).thenReturn(true);
+                case "loot" -> field(net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity.class, chest, "lootTable", net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.LOOT_TABLE, net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("test", "unknown")));
+                case "customStack" -> chest.getItem(0).set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("unknown"));
+                case "carried" -> menu.setCarried(new ItemStack(net.minecraft.world.item.Items.DIAMOND));
+                case "slot" -> menu.slots.set(0, new net.minecraft.world.inventory.Slot(new net.minecraft.world.SimpleContainer(1), 0, 0, 0));
+                case "range" -> when(this.player.canInteractWithBlock(eq(chest.getBlockPos()), org.mockito.ArgumentMatchers.anyDouble())).thenReturn(false);
+                case "synchronizer" -> menu.setSynchronizer(mock(net.minecraft.world.inventory.ContainerSynchronizer.class));
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(capture.plan().revalidate());
+            assertEquals(0, this.player.totalExperience);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void twoPlayersClaimExactSharedChestOnlyInsideTheirOneOrderedLease(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        ServerPlayer first = this.player;
+        var chest = singleChest();
+        var firstMenu = playerChestMenu(chest);
+        ServerPlayer other = mock(ServerPlayer.class, org.mockito.AdditionalAnswers.delegatesTo(first));
+        field(ServerPlayer.class, other, "server", this.server);
+        field(ServerPlayer.class, other, "gameMode", new ServerPlayerGameMode(other));
+        when(other.serverLevel()).thenReturn(this.level);
+        when(other.getCamera()).thenReturn(other);
+        var connection = mock(Connection.class);
+        var listener = mock(ServerGamePacketListenerImpl.class);
+        listener.player = other;
+        other.connection = listener;
+        when(listener.getConnection()).thenReturn(connection);
+        when(listener.isAcceptingMessages()).thenReturn(true);
+        when(connection.getPacketListener()).thenReturn(listener);
+        when(connection.isConnected()).thenReturn(true);
+        this.player = other;
+        this.add(other, 47.5, 12.5, new AABB(47.2, 64, 12.2, 47.8, 65.8, 12.8));
+        when(this.server.getPlayerList().getPlayer(other.getUUID())).thenReturn(other);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        when(other.canInteractWithBlock(eq(chest.getBlockPos()), org.mockito.ArgumentMatchers.anyDouble())).thenReturn(true);
+        var secondMenu = playerChestMenu(chest);
+        try (var installed = installedBaseEnvironment()) {
+            var secondCapture = this.engine.capturePlayerAdmissionPlan(other, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(secondCapture.plan(), secondCapture.detail());
+            this.player = first;
+            var firstCapture = this.engine.capturePlayerAdmissionPlan(first, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(firstCapture.plan(), firstCapture.detail());
+            var a = firstCapture.plan().state();
+            var b = secondCapture.plan().state();
+            assertTrue(a.conflictsWith(b));
+            var entries = List.of((net.neoforged.neoforge.server.threading.region.RegionPlayerConflictPlan.Entry) invoke(a, "conflictEntry", new Class<?>[0]),
+                    (net.neoforged.neoforge.server.threading.region.RegionPlayerConflictPlan.Entry) invoke(b, "conflictEntry", new Class<?>[0]));
+            var prefix = net.neoforged.neoforge.server.threading.region.RegionPlayerConflictPlan.prefix(entries);
+            assertEquals(1, prefix.groups().size());
+            assertEquals(entries, prefix.groups().getFirst().entries());
+            this.parent = this.engine.beginPlayerSerial(first, first.connection.getConnection(), RegionPlayerTickCoordinator.Phase.ENTITY);
+            assertNotNull(this.parent);
+            this.batch = ((Set<?>) field(this.engine, "activeTickBatches")).iterator().next();
+            Class<?> effectsType = Class.forName(PKG + "RegionOwnershipLeaseGroup");
+            Object effects = Proxy.newProxyInstance(effectsType.getClassLoader(), new Class<?>[] { effectsType }, (proxy, m, args) -> m.getReturnType() == boolean.class ? true : null);
+            try (var lease = (RegionPlayerSpatialLease) invoke(this.engine, "reservePlayerSpatial", new Class<?>[] { Class.forName(PKG + "RegionTickBatch"), effectsType, List.class },
+                    this.batch, effects, List.of(firstCapture.plan().spatial(), secondCapture.plan().spatial()))) {
+                assertNotNull(lease);
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(a, b)));
+                var order = new ArrayList<ServerPlayer>();
+                worker(() -> {
+                    try (var base = installedBaseEnvironment(); var space = lease.open()) {
+                        try (var state = lease.openPlayerState(a)) {
+                            assertTrue(firstMenu.stillValid(first));
+                            firstMenu.broadcastChanges();
+                            order.add(first);
+                        }
+                        try (var state = lease.openPlayerState(b)) {
+                            assertTrue(secondMenu.stillValid(other));
+                            secondMenu.broadcastChanges();
+                            order.add(other);
+                        }
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+                assertEquals(List.of(first, other), order);
+                assertEquals(11, chest.getItem(0).getCount());
+            }
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+        }
+    }
+
+    private net.minecraft.server.ServerScoreboard playerScoreboard() throws Exception {
+        var board = new net.minecraft.server.ServerScoreboard(this.server);
+        invoke(board, "createData", new Class<?>[0]);
+        when(this.player.getScoreboard()).thenReturn(board);
+        return board;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void originalNonDisplayedScoreAndOriginalSaveDirtyCallbackAreSynchronousInNativeState(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var board = playerScoreboard();
+        var criterion = net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.PLAY_TIME);
+        var objective = board.addObjective("original_time", criterion, net.minecraft.network.chat.Component.literal("Time"), net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER, false, null);
+        var data = (net.minecraft.world.scores.ScoreboardSaveData) field(board, "forgiaPlayerSaveData");
+        data.setDirty(false);
+        field(ServerPlayer.class, this.player, "stats", this.player.getStats());
+        doCallRealMethod().when(this.player).awardStat(any(net.minecraft.stats.Stat.class), anyInt());
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            assertTrue(((List<?>) invoke(capture.plan().state(), "sharedResources", new Class<?>[0])).contains(board));
+            try (var lease = reserve(capture.plan().spatial())) {
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(capture.plan().state())));
+                worker(() -> {
+                    try (var base = installedBaseEnvironment(); var space = lease.open(); var state = lease.openPlayerState(capture.plan().state())) {
+                        this.player.awardStat(criterion, 1);
+                        assertEquals(1, board.getOrCreatePlayerScore(this.player, objective, true).get());
+                        assertTrue(data.isDirty(), "Original exact saved-data callback runs before the award returns");
+                        assertThrows(IllegalStateException.class, () -> board.getOrCreatePlayerScore(mock(ServerPlayer.class), objective, true));
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+            }
+            assertEquals(1, this.player.getStats().getValue(criterion));
+            assertEquals(1, board.getOrCreatePlayerScore(this.player, objective, true).get());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "tracked", "dirtyListener", "autoDisplay", "objectiveRemoved", "boardReplaced" })
+    void nonDisplayedObjectiveLateChangesRefuseBeforeOriginalScoreWrite(String change) throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var board = playerScoreboard();
+        var objective = board.addObjective("original_time", net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.PLAY_TIME), net.minecraft.network.chat.Component.literal("Time"), net.minecraft.world.scores.criteria.ObjectiveCriteria.RenderType.INTEGER, false, null);
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            switch (change) {
+                case "tracked" -> board.startTrackingObjective(objective);
+                case "dirtyListener" -> board.addDirtyListener(() -> {
+                    throw new AssertionError("Unknown callback must not execute during validation");
+                });
+                case "autoDisplay" -> objective.setDisplayAutoUpdate(true);
+                case "objectiveRemoved" -> board.removeObjective(objective);
+                case "boardReplaced" -> when(this.player.getScoreboard()).thenReturn(new net.minecraft.world.scores.Scoreboard());
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(capture.plan().revalidate());
+            assertEquals(0, this.player.totalExperience);
+        }
+    }
+
+    private net.minecraft.world.level.saveddata.maps.MapItemSavedData backpackMap() throws Exception {
+        var id = new net.minecraft.world.level.saveddata.maps.MapId(0);
+        var data = net.minecraft.world.level.saveddata.maps.MapItemSavedData.createFresh(47.5, 8.5, (byte) 0, true, false, Level.OVERWORLD);
+        var inventory = new Inventory(this.player);
+        inventory.selected = 8;
+        var stack = new ItemStack(net.minecraft.world.item.Items.FILLED_MAP);
+        stack.set(net.minecraft.core.component.DataComponents.MAP_ID, id);
+        inventory.setItem(9, stack);
+        when(this.player.getInventory()).thenReturn(inventory);
+        when(this.player.getName()).thenReturn(net.minecraft.network.chat.Component.literal("OriginalMapOwner"));
+        when(this.server.overworld()).thenReturn(this.level);
+        var storage = mock(net.minecraft.world.level.storage.DimensionDataStorage.class);
+        when(this.level.getDataStorage()).thenReturn(storage);
+        when(storage.get(any(), eq(id.key()))).thenReturn(data);
+        when(this.level.getMapData(any())).thenCallRealMethod();
+        return data;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void originalBackpackMapTickAndUpdatePacketUseRealCapturedDataOnNativeWorker(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var map = backpackMap();
+        byte[] colors = map.colors.clone();
+        var id = new net.minecraft.world.level.saveddata.maps.MapId(0);
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            assertTrue(((List<?>) invoke(capture.plan().state(), "sharedResources", new Class<?>[0])).contains(map));
+            try (var lease = reserve(capture.plan().spatial())) {
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(capture.plan().state())));
+                worker(() -> {
+                    try (var base = installedBaseEnvironment(); var space = lease.open(); var state = lease.openPlayerState(capture.plan().state())) {
+                        assertSame(map, this.level.getMapData(id));
+                        this.player.getInventory().tick();
+                        assertNotNull(((net.minecraft.world.item.MapItem) net.minecraft.world.item.Items.FILLED_MAP).getUpdatePacket(this.player.getInventory().getItem(9), this.level, this.player));
+                        assertTrue(map.forgiaHasLocalPlayerCarrier(this.player));
+                        org.junit.jupiter.api.Assertions.assertArrayEquals(colors, map.colors, "Non-selected original map branch has no terrain update");
+                        assertThrows(IllegalStateException.class, () -> this.level.getMapData(new net.minecraft.world.level.saveddata.maps.MapId(99)));
+                        assertThrows(IllegalStateException.class, () -> map.tickCarriedBy(mock(ServerPlayer.class), this.player.getInventory().getItem(9)));
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "foreignCarrier", "colors", "binding", "selected", "custom", "secondMap", "missing", "mapId" })
+    void realMapLateChangesRejectWholeCallBeforeOriginalInventoryTick(String change) throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var map = backpackMap();
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.detail());
+            switch (change) {
+                case "mapId" -> this.player.getInventory().getItem(9).set(net.minecraft.core.component.DataComponents.MAP_ID, new net.minecraft.world.level.saveddata.maps.MapId(1));
+                case "foreignCarrier" -> map.getHoldingPlayer(mock(ServerPlayer.class));
+                case "colors" -> map.colors = new byte[16384];
+                case "binding" -> when(this.level.getDataStorage().get(any(), eq(new net.minecraft.world.level.saveddata.maps.MapId(0).key()))).thenReturn(net.minecraft.world.level.saveddata.maps.MapItemSavedData.createFresh(47.5, 8.5, (byte) 0, true, false, Level.OVERWORLD));
+                case "selected" -> this.player.getInventory().selected = 9;
+                case "custom" -> this.player.getInventory().getItem(9).set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, net.minecraft.network.chat.Component.literal("unknown"));
+                case "secondMap" -> this.player.getInventory().setItem(10, this.player.getInventory().getItem(9).copy());
+                case "missing" -> when(this.level.getDataStorage().get(any(), eq(new net.minecraft.world.level.saveddata.maps.MapId(0).key()))).thenReturn(null);
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(capture.plan().revalidate());
+            assertEquals(0, this.player.totalExperience);
+        }
+    }
+
+    private net.minecraft.world.damagesource.DamageSource starvationState() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        when(this.server.getPlayerList().getPlayers()).thenReturn(List.of(this.player));
+        when(this.player.gameMode.getGameModeForPlayer()).thenReturn(net.minecraft.world.level.GameType.SURVIVAL);
+        field(net.minecraft.world.entity.LivingEntity.class, this.player, "damageContainers", new java.util.Stack<>());
+        var type = new net.minecraft.world.damagesource.DamageType("starve", net.minecraft.world.damagesource.DamageScaling.WHEN_CAUSED_BY_LIVING_NON_PLAYER, 0);
+        net.minecraft.core.Holder<net.minecraft.world.damagesource.DamageType> holder = mock(net.minecraft.core.Holder.class);
+        when(holder.value()).thenReturn(type);
+        when(holder.is(net.minecraft.world.damagesource.DamageTypes.STARVE)).thenReturn(true);
+        for (var tag : List.of(net.minecraft.tags.DamageTypeTags.BYPASSES_ARMOR, net.minecraft.tags.DamageTypeTags.BYPASSES_EFFECTS, net.minecraft.tags.DamageTypeTags.NO_KNOCKBACK)) when(holder.is(tag)).thenReturn(true);
+        var source = new net.minecraft.world.damagesource.DamageSource(holder);
+        var sources = mock(net.minecraft.world.damagesource.DamageSources.class);
+        when(sources.starve()).thenReturn(source);
+        when(this.player.damageSources()).thenReturn(sources);
+        xpWatcherMap(this.player);
+        when(this.level.getChunkSource().chunkMap.forgiaHasNoEntityWatchers(any())).thenCallRealMethod();
+        var tag = new CompoundTag();
+        tag.putInt("foodLevel", 0);
+        tag.putInt("foodTickTimer", 79);
+        tag.putFloat("foodSaturationLevel", 0);
+        tag.putFloat("foodExhaustionLevel", 0);
+        this.player.getFoodData().readAdditionalSaveData(tag);
+        this.engine.addRegionSection(this.level, 0, -3);
+        this.engine.addRegionSection(this.level, 3, -3);
+        for (int x = -3; x < 6; x++) for (int z = -3; z < 3; z++) {
+            var chunk = this.level.getChunkSource().getChunkNow(x, z);
+            var registries = new HashMap<Integer, net.minecraft.world.level.gameevent.EuclideanGameEventListenerRegistry>();
+            when(chunk.getListenerRegistry(anyInt())).thenAnswer(call -> registries.computeIfAbsent(call.getArgument(0), y -> new net.minecraft.world.level.gameevent.EuclideanGameEventListenerRegistry(this.level, y, ignored -> {})));
+        }
+        return source;
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = { false, true })
+    void originalFoodTimerUsesOneCapturedSynchronousDamageAndFullEventLease(boolean persistent) throws Exception {
+        if (persistent) initialize(true);
+        var source = starvationState();
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.refusal() + ":" + capture.detail());
+            var footprint = capture.plan().spatial().footprint();
+            assertTrue(footprint.containsRegion(this.level, 0, -1));
+            assertTrue(footprint.containsRegion(this.level, 1, -1));
+            assertEquals(this.player.getBoundingBox().inflate(1, .5, 1), footprint.queryBounds(), "Effect lease must never replace the original pickup query");
+            var damages = new java.util.concurrent.atomic.AtomicInteger();
+            doAnswer(call -> {
+                RegionPlayerStateScope.checkDamage(this.player, call.getArgument(0), call.getArgument(1));
+                damages.incrementAndGet();
+                return true;
+            }).when(this.player).hurt(eq(source), eq(1f));
+            try (var lease = reserve(capture.plan().spatial())) {
+                assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(capture.plan().state())));
+                worker(() -> {
+                    try (var base = installedBaseEnvironment(); var space = lease.open(); var state = lease.openPlayerState(capture.plan().state())) {
+                        this.player.getFoodData().tick(this.player);
+                        assertEquals(1, damages.get());
+                        assertThrows(IllegalStateException.class, () -> RegionPlayerStateScope.checkDamage(this.player, source, 1));
+                        assertThrows(IllegalStateException.class, () -> RegionPlayerStateScope.checkDamage(mock(ServerPlayer.class), source, 1));
+                    } catch (Exception error) {
+                        throw new IllegalStateException(error);
+                    }
+                });
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "foreignPlayer", "watcher", "lowHealth", "absorption", "invulnerable", "spawnProtection", "climbable", "food", "saturation", "timer", "damageSource", "listener", "pendingRegistry", "registryIdentity" })
+    void starvationLateChangesRefuseBeforeOriginalDamageAndUnknownCallbacks(String change) throws Exception {
+        var source = starvationState();
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
+            assertNotNull(capture.plan(), capture.refusal() + ":" + capture.detail());
+            switch (change) {
+                case "foreignPlayer" -> when(this.server.getPlayerList().getPlayers()).thenReturn(List.of(this.player, mock(ServerPlayer.class)));
+                case "watcher" -> {
+                    Object tracked = ((it.unimi.dsi.fastutil.ints.Int2ObjectMap<?>) field(this.level.getChunkSource().chunkMap, "entityMap")).get(this.player.getId());
+                    ((Set) field(tracked, "seenBy")).add(mock(ServerGamePacketListenerImpl.class));
+                }
+                case "lowHealth" -> when(this.player.getHealth()).thenReturn(19f);
+                case "absorption" -> when(this.player.getAbsorptionAmount()).thenReturn(1f);
+                case "invulnerable" -> when(this.player.isInvulnerable()).thenReturn(true);
+                case "spawnProtection" -> field(ServerPlayer.class, this.player, "spawnInvulnerableTime", 1);
+                case "climbable" -> when(this.player.getLastClimbablePos()).thenReturn(java.util.Optional.of(new BlockPos(200, 64, 0)));
+                case "food" -> this.player.getFoodData().setFoodLevel(1);
+                case "saturation" -> this.player.getFoodData().setSaturation(1);
+                case "timer" -> field(net.minecraft.world.food.FoodData.class, this.player.getFoodData(), "tickTimer", 80);
+                case "damageSource" -> when(this.player.damageSources().starve()).thenReturn(new net.minecraft.world.damagesource.DamageSource(net.minecraft.core.Holder.direct(new net.minecraft.world.damagesource.DamageType("unknown", 0))));
+                case "listener" -> {
+                    var chunk = this.level.getChunkSource().getChunkNow(2, -1);
+                    Object registry = chunk.getListenerRegistry(3);
+                    ((List) field(registry, "listeners")).add(mock(net.minecraft.world.level.gameevent.GameEventListener.class));
+                }
+                case "pendingRegistry" -> {
+                    Object registry = this.level.getChunkSource().getChunkNow(2, -1).getListenerRegistry(3);
+                    ((List) field(registry, "listenersToAdd")).add(mock(net.minecraft.world.level.gameevent.GameEventListener.class));
+                }
+                case "registryIdentity" -> when(this.level.getChunkSource().getChunkNow(2, -1).getListenerRegistry(3)).thenReturn(new net.minecraft.world.level.gameevent.EuclideanGameEventListenerRegistry(this.level, 3, ignored -> {}));
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(capture.plan().revalidate());
+            org.mockito.Mockito.verify(this.player, org.mockito.Mockito.never()).hurt(any(), org.mockito.ArgumentMatchers.anyFloat());
+        }
     }
 }

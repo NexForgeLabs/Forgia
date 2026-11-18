@@ -138,6 +138,13 @@ class RegionPlayerExtensionSnapshotTest {
         assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
         bus.unregister(unknown);
         assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
+        Consumer<net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent> unknownLeave = event -> {
+            throw new AssertionError("inspection must not invoke removal callbacks");
+        };
+        bus.addListener(net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent.class, unknownLeave);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
+        bus.unregister(unknownLeave);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
         bus.unregister(builtIn);
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> bus.register(new net.neoforged.neoforge.common.NeoForgeEventHandler() {}));

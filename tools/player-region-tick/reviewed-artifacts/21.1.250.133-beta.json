@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "id": "forgia-21.1.250.133-beta-schema3-4",
+  "version": "21.1.250.133-beta",
+  "contract": "unknown-extension-whole-call-serial",
+  "installerSha256": "666483356e207f0161ac62dcb5c01b3449cee8e9344f19c872720ca7b67a9b95",
+  "installedJars": {
+    "server": "58983f1b4d57c99ec5b900cab82e9b8e5722cf27bcdfd2fdbd51b0d7713a7bf6",
+    "universal": "c242cb38b570cdaf4eaea6fde34d361afb73869df093b7ab8954c8898ddad940"
+  },
+  "oracleSha256": "2501b46eca78d1912cb30d4892f06bed46797c75f4b90d4e07d9eb8b5bca71fe",
+  "review": {
+    "kind": "parent-agent-source-and-artifact-review",
+    "date": "2026-11-18",
+    "reviewer": "parent Codex agent; no human or independent approval claimed",
+    "evidence": [
+      "tmp/player-region-tick-p3-07/build-damage-01/result.json",
+      "tmp/player-region-tick-p3-07/build-damage-03/junit-summary.json",
+      "tmp/player-region-tick-p3-04/receipt.json",
+      "tmp/player-region-tick-p3-05/receipt.json",
+      "tmp/player-region-tick-p3-06/receipt.json"
+    ],
+    "findings": [
+      "Bounded original XP/items/shared single chest/untracked scoreboard/non-selected map protocols reviewed; full bodies and synchronous original effects retained",
+      "Single nonfatal starvation damage candidate uses complete effect-radius lease, no foreign player/observer, empty exact game-event registry, original callbacks; final installed damage proof still pending at this review",
+      "Default false and unknown installed extensions refused before network freeze; no oracle/test Mod exemption",
+      "Original .115 hash gates and all older manifests preserved; oracle compatibility requires UNKNOWN_MOD worker0",
+      "246 focused JUnit passed; final full regression and same-product native/P2/schema3/4/GameTest acceptance separately required"
+    ],
+    "sources": {
+      "patches/net/minecraft/server/level/ChunkMap.java.patch": "5896266c68434664131c87bf77804e70358c91bfab0d85ea464233a082f80c44",
+      "patches/net/minecraft/server/level/ServerLevel.java.patch": "fd4fa10df8780d7d0a8de38d1fe97733e160de9a6f74d9e4f13293f5103ceb97",
+      "patches/net/minecraft/server/level/ServerPlayer.java.patch": "1a501ebaf3d1527ae82c7e8a811045b219c48badd1c0992dee8552aab3468ec3",
+      "patches/net/minecraft/world/entity/player/Inventory.java.patch": "23908327f30af50529db7954f87c0d0c807b75ef82b9ca4123841f14d4c12069",
+      "patches/net/minecraft/world/inventory/AbstractContainerMenu.java.patch": "456efa367869751a20a15b73bf9cea8767230d3e1caf6953ca5907cb5e8d7c97",
+      "patches/net/minecraft/world/level/block/entity/ChestBlockEntity.java.patch": "1cf78f535290d316799f5b7fb29d4ab59776be1b0a36c7a6aa43d7fd4678f2d9",
+      "patches/net/minecraft/world/scores/Scoreboard.java.patch": "e13acfbc0751b564779d264dedc1d8448b57a0b01df40dbe119b86731987e241",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerAdmissionPlan.java": "8b47d2c596e2e4069aab7a2eac6d23826d7f46f47bcc196258574342b2ac24df",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerConflictPlan.java": "921535e7f7ed839f75a6e6b730a23f4f5ce4972f8fe22b307f781b5d2a88f333",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerExtensionSnapshot.java": "62feb1abc55eb54952b7d88ee4f629da6f822401e351ad5e30599bdc872c7c97",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerFootprint.java": "005a1566b629e36eaa6291b9aaa7f1d484b127beb0c987a8dea312873d0895c8",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSpatialPlan.java": "5c532318d9d389be61d161e6a03c485a234442e6ff72418bfca754805dda0f6c",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStatePlan.java": "4a75f4d78ec7581d0b126445de008d6343332a8a125b5d451f50474b9d2b35ef",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerStateScope.java": "4d6dbb3f948511999b4392952c9b019f1f4efeab6bbe1b7b40314560249cf2c3",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerTickDispatch.java": "8eafab4ed70b0b195d5f568129b18a34e04fc7d4dd1364978812714b8681c966",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java": "ed4a9680f37d4215a112c3e44cee00f3ab813bb92c4db573958ed3d7eea118bd",
+      "patches/net/minecraft/server/ServerScoreboard.java.patch": "b4ac1e2a2b0923fc07c31800827d0ff5552a1c13cc7c4196b7c4207e7455c954",
+      "patches/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java.patch": "81933abac18e043d8f543f925cf96e17a7ccdb7261464f3b3c7b7b16e91a70d5",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerContainerPlan.java": "20d74851f55e0875442a42eafcb76ad12acac845b657389d914ccd26e9d1890a",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerDamagePlan.java": "22473b857297c548fd0ba8995b9b2e25e82ff1218e046ca3cc7447b2f93f17fd",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerInventoryPlan.java": "959979f450e18ed30d37602387778703dff3cbbcad5c317e2d4ef4cde90dddee",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerMapPlan.java": "466fda61a92b40ec3639c1f25b5e73833d6cec5ce7b6b9fdf46017f1bfe4e70c",
+      "src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerScoreboardPlan.java": "61c92f52e840020d55c3cfe43252bc2067db963a5e5458c3d211a43943e71685"
+    }
+  }
+}

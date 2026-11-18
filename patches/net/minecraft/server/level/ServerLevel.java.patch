@@ -569,10 +569,12 @@
      }
  
      private boolean doBlockEvent(BlockEventData p_8699_) {
-@@ -1309,16 +_,29 @@
+@@ -1309,16 +_,31 @@
      @Nullable
      @Override
      public MapItemSavedData getMapData(MapId p_323746_) {
++        if (net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding())
++            return net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.mapData(this, p_323746_);
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
 +            return net.neoforged.neoforge.server.threading.RegionThreadingHooks.runMapStorageOperation(this, () -> this.getMapData(p_323746_));
 +        }

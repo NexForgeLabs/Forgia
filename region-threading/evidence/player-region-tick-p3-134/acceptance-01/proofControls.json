@@ -1,0 +1,326 @@
+[
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-interactions-on-fixed/result.json",
+      "sha256": "f7ecbdde671d9bf0a72b2c4e2cf168b7108dca192ec05688351e524b2b2278ca",
+      "bytes": 551
+    },
+    "negativeControls": 10
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-interactions-on-fixed/result.json",
+      "sha256": "0a6a937cd908b918ddce2ace2902056b8142106bd45b8792d6f4af61944f8d5f",
+      "bytes": 451
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-resources-on-fixed/result.json",
+      "sha256": "a97a54033ac039983a717cfd624f7e4c834b1a0f7f21900863bcfdcf4f160650",
+      "bytes": 546
+    },
+    "negativeControls": 15
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-resources-on-fixed/result.json",
+      "sha256": "f6d0f1548023b9f0c143146157272b0a15fdecbddd156356f2217d8b481e349d",
+      "bytes": 447
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-interactions-on-persistent/result.json",
+      "sha256": "4c19428e66bd1ebbbc3700ea18fe48abaa7541148a970d46a503e0f842dcfb19",
+      "bytes": 558
+    },
+    "negativeControls": 10
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-interactions-on-persistent/result.json",
+      "sha256": "48c891dcb78d3673633ff78e73b5a06db844ff90c577c8d2da4ab7ac2a5d8f69",
+      "bytes": 456
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-resources-on-persistent/result.json",
+      "sha256": "bf7e7e9a11ddf6d7e7188818f6cafff1610c2bfb83d0cfa8b0dcd316926162c4",
+      "bytes": 552
+    },
+    "negativeControls": 15
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-resources-on-persistent/result.json",
+      "sha256": "27c36f469baaa6f8947afe7ba24c7a83e38a93853bd09396013b8b32db3d5f85",
+      "bytes": 453
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-interactions-off-fixed/result.json",
+      "sha256": "4cce923bc560f185a91c12a3cbf27ef50ec95da4cc52d5339c85bd49bfe4fb1d",
+      "bytes": 554
+    },
+    "negativeControls": 10
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-interactions-off-fixed/result.json",
+      "sha256": "0956d61968b3d102f8fc9d5ee6385acbdd441e23cd06c8e7a9efe4748f6bce3a",
+      "bytes": 452
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-resources-off-fixed/result.json",
+      "sha256": "d428b0f61525a44c4374f8f3c443cd65faef9f6f3d23b02aa5ae3f62fa0c79b2",
+      "bytes": 547
+    },
+    "negativeControls": 15
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-resources-off-fixed/result.json",
+      "sha256": "47944474fbd81b8991b3631d1c43cc4cbae480c6fcf3a30a8fd3307cce910e63",
+      "bytes": 449
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-interactions-off-persistent/result.json",
+      "sha256": "71294a0a77595726b0427265a8b7379fb5363e41f564610e5c61662d6b55cb85",
+      "bytes": 558
+    },
+    "negativeControls": 10
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-interactions-off-persistent/result.json",
+      "sha256": "9c981b3f6331cc9f10d124414d8a1d99ab438043f68724eb0bbe380aa35bb9a1",
+      "bytes": 457
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/controls-resources-off-persistent/result.json",
+      "sha256": "ec1d415052f5fe38986425448425d2de336bcc57d14298a0c90542b72cc8baf7",
+      "bytes": 553
+    },
+    "negativeControls": 15
+  },
+  {
+    "category": "p2-functional",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/functional/phase-controls-resources-off-persistent/result.json",
+      "sha256": "657f4bb7399a45f2643f5e4aa4378a62fb22732d380dbd823caa1def7b62ea94",
+      "bytes": 454
+    },
+    "negativeControls": 5
+  },
+  {
+    "category": "p2-same-group",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/same-group/controls-on-fixed-entity/result.json",
+      "sha256": "f5283abe1a0b578be04192259a0367f6954d999cf0726cf073270dedc7df6224",
+      "bytes": 659
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-same-group",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/same-group/controls-on-fixed-connection/result.json",
+      "sha256": "3404a968cfa38d0e3d0e01e10767253e8e8a39650ba4ab4d4860e1b659b4c0a3",
+      "bytes": 663
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-same-group",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/same-group/controls-on-persistent-entity/result.json",
+      "sha256": "cb271b57f7fe734af954836425a63d36b6c00e59df9bb891a020c84c1e0c4a8f",
+      "bytes": 664
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-same-group",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/same-group/controls-on-persistent-connection/result.json",
+      "sha256": "8eb586fbbb9bba01d65ec77b0c69b1a2240cee1786488bd1afbf2f6071820f2e",
+      "bytes": 668
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-fault",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/fault/controls-on-fixed-entity/result.json",
+      "sha256": "a8036b1a5841da92ec806e1d2be603784f3b77570fb89d4141d1d35ee06305f9",
+      "bytes": 655
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-fault",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/fault/controls-on-fixed-connection/result.json",
+      "sha256": "4d2e955756e99ac587f096fdc630fc88396929b3c334e76882a5fe0786de3765",
+      "bytes": 658
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-fault",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/fault/controls-on-persistent-entity/result.json",
+      "sha256": "43bd5e7947f2ab992693982f98b05a8fee8162f16b0bbc0682b9187290357a2e",
+      "bytes": 660
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p2-fault",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/fault/controls-on-persistent-connection/result.json",
+      "sha256": "4fbe3940956742beab175e37b6d627adcafee5955182f9f4a95a6e742c2d06f9",
+      "bytes": 663
+    },
+    "negativeControls": 8
+  },
+  {
+    "category": "p3-xp",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/controls-xp-on-fixed/result.json",
+      "sha256": "bacd72e4323fa3ffeb65eda5ea073aba3d68b3467d2e82f3a8bb7c47aeee88ae",
+      "bytes": 564
+    },
+    "negativeControls": 17
+  },
+  {
+    "category": "p3-item",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/controls-item-on-fixed/result.json",
+      "sha256": "5ab9b80c0d916f614c3e2d23d4bb13b5a55fc5b4a5257696e662f12ee17047b1",
+      "bytes": 560
+    },
+    "negativeControls": 16
+  },
+  {
+    "category": "p3-chest",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/controls-chest-on-fixed/result.json",
+      "sha256": "ba106d8a5ac0a7b0b36295eabe2362359808d51f2388011c77d64abdce326a37",
+      "bytes": 562
+    },
+    "negativeControls": 11
+  },
+  {
+    "category": "p3-score",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/controls-score-on-fixed/result.json",
+      "sha256": "9aba935d7ee4fe76c5ac615e2e4b37f15cc59890df573cab4490531b946a6511",
+      "bytes": 560
+    },
+    "negativeControls": 9
+  },
+  {
+    "category": "p3-map",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/controls-map-on-fixed/result.json",
+      "sha256": "396f654fe88ae109e433cd8cd2d0a2bbbb8ca31b5cf50b5fc47fc93112a36feb",
+      "bytes": 560
+    },
+    "negativeControls": 10
+  },
+  {
+    "category": "p3-damage",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/controls-damage-on-fixed/result.json",
+      "sha256": "9a81c3da98ee0040f7d1549f0fa8b64fcf10440a3d507984987ac63fcb471278",
+      "bytes": 566
+    },
+    "negativeControls": 11
+  },
+  {
+    "category": "p2-network-overflow",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/supplemental-network-overflow/result.json",
+      "sha256": "7ac788dfda3818d75f0cbbcf315ed13e0671ccae7ba1bd9cfa7e4f371ee1828c",
+      "bytes": 559
+    },
+    "negativeControls": 7
+  },
+  {
+    "category": "p2-socket",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/supplemental-socket/result.json",
+      "sha256": "a653a04e0f5a925dbe732df97eaa115590e6a580e4945e8bfabe7c20d3dd5cce",
+      "bytes": 636
+    },
+    "negativeControls": 6
+  },
+  {
+    "category": "p2-transition",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/supplemental-transition/result.json",
+      "sha256": "40c3234271b9c81552f6913769abf5aa773260cb16ce724ef3e33f8d17682fa5",
+      "bytes": 543
+    },
+    "negativeControls": 6
+  },
+  {
+    "category": "p2-timer",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/supplemental-timer/result.json",
+      "sha256": "dd0cb1a138f7ebff8b17082a450018d321ac70043840ea05331bc0c8fe7f22af",
+      "bytes": 536
+    },
+    "negativeControls": 3
+  },
+  {
+    "category": "p2-lifecycle",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/supplemental-lifecycle/result.json",
+      "sha256": "a4281311b43e0484065c15bdef6ebac57b2295bb48a9cd7ef839cf44a7e0e60a",
+      "bytes": 528
+    },
+    "negativeControls": 13
+  },
+  {
+    "category": "p2-phase",
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/supplemental-phase/result.json",
+      "sha256": "898f14fb8989e7791664ec391b49a314ae3dc16e6a4c34852d8e04216ee4874f",
+      "bytes": 543
+    },
+    "negativeControls": 8
+  }
+]

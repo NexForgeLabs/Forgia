@@ -1,0 +1,32 @@
+--- a/net/minecraft/server/ServerScoreboard.java
++++ b/net/minecraft/server/ServerScoreboard.java
+@@ -173,1 +_,21 @@
++    @Nullable
++    private ScoreboardSaveData forgiaPlayerSaveData;
++    @Nullable
++    private Runnable forgiaPlayerDirtyListener;
++
++    /** Only the exact callback installed by original createData is admitted; never an unknown Runnable. */
++    public boolean forgiaSupportsPlayerObjectives(java.util.Collection<Objective> objectives) {
++        return this.getClass() == ServerScoreboard.class && this.forgiaPlayerSaveData != null
++            && this.dirtyListeners.size() == 1 && this.dirtyListeners.getFirst() == this.forgiaPlayerDirtyListener
++            && objectives.stream().allMatch(objective -> objective.getClass() == Objective.class
++                && objective.getScoreboard() == this && !objective.displayAutoUpdate() && !this.trackedObjectives.contains(objective));
++    }
++
++    public java.util.List<Object> forgiaPlayerSharedObjects() {
++        java.util.List<Object> objects = this.forgiaPlayerScoreboardObjects();
++        objects.add(this.trackedObjectives);objects.add(this.dirtyListeners);
++        if (this.forgiaPlayerSaveData != null) objects.add(this.forgiaPlayerSaveData);
++        return objects;
++    }
++
+     public void addDirtyListener(Runnable p_136208_) {
+@@ -262,2 +_,6 @@
+         ScoreboardSaveData scoreboardsavedata = new ScoreboardSaveData(this);
+-        this.addDirtyListener(scoreboardsavedata::setDirty);
++        Runnable listener = scoreboardsavedata::setDirty;
++        this.addDirtyListener(listener);
++        // Keep the exact original registration and save-data identity; callback timing is unchanged.
++        this.forgiaPlayerSaveData = scoreboardsavedata;
++        this.forgiaPlayerDirtyListener = listener;

@@ -1,0 +1,1744 @@
+{
+  "schema": 1,
+  "status": "P3_complete_design_section_7_bounded_category_protocols",
+  "generatedAt": "2026-11-17T18:35:10.368595+00:00",
+  "version": "21.1.250.134-beta",
+  "p3Status": "complete_bounded_protocols",
+  "p4Status": "not_started",
+  "p5Status": "not_started",
+  "installer": {
+    "path": "tmp/player-region-tick-p3-final02/artifacts/neoforge-21.1.250.134-beta-installer.jar",
+    "sha256": "87680bb6ee3ff05b059a2bf4ac5aae6442387565801877a0cf577b2af513a670",
+    "bytes": 11493875
+  },
+  "manifest": {
+    "path": "tools/player-region-tick/reviewed-artifacts/21.1.250.134-beta.json",
+    "sha256": "7b7a091e349fbe7b4509bb81a71047cb627f3eba6a34d6f67cb0ec6e562fb721",
+    "bytes": 5542
+  },
+  "evidenceMap": {
+    "path": "tmp/player-region-tick-p3-final02/accepted-evidence.json",
+    "sha256": "806422510a3d7d1724d16fc2c61e85f3e73fda1bc65475ed7cee6fdc385e9f16",
+    "bytes": 5796
+  },
+  "junit": {
+    "tests": 557,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "selectedGameTestsPassed": 3,
+  "persistedPatchProof": {
+    "path": "tmp/player-region-tick-p3-final02/patch-proof-01.json",
+    "sha256": "4153d9b3a19dbe3bc05bf7bfcdde10a216541d078c8971f787ff7a7f4381e287",
+    "bytes": 3718
+  },
+  "schema3Scenarios": 144,
+  "schema4Scenarios": 180,
+  "proofNegativeControls": 321,
+  "independentVerdicts": [
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-off-persistent/interaction-run/independent-verdict.json",
+      "sha256": "fadf2335f91582c46e8fe46fad5dcb55d29c9cac7b02ffb30398980b5763d78b",
+      "bytes": 13578
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-off-persistent/phase-order.json",
+      "sha256": "efe03ae4c1e5ba78fc2576490689c4f1fee911a7c541eb8deab52b3a66e0d7fa",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-on-fixed/resource-run/independent-verdict.json",
+      "sha256": "1fdc48baaf5825d8633da91bb6212ce8b046de7898dd589f729631bb2633c099",
+      "bytes": 32092
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-on-fixed/phase-order.json",
+      "sha256": "59f2cb5fff4649c1dcf1e0fc262c750019d49444a8e81e678a35144834ff1688",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-on-fixed/interaction-run/independent-verdict.json",
+      "sha256": "4075dbccb4d899d7b6b52a69a89d28a164f5875a3bb6e8ed05ff636dec4de657",
+      "bytes": 13630
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-on-fixed/phase-order.json",
+      "sha256": "61e3835de6e573dae713270e6212d17933c0fbaf4bb682db47d41d60629e6379",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-off-fixed/resource-run/independent-verdict.json",
+      "sha256": "8b9582d699cca7401c2d38fe2907880f1e145b666e690146756ec9384fe8219b",
+      "bytes": 32025
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-off-fixed/phase-order.json",
+      "sha256": "cf89f3e1a84b3dafe01305dc9ede6a146c49e1175f822c5cdd401bdba7e671a6",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-off-persistent/resource-run/independent-verdict.json",
+      "sha256": "62ada581a168c2021407e3006fc764376a6f93b0a8535e59f97f649f7b05304b",
+      "bytes": 33166
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-off-persistent/phase-order.json",
+      "sha256": "410c07e1e4f6ed8467f890f1c7167832f063b7ff7334fff1a6712ea2c3786f20",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-on-persistent/resource-run/independent-verdict.json",
+      "sha256": "77aae418b589542d373682a3f9d1e58a5635a32d35288c1cd767f8df31e0f084",
+      "bytes": 32101
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-resources-on-persistent/phase-order.json",
+      "sha256": "58213b783909d4591a771e3ce5fcbbf8ed8b1f9c6981379b4591bb23a3a9f7fd",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-off-fixed/interaction-run/independent-verdict.json",
+      "sha256": "96111f624ab5a2dd99e5cc7bcc8fa2b7efbb2dc0383ceef176f30ebc5a594999",
+      "bytes": 13565
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-off-fixed/phase-order.json",
+      "sha256": "81b32b6a5ab929d8f9ab25488f8a7d52f9637af7c6548028220ce9d7bf5c40b4",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-on-persistent/interaction-run/independent-verdict.json",
+      "sha256": "e1d453306fe97cecb0d0df3a958d6d14c7241a0fdf6644ca3f7f4572aee16bf7",
+      "bytes": 13642
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/functional/server-interactions-on-persistent/phase-order.json",
+      "sha256": "bbdf9c6aca02d126af2e6b92654ab71f451cdd72f16c1a80ba979d3ba6c94337",
+      "bytes": 289
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/smoke/server-off-fixed/worker-smoke/independent-verdict.json",
+      "sha256": "2c2181db0c16f16fdcd4b3138ef9c203603e94dc215da9fcafc9cd12c66fccfe",
+      "bytes": 2351
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/smoke/server-on-persistent/worker-smoke/independent-verdict.json",
+      "sha256": "152e14085750079bbc507646870bf26eee7f8485d07878644e5c8b18cdd964a1",
+      "bytes": 5318
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/smoke/server-on-fixed/worker-smoke/independent-verdict.json",
+      "sha256": "7abcd61825fc30ffb65c55ec8004cfc4346a0ba3d8bf67b869c49b2bd5834ec3",
+      "bytes": 5319
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/smoke/server-off-persistent/worker-smoke/independent-verdict.json",
+      "sha256": "481ed599d829e0f6048c122574bc8a9a1bab4a3f63d75807ce2c8fa09bc63d8e",
+      "bytes": 2350
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-fixed-connection-overflow/network-fence/independent-verdict.json",
+      "sha256": "c1568a34b7f669afb53b73e9d60dc023cef5eee61d8d6384856058d3e315d84b",
+      "bytes": 535
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-persistent-connection-overflow/network-fence/independent-verdict.json",
+      "sha256": "c8e15e8bfafa685e926003a3b0862db5c9a1ea930dfa1667c198ece4911af1a4",
+      "bytes": 534
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-fixed-connection/network-fence/independent-verdict.json",
+      "sha256": "0aceec2c623bacbfb93ec831fadb3959985a9562898700dfef7fa3ac762f6e37",
+      "bytes": 532
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-persistent-entity-overflow/network-fence/independent-verdict.json",
+      "sha256": "b37f20302f5148fd9f6a5f0f3d1d489077ebcc2bc7d9950ed5ae25d2f8747a58",
+      "bytes": 530
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-persistent-entity/network-fence/independent-verdict.json",
+      "sha256": "f32c4f93bad255231ef157371ddb644bc3476420af5fce25ae21c4c64d2b3166",
+      "bytes": 527
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-fixed-entity/network-fence/independent-verdict.json",
+      "sha256": "795cde17a9116e8b16380e7014f5e9a3785ef86ff4452d7aae206a609d1b8d2e",
+      "bytes": 528
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-persistent-connection/network-fence/independent-verdict.json",
+      "sha256": "995bd8af25d0802375d8b7d436f55bcde927f95607b0b746231767e9a376f2e3",
+      "bytes": 531
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network/server-on-fixed-entity-overflow/network-fence/independent-verdict.json",
+      "sha256": "c87b5159b33eb9578b6c5457b59f4e58020ad05986645d88cfa83d05fc438041",
+      "bytes": 531
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/same-group/server-on-fixed-connection/worker-fault/independent-verdict.json",
+      "sha256": "bfce35356de91bcdde354fe5882c9690bf5848f05a01bfa4436e43645be1153a",
+      "bytes": 1351
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/same-group/server-on-persistent-entity/worker-fault/independent-verdict.json",
+      "sha256": "207a2f84fcc925b36e5dfa466cb97004588f2cc1f4bd8918cd698de7c3914e66",
+      "bytes": 1350
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/same-group/server-on-fixed-entity/worker-fault/independent-verdict.json",
+      "sha256": "08a3743c24dd52983350052f2cc6d2310c58080f983a6089e617ae961e86a22a",
+      "bytes": 1351
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/same-group/server-on-persistent-connection/worker-fault/independent-verdict.json",
+      "sha256": "98a95662719d62a3e30e0778bf5c79ab77a8250607d1a758ed3d276f97d59124",
+      "bytes": 1351
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/fault/server-on-fixed-connection/worker-fault/independent-verdict.json",
+      "sha256": "ec6310c134371eca3f7d93a5d35e30c38d4032466fc6302ac993a69f43bd6c1b",
+      "bytes": 1353
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/fault/server-on-persistent-entity/worker-fault/independent-verdict.json",
+      "sha256": "a8629dd4e21feaaf7007fb0411ca9a8297847aa45fa5f6a7827df7e451290f51",
+      "bytes": 1351
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/fault/server-on-fixed-entity/worker-fault/independent-verdict.json",
+      "sha256": "6039351f4c73d96f5b9dc175df1713c7564645c61571a26fefbe2b6ba89ad7cc",
+      "bytes": 1353
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/fault/server-on-persistent-connection/worker-fault/independent-verdict.json",
+      "sha256": "79920fff9f53028c6f733b20250aac6211e5ce9a96afb4b12691509042dfa483",
+      "bytes": 1349
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/socket/server-on-fixed-connection/worker-socket-close/independent-verdict.json",
+      "sha256": "43d58e82001bf2440aa2a406e575c681730b2ddba3c7fbd8c1fb382c7431c6d3",
+      "bytes": 1129
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/socket/server-on-persistent-entity/worker-socket-close/independent-verdict.json",
+      "sha256": "d4e61ad7755e5e276f7d982a1eec1a69f9cb558648e45c6fc050e736ab429d89",
+      "bytes": 1121
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/socket/server-on-fixed-entity/worker-socket-close/independent-verdict.json",
+      "sha256": "1859572be79ee97d99f934f6b57a0edc0802d5cd6fc994a91a1799564332b374",
+      "bytes": 1125
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/socket/server-on-persistent-connection/worker-socket-close/independent-verdict.json",
+      "sha256": "a701c94fec8b4675cacc79aee6f9da7958bce35fcc62400e5d8e056620cc405c",
+      "bytes": 1130
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/transitions/server-off-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "13c8b825b3299a56676bff5067395c0359459207d60c53e59a72cfebfd7a7410",
+      "bytes": 1901
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/transitions/server-on-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "bbf813e6777a735db4c30bd3e6af1745aa2cccea5c918189c33db9e87791724a",
+      "bytes": 1959
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/transitions/server-on-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "c4af342302dd026644d9d94843f955a7c7d179c1f9d2c32fe7c10d00be738a6f",
+      "bytes": 1960
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/transitions/server-off-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "4219c61b7ac0908076a580ce201e5ae3d1ada71102e215dd17b1558b9ad02357",
+      "bytes": 1900
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/contract/server-off-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "03f4133d3422ae886eeaac03dea5381437298d1f3460d5d698701898fd8419f7",
+      "bytes": 1900
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/contract/server-on-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "ff6cba86e7fe2cd4af8ba7197f784d070f565ea13f9841dd98f35cc68ac00305",
+      "bytes": 1950
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/contract/server-on-fixed/p2-matrix/independent-verdict.json",
+      "sha256": "47a4588fee71f6d798c4accba16212cb4f9bece30f2440a3ad5fb4ee68116cde",
+      "bytes": 1951
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/contract/server-off-persistent/p2-matrix/independent-verdict.json",
+      "sha256": "63b81933eee324fbc1619cb8a09d96208a48a67f8e2deeda9a460c90d9bde06b",
+      "bytes": 1899
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network-contract/server-off-fixed/network-contract/independent-verdict.json",
+      "sha256": "d0dcb5a62aa2eeeb9430821ada48e35ae2787173ba4711ada5c8cca5f5f568d9",
+      "bytes": 341
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network-contract/server-on-persistent/network-contract/independent-verdict.json",
+      "sha256": "adf05db34ac39a9f8d3f3d76fb744fbe2ac9a3c0d05837017b643d9e9ecef977",
+      "bytes": 339
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network-contract/server-on-fixed/network-contract/independent-verdict.json",
+      "sha256": "1fc32f3ab8a3ae01425628d5c395614c12a53977f4ae43ca75b356045a8969c4",
+      "bytes": 340
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/network-contract/server-off-persistent/network-contract/independent-verdict.json",
+      "sha256": "dcb2322339aa619ea17401a39bdcbd240a0ca55655e299edf9f5ed9d3f9e06a2",
+      "bytes": 340
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/timers/server-off-fixed/p2-timers/independent-verdict.json",
+      "sha256": "ed77f0348a48a99035085fee42fa307f81fb0a87541dcf134f6ea10500f7175d",
+      "bytes": 319
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/timers/server-on-persistent/p2-timers/independent-verdict.json",
+      "sha256": "ed50ce41ac234cb6d3fd68e10cedd790328bc04d4a66ef7d0155032eb12ae5f8",
+      "bytes": 317
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/timers/server-on-fixed/p2-timers/independent-verdict.json",
+      "sha256": "fd711bae458506147b549dd4c02e70a40b30025e94d08e6bee821faebf8ea98f",
+      "bytes": 318
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/timers/server-off-persistent/p2-timers/independent-verdict.json",
+      "sha256": "faf1d566606030bdab949ab72e73c7a1344fc7512a477b016fbd2392672c3ff9",
+      "bytes": 318
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/lifecycle/server-off-fixed/worker-lifecycle/independent-verdict.json",
+      "sha256": "104905dc278e8d859582a0ca7664621d7c317ab8cd4a5b5993b5b30973495576",
+      "bytes": 1531
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/lifecycle/server-on-persistent/worker-lifecycle/independent-verdict.json",
+      "sha256": "9aab31ea86bb139caff2fa76d7599105ac007f11d03b68883006be981fea9fff",
+      "bytes": 4072
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/lifecycle/server-on-fixed/worker-lifecycle/independent-verdict.json",
+      "sha256": "178fd6098429f3e972be5fcb1d99f0c62ec8f4d131d4dbbf32789a08a6666f86",
+      "bytes": 4078
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/lifecycle/server-off-persistent/worker-lifecycle/independent-verdict.json",
+      "sha256": "f686daf5588e2ee492b62839d5b0035bdc4398f2848ee3751952fcc10bbeb661",
+      "bytes": 1530
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/respawn/server-off-fixed/worker-respawn/independent-verdict.json",
+      "sha256": "1d247925da477898994bba1adfe6d7254176be0327f50654a30aa526a153ec3b",
+      "bytes": 799
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/respawn/server-on-persistent/worker-respawn/independent-verdict.json",
+      "sha256": "7076127458bc58372a6a2b9a0cc954c5201806def02c9ee9ae744c0396610ee7",
+      "bytes": 800
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/respawn/server-on-fixed/worker-respawn/independent-verdict.json",
+      "sha256": "7b2b665a1ea7b0298f5d196c07fd7cd2bd8b973caaa45be940ed8c84f9b47d3e",
+      "bytes": 802
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/respawn/server-off-persistent/worker-respawn/independent-verdict.json",
+      "sha256": "6f2993a0cda93485d928f2a7d40dc6307a473cebe2c3afe84b0cd2f0886ac9ba",
+      "bytes": 798
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/phase-order/server-off-fixed/worker-phase-order/independent-verdict.json",
+      "sha256": "fcd80c9b9b04a29484f3a7997164a2c92558721c7b0d6e98a403c26228909010",
+      "bytes": 876
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/phase-order/server-on-persistent/worker-phase-order/independent-verdict.json",
+      "sha256": "8178a1a177a739f75035b6509db6632208cbd58527034ce98010f15038bc63ab",
+      "bytes": 878
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/phase-order/server-on-fixed/worker-phase-order/independent-verdict.json",
+      "sha256": "7329138b7995fd89a77a42bffdc4049f62b28f7e5478e9ae1674d7ce7de53705",
+      "bytes": 879
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/phase-order/server-off-persistent/worker-phase-order/independent-verdict.json",
+      "sha256": "b3cfc67310058e1b7c0baaf8c664d934d72488d6f64a3297bff497c80a28bac3",
+      "bytes": 875
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-on-fixed/worker-xp-removal/independent-verdict.json",
+      "sha256": "289c8fe6af3d6b88c8ac2aa280cf6605ce2cbc71f934a1f65ac2baf3470aac7e",
+      "bytes": 1341
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-on-fixed/worker-item-pickup/independent-verdict.json",
+      "sha256": "3977249eaae734f0d947b4a72ae91658abefa10f91b8cb70608d86cb1e9624d9",
+      "bytes": 1934
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-on-fixed/worker-shared-chest/independent-verdict.json",
+      "sha256": "04cd38e730e6b6644002dc5be4488fa3e4b31094c8928dab00164257170d99ef",
+      "bytes": 524
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-on-fixed/worker-scoreboard/independent-verdict.json",
+      "sha256": "38713bfb205b638e2db53ba4d3be0435337b174bd89bcd49d0367f221b7c0393",
+      "bytes": 529
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-on-fixed/worker-backpack-map/independent-verdict.json",
+      "sha256": "4eca778963736441f61eafb025ae6b90ce2b6a7ddc00675da7da71bf863720ef",
+      "bytes": 636
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-on-fixed/worker-starvation-damage/independent-verdict.json",
+      "sha256": "f02c75ff60acdf57572b8fa4ac741713ce9498650f6b1587a8b8889ef4414fed",
+      "bytes": 621
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-on-fixed/worker-starvation-damage/independent-verdict.json",
+      "sha256": "e086835f903ac349c6dca62845a0a1e354900815ea2e2b54145889f611012ecc",
+      "bytes": 621
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-on-persistent/worker-xp-removal/independent-verdict.json",
+      "sha256": "a17dbd495f282669c7126e51c4e3fc68155fd96ec9812be879b5345ba0f09114",
+      "bytes": 1340
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-on-persistent/worker-item-pickup/independent-verdict.json",
+      "sha256": "b761ca6910ddf8d5a61999f5902cb7e97579a3cfe17c02108c80eef47c4a5ef9",
+      "bytes": 1933
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-on-persistent/worker-shared-chest/independent-verdict.json",
+      "sha256": "1d6cf41e2756350d5c88d5e4ae31626a56806b078f28ccd1b1d11e9678b3e7f9",
+      "bytes": 523
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-on-persistent/worker-scoreboard/independent-verdict.json",
+      "sha256": "c4e80351ba00d8e99151868765e440298dde657c86fdabc810960eab1e06672b",
+      "bytes": 528
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-on-persistent/worker-backpack-map/independent-verdict.json",
+      "sha256": "02d63118e97a246a3a9af6c3445971d79225ba8fe79ab9720f1e80d81aea877a",
+      "bytes": 635
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-on-persistent/worker-starvation-damage/independent-verdict.json",
+      "sha256": "4a6e508171874cad37bdb2c3e6d38d9d3f8427962b7eb274ebe6efafc1ddcbf3",
+      "bytes": 620
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-on-persistent/worker-starvation-damage/independent-verdict.json",
+      "sha256": "da07e50c45ae74bf41cb8fc9977b66e7c0e43950043ca1fe237ca76e3409fb2e",
+      "bytes": 620
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-off-fixed/worker-xp-removal/independent-verdict.json",
+      "sha256": "b393e124223ee084d6d67184e6e8d79a84b0456cc96107e1e10d9a8873facf83",
+      "bytes": 1318
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-off-fixed/worker-item-pickup/independent-verdict.json",
+      "sha256": "f432899a6e7cfc1627d7c1f2932ca98ee23866e43d239d6c2bbe956b2ee20931",
+      "bytes": 1936
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-off-fixed/worker-shared-chest/independent-verdict.json",
+      "sha256": "991f1307cfd70be22cac98edf5dff05dfc62b49ed56ce9df8e7e120ee94c0ef2",
+      "bytes": 522
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-off-fixed/worker-scoreboard/independent-verdict.json",
+      "sha256": "1a708ea52a9dc9d26826c4d35327f721a206e75d92317168f02a09923858dbc2",
+      "bytes": 528
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-off-fixed/worker-backpack-map/independent-verdict.json",
+      "sha256": "31118e5636d85a3bfa5f0e1c33a237c96e226b4ea66c81c6759c33a4fa651c7c",
+      "bytes": 634
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-off-fixed/worker-starvation-damage/independent-verdict.json",
+      "sha256": "016f43f726e210e5aef6c9619b69e1169f026d14e8dd31cba03c4036baab67bc",
+      "bytes": 623
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-off-fixed/worker-starvation-damage/independent-verdict.json",
+      "sha256": "200036b97e4fa29453de016769dfd1dde648cd72568e468e62dd524c8b5c6a76",
+      "bytes": 622
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-off-persistent/worker-xp-removal/independent-verdict.json",
+      "sha256": "d53e1f719115132d366f199bcf7392ac20d99b95cf5dfb99e97459ede449b782",
+      "bytes": 1317
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-off-persistent/worker-item-pickup/independent-verdict.json",
+      "sha256": "faebd5d99eef80834def046705ef2ee8e4245a652be74a65e7ea6b8e77ca0fb2",
+      "bytes": 1935
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-off-persistent/worker-shared-chest/independent-verdict.json",
+      "sha256": "46e85d5cd9faf438a56aa9432f4d0e282602b7595c3d79a2e34778a3fc7b3c3d",
+      "bytes": 521
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-off-persistent/worker-scoreboard/independent-verdict.json",
+      "sha256": "ed943ca7f96c0f8d30374e152739c762c3cc0c89259975d24ddb9911ece4f12e",
+      "bytes": 527
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-off-persistent/worker-backpack-map/independent-verdict.json",
+      "sha256": "5a24048eaeb30d7bbe502f121174b017238f71b18ff4d6496f2ea92459999be4",
+      "bytes": 634
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-off-persistent/worker-starvation-damage/independent-verdict.json",
+      "sha256": "4118487bdb687e316c1fdceb70d6056c820977f5a6ff7af7299dba6e0226ac78",
+      "bytes": 622
+    },
+    {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-off-persistent/worker-starvation-damage/independent-verdict.json",
+      "sha256": "83bf9df040708af0b1d149e9b56a452a73e5e4ebb51e142112ac2161ccd8c62b",
+      "bytes": 621
+    }
+  ],
+  "gameplay": [
+    {
+      "kind": "xp",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-on-fixed/worker-xp-removal/independent-verdict.json",
+        "sha256": "289c8fe6af3d6b88c8ac2aa280cf6605ce2cbc71f934a1f65ac2baf3470aac7e",
+        "bytes": 1341
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "cases": [
+          {
+            "label": "isolated",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 2,
+            "finalEffectThread": "NeoForge Region Worker #1",
+            "collectPackets": 3,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 3,
+            "foreignCollectPackets": 3
+          },
+          {
+            "label": "single",
+            "count": 1,
+            "value": 6,
+            "totalXp": 7,
+            "originalEffects": 1,
+            "workerEffects": 1,
+            "finalEffectThread": "NeoForge Region Worker #1",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "over-budget",
+            "count": 2,
+            "value": 8,
+            "totalXp": 16,
+            "originalEffects": 2,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "P3 final/single vanilla XP pickup and committed storage removal; foreign observer/over-budget remain serial; no broader gameplay or performance certificate"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-on-fixed/worker-item-pickup/independent-verdict.json",
+        "sha256": "3977249eaae734f0d947b4a72ae91658abefa10f91b8cb70608d86cb1e9624d9",
+        "bytes": 1934
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "cases": [
+          {
+            "label": "isolated",
+            "workerEffect": true,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 1
+          },
+          {
+            "label": "capacity",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 64,
+            "finalInventory": 69,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "component",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "equipment",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "Exact default plain materials merging into existing non-equipment inventory; original pickup/events/stats/menu/removal; other branches serial, no P3-wide or performance claim"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-on-fixed/worker-shared-chest/independent-verdict.json",
+        "sha256": "04cd38e730e6b6644002dc5be4488fa3e4b31094c8928dab00164257170d99ef",
+        "bytes": 524
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "originalMenuCalls": 127,
+        "workerMenuCalls": 123,
+        "sharedOriginalChestIdentities": 1,
+        "distinctOriginalMenus": 2,
+        "originalOpenEvents": 2,
+        "originalCloseEvents": 2,
+        "diamondsTransferred": 11,
+        "xp": 0,
+        "scope": "Exact shared single-chest full worker menu ticks and original synchronous validity/slot feedback; normal packet open/click remain original server fences; P4 owner packet routing not started"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-on-fixed/worker-scoreboard/independent-verdict.json",
+        "sha256": "38713bfb205b638e2db53ba4d3be0435337b174bd89bcd49d0367f221b7c0393",
+        "bytes": 529
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "originalScoreChanges": 131,
+        "workerScoreChanges": 129,
+        "originalBoardIdentities": 1,
+        "originalSaveDataIdentities": 1,
+        "originalDirtyCallbacks": 131,
+        "xpObjective": [
+          7,
+          14,
+          21
+        ],
+        "totalXp": 21,
+        "scope": "Exact untracked scoreboard objectives, original shared score/dirty synchronous effects in complete connection worker; display/tracked/unknown callbacks serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-on-fixed/worker-backpack-map/independent-verdict.json",
+        "sha256": "4eca778963736441f61eafb025ae6b90ce2b6a7ddc00675da7da71bf863720ef",
+        "bytes": 636
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "originalMapCalls": 127,
+        "workerMapCalls": 127,
+        "originalMapIdentities": 1,
+        "actualMapId": 0,
+        "backpackMaps": 1,
+        "carriers": 1,
+        "orientation": [
+          0,
+          4
+        ],
+        "colorsSha256": "237b11c7e5b97fd36cb2f01442642d76c22198454a42e1a70b9c5ed6dfb35d74",
+        "clientSavedPixelsEqual": true,
+        "xp": 0,
+        "scope": "One exact non-selected vanilla filled map, real original data/carrier/decoration/update packets and saved pixels; selected/terrain/foreign carriers/unknown components remain serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-on-fixed/worker-starvation-damage/independent-verdict.json",
+        "sha256": "f02c75ff60acdf57572b8fa4ac741713ce9498650f6b1587a8b8889ef4414fed",
+        "bytes": 621
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "foreignWatcher": false,
+        "workerDamage": true,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "on-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-on-fixed/worker-starvation-damage/independent-verdict.json",
+        "sha256": "e086835f903ac349c6dca62845a0a1e354900815ea2e2b54145889f611012ecc",
+        "bytes": 621
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": false,
+        "foreignWatcher": true,
+        "workerDamage": false,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "xp",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-on-persistent/worker-xp-removal/independent-verdict.json",
+        "sha256": "a17dbd495f282669c7126e51c4e3fc68155fd96ec9812be879b5345ba0f09114",
+        "bytes": 1340
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "cases": [
+          {
+            "label": "isolated",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 2,
+            "finalEffectThread": "NeoForge Region Worker #1",
+            "collectPackets": 3,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 3,
+            "foreignCollectPackets": 3
+          },
+          {
+            "label": "single",
+            "count": 1,
+            "value": 6,
+            "totalXp": 7,
+            "originalEffects": 1,
+            "workerEffects": 1,
+            "finalEffectThread": "NeoForge Region Worker #1",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "over-budget",
+            "count": 2,
+            "value": 8,
+            "totalXp": 16,
+            "originalEffects": 2,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "P3 final/single vanilla XP pickup and committed storage removal; foreign observer/over-budget remain serial; no broader gameplay or performance certificate"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-on-persistent/worker-item-pickup/independent-verdict.json",
+        "sha256": "b761ca6910ddf8d5a61999f5902cb7e97579a3cfe17c02108c80eef47c4a5ef9",
+        "bytes": 1933
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "cases": [
+          {
+            "label": "isolated",
+            "workerEffect": true,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 1
+          },
+          {
+            "label": "capacity",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 64,
+            "finalInventory": 69,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "component",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "equipment",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "Exact default plain materials merging into existing non-equipment inventory; original pickup/events/stats/menu/removal; other branches serial, no P3-wide or performance claim"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-on-persistent/worker-shared-chest/independent-verdict.json",
+        "sha256": "1d6cf41e2756350d5c88d5e4ae31626a56806b078f28ccd1b1d11e9678b3e7f9",
+        "bytes": 523
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "originalMenuCalls": 109,
+        "workerMenuCalls": 105,
+        "sharedOriginalChestIdentities": 1,
+        "distinctOriginalMenus": 2,
+        "originalOpenEvents": 2,
+        "originalCloseEvents": 2,
+        "diamondsTransferred": 11,
+        "xp": 0,
+        "scope": "Exact shared single-chest full worker menu ticks and original synchronous validity/slot feedback; normal packet open/click remain original server fences; P4 owner packet routing not started"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-on-persistent/worker-scoreboard/independent-verdict.json",
+        "sha256": "c4e80351ba00d8e99151868765e440298dde657c86fdabc810960eab1e06672b",
+        "bytes": 528
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "originalScoreChanges": 132,
+        "workerScoreChanges": 130,
+        "originalBoardIdentities": 1,
+        "originalSaveDataIdentities": 1,
+        "originalDirtyCallbacks": 132,
+        "xpObjective": [
+          7,
+          14,
+          21
+        ],
+        "totalXp": 21,
+        "scope": "Exact untracked scoreboard objectives, original shared score/dirty synchronous effects in complete connection worker; display/tracked/unknown callbacks serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-on-persistent/worker-backpack-map/independent-verdict.json",
+        "sha256": "02d63118e97a246a3a9af6c3445971d79225ba8fe79ab9720f1e80d81aea877a",
+        "bytes": 635
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "originalMapCalls": 127,
+        "workerMapCalls": 127,
+        "originalMapIdentities": 1,
+        "actualMapId": 0,
+        "backpackMaps": 1,
+        "carriers": 1,
+        "orientation": [
+          0,
+          4
+        ],
+        "colorsSha256": "237b11c7e5b97fd36cb2f01442642d76c22198454a42e1a70b9c5ed6dfb35d74",
+        "clientSavedPixelsEqual": true,
+        "xp": 0,
+        "scope": "One exact non-selected vanilla filled map, real original data/carrier/decoration/update packets and saved pixels; selected/terrain/foreign carriers/unknown components remain serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-on-persistent/worker-starvation-damage/independent-verdict.json",
+        "sha256": "4a6e508171874cad37bdb2c3e6d38d9d3f8427962b7eb274ebe6efafc1ddcbf3",
+        "bytes": 620
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "foreignWatcher": false,
+        "workerDamage": true,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "on-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-on-persistent/worker-starvation-damage/independent-verdict.json",
+        "sha256": "da07e50c45ae74bf41cb8fc9977b66e7c0e43950043ca1fe237ca76e3409fb2e",
+        "bytes": 620
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": true,
+        "persistent": true,
+        "foreignWatcher": true,
+        "workerDamage": false,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "xp",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-off-fixed/worker-xp-removal/independent-verdict.json",
+        "sha256": "b393e124223ee084d6d67184e6e8d79a84b0456cc96107e1e10d9a8873facf83",
+        "bytes": 1318
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "cases": [
+          {
+            "label": "isolated",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 3,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 3,
+            "foreignCollectPackets": 3
+          },
+          {
+            "label": "single",
+            "count": 1,
+            "value": 6,
+            "totalXp": 7,
+            "originalEffects": 1,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "over-budget",
+            "count": 2,
+            "value": 8,
+            "totalXp": 16,
+            "originalEffects": 2,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "P3 final/single vanilla XP pickup and committed storage removal; foreign observer/over-budget remain serial; no broader gameplay or performance certificate"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-off-fixed/worker-item-pickup/independent-verdict.json",
+        "sha256": "f432899a6e7cfc1627d7c1f2932ca98ee23866e43d239d6c2bbe956b2ee20931",
+        "bytes": 1936
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "cases": [
+          {
+            "label": "isolated",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 1
+          },
+          {
+            "label": "capacity",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 64,
+            "finalInventory": 69,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "component",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "equipment",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "Exact default plain materials merging into existing non-equipment inventory; original pickup/events/stats/menu/removal; other branches serial, no P3-wide or performance claim"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-off-fixed/worker-shared-chest/independent-verdict.json",
+        "sha256": "991f1307cfd70be22cac98edf5dff05dfc62b49ed56ce9df8e7e120ee94c0ef2",
+        "bytes": 522
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "originalMenuCalls": 97,
+        "workerMenuCalls": 0,
+        "sharedOriginalChestIdentities": 1,
+        "distinctOriginalMenus": 2,
+        "originalOpenEvents": 2,
+        "originalCloseEvents": 2,
+        "diamondsTransferred": 11,
+        "xp": 0,
+        "scope": "Exact shared single-chest full worker menu ticks and original synchronous validity/slot feedback; normal packet open/click remain original server fences; P4 owner packet routing not started"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-off-fixed/worker-scoreboard/independent-verdict.json",
+        "sha256": "1a708ea52a9dc9d26826c4d35327f721a206e75d92317168f02a09923858dbc2",
+        "bytes": 528
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "originalScoreChanges": 126,
+        "workerScoreChanges": 0,
+        "originalBoardIdentities": 1,
+        "originalSaveDataIdentities": 1,
+        "originalDirtyCallbacks": 126,
+        "xpObjective": [
+          7,
+          14,
+          21
+        ],
+        "totalXp": 21,
+        "scope": "Exact untracked scoreboard objectives, original shared score/dirty synchronous effects in complete connection worker; display/tracked/unknown callbacks serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-off-fixed/worker-backpack-map/independent-verdict.json",
+        "sha256": "31118e5636d85a3bfa5f0e1c33a237c96e226b4ea66c81c6759c33a4fa651c7c",
+        "bytes": 634
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "originalMapCalls": 85,
+        "workerMapCalls": 0,
+        "originalMapIdentities": 1,
+        "actualMapId": 0,
+        "backpackMaps": 1,
+        "carriers": 1,
+        "orientation": [
+          0,
+          4
+        ],
+        "colorsSha256": "237b11c7e5b97fd36cb2f01442642d76c22198454a42e1a70b9c5ed6dfb35d74",
+        "clientSavedPixelsEqual": true,
+        "xp": 0,
+        "scope": "One exact non-selected vanilla filled map, real original data/carrier/decoration/update packets and saved pixels; selected/terrain/foreign carriers/unknown components remain serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-off-fixed/worker-starvation-damage/independent-verdict.json",
+        "sha256": "016f43f726e210e5aef6c9619b69e1169f026d14e8dd31cba03c4036baab67bc",
+        "bytes": 623
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "foreignWatcher": false,
+        "workerDamage": false,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "off-fixed",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-off-fixed/worker-starvation-damage/independent-verdict.json",
+        "sha256": "200036b97e4fa29453de016769dfd1dde648cd72568e468e62dd524c8b5c6a76",
+        "bytes": 622
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": false,
+        "foreignWatcher": true,
+        "workerDamage": false,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "xp",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-xp-off-persistent/worker-xp-removal/independent-verdict.json",
+        "sha256": "d53e1f719115132d366f199bcf7392ac20d99b95cf5dfb99e97459ede449b782",
+        "bytes": 1317
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "cases": [
+          {
+            "label": "isolated",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 3,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "count": 3,
+            "value": 7,
+            "totalXp": 21,
+            "originalEffects": 3,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 3,
+            "foreignCollectPackets": 3
+          },
+          {
+            "label": "single",
+            "count": 1,
+            "value": 6,
+            "totalXp": 7,
+            "originalEffects": 1,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "over-budget",
+            "count": 2,
+            "value": 8,
+            "totalXp": 16,
+            "originalEffects": 2,
+            "workerEffects": 0,
+            "finalEffectThread": "Server thread",
+            "collectPackets": 2,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "P3 final/single vanilla XP pickup and committed storage removal; foreign observer/over-budget remain serial; no broader gameplay or performance certificate"
+      }
+    },
+    {
+      "kind": "item",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-item-off-persistent/worker-item-pickup/independent-verdict.json",
+        "sha256": "faebd5d99eef80834def046705ef2ee8e4245a652be74a65e7ea6b8e77ca0fb2",
+        "bytes": 1935
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "cases": [
+          {
+            "label": "isolated",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "foreign-watcher",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 1
+          },
+          {
+            "label": "capacity",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 64,
+            "finalInventory": 69,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "component",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          },
+          {
+            "label": "equipment",
+            "workerEffect": false,
+            "originalCalls": 40,
+            "pickupPre": 40,
+            "pickupPost": 1,
+            "initialInventory": 1,
+            "finalInventory": 6,
+            "pickedUp": 5,
+            "xp": 0,
+            "collectPackets": 1,
+            "storageCallbacks": 1,
+            "foreignCollectPackets": 0
+          }
+        ],
+        "scope": "Exact default plain materials merging into existing non-equipment inventory; original pickup/events/stats/menu/removal; other branches serial, no P3-wide or performance claim"
+      }
+    },
+    {
+      "kind": "chest",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-chest-off-persistent/worker-shared-chest/independent-verdict.json",
+        "sha256": "46e85d5cd9faf438a56aa9432f4d0e282602b7595c3d79a2e34778a3fc7b3c3d",
+        "bytes": 521
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "originalMenuCalls": 79,
+        "workerMenuCalls": 0,
+        "sharedOriginalChestIdentities": 1,
+        "distinctOriginalMenus": 2,
+        "originalOpenEvents": 2,
+        "originalCloseEvents": 2,
+        "diamondsTransferred": 11,
+        "xp": 0,
+        "scope": "Exact shared single-chest full worker menu ticks and original synchronous validity/slot feedback; normal packet open/click remain original server fences; P4 owner packet routing not started"
+      }
+    },
+    {
+      "kind": "score",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-score-off-persistent/worker-scoreboard/independent-verdict.json",
+        "sha256": "ed943ca7f96c0f8d30374e152739c762c3cc0c89259975d24ddb9911ece4f12e",
+        "bytes": 527
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "originalScoreChanges": 128,
+        "workerScoreChanges": 0,
+        "originalBoardIdentities": 1,
+        "originalSaveDataIdentities": 1,
+        "originalDirtyCallbacks": 128,
+        "xpObjective": [
+          7,
+          14,
+          21
+        ],
+        "totalXp": 21,
+        "scope": "Exact untracked scoreboard objectives, original shared score/dirty synchronous effects in complete connection worker; display/tracked/unknown callbacks serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "map",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-map-off-persistent/worker-backpack-map/independent-verdict.json",
+        "sha256": "5a24048eaeb30d7bbe502f121174b017238f71b18ff4d6496f2ea92459999be4",
+        "bytes": 634
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "originalMapCalls": 127,
+        "workerMapCalls": 0,
+        "originalMapIdentities": 1,
+        "actualMapId": 0,
+        "backpackMaps": 1,
+        "carriers": 1,
+        "orientation": [
+          0,
+          4
+        ],
+        "colorsSha256": "237b11c7e5b97fd36cb2f01442642d76c22198454a42e1a70b9c5ed6dfb35d74",
+        "clientSavedPixelsEqual": true,
+        "xp": 0,
+        "scope": "One exact non-selected vanilla filled map, real original data/carrier/decoration/update packets and saved pixels; selected/terrain/foreign carriers/unknown components remain serial; no P3-wide/performance claim"
+      }
+    },
+    {
+      "kind": "damage",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-off-persistent/worker-starvation-damage/independent-verdict.json",
+        "sha256": "4118487bdb687e316c1fdceb70d6056c820977f5a6ff7af7299dba6e0226ac78",
+        "bytes": 622
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "foreignWatcher": false,
+        "workerDamage": false,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    },
+    {
+      "kind": "damage-foreign",
+      "mode": "off-persistent",
+      "evidence": {
+        "path": "tmp/player-region-tick-p3-final02/gameplay-retry01/server-damage-foreign-off-persistent/worker-starvation-damage/independent-verdict.json",
+        "sha256": "83bf9df040708af0b1d149e9b56a452a73e5e4ebb51e142112ac2161ccd8c62b",
+        "bytes": 621
+      },
+      "result": {
+        "status": "passed",
+        "version": "21.1.250.134-beta",
+        "requested": false,
+        "persistent": true,
+        "foreignWatcher": true,
+        "workerDamage": false,
+        "health": [
+          20,
+          19
+        ],
+        "originalResult": true,
+        "originalDamageEffects": 1,
+        "damagePackets": 1,
+        "damageTakenStat": 10,
+        "originalGameEvents": 1,
+        "originalSoundBroadcasts": 1,
+        "originalHooks": 6,
+        "scope": "One nonfatal original starvation hit with exact empty event registries and sole player/no watcher; foreign player serial; original full hurt/hooks/game-event/sound/synchronous result retained; general PvP remains original packet fence"
+      }
+    }
+  ],
+  "p2Suites": {
+    "functional": "tmp/player-region-tick-p3-final02/functional",
+    "smoke": "tmp/player-region-tick-p3-final02/smoke",
+    "network": "tmp/player-region-tick-p3-final02/network",
+    "same-group": "tmp/player-region-tick-p3-final02/same-group",
+    "fault": "tmp/player-region-tick-p3-final02/fault",
+    "socket": "tmp/player-region-tick-p3-final02/socket",
+    "transitions": "tmp/player-region-tick-p3-final02/transitions",
+    "contract": "tmp/player-region-tick-p3-final02/contract",
+    "network-contract": "tmp/player-region-tick-p3-final02/network-contract",
+    "timers": "tmp/player-region-tick-p3-final02/timers",
+    "lifecycle": "tmp/player-region-tick-p3-final02/lifecycle",
+    "respawn": "tmp/player-region-tick-p3-final02/respawn",
+    "phase-order": "tmp/player-region-tick-p3-final02/phase-order"
+  },
+  "acceptedIsolatedInstallations": 88,
+  "seedJarHashesUnchanged": 94,
+  "preservedNonzeroOrInterruptedCommands": 46,
+  "indexes": {
+    "inputs": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/inputs.json",
+      "sha256": "893e0673a3e0d0add93efaf4bc243affb2cbd1c7b53909b1c7b6470b0ee17eeb",
+      "bytes": 2276162
+    },
+    "sources": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/sources.json",
+      "sha256": "605b399123f88182978cc3da5f6c8f73c57aa9c1289978cc61e2652c7d5c6ac8",
+      "bytes": 22966
+    },
+    "isolation": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/isolation.json",
+      "sha256": "f8e6fe856e405835c6773ebcb8b9938706b96b6b47c716d5f81e098ee49f4b85",
+      "bytes": 15085
+    },
+    "acceptedCommands": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/acceptedCommands.json",
+      "sha256": "a2bd09939cd10d746eaae956208bcef9980186fbe63e708b46c0830a6c37e6c7",
+      "bytes": 63241
+    },
+    "commandHistory": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/commandHistory.json",
+      "sha256": "e2bd6545e234f776d16386149fd8c700dd7ac7aff745a1f9466ff2ce5e36db37",
+      "bytes": 409593
+    },
+    "preservedNonzeroOrInterruptedCommands": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/preservedNonzeroOrInterruptedCommands.json",
+      "sha256": "2c09dcd3050d041269e8f90cef741f1221b235a08bd420c80f92b2c51783419f",
+      "bytes": 21693
+    },
+    "proofControls": {
+      "path": "tmp/player-region-tick-p3-final02/acceptance-01/proofControls.json",
+      "sha256": "1ed265b505f5e4019b5f796680cde95321e91310db0e6fb334e3907aeb2d63fa",
+      "bytes": 10665
+    }
+  },
+  "supportedScope": "Final/single XP, plain material inventory/pickup, shared single chest full menu ticks, untracked scoreboard, real backpack map, one nonfatal sole-player starvation hit",
+  "limitations": [
+    "General PvP/entity/block/open/click packets retain original server fences; P4 routing not started",
+    "Unknown extensions whole-call serial before freeze; oracle never admitted to worker",
+    "P2 stationary/inert loaded terrain, empty equipment/effects, bounded low XP and closed advancement/criterion prerequisites remain; no general fresh-player admission claim",
+    "Equipment/effects, arbitrary items/containers, tracked scores, selected terrain maps, general damage remain whole-call serial",
+    "Installed new worker positives use the positive-X boundary and diamond material; original negative-coordinate/corner gameplay compatibility is separately covered by serial-oracle schema3/4",
+    "Finite original TCP/JDI tests and native protocol tests; no P5 performance/long-soak or graphical GUI pause certificate",
+    "No category-specific installed post-pickup fault injection; committed callback failure/stop/join/idempotence tested through original native kernel"
+  ],
+  "baselineHead": "5cb387bfa31d2dd441e500f483d833b6d73d38f9",
+  "subAgentUsed": false,
+  "commitPushDeploymentPerformed": false,
+  "existingServerOperations": false
+}

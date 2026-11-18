@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import net.neoforged.bus.EventBus;
 import net.neoforged.bus.ListenerList;
+import net.neoforged.bus.SubscribeEventListener;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLLoader;
@@ -35,11 +36,15 @@ final class RegionPlayerExtensionSnapshot {
             "tick.EntityTickEvent$Pre", "tick.EntityTickEvent$Post",
             "tick.PlayerTickEvent$Pre", "tick.PlayerTickEvent$Post",
             "entity.living.LivingBreatheEvent", "entity.living.LivingDrownEvent",
+            "entity.EntityInvulnerabilityCheckEvent", "entity.living.LivingIncomingDamageEvent",
+            "entity.living.LivingShieldBlockEvent", "entity.living.LivingDamageEvent$Pre", "entity.living.LivingDamageEvent$Post",
+            "VanillaGameEvent", "PlayLevelSoundEvent$AtPosition", "PlayLevelSoundEvent$AtEntity",
             "entity.living.LivingHealEvent", "entity.living.LivingEquipmentChangeEvent",
             "entity.living.LivingEvent$LivingJumpEvent", "entity.living.LivingFallEvent",
             "entity.EntityEvent$Size", "entity.player.PlayerFlyableFallEvent",
             "entity.player.PlayerXpEvent$XpChange", "entity.player.PlayerXpEvent$LevelChange",
-            "entity.player.PlayerXpEvent$PickupXp", "entity.player.AdvancementEvent$AdvancementEarnEvent",
+            "entity.player.ItemEntityPickupEvent$Pre", "entity.player.ItemEntityPickupEvent$Post",
+            "entity.player.PlayerXpEvent$PickupXp", "entity.EntityLeaveLevelEvent", "entity.player.AdvancementEvent$AdvancementEarnEvent",
             "entity.player.AdvancementEvent$AdvancementProgressEvent");
 
     private static final Set<String> SERVICES = Set.of(
@@ -121,17 +126,27 @@ final class RegionPlayerExtensionSnapshot {
         Map<?, ?> owners = (Map<?, ?>) registrations.get(bus);
         // EventBus.register owns these exact registrations. The only built-in EntityTick.Pre
         // subscriber is NeoForgeEventHandler.onEntityTick, whose ServerPlayer branch returns without
-        // publishing a mapping. A consumer, subclass or any other registration never inherits approval.
+        // publishing a mapping. Its EntityLeaveLevel handler removes the existing region mapping
+        // on the original publisher after physical join. Neither approval extends to a consumer,
+        // subclass or another callback.
         Set<Object> builtIn = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (var entry : owners.entrySet()) {
-            if (entry.getKey().getClass() == NeoForgeEventHandler.class) builtIn.addAll((List<?>) entry.getValue());
+            if (entry.getKey().getClass() == NeoForgeEventHandler.class) {
+                for (Object registration : (List<?>) entry.getValue()) {
+                    builtIn.add(registration);
+                    // Bus 8 unwraps non-cancellable events in its dispatch cache. This final
+                    // built-in wrapper's accessor only returns its exact registered handler.
+                    if (registration.getClass() == SubscribeEventListener.class)
+                        builtIn.add(((SubscribeEventListener) registration).getWithoutCheck());
+                }
+            }
         }
         List<String> found = new ArrayList<>();
         for (String name : EVENTS) {
             Class<?> event = Class.forName("net.neoforged.neoforge.event." + name);
             ListenerList list = (ListenerList) lookup.invoke(bus, event);
             for (var listener : list.getListeners()) {
-                if (!name.equals("tick.EntityTickEvent$Pre") || !builtIn.contains(listener)) {
+                if ((!name.equals("tick.EntityTickEvent$Pre") && !name.equals("entity.EntityLeaveLevelEvent")) || !builtIn.contains(listener)) {
                     found.add(event.getName());
                     break;
                 }

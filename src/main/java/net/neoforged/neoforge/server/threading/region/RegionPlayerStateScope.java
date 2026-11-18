@@ -105,8 +105,25 @@ public final class RegionPlayerStateScope implements AutoCloseable {
 
     public static boolean emptyObjectives(Scoreboard scoreboard, ObjectiveCriteria criterion, Object holder) {
         if (CURRENT.get() == null) return false;
-        if (!require().emptyScoreboard(scoreboard, criterion, holder)) throw new IllegalStateException("Player scoreboard mutation requires a complete serial fence");
-        return true; // Original immutable empty answer: consumer has ZERO invocations, no delayed write.
+        if (!require().allowsScoreboard(scoreboard, criterion, holder)) throw new IllegalStateException("Player scoreboard mutation requires a complete serial fence");
+        return require().emptyScoreboard(scoreboard, criterion, holder); // Nonempty captured objectives retain the complete ORIGINAL traversal/consumer/dirty callback.
+    }
+
+    public static net.minecraft.world.level.saveddata.maps.MapItemSavedData mapData(net.minecraft.server.level.ServerLevel level, net.minecraft.world.level.saveddata.maps.MapId id) {
+        return require().mapData(level, id);
+    }
+
+    public static void checkDamage(net.minecraft.world.entity.Entity target, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        if (CURRENT.get() != null) require().checkDamage(target, source, amount);
+    }
+
+    public static void checkMapCarrier(net.minecraft.world.level.saveddata.maps.MapItemSavedData data, Player player) {
+        if (CURRENT.get() != null) require().checkMapCarrier(data, player);
+    }
+
+    public static void checkObjective(Scoreboard board, Object holder, net.minecraft.world.scores.Objective objective) {
+        if (CURRENT.get() != null && !require().allowsObjective(board, holder, objective))
+            throw new IllegalStateException("Uncaptured player/objective scoreboard mutation");
     }
 
     @Nullable
@@ -116,6 +133,11 @@ public final class RegionPlayerStateScope implements AutoCloseable {
         Stat<?> stat = require().stat(type, value);
         if (stat == null) throw new IllegalStateException("Uncaptured global stat cache lookup");
         return (Stat<T>) stat;
+    }
+
+    static boolean allowsPickupRemoval(net.minecraft.world.entity.Entity entity) {
+        var scope = current();
+        return scope != null && scope.plan.allowsPickupRemoval(entity);
     }
 
     public static void rejectLifecycle(String operation) {

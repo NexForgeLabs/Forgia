@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import secrets
 from pathlib import Path
 import shutil
@@ -21,6 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--libraries', type=Path, required=True)
+    parser.add_argument('--link-library-dependencies', action='store_true', help='After successful private installation, share verified identical dependency jars; never expose linked jars to installer writes')
     parser.add_argument('--eula', type=Path, required=True)
     parser.add_argument('--installer', type=Path, required=True)
     fixture = parser.add_mutually_exclusive_group(required=True)
@@ -46,7 +48,11 @@ def main():
     root.mkdir(parents=True, exist_ok=False)
     if reviewed:
         shutil.copy2(args.artifact_manifest, root / 'artifact-manifest.json')
-    shutil.copytree(args.libraries.resolve(), root / 'libraries')
+    library_source = args.libraries.resolve()
+    # Every installer input must have a private inode. Vanilla BUNDLER_EXTRACT and mapping
+    # processors can rewrite jars even when the resulting bytes are identical; linking before
+    # those processors finish can corrupt class loading in another already-running test server.
+    shutil.copytree(library_source, root / 'libraries')
     shutil.copy2(args.eula.resolve(), root / 'eula.txt')
     command = [str(args.java.resolve()), '-jar', str(args.installer.resolve()), '--installServer', str(root)]
     (root / 'install-command.json').write_text(json.dumps(command, indent=2) + '\n')
@@ -55,6 +61,26 @@ def main():
     (root / 'installer.exit').write_text(str(result.returncode) + '\n')
     if result.returncode:
         raise RuntimeError('Installer failed; preserved log and exit')
+    linked_dependencies = 0
+    if args.link_library_dependencies:
+        for source in library_source.rglob('*.jar'):
+            relative = source.relative_to(library_source)
+            # Keep Minecraft's generated jars and this core's complete outputs private. Only a
+            # completed, byte-identical third-party dependency is shared; the new root is never
+            # reinstalled and no server has started in it while this deduplication takes place.
+            if relative.parts[:2] == ('net', 'minecraft') or relative.parts[:3] == ('net', 'neoforged', 'neoforge'):
+                continue
+            destination = root / 'libraries' / relative
+            if not destination.is_file() or source.is_symlink() or destination.is_symlink():
+                continue
+            if hashlib.sha256(source.read_bytes()).digest() != hashlib.sha256(destination.read_bytes()).digest():
+                continue
+            destination.unlink()
+            try:
+                os.link(source, destination)
+                linked_dependencies += 1
+            except OSError:
+                shutil.copy2(source, destination)
     (root / 'mods').mkdir(exist_ok=True)
     if args.oracle:
         shutil.copy2(args.oracle.resolve(), root / 'mods' / args.oracle.name)
@@ -113,6 +139,9 @@ rcon.password={password}
         }) + '\n')
         (pack / 'data/forgia_player/function/reward.mcfunction').write_text('scoreboard players add @s forgia_criterion 1\n')
     receipt = {'root': str(root), 'version': args.version, 'port': port, 'criterionProof': args.criterion_proof,
+               'libraryDependencyLinksRequested': args.link_library_dependencies,
+               'linkedLibraryDependencies': linked_dependencies,
+               'installerInputsPrivate': True,
                'persistent': args.persistent, 'playerPlanningRequested': args.player_planning, 'rconPort': rcon_port, 'launch': launch,
                'installerSha256': hashlib.sha256(args.installer.read_bytes()).hexdigest(),
                'oracleSha256': hashlib.sha256(args.oracle.read_bytes()).hexdigest() if args.oracle else None,

@@ -25,6 +25,26 @@
      public final void forAllObjectives(ObjectiveCriteria p_83428_, ScoreHolder p_313805_, Consumer<ScoreAccess> p_83430_) {
 +        if (net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.emptyObjectives(this, p_83428_, p_313805_)) return;
          this.objectivesByCriteria
+@@ -71,1 +_,16 @@
++    /** Original objective lists are inspected on the quiescent publisher, never a replacement traversal. */
++    public java.util.List<Objective> forgiaPlayerObjectives(ObjectiveCriteria criterion) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("scoreboard capture");
++        return java.util.List.copyOf(this.objectivesByCriteria.getOrDefault(criterion, java.util.List.of()));
++    }
++
++    public java.util.List<Object> forgiaPlayerScoreboardObjects() {
++        java.util.List<Object> objects = new java.util.ArrayList<>(java.util.List.of(this, this.objectivesByName, this.objectivesByCriteria,
++            this.playerScores, this.displayObjectives, this.teamsByName, this.teamsByPlayer));
++        objects.addAll(this.objectivesByName.values());
++        objects.addAll(this.objectivesByCriteria.values());
++        objects.addAll(this.playerScores.values());
++        return objects;
++    }
++
+     private PlayerScores getOrCreatePlayerInfo(String p_313892_) {
+@@ -79,1 +_,2 @@
+     public ScoreAccess getOrCreatePlayerScore(final ScoreHolder p_313717_, final Objective p_83473_, boolean p_313939_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkObjective(this, p_313717_, p_83473_);
 @@ -222,2 +_,4 @@
      public void removeObjective(Objective p_83503_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("scoreboard objective removal");

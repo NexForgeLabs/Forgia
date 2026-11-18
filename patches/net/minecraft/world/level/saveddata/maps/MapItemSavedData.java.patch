@@ -1,0 +1,41 @@
+--- a/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java
++++ b/net/minecraft/world/level/saveddata/maps/MapItemSavedData.java
+@@ -202,7 +_,30 @@
+         return p_330169_ -> p_330169_ == p_316807_ ? true : p_330169_.is(p_316807_.getItem()) && Objects.equals(mapid, p_330169_.get(DataComponents.MAP_ID));
+     }
+ 
++    /** Whole original map state is leased; no foreign carrier or frame/banner callback is admitted. */
++    public boolean forgiaHasLocalPlayerCarrier(Player player) {
++        String name = player.getName().getString();
++        return this.getClass() == MapItemSavedData.class && this.dimension == player.level().dimension()
++            && this.scale >= 0 && this.scale <= 4 && this.colors != null && this.colors.length == 16384
++            && this.bannerMarkers.isEmpty() && this.frameMarkers.isEmpty()
++            && this.carriedByPlayers.size() <= 1 && this.carriedBy.size() == this.carriedByPlayers.size()
++            && this.carriedBy.stream().allMatch(holder -> holder.getClass() == HoldingPlayer.class
++                && holder.player == player && this.carriedByPlayers.get(player) == holder)
++            && this.decorations.entrySet().stream().allMatch(entry -> entry.getKey().equals(name)
++                && (entry.getValue().type().is(MapDecorationTypes.PLAYER)
++                    || entry.getValue().type().is(MapDecorationTypes.PLAYER_OFF_MAP)
++                    || entry.getValue().type().is(MapDecorationTypes.PLAYER_OFF_LIMITS)));
++    }
++
++    public java.util.List<Object> forgiaPlayerSharedObjects() {
++        java.util.List<Object> objects = new java.util.ArrayList<>(java.util.List.of(this, this.colors,
++            this.carriedBy, this.carriedByPlayers, this.bannerMarkers, this.frameMarkers, this.decorations));
++        objects.addAll(this.carriedBy);
++        return objects;
++    }
++
+     public void tickCarriedBy(Player p_77919_, ItemStack p_77920_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkMapCarrier(this, p_77919_);
+         if (!this.carriedByPlayers.containsKey(p_77919_)) {
+             MapItemSavedData.HoldingPlayer mapitemsaveddata$holdingplayer = new MapItemSavedData.HoldingPlayer(p_77919_);
+             this.carriedByPlayers.put(p_77919_, mapitemsaveddata$holdingplayer);
+@@ -361,6 +_,7 @@
+ 
+     @Nullable
+     public Packet<?> getUpdatePacket(MapId p_323760_, Player p_164798_) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkMapCarrier(this, p_164798_);
+         MapItemSavedData.HoldingPlayer mapitemsaveddata$holdingplayer = this.carriedByPlayers.get(p_164798_);
+         return mapitemsaveddata$holdingplayer == null ? null : mapitemsaveddata$holdingplayer.nextUpdatePacket(p_323760_);
+     }

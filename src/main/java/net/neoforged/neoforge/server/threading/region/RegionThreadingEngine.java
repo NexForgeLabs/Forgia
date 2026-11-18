@@ -4740,7 +4740,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 calls.add(call);
             }
             if (calls.isEmpty()) return 0;
-            final var prefix = RegionPlayerConflictPlan.prefix(calls.stream().map(call -> call.admission.spatial().conflictEntry()).toList());
+            final var prefix = RegionPlayerConflictPlan.prefix(calls.stream().map(call -> call.admission.state().conflictEntry()).toList());
             if (prefix.nextIndex() == 0) return 0;
             calls.subList(prefix.nextIndex(), calls.size()).clear();
             effects = new RegionPlayerTickDispatch(this, parent);
@@ -4797,6 +4797,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                     }
                 }
                 if (effects != null) {
+                    try {
+                        // A started pickup already transferred XP and marked its entity removed. Unlike
+                        // cancellable future work this committed storage callback must run even after
+                        // stop-new-admission. Shutdown/level retirement await this original batch fence.
+                        this.applyDeferredRemovals(parent.level(), effects.removals.drain(), effects.removals.isSeamClosed(), true);
+                    } catch (Throwable problem) {
+                        cleanup = accumulateFailure(cleanup, problem);
+                    }
                     try {
                         this.applyDeferredSectionUpdates(parent.level(), effects.sections.drain(), effects.sections.isSeamClosed());
                     } catch (Throwable problem) {
@@ -4910,12 +4918,12 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     boolean claimPlayerState(RegionPlayerSpatialLease lease, List<RegionPlayerStatePlan> plans) {
-        var staged = new java.util.IdentityHashMap<Object, ServerPlayer>();
+        var staged = new java.util.IdentityHashMap<Object, RegionPlayerStatePlan>();
         for (var plan : plans) {
             if (!plan.belongsTo(this) || !plan.revalidate()) return false;
             for (Object object : plan.resources()) {
-                ServerPlayer previous = staged.putIfAbsent(object, plan.player());
-                if (previous != null && previous != plan.player()) return false;
+                RegionPlayerStatePlan previous = staged.putIfAbsent(object, plan);
+                if (previous != null && previous.player() != plan.player() && (!previous.shares(object) || !plan.shares(object))) return false;
                 RegionPlayerSpatialLease held = this.playerStateClaims.get(object);
                 if (held != null && held != lease) return false;
             }
@@ -10539,11 +10547,20 @@ public final class RegionThreadingEngine implements RegionThreading {
      * @see #applyDeferredEntityRemovals(RegionEntityTickBatch)
      */
     private void applyDeferredRemovals(ServerLevel level, RegionDeferredEntityRemovals.Drain drain, boolean seamClosed) {
+        this.applyDeferredRemovals(level, drain, seamClosed, false);
+    }
+
+    /** Committed player pickup effects drain before the active parent fence is released. */
+    private void applyDeferredRemovals(ServerLevel level, RegionDeferredEntityRemovals.Drain drain, boolean seamClosed, boolean committedPlayerEffects) {
+        if (committedPlayerEffects && (!level.getServer().isSameThread() || RegionWorkerScope.isNativeWorkerThread()
+                || this.activeTickBatches.stream().noneMatch(batch -> batch.level() == level && batch.isExecutingOnCurrentThread() && !batch.isComplete())))
+            throw new IllegalStateException("Committed player removals require their active publisher fence");
         this.repeatedDeferredRemovalCount.addAndGet(drain.repeats());
         if (drain.removals().isEmpty()) {
             return;
         }
-        if (this.shutdown || this.regionizer.isLevelClosed(level) || seamClosed) {
+        if ((!committedPlayerEffects && this.shutdown) || this.regionizer.isLevelClosed(level) || seamClosed) {
+            if (committedPlayerEffects) throw new IllegalStateException("Committed player removal fence was closed before drain");
             this.droppedDeferredRemovalCount.addAndGet(drain.removals().size());
             return;
         }

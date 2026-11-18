@@ -9,9 +9,20 @@
                  return l;
              }
          }
-@@ -214,11 +_,15 @@
+@@ -214,11 +_,26 @@
      }
  
++    public java.util.List<Object> forgiaPlayerLocalObjects() {
++        java.util.List<Object> objects = new java.util.ArrayList<>(java.util.List.of(this.items, this.armor, this.offhand, this.compartments));
++        for (var compartment : this.compartments) for (ItemStack stack : compartment) {
++            if (!stack.isEmpty()) {
++                objects.add(stack);
++                objects.add(stack.getComponents());
++            }
++        }
++        return objects;
++    }
++
      public void tick() {
 +        int slot = 0;
          for (NonNullList<ItemStack> nonnulllist : this.compartments) {

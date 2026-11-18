@@ -1,3 +1,27 @@
+当前结论（2026-11-18）：**P3已按设计第7节的逐类有界协议完成统一验收，最终产物21.1.250.134-beta；停在P4前，P4/P5未开始。整体设计仍partial。** XP末次/单球、普通材料库存拾取、共享单箱子原菜单tick、非显示计分板、真实背包地图及一次非致命自饥饿伤害均有完整原worker正文、事件/同步结果、客户端反馈和守恒证据。一般PvP/实体/方块/开箱点击等正常包继续原服务器fence，未知/未支持路径完整串行，不能将P3完成理解为任意玩法或Mod可并行。
+
+同产物557项受影响JUnit、3项选定GameTest、28份P3四模式语料（56玩法子场景）、schema3 144/schema4 180、13套P2兼容/故障/网络/退役矩阵及321项proof篡改负控制通过；96份独立verdict和88套隔离安装由最终审计闭合。四模式A owner(0,0)正常攻击B owner(1,0)均health20→19、客户端health19和一个damage包；两池两入口跨区真实重叠，同区0。oracle仍UNKNOWN_MOD/worker=0。
+
+产物`tmp/player-region-tick-p3-final02/artifacts/neoforge-21.1.250.134-beta-installer.jar`，SHA256 `87680bb6ee3ff05b059a2bf4ac5aae6442387565801877a0cf577b2af513a670`。最终机器回执`tmp/player-region-tick-p3-final02/acceptance-01/receipt.json`、`final-audit.json`，接受路径映射`tmp/player-region-tick-p3-final02/accepted-evidence.json`。详细边界和全部失败见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾。默认false、未知扩展freeze前拒绝、开始后不重放、真实join后清理保持。保留全部源码、世界、失败及旧manifest/hash gate；未commit/push/deploy、reset/clean或操作现用服。以下旧“当前”段落均保留历史。
+
+---
+
+当前P3进度（2026-11-18）：`.134`已实现XP末次/单球、普通材料库存拾取、共享单箱子菜单、非显示计分板、真实背包地图和一次非致命自饥饿伤害的有界原正文协议。557项受影响JUnit、3项选定GameTest通过，统一四模式玩法/schema3/4/完整P2安装矩阵正在验收，**P3整体尚未收口**。地图原地换ID反例在`.134`正文前拒绝；外部XP观察器开销失败保留，新目录复验继续。详见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾；最终证据根`tmp/player-region-tick-p3-final02/`。P4/P5未开始。以下旧“当前”段落全部保留历史，不覆盖本段。
+
+---
+
+当前P3进度（2026-11-17）：**整体仍进行中，用户要求自主完成整个P3，P4/P5不开始。** `.128`已通过两池on的末次/单球XP原worker拾取与真实join后存储移除；`.129`已通过两池on的普通材料原worker拾取/Pre/Post/库存/统计/客户端反馈与守恒。`.130`共享单箱子已通过214项聚焦/524项受影响JUnit，真实客户端与原菜单/事件观察正在收尾；`.131`不显示计分板候选正在构建。中间增量的off、schema3/4、GameTest及完整P2安装矩阵尚未重新验收，最终P3必须同产物复验。详见[P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾；`tmp/player-region-tick-p3-02/receipt.json`、`p3-03/receipt.json`。历史`.127`及P2证据保留。默认关闭、未知扩展整次串行、开始后不重放、真实join后清理保持。
+
+---
+
+当前P3进度（2026-11-17）：**首个受限XP拾取增量已通过，整体P3仍partial。** `.127`已在两种原生池的完整Connection/doTick中实际拾取合并XP球的非末次份额；最后一次、单球、外来观察者和超预算仍整次串行。493 JUnit、四模式XP及P2 smoke、同产物完整schema3 144/schema4 180和独立负控制通过。详细范围、失败、未覆盖项及下步见[ P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾。机器回执`tmp/player-region-tick-p3-01/receipt.json`，最终审计`tmp/player-region-tick-p3-01/final-audit.json`。默认false、未知扩展整次串行、开始后不重放、真实join后清理保持；P4/P5未开始。
+
+---
+
+当前工作（2026-11-17）：用户已授权开始 P3。P3 实际玩法 worker 扩展现为 in progress，首个候选为合并 XP 球的非末次拾取；详细范围、发现和未完成验证见 [P3 实施记录](PLAYER-REGION-TICK-P3.zh.md)。下面“停在 P2 / P3 未开始”等措辞均保留为此前验收历史，不再是当前任务限制。
+
+---
+
 后续维护（2026-11-17）：用户已另行授权将全部更改提交/推送GitHub并清理WSL测试文件。源码及精简验收证据已推送，已删除约74.4 GiB的隔离测试世界、重复依赖、构建输出与Gradle/Node缓存。当前最终产物保留于 `tmp/retained-player-region-tick-2026-11-17/artifacts/neoforge-21.1.250.126-beta-installer.jar`；原始日志/帧/失败证据23376文件已压缩并逐项校验，其中最终3409原始输入全部保留。Git内精简回执见 `region-threading/evidence/player-region-tick-p2-126/`。原验收回执中的HEAD、未提交/未推送、旧路径存在等字段仅描述验收当时状态。WSL内部空间已释放；D盘仍需离线VHD压缩，当前尚未执行停止Debian的操作，见cleanup-2026-11-17.json。P3仍未开始。
 
 ---

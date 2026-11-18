@@ -1,5 +1,13 @@
 # 玩家共享状态前置协议
 
+P3最终`.134`已按当前逐类有界合同完成统一验收，P4/P5未开始；下文进行中/旧产物措辞保留历史。最新收口与限制见[当前P3实施记录](PLAYER-REGION-TICK-P3.zh.md)末尾及`tmp/player-region-tick-p3-final02/acceptance-01/receipt.json`。
+
+P3候选`.134`已逐类补充原普通材料库存、XP末次存储移除、共享单箱子、非显示计分板、真实背包地图及一次非致命自饥饿伤害；统一安装服验收进行中，见[当前production合同](PLAYER-PRODUCTION-ADMISSION-CONTRACT.zh.md)与[P3记录](PLAYER-REGION-TICK-P3.zh.md)。这些新增计划加入同一state捕获/claim/consume链；显式共享对象参与原冲突组，同lease内双方明确声明才可别名，普通本地别名仍整组拒绝。已发生的XP/物品原效果对应的storage回调在真实join后且原publisher fence有效时恰一次提交，即使stop-new-admission；不是延后同步XP/事件/返回值。地图原地换ID在未开始时拒绝。下文`.127`和P2“空库存/空objective/不支持末次”等保留历史，由当前production合同覆盖。
+
+
+P3首个增量（`.127`）：预算仍为单次完整调用最多7XP，候选集合现在按当前完整触碰框精确复查，拒绝捕获后新进入的球。production仅允许Count≥2且原观察连接只有拾取者自身的精确原球；原修补/XP/计数/发包正文保持，Count1/单球/任意外来回调和一般物品仍完整串行。此增量不扩展共享容器或一般库存；完整验收与未覆盖项见PLAYER-REGION-TICK-P3.zh.md末尾。
+
+
 本合同交付 `RegionPlayerStatePlan/Scope/Hooks`，承接[空间集合合同](PLAYER-SPATIAL-FOOTPRINT-CONTRACT.zh.md)。它可由后续准入与调度直接调用；当前接续 TODO 2 已通过[两阶段 production 准入](PLAYER-PRODUCTION-ADMISSION-CONTRACT.zh.md)将完整分支检查绑定到本状态计划的捕获/复查和开始前消费。完整玩家 worker 已由 P2 首版调度调用本协议，实际两池证据见[实施报告](PLAYER-REGION-TICK-IMPLEMENTATION.zh.md)最新记录。默认 false 的原开关、唯一 engine/pool/lease/batch/ledger 及 Player.class 整骑乘链保护均保留。
 
 ## 调用顺序

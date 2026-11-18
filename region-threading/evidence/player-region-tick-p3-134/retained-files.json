@@ -1,0 +1,82 @@
+[
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/receipt.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/receipt.json",
+    "sha256": "31b9d1f7d47b1ccb06dbaf05cae08fbc2898ccaa714baf67bba7c262f55a140c"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/final-audit.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/final-audit.json",
+    "sha256": "e7208135f9b73f3acbd04b034a272e307cf48727acee524b7bc8544b2d2dcc92"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/inputs.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/inputs.json",
+    "sha256": "893e0673a3e0d0add93efaf4bc243affb2cbd1c7b53909b1c7b6470b0ee17eeb"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/sources.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/sources.json",
+    "sha256": "605b399123f88182978cc3da5f6c8f73c57aa9c1289978cc61e2652c7d5c6ac8"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/isolation.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/isolation.json",
+    "sha256": "f8e6fe856e405835c6773ebcb8b9938706b96b6b47c716d5f81e098ee49f4b85"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/acceptedCommands.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/acceptedCommands.json",
+    "sha256": "a2bd09939cd10d746eaae956208bcef9980186fbe63e708b46c0830a6c37e6c7"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/commandHistory.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/commandHistory.json",
+    "sha256": "e2bd6545e234f776d16386149fd8c700dd7ac7aff745a1f9466ff2ce5e36db37"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/preservedNonzeroOrInterruptedCommands.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/preservedNonzeroOrInterruptedCommands.json",
+    "sha256": "2c09dcd3050d041269e8f90cef741f1221b235a08bd420c80f92b2c51783419f"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/acceptance-01/proofControls.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/acceptance-01/proofControls.json",
+    "sha256": "1ed265b505f5e4019b5f796680cde95321e91310db0e6fb334e3907aeb2d63fa"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/accepted-evidence.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/accepted-evidence.json",
+    "sha256": "806422510a3d7d1724d16fc2c61e85f3e73fda1bc65475ed7cee6fdc385e9f16"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/final-seal.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/final-seal.json",
+    "sha256": "80e910cc3006b284c1bb6aaac2a9568eda6d9da293c25a905ab2519b3b3640d4"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/patch-proof-01.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/patch-proof-01.json",
+    "sha256": "4153d9b3a19dbe3bc05bf7bfcdde10a216541d078c8971f787ff7a7f4381e287"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/regression-01/junit-summary.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/regression-01/junit-summary.json",
+    "sha256": "ba939bcd59446bf9ef6af0b429f2a8f1c3736c3cd4f59c2b376437f11bac7984"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/final-audit-retry02-command/result.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/final-audit-retry02-command/result.json",
+    "sha256": "b450518a8c5096e7e43c6c6ea756de41065a20de66da10a2f5498ec88372f52c"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/final-seal-command/result.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/final-seal-command/result.json",
+    "sha256": "bdded24c8f8d42becc07369f56609d33ecdb576aea1fb01b3742d34e02f56dcd"
+  },
+  {
+    "source": "tmp/player-region-tick-p3-final02/orchestration-retired02.json",
+    "archive": "region-threading/evidence/player-region-tick-p3-134/orchestration-retired02.json",
+    "sha256": "cd1ec8ce15cf273e351178b50769ff101cdff2ed962c20d8925825ce07b25bb7"
+  }
+]

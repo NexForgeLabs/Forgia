@@ -9,6 +9,7 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  for name in ['output','installer','libraries','eula','artifact-manifest']:p.add_argument('--'+name,type=Path,required=True)
  p.add_argument('--version',required=True);p.add_argument('--oracle',type=Path);p.add_argument('--contract-mod',type=Path)
+ p.add_argument('--link-library-dependencies',action='store_true',help='Share immutable dependency jars; core and installer metadata remain private')
  p.add_argument('--network-mod',type=Path)
  p.add_argument('--suite',required=True,choices=['functional','smoke','network','same-group','fault','socket','transitions','contract','timers','lifecycle','respawn','phase-order','network-contract'])
  a=p.parse_args();a.output.mkdir(parents=True,exist_ok=False);results=[]
@@ -21,6 +22,7 @@ def main():
  def install(key,mode,oracle=False):
   root=a.output/('server-'+key)
   argv=[sys.executable,TOOLS/'install.py','--output',root,'--libraries',a.libraries,'--eula',a.eula,'--installer',a.installer,'--java',JAVA,'--version',a.version]
+  if a.link_library_dependencies:argv+=['--link-library-dependencies']
   if oracle:
    assert a.oracle;argv+=['--oracle',a.oracle,'--artifact-manifest',a.artifact_manifest]
   else:argv+=['--without-oracle']

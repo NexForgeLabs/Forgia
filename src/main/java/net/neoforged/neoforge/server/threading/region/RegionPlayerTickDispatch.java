@@ -63,11 +63,13 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
     private final RegionThreadingEngine engine;
     final RegionTickBatch parent;
     final RegionDeferredEntitySectionUpdates sections;
+    final RegionDeferredEntityRemovals removals;
 
     RegionPlayerTickDispatch(RegionThreadingEngine engine, RegionTickBatch parent) {
         this.engine = engine;
         this.parent = parent;
         this.sections = new RegionDeferredEntitySectionUpdates(parent);
+        this.removals = new RegionDeferredEntityRemovals(parent);
     }
 
     void runGroup(RegionPlayerSpatialLease lease, List<Call> calls, StartGate gate) {
@@ -138,12 +140,17 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
 
     @Override
     public boolean acceptsDeferredRemovals() {
-        return false;
+        return this.removals.accepts();
     }
 
     @Override
     public boolean deferRemoval(Entity entity, EntityInLevelCallback callback, Entity.RemovalReason reason) {
-        return false;
+        // Only the complete captured vanilla pickup may cross this seam. Player lifecycle,
+        // arbitrary target removals and different callback identities remain forbidden.
+        return (entity.getClass() == net.minecraft.world.entity.ExperienceOrb.class || entity.getClass() == net.minecraft.world.entity.item.ItemEntity.class)
+                && reason == Entity.RemovalReason.DISCARDED && this.owns(entity) && RegionPlayerStateScope.allowsPickupRemoval(entity)
+                && callback != EntityInLevelCallback.NULL && entity.getLevelCallback() == callback
+                && this.removals.defer(entity, callback, reason);
     }
 
     @Override

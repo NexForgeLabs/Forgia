@@ -77,6 +77,11 @@ public final class RegionPlayerStatePlan {
     private final Map<StatType<?>, Map<?, Stat<?>>> stats;
     private final Map<AdvancementHolder, AwardSnapshot> awards;
     private final Map<ExperienceOrb, Integer> orbs;
+    private final RegionPlayerInventoryPlan inventory;
+    private final RegionPlayerContainerPlan container;
+    private final RegionPlayerScoreboardPlan scorePlan;
+    private final RegionPlayerMapPlan maps;
+    private final RegionPlayerDamagePlan damage;
     private boolean consumed;
     @Nullable
     private RegionPlayerAdmissionPlan admission;
@@ -90,7 +95,7 @@ public final class RegionPlayerStatePlan {
 
     private RegionPlayerStatePlan(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, List<Object> resources,
             Set<ObjectiveCriteria> criteria, Map<StatType<?>, Map<?, Stat<?>>> stats, Map<AdvancementHolder, AwardSnapshot> awards,
-            Map<ExperienceOrb, Integer> orbs) {
+            Map<ExperienceOrb, Integer> orbs, RegionPlayerInventoryPlan inventory, RegionPlayerContainerPlan container, RegionPlayerScoreboardPlan scorePlan, RegionPlayerMapPlan maps, RegionPlayerDamagePlan damage) {
         this.engine = engine;
         this.spatial = spatial;
         this.player = spatial.player();
@@ -107,6 +112,11 @@ public final class RegionPlayerStatePlan {
         this.stats = Collections.unmodifiableMap(new IdentityHashMap<>(stats));
         this.awards = Collections.unmodifiableMap(new IdentityHashMap<>(awards));
         this.orbs = Collections.unmodifiableMap(new IdentityHashMap<>(orbs));
+        this.inventory = inventory;
+        this.container = container;
+        this.scorePlan = scorePlan;
+        this.maps = maps;
+        this.damage = damage;
     }
 
     public ServerPlayer player() {
@@ -118,9 +128,11 @@ public final class RegionPlayerStatePlan {
     }
 
     List<Object> resources() {
-        if (this.admission == null) return this.resources;
         List<Object> combined = new ArrayList<>(this.resources);
-        combined.addAll(this.admission.resources());
+        combined.addAll(this.inventory.resources());
+        combined.addAll(this.container.localResources());
+        combined.addAll(this.sharedResources());
+        if (this.admission != null) combined.addAll(this.admission.resources());
         return List.copyOf(combined);
     }
 
@@ -162,7 +174,24 @@ public final class RegionPlayerStatePlan {
                 && sameReferences(resources, localResources(player)) && player.getScoreboard() == scoreboard
                 && scoreboard.forgiaObjectiveRevision() == scoreboardRevision
                 && awards.values().stream().allMatch(AwardSnapshot::current)
-                && orbs.entrySet().stream().allMatch(entry -> entry.getKey().getValue() == entry.getValue());
+                && orbsCurrent() && inventory.current(spatial) && container.current() && scorePlan.current() && maps.current() && damage.current();
+    }
+
+    boolean allowsPickupRemoval(net.minecraft.world.entity.Entity entity) {
+        return consumed && (entity instanceof ExperienceOrb orb && orbs.containsKey(orb)
+                || entity instanceof ItemEntity item && inventory.captures(item));
+    }
+
+    private boolean orbsCurrent() {
+        int candidates = 0;
+        for (var target : spatial.members().keySet()) {
+            if (target instanceof ExperienceOrb orb && target.getBoundingBox().intersects(spatial.footprint().queryBounds())) {
+                Integer captured = orbs.get(orb);
+                if (captured == null || orb.getValue() != captured) return false;
+                candidates++;
+            }
+        }
+        return candidates == orbs.size();
     }
 
     /** Final unstarted check on the original lease's worker, before any original invocation effects. */
@@ -172,12 +201,49 @@ public final class RegionPlayerStatePlan {
         return true;
     }
 
+    List<Object> sharedResources() {
+        List<Object> shared = new ArrayList<>(this.container.sharedResources());
+        shared.addAll(this.scorePlan.sharedResources());
+        shared.addAll(this.maps.sharedResources());
+        shared.addAll(this.damage.resources());
+        return List.copyOf(shared);
+    }
+
+    boolean shares(Object resource) {
+        return sharedResources().stream().anyMatch(value -> value == resource);
+    }
+
+    RegionPlayerConflictPlan.Entry conflictEntry() {
+        var entry = spatial.conflictEntry();
+        return new RegionPlayerConflictPlan.Entry(entry.player(), entry.home(), entry.footprint(), entry.targets(), sharedResources());
+    }
+
     boolean owns(Object resource) {
         return resources().stream().anyMatch(value -> value == resource);
     }
 
     boolean emptyScoreboard(Scoreboard board, ObjectiveCriteria criterion, Object holder) {
-        return board == scoreboard && holder == player && emptyCriteria.contains(criterion) && board.forgiaObjectiveRevision() == scoreboardRevision;
+        return scorePlan.allows(board, criterion, holder) && scorePlan.empty(criterion);
+    }
+
+    net.minecraft.world.level.saveddata.maps.MapItemSavedData mapData(net.minecraft.server.level.ServerLevel level, net.minecraft.world.level.saveddata.maps.MapId id) {
+        return maps.require(level, id);
+    }
+
+    void checkDamage(net.minecraft.world.entity.Entity target, net.minecraft.world.damagesource.DamageSource source, float amount) {
+        damage.take(target, source, amount);
+    }
+
+    void checkMapCarrier(net.minecraft.world.level.saveddata.maps.MapItemSavedData data, net.minecraft.world.entity.player.Player player) {
+        maps.checkCarrier(data, player);
+    }
+
+    boolean allowsScoreboard(Scoreboard board, ObjectiveCriteria criterion, Object holder) {
+        return scorePlan.allows(board, criterion, holder);
+    }
+
+    boolean allowsObjective(Scoreboard board, Object holder, net.minecraft.world.scores.Objective objective) {
+        return scorePlan.allows(board, holder, objective);
     }
 
     @Nullable
@@ -188,7 +254,7 @@ public final class RegionPlayerStatePlan {
 
     boolean allowsTrigger(SimpleCriterionTrigger<?> trigger) {
         return trigger == CriteriaTriggers.TICK
-                || ((trigger == CriteriaTriggers.LOCATION || trigger == CriteriaTriggers.ENTER_BLOCK)
+                || ((trigger == CriteriaTriggers.LOCATION || trigger == CriteriaTriggers.ENTER_BLOCK || trigger == CriteriaTriggers.INVENTORY_CHANGED || trigger == CriteriaTriggers.ENTITY_HURT_PLAYER)
                         && advancements.forgiaCriterionListeners().empty(trigger));
     }
 
@@ -245,6 +311,8 @@ public final class RegionPlayerStatePlan {
                 || player.connection == null || player.server.getPlayerList().getPlayer(player.getUUID()) != player)
             return reject(Refusal.STALE_OWNER);
         if (!player.forgiaHasLocalStateBindings()) return reject(Refusal.SHARED_MENU);
+        RegionPlayerContainerPlan container = RegionPlayerContainerPlan.capture(player);
+        if (container == null) return reject(Refusal.SHARED_MENU);
         if (!player.forgiaHasSimpleSharedState()) return reject(Refusal.OPTIONAL_PLAYER_STATE);
         PlayerCriterionListeners storage = player.getAdvancements().forgiaCriterionListeners();
         // doTick increments tickCount before the LOCATION test. Capture the whole empty branch,
@@ -271,7 +339,7 @@ public final class RegionPlayerStatePlan {
         Map<ExperienceOrb, Integer> orbs = new IdentityHashMap<>();
         for (var entry : spatial.members().keySet()) {
             if (!entry.getBoundingBox().intersects(spatial.footprint().queryBounds())) continue;
-            if (entry instanceof ItemEntity) return reject(Refusal.ITEM_PICKUP_CALLBACKS);
+            // Exact item/capacity closure is captured below; unknown callbacks are rejected by admission.
             if (entry instanceof ExperienceOrb orb) {
                 int value = orb.getValue();
                 if (value < 0 || value > 7 - experience) return reject(Refusal.XP_SHARED_SOUND);
@@ -279,23 +347,38 @@ public final class RegionPlayerStatePlan {
                 orbs.put(orb, value);
             }
         }
+        RegionPlayerInventoryPlan inventory = RegionPlayerInventoryPlan.capture(spatial);
+        if (inventory == null) return reject(Refusal.ITEM_PICKUP_CALLBACKS);
+        RegionPlayerMapPlan maps = RegionPlayerMapPlan.capture(player);
+        if (maps == null) return reject(Refusal.ITEM_PICKUP_CALLBACKS);
+        RegionPlayerDamagePlan damage = RegionPlayerDamagePlan.capture(spatial);
+        if (damage == null) return reject(Refusal.OPTIONAL_PLAYER_STATE);
+        if (RegionPlayerDamagePlan.starving(player) && !storage.empty(CriteriaTriggers.ENTITY_HURT_PLAYER)) return reject(Refusal.UNKNOWN_CRITERION);
+        if (!storage.empty(CriteriaTriggers.INVENTORY_CHANGED)) return reject(Refusal.UNKNOWN_CRITERION);
         if (!boundedExperience(player)) return reject(Refusal.XP_SHARED_SOUND);
         // Initialize only mandatory intrinsic stat handles on the publisher. Workers use immutable
         // identity snapshots, and cannot populate shared StatType/ObjectiveCriteria caches.
         Map<ResourceLocation, Stat<?>> warmed = new IdentityHashMap<>();
         for (ResourceLocation value : List.of(Stats.PLAY_TIME, Stats.TOTAL_WORLD_TIME, Stats.TIME_SINCE_DEATH, Stats.CROUCH_TIME, Stats.TIME_SINCE_REST)) warmed.put(value, Stats.CUSTOM.get(value));
+        if (RegionPlayerDamagePlan.starving(player)) warmed.put(Stats.DAMAGE_TAKEN, Stats.CUSTOM.get(Stats.DAMAGE_TAKEN));
         Map<StatType<?>, Map<?, Stat<?>>> stats = new IdentityHashMap<>();
         stats.put(Stats.CUSTOM, Collections.unmodifiableMap(warmed));
         Set<ObjectiveCriteria> criteria = Collections.newSetFromMap(new IdentityHashMap<>());
         criteria.addAll(warmed.values());
+        Map<net.minecraft.world.item.Item, Stat<?>> pickedUp = new IdentityHashMap<>();
+        for (var target : spatial.members().keySet()) if (target instanceof ItemEntity item && inventory.captures(item))
+            pickedUp.put(item.getItem().getItem(), Stats.ITEM_PICKED_UP.get(item.getItem().getItem()));
+        stats.put(Stats.ITEM_PICKED_UP, Collections.unmodifiableMap(pickedUp));
+        criteria.addAll(pickedUp.values());
         criteria.addAll(List.of(ObjectiveCriteria.HEALTH, ObjectiveCriteria.FOOD, ObjectiveCriteria.AIR, ObjectiveCriteria.ARMOR, ObjectiveCriteria.EXPERIENCE, ObjectiveCriteria.LEVEL));
         Scoreboard board = player.getScoreboard();
-        for (ObjectiveCriteria criterion : criteria) if (board.forgiaHasObjectives(criterion)) return reject(Refusal.SCOREBOARD_OBJECTIVES);
+        RegionPlayerScoreboardPlan scorePlan = RegionPlayerScoreboardPlan.capture(player, criteria);
+        if (scorePlan == null) return reject(Refusal.SCOREBOARD_OBJECTIVES);
         // Materialize all per-player instances so shared attribute templates never initialize lazily.
         for (var attribute : net.minecraft.core.registries.BuiltInRegistries.ATTRIBUTE.holders().toList()) {
             var instance = player.getAttributes().getInstance(attribute);
             if (instance != null) instance.getValue();
         }
-        return new Capture(new RegionPlayerStatePlan(engine, spatial, localResources(player), criteria, stats, awards, orbs), Refusal.NONE);
+        return new Capture(new RegionPlayerStatePlan(engine, spatial, localResources(player), criteria, stats, awards, orbs, inventory, container, scorePlan, maps, damage), Refusal.NONE);
     }
 }

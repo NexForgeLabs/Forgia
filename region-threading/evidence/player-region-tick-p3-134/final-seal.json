@@ -1,0 +1,45 @@
+{
+  "status": "passed",
+  "generatedAt": "2026-11-17T18:36:38.134040+00:00",
+  "receiptSha256": "31b9d1f7d47b1ccb06dbaf05cae08fbc2898ccaa714baf67bba7c262f55a140c",
+  "closedInputsRehashed": 9998,
+  "independentVerdictsRehashed": 96,
+  "productionManifestUnchanged": true,
+  "sourceSnapshotsUnchanged": true,
+  "gitHeadUnchanged": "5cb387bfa31d2dd441e500f483d833b6d73d38f9",
+  "documents": [
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-P3.zh.md",
+      "sha256": "39a029c9c2d6240d3e9966fba915d6d471afd7da3c212e26ab961c4dab11dd74"
+    },
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-HANDOFF.zh.md",
+      "sha256": "70284b6c6ea6c7267a93ad9d1ef1ebe1386a9de9269fbb9db9a7ac70d031f4dd"
+    },
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-IMPLEMENTATION.zh.md",
+      "sha256": "4f9eb89bee4d668908cbed84bded8773e6340427f4889d9f93328b5836a8005e"
+    },
+    {
+      "path": "region-threading/PLAYER-REGION-TICK-IMPLEMENTATION.zh.json",
+      "sha256": "c640b6b7558b36ad51c34797997ffc6bbead719211f2f9bad34551a4b9456e3f"
+    },
+    {
+      "path": "region-threading/PLAYER-PRODUCTION-ADMISSION-CONTRACT.zh.md",
+      "sha256": "c2d31b51c5e3ebe3749ab990fff77fdc00fa91e0f5bc2b09f0d7c9231c7f5002"
+    },
+    {
+      "path": "region-threading/PLAYER-SHARED-STATE-CONTRACT.zh.md",
+      "sha256": "c2990508c983d6921acb3054e1541978f4feaccde30e20afc908a0200b52d758"
+    },
+    {
+      "path": "tools/player-region-tick/README.md",
+      "sha256": "c9dca7236fce986e1bbe52086656277ae95e465e745c4a152df7bfc1b59c3526"
+    }
+  ],
+  "p3": "complete_bounded_protocols",
+  "p4": "not_started",
+  "p5": "not_started",
+  "actualAuditExit": 0,
+  "actualDocumentWriterExit": 0
+}

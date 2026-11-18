@@ -73,7 +73,7 @@
              EntityType<?> entitytype = p_140200_.getType();
              int i = entitytype.clientTrackingRange() * 16;
              if (i != 0) {
-@@ -1199,6 +_,20 @@
+@@ -1199,6 +_,46 @@
          });
      }
  
@@ -89,6 +89,32 @@
 +        } else {
 +            return List.of();
 +        }
++    }
++
++    /** Exact original outbound destination; the player phase may never write another connection. */
++    public boolean forgiaHasExclusiveEntityWatcher(Entity entity, net.minecraft.server.network.ServerGamePacketListenerImpl connection) {
++        if (net.neoforged.neoforge.server.threading.region.RegionWorkerScope.isNativeWorkerThread()) {
++            var lease = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
++            if (lease == null || entity.level() != this.level || !lease.owns(entity) || !lease.owns(connection.player))
++                throw new IllegalStateException("Entity watcher read requires the complete original player lease");
++        } else if (!this.level.getServer().isSameThread()) {
++            throw new IllegalStateException("Entity watcher capture requires its publishing server thread");
++        }
++        var tracked = this.entityMap.get(entity.getId());
++        return tracked != null && tracked.entity == entity && tracked.seenBy.size() == 1 && tracked.seenBy.iterator().next() == connection;
++    }
++
++    /** A self-only damage notification may never touch a foreign or stale tracking connection. */
++    public boolean forgiaHasNoEntityWatchers(Entity entity) {
++        if (net.neoforged.neoforge.server.threading.region.RegionWorkerScope.isNativeWorkerThread()) {
++            var lease = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
++            if (lease == null || entity.level() != this.level || !lease.owns(entity))
++                throw new IllegalStateException("Damage watcher read requires the complete original player lease");
++        } else if (!this.level.getServer().isSameThread()) {
++            throw new IllegalStateException("Damage watcher capture requires its publishing server thread");
++        }
++        var tracked = this.entityMap.get(entity.getId());
++        return tracked != null && tracked.entity == entity && tracked.seenBy.isEmpty();
 +    }
 +
      class DistanceManager extends net.minecraft.server.level.DistanceManager {

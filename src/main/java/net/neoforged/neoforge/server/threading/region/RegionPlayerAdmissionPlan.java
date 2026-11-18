@@ -14,9 +14,12 @@ import net.minecraft.server.network.ServerCommonPacketListenerImpl;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.util.profiling.InactiveProfiler;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -90,7 +93,7 @@ public final class RegionPlayerAdmissionPlan {
         if (intrinsic(player).refusal() != Refusal.NONE) return false;
         List<Object> current = localObjects(player);
         for (int i = 0; i < localObjects.size(); i++) if (current.get(i) != localObjects.get(i)) return false;
-        return spatial.members().keySet().stream().noneMatch(target -> target != player && target.getBoundingBox().intersects(spatial.footprint().queryBounds()));
+        return touchCallbacksSupported(spatial);
     }
 
     static Capture capture(RegionThreadingEngine engine, ServerPlayer player, RegionPlayerTickCoordinator.Phase phase) {
@@ -104,17 +107,40 @@ public final class RegionPlayerAdmissionPlan {
         if (intrinsic.refusal() != Refusal.NONE) return refused(intrinsic.refusal(), intrinsic.detail());
         var geometry = engine.capturePlayerSpatialPlan(player, phase);
         if (geometry.plan() == null) return refused(Refusal.SPATIAL, geometry.refusal().name());
-        // No playerTouch, push, orb removal/sound or arbitrary target callbacks in this first branch.
-        // The original FULL query/body is preserved; a touchable target fences the entire invocation.
-        for (var target : geometry.plan().members().keySet()) {
-            if (target != player && target.getBoundingBox().intersects(geometry.plan().footprint().queryBounds()))
-                return refused(Refusal.TOUCH_CALLBACK, target.getType().toString());
-        }
+        // Original full query/body, synchronous XP and original outbound connection are retained.
+        // Final vanilla XP removal uses the existing removal kernel at this prefix's physical join.
+        if (!touchCallbacksSupported(geometry.plan())) return refused(Refusal.TOUCH_CALLBACK, "uncaptured touch or outbound recipient");
         var local = engine.capturePlayerStatePlan(geometry.plan());
         if (local.plan() == null) return refused(Refusal.STATE, local.refusal().name());
         var plan = new RegionPlayerAdmissionPlan(engine, geometry.plan(), local.plan());
         local.plan().bindAdmission(plan);
         return new Capture(plan, Refusal.NONE, "");
+    }
+
+    private static boolean touchCallbacksSupported(RegionPlayerSpatialPlan spatial) {
+        ServerPlayer player = spatial.player();
+        for (Entity target : spatial.members().keySet()) {
+            if (target == player || !target.getBoundingBox().intersects(spatial.footprint().queryBounds())) continue;
+            if (target.level() != player.level() || target.isRemoved() || target.hasAttachments()
+                    || target.isPassenger() || !target.getPassengers().isEmpty())
+                return false;
+            try {
+                if (target.getClass() == ExperienceOrb.class && target.getType() == EntityType.EXPERIENCE_ORB) {
+                    if (((ExperienceOrb) target).getValue() <= 0 || (int) value(target, ExperienceOrb.class, "count") < 1) return false;
+                } else if (target.getClass() == ItemEntity.class && target.getType() == EntityType.ITEM) {
+                    var item = (ItemEntity) target;
+                    if (!RegionPlayerInventoryPlan.supportedStack(item.getItem()) || item.getItem().isEmpty()
+                            || value(item, ItemEntity.class, "thrower") != null || value(item, ItemEntity.class, "cachedThrower") != null
+                            || (value(item, ItemEntity.class, "target") != null && !player.getUUID().equals(value(item, ItemEntity.class, "target"))))
+                        return false;
+                } else return false;
+            } catch (ReflectiveOperationException | RuntimeException failure) {
+                return false;
+            }
+            var chunkMap = player.serverLevel().getChunkSource().chunkMap;
+            if (chunkMap == null || !chunkMap.forgiaHasExclusiveEntityWatcher(target, player.connection)) return false;
+        }
+        return true;
     }
 
     private static Capture refused(Refusal refusal, String detail) {
@@ -142,7 +168,7 @@ public final class RegionPlayerAdmissionPlan {
                     || player.getAirSupply() < player.getMaxAirSupply() || player.getForcedPose() != null
                     || player.getLastHurtMob() != null || player.getLastHurtByMob() != null
                     || player.getSleepingPos().isPresent() || !player.activeLocationDependentEnchantments().isEmpty()
-                    || player.getFoodData().getFoodLevel() < 2
+                    || !RegionPlayerDamagePlan.supportedFood(player)
                     || !Float.isFinite(player.getHealth()) || !Float.isFinite(player.getMaxHealth())
                     || !Float.isFinite(player.moveDist) || player.moveDist > (float) value(player, Entity.class, "nextStep")
                     || player.mainSupportingBlockPos.stream().anyMatch(pos -> !player.getBoundingBox().inflate(1, 1, 1).expandTowards(0, -1, 0).contains(pos.getCenter()))

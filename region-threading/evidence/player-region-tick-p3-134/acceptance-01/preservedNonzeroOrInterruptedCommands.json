@@ -1,0 +1,630 @@
+[
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/functional/run-resources-on-fixed/command.json",
+      "sha256": "edf4a88c81980efcfe44168d074d4bdca9cf5456367b1ee32eeaf8d42461aedc",
+      "bytes": 345
+    },
+    "result": null,
+    "exit": null,
+    "acceptance": "unknown_exit_not_accepted"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/functional-matrix-command/command.json",
+      "sha256": "188edc2fda149b329ac92bddf30f02807a469cc03a3fbb1d148f5d86c0190c5f",
+      "bytes": 864
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/functional-matrix-command/result.json",
+      "sha256": "262357ff41e9c272cd4bc8d61e0313f1329972124fda3f87ec07e886c8abe920",
+      "bytes": 948
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/junit-02/command.json",
+      "sha256": "e36e555495943e8d57c530cdbae9b560d7b387d0c2b0fba71878308fa717f4af",
+      "bytes": 455
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/junit-02/result.json",
+      "sha256": "37ae531d8710e7fbcc4f2382174c39989894dbf69c57153dec5f6c4848507c05",
+      "bytes": 535
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/junit-03/command.json",
+      "sha256": "0252718b9232352e32c6a7cc85eee1cae9b91703b57f229317efe137396cdb89",
+      "bytes": 438
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/junit-03/result.json",
+      "sha256": "4ba4cc36de05c5459ec439053b717d7da8a24f37bdb210f746773314b286c9ad",
+      "bytes": 523
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/junit-first/command.json",
+      "sha256": "9ef0d7a72e8012742b6d9f2d78c26021706b496ba791cfc0a7f480c07ece7c6f",
+      "bytes": 438
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/junit-first/result.json",
+      "sha256": "93f9875dfde2c44b248c246995bb845c0dcaa4777f817cde431609725df24fdb",
+      "bytes": 518
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/patch-proof-01/command.json",
+      "sha256": "87311e06d85e398c04362ea056b38928703cc979514d58935725dfad659b2265",
+      "bytes": 301
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/patch-proof-01/result.json",
+      "sha256": "4a648704aa7511473f67c5eb5e231e6e61a6a8cfc4168484562cd4f167624f23",
+      "bytes": 388
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/recheck01/smoke-command/command.json",
+      "sha256": "a56483d742691c51d364c6a76b4879a626486cc4200a332350aab4d5f1ec7ab1",
+      "bytes": 238
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/recheck01/smoke-command/result.json",
+      "sha256": "582b1583b77685fa1f88a57e8510152b3d551e1831874264628c117f8b10c217",
+      "bytes": 322
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/recheck01/verify-smoke-on-persistent-01/command.json",
+      "sha256": "0cfb38d566ee79bbfeefa45137627ef31429becd2d3f8a68c369791c630eea79",
+      "bytes": 434
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/recheck01/verify-smoke-on-persistent-01/result.json",
+      "sha256": "863fcc0e0d6898d97e04fbd4d086d92e5e06db26ec7fd27cec4527c84c874081",
+      "bytes": 519
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/smoke-matrix-command/command.json",
+      "sha256": "8ddc1457a380c6efde4f6e56e5511a9680b7aecce8264fd769bcf81a198a5f8b",
+      "bytes": 228
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/smoke-matrix-command/result.json",
+      "sha256": "fe811d0a4c4f3ad6c3f4b12a63add5f0151cf6042b87446d932fb37186f627f6",
+      "bytes": 312
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/smoke-on-fixed-01/command.json",
+      "sha256": "af5caa072655520314713d6927aac2c159887e339c83a58b8c035a6d17dca17c",
+      "bytes": 310
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/smoke-on-fixed-01/result.json",
+      "sha256": "18a739936540eb3c01466109627f91ac349904d2df9271f2f5dce449f9752d67",
+      "bytes": 394
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-01/verify-xp-on-fixed-01/command.json",
+      "sha256": "b851562a8ea0a44c0ac2cea0daf110b8126cef134a76f661c935d42148c6bed6",
+      "bytes": 409
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-01/verify-xp-on-fixed-01/result.json",
+      "sha256": "8892ce318a6d166afe13039708cc5b1196568a08705e8fe9d446b0118875470c",
+      "bytes": 494
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-01/command.json",
+      "sha256": "a3fed4599dc6a45b3048b9bc445c309179079e7b3d8c0e7395cf62fd6961edaf",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-01/result.json",
+      "sha256": "85e9529e813acc10911355c2f665cc2c307f7d65dfb8758c9e6fb9ddf303acfc",
+      "bytes": 757
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-02/command.json",
+      "sha256": "73f28a014e34fefb2fb9a2797584313496a2cca03cae496ad805f3d83d0621a4",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-02/result.json",
+      "sha256": "6ba5451c0ca8311163aedd93e1d5542b2b35327f51f8f3ffb0977175abc5431e",
+      "bytes": 757
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-03/command.json",
+      "sha256": "b5a81e76ec058e735d9b598ba3dd18392dff6af5a9696b2980bc4eae1d81556f",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-03/result.json",
+      "sha256": "0473a51ffb4ad49d39e636ea5c2848eea7d66121e8efdb3e62527f99dd0e0913",
+      "bytes": 758
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-04/command.json",
+      "sha256": "d64ebd0215f2c00227f13cb790437be72ae3ff037b79bbeef1cdbdc8df50b1dc",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-04/result.json",
+      "sha256": "6e4314f6f1a788cc8a4e7cd81c1293346efb5d80ab51a78631f9ed85eaaf5b11",
+      "bytes": 758
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-05/command.json",
+      "sha256": "0f449b38d8e4802c0d26bf51bad91d2a8605a15abe9eb518e0261b68ce6a036d",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/build-xp-05/result.json",
+      "sha256": "7981d6499793947a242b74f6c564076173fd34ab4b848535087527fa848922d0",
+      "bytes": 758
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/run-xp-on-fixed-01/command.json",
+      "sha256": "1568ced960cf77de59507096501e77b5363ad55cd0781a36b646c4301b787776",
+      "bytes": 304
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/run-xp-on-fixed-01/result.json",
+      "sha256": "83f93980b802a6c76c388ae0e28f3b760923b639367c4263afa417c757194c1a",
+      "bytes": 389
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-02/server-xp-on-fixed-01/worker-xp-removal/debugger-single/command.json",
+      "sha256": "516fce9fceb574b7f7760f18f8c8860baf9a713224fd6c3c24578e519abc17ee",
+      "bytes": 557
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-02/server-xp-on-fixed-01/worker-xp-removal/debugger-single/result.json",
+      "sha256": "29b6514e4897dd29bb1d646d9a0e1e70e164e28f35f6f37bc6eae3dde7186963",
+      "bytes": 641
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-03/build-inventory-01/command.json",
+      "sha256": "6294dcad39443c1fa7ee6b03e6c35494f66a218ce974608641c348761732b960",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-03/build-inventory-01/result.json",
+      "sha256": "2326a5d5f98cc7b8cb1d2d69a730eb21657590a622da23086bb33913d326fcbb",
+      "bytes": 757
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-03/build-inventory-02/command.json",
+      "sha256": "22d70ec0c70894089a7ee58a1af27de14f2d5c4172e5a0d2bf66af4aca057961",
+      "bytes": 673
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-03/build-inventory-02/result.json",
+      "sha256": "ef901b61208ccf8391fee3abe643f51e3a9467e12885937e4762acaa30bf9f49",
+      "bytes": 757
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-03/run-item-on-fixed-01/command.json",
+      "sha256": "816e5c6d35a23042cc0865377bafec7a33759d47363ce57fd525f1bb138d78a3",
+      "bytes": 307
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-03/run-item-on-fixed-01/result.json",
+      "sha256": "fd75f412ada92f3b4f49470007e62f4efdab2fa992abb7a8c7fa03cf232233eb",
+      "bytes": 390
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-03/server-item-on-fixed-01/worker-item-pickup/debugger-isolated/command.json",
+      "sha256": "0256950b4ef4a6c2813fab7385fc65a0ce613c5279e4bbae998928d57c62c473",
+      "bytes": 563
+    },
+    "result": null,
+    "exit": null,
+    "acceptance": "unknown_exit_not_accepted"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-04/build-container-02/command.json",
+      "sha256": "2ed2aaf09044dd657d9157789c7fb9b73dddc6733affbaa15ab1cab6c8c56f5d",
+      "bytes": 722
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-04/build-container-02/result.json",
+      "sha256": "660b8a58239267d252d7e2a50a3169b81588b2da129c304a80b0fa50f6106234",
+      "bytes": 806
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-04/run-chest-on-fixed-01/command.json",
+      "sha256": "477e4f0ad238e6a73713d3d592a839c1fc646fba17be14513bfe9196a22e6c7b",
+      "bytes": 309
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-04/run-chest-on-fixed-01/result.json",
+      "sha256": "21f04c45e3382308dda42f20a251e54f54c87b0fd26aafff4499883323ee5f7d",
+      "bytes": 393
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-04/server-chest-on-fixed-01/worker-shared-chest/debugger/command.json",
+      "sha256": "f190677303a14316bafab82908f670773a96ec13b8ac865495caa164b3fcf13e",
+      "bytes": 669
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-04/server-chest-on-fixed-01/worker-shared-chest/debugger/result.json",
+      "sha256": "5715211cf9ff45ad7449f61f3b539af959340490f641fa4f29f44b67f59d73df",
+      "bytes": 753
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-04/verify-chest-on-fixed-02/command.json",
+      "sha256": "715fb39e8f7af5ac7d19b00bee13631b620fa4254e4a2a71b63c047c409f1291",
+      "bytes": 419
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-04/verify-chest-on-fixed-02/result.json",
+      "sha256": "8157666830b7106293c22946363af31df95690a2b70d98d4c9e9315d71e8363f",
+      "bytes": 504
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-05/build-scoreboard-01/command.json",
+      "sha256": "df9e7ce0e718a1c708e3a5be6793ae7d46e5ef86d18cd2c61a0234e8516b5a12",
+      "bytes": 752
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-05/build-scoreboard-01/result.json",
+      "sha256": "2db3d04c45fe90c69422b4e2e951a975dea87df161c7916aca99a38c7d5c493c",
+      "bytes": 837
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-05/verify-score-on-fixed-01/command.json",
+      "sha256": "adc11147ba8acbf261cefcb83e2d1ffedaad0ed798c18331f03409db8a77f227",
+      "bytes": 417
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-05/verify-score-on-fixed-01/result.json",
+      "sha256": "9a5a8727696c0f87119af447deccc14c6c22382cae2af49bd19876d48dcbe6fb",
+      "bytes": 502
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-06/verify-map-on-fixed-01/command.json",
+      "sha256": "1a0f986a3f8773863c26323b1cd59dc2ad38ae04bb568e879fdcaa6c9ca3c8c0",
+      "bytes": 417
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-06/verify-map-on-fixed-01/result.json",
+      "sha256": "bf32ea6d2a31c659c7f8ba047e2e17504d38760860a847d8e0357ad699101935",
+      "bytes": 502
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/build-damage-02/command.json",
+      "sha256": "958af525339e0123bc71fa506ff29d4275e5fef0c4105976daafc591770a28b6",
+      "bytes": 691
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-07/build-damage-02/result.json",
+      "sha256": "758c663d2686c2c64459c03fd69949173163aeebf3882ebc407955a9d31ba9ee",
+      "bytes": 776
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/install-damage-on-fixed-03/command.json",
+      "sha256": "fa44c4856ab770bec8593b012fabb0511778f0852ac03859bc6f0e2391b4a546",
+      "bytes": 742
+    },
+    "result": null,
+    "exit": null,
+    "acceptance": "unknown_exit_not_accepted"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/map-id-counterexample-01/command.json",
+      "sha256": "a1a661ae122a516b143a20d16a7ec21abeeb3418b7e971d1fb113dce6086a771",
+      "bytes": 492
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-07/map-id-counterexample-01/result.json",
+      "sha256": "34947ba69233dbd4a73f4f3d044fd0b4e09f9014b27e518933f5b4c6d58f1684",
+      "bytes": 577
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/run-damage-on-fixed-01/command.json",
+      "sha256": "a1457b3fc589608aa73c7916e7853e06bc9f1e9f0e7ef8c7da6132ce714a8985",
+      "bytes": 393
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-07/run-damage-on-fixed-01/result.json",
+      "sha256": "a24698753a0ae9007e918534ff248cd1a26076ca843185d9157263a5f628a5fb",
+      "bytes": 479
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/run-damage-on-fixed-02/command.json",
+      "sha256": "a0feeb725298d5d1db6c76a6534124f404d6d7e40c40821cb50d019d7d725048",
+      "bytes": 393
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-07/run-damage-on-fixed-02/result.json",
+      "sha256": "919b8da6ca996a6ed34482bb11e83b22f91a44306e778c4179969353f58b694e",
+      "bytes": 478
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/run-damage-on-fixed-04/command.json",
+      "sha256": "27b2d0ff774dfbc508e3fb6e8a326453b28045ca046126d92fb40ec2050b56ac",
+      "bytes": 392
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-07/run-damage-on-fixed-04/result.json",
+      "sha256": "24a0b4679219dfa86997a2f944477d4705006fe5e889a79aebd9a341cea9f855",
+      "bytes": 476
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/server-damage-on-fixed-02/worker-starvation-damage/debugger/command.json",
+      "sha256": "728d679c20f5353befd2c5ea19e5cbed866a57c6653016f04b774cafb01d7513",
+      "bytes": 642
+    },
+    "result": null,
+    "exit": null,
+    "acceptance": "unknown_exit_not_accepted"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-07/server-damage-on-fixed-04/worker-starvation-damage/debugger/command.json",
+      "sha256": "6f9ee871aaadec26780432e85876d713306830ea8fff4a4d3a88debc4e203426",
+      "bytes": 641
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-07/server-damage-on-fixed-04/worker-starvation-damage/debugger/result.json",
+      "sha256": "444ca769c6bc84e456533f289b6d0eb13496d4d7591ac0e59bc8091c4db16884",
+      "bytes": 726
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final01/gametest-command/command.json",
+      "sha256": "843c7b9f26dacfdd09c413483a4230ad478c77f07efcd80e5be5f14c26877d87",
+      "bytes": 665
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final01/gametest-command/result.json",
+      "sha256": "67a9512332ee5889f176f290bc96801e42bff14a391f511acffb7d307d62bd95",
+      "bytes": 749
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final01/primary-command/command.json",
+      "sha256": "e2b607c068cd27876a08318c626994de1d6696196709f168e14bb7920b9bc067",
+      "bytes": 228
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final01/primary-command/result.json",
+      "sha256": "54866fc5da2c0d908c565edb9a894b7b5097f4a2fda5510609e9b9fa96f06b4b",
+      "bytes": 310
+    },
+    "exit": -15,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final01/secondary-command/command.json",
+      "sha256": "425456797cafbb9dd112e84e06bc1a3daa0469d1a7b9b9fb27886f15f3a4a13c",
+      "bytes": 230
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final01/secondary-command/result.json",
+      "sha256": "9172510149dc18492ff77ce3aabca15e8e58c62361cf8de4695c10420cc8d5c1",
+      "bytes": 317
+    },
+    "exit": -15,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/final-audit-command/command.json",
+      "sha256": "c4b8e255279f7cd03cff071e8addb3c6a14217a606d63d842e0c83b1298c2aec",
+      "bytes": 449
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final02/final-audit-command/result.json",
+      "sha256": "568beefa087e9bee0ec3b6e32a052726a9eff510bc19c6e4109f26de78d1e521",
+      "bytes": 535
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/final-audit-retry01-command/command.json",
+      "sha256": "6caf0e0b793d6549f727199bfff52a5ccf8da2bd68af8fcf97faeca022fdc928",
+      "bytes": 449
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final02/final-audit-retry01-command/result.json",
+      "sha256": "bbb0e1838de343e46674a7ec8eeee651dd331b2e46ae65f53dcca64f91f137e9",
+      "bytes": 535
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay/run-xp-on-fixed/command.json",
+      "sha256": "fdec6afea719f85527e7d440c04de0af7796910194a662b6e1a346fb8ecac869",
+      "bytes": 349
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay/run-xp-on-fixed/result.json",
+      "sha256": "1775e65afc4d9938ae5aad78e79d0d18bf9d9d0a838b8e0987e07b442242d285",
+      "bytes": 434
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay/server-xp-on-fixed/worker-xp-removal/debugger-isolated/command.json",
+      "sha256": "1185026184d00f8db35865ad32c46900b6287b34c508e96e9b73cd3ff519aa1e",
+      "bytes": 570
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay/server-xp-on-fixed/worker-xp-removal/debugger-isolated/result.json",
+      "sha256": "ed8402e03cd6102f176aaaee420f1396b1ad42a29c00a10ba62ff7fe3b314428",
+      "bytes": 654
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-command/command.json",
+      "sha256": "cd9cafba3416bab6e460a6774d24034d57410a9c82245830f08c27758c919954",
+      "bytes": 646
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final02/gameplay-command/result.json",
+      "sha256": "64bc5a18a4cb0c17e4c3feeb814426f9d304165f6bea405b059f01e00f7aebfc",
+      "bytes": 730
+    },
+    "exit": 1,
+    "acceptance": "preserved_command_exit"
+  },
+  {
+    "command": {
+      "path": "tmp/player-region-tick-p3-final02/secondary-command/command.json",
+      "sha256": "491eabddd931f866dff789a9c7aa16101beb6103b95aeafe9402b2c8f62f176e",
+      "bytes": 230
+    },
+    "result": {
+      "path": "tmp/player-region-tick-p3-final02/secondary-command/result.json",
+      "sha256": "5f0b8658131c00afa1c2b03cb81914366e5885847d61535ae014d5afa61ca4bb",
+      "bytes": 313
+    },
+    "exit": -15,
+    "acceptance": "preserved_command_exit"
+  }
+]

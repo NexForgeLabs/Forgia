@@ -20,13 +20,18 @@ import org.jetbrains.annotations.Nullable;
 @ApiStatus.Internal
 public final class RegionPlayerConflictPlan {
     public enum Conflict {
-        SAME_REGION, HALO_INTERSECTION, SHARED_TARGET
+        SAME_REGION, HALO_INTERSECTION, SHARED_TARGET, SHARED_RESOURCE
     }
 
     /** A null footprint is an original serial fence. Entity references are the original objects. */
-    public record Entry(Entity player, RegionCoordinate home, @Nullable RegionPlayerFootprint footprint, List<Entity> targets) {
+    public record Entry(Entity player, RegionCoordinate home, @Nullable RegionPlayerFootprint footprint, List<Entity> targets, List<Object> sharedResources) {
         public Entry {
             targets = List.copyOf(targets);
+            sharedResources = List.copyOf(sharedResources);
+        }
+
+        public Entry(Entity player, RegionCoordinate home, @Nullable RegionPlayerFootprint footprint, List<Entity> targets) {
+            this(player, home, footprint, targets, List.of());
         }
     }
 
@@ -109,6 +114,9 @@ public final class RegionPlayerConflictPlan {
         Set<Entity> identities = Collections.newSetFromMap(new IdentityHashMap<>());
         identities.addAll(a.targets);
         if (b.targets.stream().anyMatch(identities::contains)) return Conflict.SHARED_TARGET;
+        Set<Object> shared = Collections.newSetFromMap(new IdentityHashMap<>());
+        shared.addAll(a.sharedResources);
+        if (b.sharedResources.stream().anyMatch(shared::contains)) return Conflict.SHARED_RESOURCE;
         if (a.footprint.regions().stream().anyMatch(b.footprint.regions()::contains)) return Conflict.HALO_INTERSECTION;
         return null;
     }
