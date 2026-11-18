@@ -1,6 +1,6 @@
 # Forgia API —— 入口、生命周期与版本
 
-[English](README.en.md) | 中文 · 上级：[docs](../README.zh.md) · 完整清单：[API-REFERENCE](../../region-threading/API-REFERENCE.md)
+[English](README.en.md) | 中文 · 上级：[docs](../README.zh.md) · 完整清单：[API-REFERENCE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/API-REFERENCE.md)
 
 状态：**实验性，API major = 1。** 公开类型不是冻结 ABI，必须按 capability 协商。
 
