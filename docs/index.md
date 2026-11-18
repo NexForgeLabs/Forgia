@@ -1,32 +1,32 @@
 <div class="hero" markdown>
   <div class="hero-copy">
-    <div class="eyebrow"><span class="eyebrow-mark"></span> NEXFORGELABS <span class="eyebrow-sep">/</span> SERVER ENGINEERING</div>
-    <h1>More room<br>to <em>run</em>.</h1>
-    <p class="hero-lede">Forgia is an experimental regionized server core for NeoForge 1.21.1 — bringing region ownership and parallel execution research to heavily modded Minecraft.</p>
+    <p class="eyebrow"><span class="eyebrow-mark"></span> NexForge Labs <span class="eyebrow-sep">/</span> Minecraft server runtime</p>
+    <h1>Parallel execution<br>for <em>modded worlds.</em></h1>
+    <p class="hero-lede">Forgia is an experimental regionized server core for NeoForge 1.21.1. It explores explicit region ownership and worker-thread execution while keeping cross-region coordination part of the design.</p>
     <div class="hero-actions">
-      <a class="action-primary" href="README.en/">Explore the project <span>↗</span></a>
-      <a class="action-secondary" href="https://github.com/NexForgeLabs/Forgia">View source <span>↗</span></a>
+      <a class="action-primary" href="README.en/">Read the project <span>↗</span></a>
+      <a class="action-secondary" href="https://github.com/NexForgeLabs/Forgia">Browse source <span>↗</span></a>
     </div>
-    <div class="hero-footnote"><span class="status-dot"></span> ACTIVE DEVELOPMENT <span class="hero-footnote-divider">·</span> EXPERIMENTAL SOFTWARE</div>
+    <p class="hero-footnote"><span class="status-dot"></span> Active development <span class="hero-footnote-divider">·</span> Experimental software</p>
   </div>
-  <div class="hero-visual">
-    <div class="visual-topline"><span>EXECUTION MODEL</span><span>FIG. 01 — CONCEPT</span></div>
-    <img src="assets/region-topology.svg" alt="Conceptual diagram showing a server coordinator assigning work across three region workers." />
-    <div class="visual-caption"><span>01 / REGION OWNERSHIP</span><span>COORDINATED, NOT SHARED</span></div>
-  </div>
+  <figure class="hero-visual">
+    <div class="visual-topline"><span>Region execution model</span><span>Conceptual model / 01</span></div>
+    <img src="assets/region-topology.svg" alt="Conceptual diagram of region-owned work assigned to workers, with a separate cross-region coordination path." />
+    <figcaption class="visual-caption"><span>Region ownership</span><span>Explicit boundaries · Coordinated handoff</span></figcaption>
+  </figure>
 </div>
 
 <div class="spec-strip">
-  <div><span class="spec-label">TARGET PLATFORM</span><strong>NeoForge <b>1.21.1</b></strong></div>
-  <div><span class="spec-label">CORE MODEL</span><strong>Regionized <b>execution</b></strong></div>
-  <div><span class="spec-label">PROJECT PHASE</span><strong>Active <b>research</b></strong></div>
-  <div><span class="spec-label">MAINTAINED BY</span><strong>NexForge <b>Labs</b></strong></div>
+  <div><span class="spec-label">Target</span><strong>NeoForge <b>1.21.1</b></strong></div>
+  <div><span class="spec-label">Execution model</span><strong>Region <b>ownership</b></strong></div>
+  <div><span class="spec-label">Development stage</span><strong>Active <b>research</b></strong></div>
+  <div><span class="spec-label">Project</span><strong>NexForge <b>Labs</b></strong></div>
 </div>
 
 <section class="intro-section">
-  <div class="section-index">01 <span>— THE IDEA</span></div>
+  <div class="section-index">01 <span>— The idea</span></div>
   <div class="intro-content">
-    <h2>Concurrency needs<br>a <em>clear owner.</em></h2>
+    <h2>The hard part is<br><em>ownership.</em></h2>
     <p>Traditional server ticking is built around a central thread. Forgia explores a different boundary: divide the world into independently owned regions, then move eligible work onto workers without pretending that every interaction is isolated.</p>
     <p>The hard part is not creating more threads. It is defining who may touch what, when ownership changes, and how cross-region work remains correct.</p>
   </div>
@@ -34,8 +34,8 @@
 
 <section class="architecture-section">
   <div class="section-heading">
-    <div class="section-index">02 <span>— ENGINEERING FOCUS</span></div>
-    <h2>Built around<br><em>ownership.</em></h2>
+    <div class="section-index">02 <span>— Engineering focus</span></div>
+    <h2>Make concurrency<br><em>explicit.</em></h2>
   </div>
   <div class="focus-grid">
     <article class="focus-item">
@@ -60,25 +60,25 @@
 </section>
 
 <section class="status-section">
-  <div class="section-index">03 <span>— HONEST STATUS</span></div>
+  <div class="section-index">03 <span>— Project status</span></div>
   <div class="status-layout">
     <div>
-      <h2>Experimental<br>by <em>design.</em></h2>
+      <h2>Research in<br><em>progress.</em></h2>
       <p class="status-lede">Forgia is under active development. It is not a drop-in, production-ready Folia replacement, and parallel execution is not universally safe for arbitrary mods.</p>
     </div>
     <div class="status-details">
-      <div class="status-row"><span class="status-key">IMPLEMENTED FOUNDATION</span><span>Region-threading infrastructure and selected worker execution paths.</span></div>
-      <div class="status-row"><span class="status-key">ONGOING WORK</span><span>Broader ownership coverage, cross-region coordination and scheduler evolution.</span></div>
-      <div class="status-row"><span class="status-key">KNOWN LIMITS</span><span>Some player, mod callback and world interaction paths remain serialized or constrained.</span></div>
-      <div class="status-row"><span class="status-key">NOT A PROMISE</span><span>No universal mod compatibility or fixed player-capacity guarantee.</span></div>
+      <div class="status-row"><span class="status-key">Implemented foundation</span><span>Region-threading infrastructure and selected worker execution paths.</span></div>
+      <div class="status-row"><span class="status-key">Ongoing work</span><span>Broader ownership coverage, cross-region coordination and scheduler evolution.</span></div>
+      <div class="status-row"><span class="status-key">Known limits</span><span>Some player, mod callback and world interaction paths remain serialized or constrained.</span></div>
+      <div class="status-row"><span class="status-key">What this does not promise</span><span>No universal mod compatibility or fixed player-capacity guarantee.</span></div>
       <a class="text-link" href="README.en/">Read implementation status and limitations <span>↗</span></a>
     </div>
   </div>
 </section>
 
 <section class="docs-section">
-  <div class="section-index">04 <span>— DEVELOPER RESOURCES</span></div>
-  <div class="docs-heading"><h2>Go <em>deeper.</em></h2><span>Maintained documentation · English / 中文</span></div>
+  <div class="section-index">04 <span>— Developer resources</span></div>
+  <div class="docs-heading"><h2>Explore the<br><em>codebase.</em></h2><span>Documentation in English and Chinese</span></div>
   <div class="docs-links">
     <a href="api/README.en/"><span class="docs-code">01</span><span><strong>Parallel API</strong><small>Public contracts, capabilities and scheduling</small></span><span class="docs-arrow">↗</span></a>
     <a href="adapters/README.en/"><span class="docs-code">02</span><span><strong>Mod adapters</strong><small>Integration guides and adapter trust model</small></span><span class="docs-arrow">↗</span></a>
@@ -88,8 +88,9 @@
 </section>
 
 <div class="closing-band">
-  <span>OPEN ENGINEERING</span>
+  <span>Open engineering</span>
   <a href="https://github.com/NexForgeLabs/Forgia">Follow development on GitHub <span>↗</span></a>
 </div>
 
 <div class="site-disclaimer">Forgia is experimental software. Back up worlds and configurations before testing. Compatibility and performance depend on the exact modpack, configuration and workload.</div>
+<div class="design-credit">Design approach adapted from <a href="https://github.com/heydamir/unslop">Unslop</a> by Damir Sokolovsky · CC BY 4.0</div>
