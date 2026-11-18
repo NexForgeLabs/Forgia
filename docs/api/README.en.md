@@ -1,6 +1,6 @@
 # Forgia API — entry, lifecycle and versioning
 
-English | [中文](README.zh.md) · Parent: [docs](../README.en.md) · Full inventory: [API-REFERENCE](../../region-threading/API-REFERENCE.md)
+English | [中文](README.zh.md) · Parent: [docs](../README.en.md) · Full inventory: [API-REFERENCE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/API-REFERENCE.md)
 
 Status: **Experimental, API major 1.** Public types are not a frozen ABI. Negotiate by capability.
 
