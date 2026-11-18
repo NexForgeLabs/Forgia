@@ -17,7 +17,7 @@ claim.
 
 | I want to… | Read | Primary types |
 |---|---|---|
-| Understand what Forgia is and what is certified | [README](https://github.com/NexForgeLabs/Forgia/blob/main/README.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) ([中文](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.zh.md)) | — |
+| Understand what Forgia is and what is certified | [README](index.md), [STATUS](status.en.md) ([中文](status.zh.md)) | — |
 | Start a server / enable region threading | [Observability & configuration](modules/observability.en.md) | `forgia.toml`, `/forgia` |
 | Call a mod-facing API | [API overview](api/README.en.md) | `ParallelApi` |
 | Prepare natural-spawn data on the server, run the body on a worker | [Natural-spawn preparation](api/natural-spawn-preparation.en.md) | `NaturalSpawnPreparation`, `Ready`, `ServerRequired` |
