@@ -51,11 +51,13 @@ nav:
   - Home: index.md
   - Project:
       - Overview: README.en.md
+      - Engineering status: status.en.md
       - API: api/README.en.md
       - Adapters: adapters/README.en.md
       - Engine internals: modules/README.en.md
   - 中文:
       - 项目文档: README.zh.md
+      - 项目状态: status.zh.md
       - API: api/README.zh.md
       - 适配器: adapters/README.zh.md
       - 引擎内部: modules/README.zh.md
