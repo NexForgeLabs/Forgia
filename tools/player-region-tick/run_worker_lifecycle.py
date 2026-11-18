@@ -19,10 +19,11 @@ from run_worker_smoke import REPO, Rcon, validate_samples
 from dimension_scenarios import run_dimensions
 
 TOOLS = Path(__file__).resolve().parent
+SAVE_FLUSH_TIMEOUT_SECONDS = 90
 
 
 class Session:
-    def __init__(self, root, output_name='worker-lifecycle'):
+    def __init__(self, root, output_name='worker-lifecycle', client_script=None, *, client_args=()):
         self.root = root
         if (root / 'world/level.dat').exists():
             raise FileExistsError('Use a fresh isolated installation; retained worlds are preserved')
@@ -39,7 +40,7 @@ class Session:
         self.responses = queue.Queue()
         self.request_id = 0
         self.client_log = (self.output / 'clients.stderr.log').open('x')
-        self.bots = subprocess.Popen(['node', str(TOOLS / 'lifecycle_clients.cjs'), str(self.output / 'packets.ndjson')],
+        self.bots = subprocess.Popen(['node', str(client_script or TOOLS / 'lifecycle_clients.cjs'), str(self.output / 'packets.ndjson'), *client_args],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.client_log, text=True)
         def reader():
             with (self.output / 'clients.stdout.log').open('x') as capture:
@@ -71,8 +72,18 @@ class Session:
 
     def command(self, text):
         before = time.monotonic_ns()
+        # Explicit disk flush can outlast the ordinary control deadline. Scope the
+        # budget to that command; never retry it or change game protocol timeouts.
+        save_flush = text == 'save-all flush'
+        if save_flush:
+            original_timeout = self.rcon.sock.gettimeout()
+            self.rcon.sock.settimeout(SAVE_FLUSH_TIMEOUT_SECONDS)
         try:
-            response = self.rcon.command(text)
+            try:
+                response = self.rcon.command(text)
+            finally:
+                if save_flush:
+                    self.rcon.sock.settimeout(original_timeout)
         except OSError as error:
             # Preserve VM state before the existing failure cleanup terminates this isolated server.
             if self.process is not None and self.process.poll() is None:
@@ -111,8 +122,15 @@ class Session:
     def stop(self):
         if self.process and self.process.poll() is None:
             try:
-                if self.rcon: self.command('stop')
-                else: self.process.stdin.write(b'stop\n'); self.process.stdin.flush()
+                try:
+                    if self.rcon: self.command('stop')
+                    else: self.process.stdin.write(b'stop\n'); self.process.stdin.flush()
+                except Exception as error:
+                    # An interrupted RCON exchange can leave a response in the socket. Preserve
+                    # the error, then use the owned server's console for graceful shutdown.
+                    (self.output / f'boot-{self.boot}.stop-fallback.json').write_text(
+                        json.dumps(dict(error=repr(error), fallback='owned server console stop'), indent=2)+'\n')
+                    self.process.stdin.write(b'stop\n'); self.process.stdin.flush()
                 self.process.wait(timeout=45)
             except (OSError, subprocess.TimeoutExpired):
                 self.process.terminate()

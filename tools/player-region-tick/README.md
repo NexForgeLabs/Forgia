@@ -826,3 +826,85 @@ Final `.152` passes 684 JUnit/22 classes, three selected GameTests and supplemen
 `tmp/player-region-payload-api01/acceptance152-01/`. This covers the declared API and the listed supplementary
 compatibility suites; it does not rerun every historical P2/P3 suite or claim P5 performance/soak completion.
 P5 has not started; no commit/push/deployment was performed for this increment.
+
+## P5 real clients and operations
+
+The paragraph above describes the API acceptance time. the initial P5 runs used the same frozen `.152` artifact;
+see [the current Chinese P5 report](../../region-threading/PLAYER-REGION-TICK-P5.zh.md) for every failed,
+interrupted and accepted run. Player workers remain disabled by default. Later candidates and their narrow changes are described below.
+
+`run_player_operations_matrix.py` creates fresh installations sequentially in both pools/off-on:
+
+```sh
+python3 tools/player-region-tick/run_command.py --output tmp/player-operations-new/command \
+  --java-home /home/yc/.local/opt/jdk-21.0.13+9 -- \
+  python3 tools/player-region-tick/run_player_operations_matrix.py \
+  --output tmp/player-operations-new/matrix --installer /path/to/reviewed-installer.jar \
+  --libraries /path/to/seed/libraries --eula /path/to/accepted/eula.txt \
+  --version 21.1.250.152-beta --cycles 3 --cycle-seconds 20
+```
+
+Eight normal TCP clients exercise four simultaneous cross-region PvP pairs, a shared chest race,
+hopper/chest automation, survival dig/place, milking, mount/dismount, real map creation/backpack clicks,
+both teleport confirmations and a real Nether portal round trip. Repeated movement/hotbar/ping windows
+are followed by actual logout/login and one server save/shutdown/restart. Commands establish fixtures
+outside marked gameplay windows or read original state. The independent verifier decodes saved wire
+frames, checks actual health/owners/feedback and item/XP totals, original saved NBT, retirement and empty
+queues. `test_player_operations_validator.py` mutates copies of that evidence in memory; originals and
+failures are preserved. These bounded windows are not multi-hour soak, arbitrary Mod gameplay or leak
+freedom. Hopper automation is vanilla and must not be described as Create certification.
+
+An optional `--mods-manifest` pins ordinary server Mod paths and SHA256 values. Unknown extensions must
+still record full ENTITY/CONNECTION serial refusal, including when the switch is on. The manifest does
+not grant permission. A vanilla protocol client does not certify required client Mod negotiation or
+custom Mod operations; retained Jade login failures are explicitly not accepted compatibility results.
+
+`run_player_scale_matrix.py` separately runs 1/8/32 clients × same/spread/boundary distributions with
+10-second warmup and 30-second measurements by default. `PlayerJvmSampler.java` uses only standard
+local JVM attach/JMX. Actual server tick samples come from **changed slots** in the original 100-slot
+nanosecond ring, not 100 invented ticks per poll. The scale verifier reports full tick mean/p95/p99,
+normal ping response latency, observed allocation lower bounds, GC/CPU and phase coverage. Sampled
+barrier waiting includes real game work and is not exact barrier overhead; the exact field stays null.
+Client, sampler and diagnostic logging costs share this host and must be disclosed.
+
+For a separate correctness rerun, `run_player_scale.py --grouped-clients` assigns at most eight real
+clients per independent protocol process. Every original child capture remains beside the merged,
+timestamp-ordered capture; the verifier matches every merged record back to its child. This changes
+the client topology only and must not be silently paired with the single-process baseline. Server
+keepalive and protocol timeouts are unchanged. This topology is under validation; the original
+single-process 32-player timeouts remain failed and unexplained.
+
+`summarize_player_scale.py --matrix ...` still rejects incomplete/failed original matrices. Its optional
+`--accepted-evidence` takes an explicit reviewed map of complete per-mode runs, audits the actual
+install/run/verify exits and freshly verifies each corpus. It preserves interrupted matrices and never
+turns their original result into success. A single exploratory pass never certifies a speedup: the
+first fixed-pool comparison showed large total tick and network tail regressions and is retained.
+
+Bounded correctness closeout (2026-11-18): eight-client native/FerriteCore+ModernFix × four modes passes
+88 operation windows, 32 cross-region hits, 17 reconnect cycles, 16 actual server boots and 120 proof
+mutations, including authoritative reopened client inventory/XP and saved NBT. Receipt:
+`tmp/player-region-tick-p5-operations07/acceptance02/receipt.json`. Grouped 32-client × four modes × three
+distributions passes 12 short windows and eight measurement proof mutations, with every original child
+frame matched; receipt `tmp/player-region-tick-p5-correctness32-04/acceptance01/receipt.json`.
+The combined state `operations07/closeout-state.json` records zero owned test processes and 28 preserved
+failed/unknown wrappers. P5 remains partial: retained single-process timeouts and one watchdog/sampler
+gap have no established cause, Create/Jade clients and long soak remain uncovered, and performance
+optimization/certification is deferred by the user. No server timeout or production Java/patch changed.
+
+Follow-up: the `.152` single-process 32-player timeout reproduced with bulk advancement broadcasts.
+Suppressing announcements during the grant, then restoring the original gamerule, preserved the fixture
+and passed both pool types in separate single-process runs. The matrix now uses this quiet setup by
+default; `--broadcast-advancement-fixture` replays the historical diagnostic setup. Standalone scale
+runs support `--quiet-advancement-fixture` and optional single-process `--network-diagnostics` (host
+clocks, loopback TCP queues, and client event-loop/capture queue samples). The summary rejects mixed
+fixture settings, diagnostics or client topologies. See `tmp/player-region-tick-p5-diagnose01/diagnostic-receipt.json`.
+The `.153` watchdog reporting fix was verified against an intentional isolated watchdog exit and a
+32-client normal boundary window. The historical watchdog interruption cause remains unproven.
+
+The `.154` handoff includes an explicitly reviewed manifest, 407 passing JUnit cases, the complete
+schema 3/4 replay, and twelve independently verified 32-client windows. See the
+[measurement summary](../../region-threading/evidence/player-region-tick-p5-154/summary.json).
+The fixed on trial improved over `.153` but remains slower than off. Long recovery was interrupted
+for handoff. The harness allows a separate 90-second deadline for `save-all flush` only, restores the
+previous socket timeout, and does not retry a partially completed save. The failed `.153` persistent
+baseline remains excluded.

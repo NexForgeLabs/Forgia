@@ -4,7 +4,6 @@
  */
 package net.neoforged.neoforge.server.threading.region;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -148,8 +147,6 @@ final class RegionPlayerDamagePlan {
     }
 
     private static Object value(Object object, Class<?> type, String name) throws ReflectiveOperationException {
-        Field field = type.getDeclaredField(name);
-        if (!field.trySetAccessible()) throw new IllegalAccessException(type.getName() + "." + name);
-        return field.get(object);
+        return RegionPlayerFieldAccess.read(object, type, name);
     }
 }

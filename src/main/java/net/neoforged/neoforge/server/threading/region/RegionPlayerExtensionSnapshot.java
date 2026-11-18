@@ -26,7 +26,7 @@ import org.spongepowered.asm.mixin.Mixins;
 final class RegionPlayerExtensionSnapshot {
     record Check(RegionPlayerAdmissionPlan.Refusal refusal, String detail) {
         static Check ok() {
-            return new Check(RegionPlayerAdmissionPlan.Refusal.NONE, "");
+            return OK;
         }
     }
 
@@ -68,6 +68,16 @@ final class RegionPlayerExtensionSnapshot {
             "net.neoforged.neoforge.coremods.NeoForgeCoreMod");
     private static final Set<String> CONFIGS = Set.of("neoforge.mixins.json", "mixinextras.init.mixins.json");
 
+    private static final Check OK = new Check(RegionPlayerAdmissionPlan.Refusal.NONE, "");
+    private static final Set<String> BASE_MODS = Set.of("minecraft", "neoforge");
+    private static final List<MixinEnvironment.Phase> PHASES = List.of(MixinEnvironment.Phase.PREINIT, MixinEnvironment.Phase.INIT, MixinEnvironment.Phase.DEFAULT);
+    // Module membership, parent layers and module descriptors are immutable after definition.
+    private record ProviderSnapshot(ModuleLayer layer, Set<String> names) {}
+    private static volatile ProviderSnapshot providerSnapshot;
+
+    private record BusAccess(Method lookup, Field registrations, List<Class<?>> events) {}
+    private static volatile BusAccess busAccess;
+
     private RegionPlayerExtensionSnapshot() {}
 
     static Check capture() {
@@ -78,19 +88,27 @@ final class RegionPlayerExtensionSnapshot {
             Set<String> ids = new HashSet<>();
             mods.getMods().forEach(mod -> ids.add(mod.getModId()));
             Set<String> configs = new HashSet<>();
-            for (var phase : List.of(MixinEnvironment.Phase.PREINIT, MixinEnvironment.Phase.INIT, MixinEnvironment.Phase.DEFAULT)) {
+            for (var phase : PHASES) {
                 configs.addAll(MixinEnvironment.getEnvironment(phase).getMixinConfigs());
             }
             Mixins.getConfigs().forEach(config -> configs.add(config.getName()));
-            Set<String> providers = new HashSet<>();
-            collectProviders(layer, new HashSet<>(), providers);
-            Check installed = installed(ids, configs, providers);
+            Check installed = installed(ids, configs, providers(layer));
             if (installed.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return installed;
             return listeners(NeoForge.EVENT_BUS);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             // Missing inspection dependencies are a pre-body serial decision. No original tick is caught.
             return unavailable(failure.getClass().getName());
         }
+    }
+
+    private static Set<String> providers(ModuleLayer layer) {
+        ProviderSnapshot snapshot = providerSnapshot;
+        if (snapshot != null && snapshot.layer() == layer) return snapshot.names();
+        Set<String> providers = new HashSet<>();
+        collectProviders(layer, new HashSet<>(), providers);
+        snapshot = new ProviderSnapshot(layer, Set.copyOf(providers));
+        providerSnapshot = snapshot;
+        return snapshot.names();
     }
 
     private static void collectProviders(ModuleLayer layer, Set<ModuleLayer> visited, Set<String> providers) {
@@ -105,29 +123,42 @@ final class RegionPlayerExtensionSnapshot {
 
     /** Pure evaluation of observations; no configured mod id, hash or test fixture grants permission. */
     static Check installed(Set<String> mods, Set<String> configs, Set<String> providers) {
-        if (!mods.containsAll(Set.of("minecraft", "neoforge"))) return unavailable("base mods absent");
-        for (String mod : mods.stream().sorted().toList()) {
-            if (!mod.equals("minecraft") && !mod.equals("neoforge"))
-                return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_MOD, mod);
-        }
-        for (String config : configs.stream().sorted().toList()) {
-            if (!CONFIGS.contains(config)) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM, config);
-        }
-        for (String provider : providers.stream().sorted().toList()) {
-            if (!PROVIDERS.contains(provider)) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM, provider);
-        }
+        if (!mods.containsAll(BASE_MODS)) return unavailable("base mods absent");
+        String unknown = firstUnknown(mods, BASE_MODS);
+        if (unknown != null) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_MOD, unknown);
+        unknown = firstUnknown(configs, CONFIGS);
+        if (unknown == null) unknown = firstUnknown(providers, PROVIDERS);
+        if (unknown != null) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM, unknown);
         return Check.ok();
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static String firstUnknown(Set<String> actual, Set<String> known) {
+        String first = null;
+        for (String name : actual) {
+            if (!known.contains(name) && (first == null || name.compareTo(first) < 0)) first = name;
+        }
+        return first;
+    }
+
+    private static BusAccess busAccess() throws ReflectiveOperationException {
+        BusAccess access = busAccess;
+        if (access != null) return access;
+        Method lookup = EventBus.class.getDeclaredMethod("getListenerList", Class.class);
+        Field registrations = EventBus.class.getDeclaredField("listeners");
+        if (!lookup.trySetAccessible() || !registrations.trySetAccessible()) throw new IllegalAccessException("Event bus inspection unavailable");
+        List<Class<?>> events = new ArrayList<>(EVENTS.size());
+        for (String name : EVENTS) events.add(Class.forName("net.neoforged.neoforge.event." + name));
+        access = new BusAccess(lookup, registrations, List.copyOf(events));
+        busAccess = access;
+        return access;
     }
 
     static Check listeners(IEventBus bus) throws ReflectiveOperationException {
         if (bus.getClass() != EventBus.class) return unavailable("unknown event bus " + bus.getClass().getName());
-        // Bus 8 has no public inspection API. Access is optional: an inaccessible/changed API refuses
-        // the entire call. No listeners are invoked, removed, replaced or treated as approved callbacks.
-        Method lookup = EventBus.class.getDeclaredMethod("getListenerList", Class.class);
-        if (!lookup.trySetAccessible()) return unavailable("event bus inspection unavailable");
-        Field registrations = EventBus.class.getDeclaredField("listeners");
-        if (!registrations.trySetAccessible()) return unavailable("event registration inspection unavailable");
-        Map<?, ?> owners = (Map<?, ?>) registrations.get(bus);
+        // Cache reflection metadata only. Owner registrations and inherited dispatch lists are live.
+        BusAccess access = busAccess();
+        Map<?, ?> owners = (Map<?, ?>) access.registrations().get(bus);
         // EventBus.register owns these exact registrations. The only built-in EntityTick.Pre
         // subscriber is NeoForgeEventHandler.onEntityTick, whose ServerPlayer branch returns without
         // publishing a mapping. Its EntityLeaveLevel handler removes the existing region mapping
@@ -145,18 +176,20 @@ final class RegionPlayerExtensionSnapshot {
                 }
             }
         }
-        List<String> found = new ArrayList<>();
-        for (String name : EVENTS) {
-            Class<?> event = Class.forName("net.neoforged.neoforge.event." + name);
-            ListenerList list = (ListenerList) lookup.invoke(bus, event);
+        List<String> found = null;
+        for (int index = 0; index < EVENTS.size(); index++) {
+            String name = EVENTS.get(index);
+            Class<?> event = access.events().get(index);
+            ListenerList list = (ListenerList) access.lookup().invoke(bus, event);
             for (var listener : list.getListeners()) {
                 if ((!name.equals("tick.EntityTickEvent$Pre") && !name.equals("entity.EntityLeaveLevelEvent")) || !builtIn.contains(listener)) {
+                    if (found == null) found = new ArrayList<>();
                     found.add(event.getName());
                     break;
                 }
             }
         }
-        return found.isEmpty() ? Check.ok() : new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, String.join(",", found));
+        return found == null ? Check.ok() : new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, String.join(",", found));
     }
 
     private static Check unavailable(String detail) {

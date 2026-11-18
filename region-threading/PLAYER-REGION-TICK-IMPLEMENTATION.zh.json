@@ -13160,5 +13160,111 @@
     "schema3Scenarios": 144,
     "schema4Scenarios": 180,
     "commitPushPerformed": false
+  },
+  "p5": {
+    "status": "partial_154_correctness_verified_latency_unresolved",
+    "authorizationDate": "2026-11-18",
+    "baselineCommit": "188cdcf71b3b88440916bba64b007a0dca4dfc54",
+    "version": "21.1.250.152-beta",
+    "report": "region-threading/PLAYER-REGION-TICK-P5.zh.md",
+    "evidenceRoot": "tmp/player-region-tick-p5-01",
+    "currentMatrix": "Stopped at local handoff for separate latency work",
+    "pilotRealClients": [
+      1,
+      8
+    ],
+    "metricUnitTestsPassed": 7,
+    "speedupCertified": false,
+    "wholeP5Complete": false,
+    "subAgentUsed": false,
+    "existingServerOperations": false,
+    "priority": "normal-client-gameplay-correctness-before-scheduling-overhead",
+    "evidenceRoots": [
+      "tmp/player-region-tick-p5-01",
+      "tmp/player-region-tick-p5-02",
+      "tmp/player-region-tick-p5-operations04",
+      "tmp/player-region-tick-p5-operations05",
+      "tmp/player-region-tick-p5-operations06",
+      "tmp/player-region-tick-p5-operations07",
+      "tmp/player-region-tick-p5-correctness32-02",
+      "tmp/player-region-tick-p5-correctness32-03",
+      "tmp/player-region-tick-p5-correctness32-04",
+      "tmp/player-region-tick-p5-diagnose01",
+      "tmp/player-region-tick-p5-opt01"
+    ],
+    "productionSourcesChanged": true,
+    "sameArtifactSchemaReverification": {
+      "schema3Scenarios": 144,
+      "schema4Scenarios": 180,
+      "newServerRuns": false,
+      "path": "tmp/player-region-tick-p5-operations04/schema34-reverified.json"
+    },
+    "unresolvedFailures": [
+      "Original single-process 32-player failures preserved; replicated fixture broadcast overload resolved for isolated fixture, not arbitrary traffic",
+      "Jade vanilla protocol client channel negotiation/login refusal; actual Jade/Create client gameplay not certified",
+      "Retained grouped off-fixed watchdog with 495.760s/62.405s native sampler gaps and negligible thread CPU; environmental/global interruption inferred, cause unproven",
+      "Historical P4 persistent foreign-starvation diagnostic stall remains failed/excluded",
+      ".153 persistent RCON deadline expired during chunk flush; save-only test deadline change has not been validated on that case"
+    ],
+    "schedulingOptimizationDeferredByUser": false,
+    "acceptedBoundedOperations": {
+      "status": "passed_bounded_eight_client_gameplay_and_recovery",
+      "receipt": "tmp/player-region-tick-p5-operations07/acceptance02/receipt.json",
+      "receiptSha256": "93966079864aee732edacb3cc24882192c4fc5d01d844d422acfb71b4eb04427",
+      "independentInstallations": 8,
+      "actualClientsPerRun": 8,
+      "normalOperationWindows": 88,
+      "crossRegionAttackHits": 32,
+      "reconnectCycles": 17,
+      "actualServerBoots": 16,
+      "proofNegativeControls": 120,
+      "portalRoundTrips": 8,
+      "wholeFourModeMatrixComplete": true,
+      "nativeAndFerriteCoreModernFix": true,
+      "exactSharedContainerClientFeedbackVerified": true,
+      "allRestoredClientsInventoryXpVerified": true
+    },
+    "toolsUnitTestsPassed": 8,
+    "syntaxFilesChecked": 19,
+    "grouped32ClientCorrectness": {
+      "status": "passed_bounded_grouped_32_client_correctness",
+      "receipt": "tmp/player-region-tick-p5-correctness32-04/acceptance01/receipt.json",
+      "receiptSha256": "81071b31c642735e73ef4ad7ede3da211e20b287ba4c1f8d0ca0840bdb6a19c8",
+      "modes": 4,
+      "distributions": 3,
+      "actualLoadCells": 12,
+      "actualTcpClients": 32,
+      "protocolProcessesPerServer": 4,
+      "proofNegativeControls": 8,
+      "originalSingleProcessTimeoutsResolved": false
+    },
+    "proofNegativeControlsThisCloseout": 128,
+    "totalCrossRegionAttackHitsThisCloseout": 36,
+    "ownedTestProcessesAlive": 0,
+    "preservedFailedOrUnknownWrappers": 28,
+    "closeoutState": "tmp/player-region-tick-p5-operations07/closeout-state.json",
+    "followupDiagnostics": {
+      "receipt": "tmp/player-region-tick-p5-diagnose01/diagnostic-receipt.json",
+      "receiptSha256": "0156ffbb0236744fb6b7d75dd8f3a0a2f747d98f835499e23175e272dc98caaf",
+      "reproducedTimeoutDisconnects": 10,
+      "quietBaselinePassedWindows": 4,
+      "watchdogReportCandidate": "21.1.250.153-beta",
+      "candidateInstallerSha256": "a5267b7e14a5b80847fab062786e7380416b3615e8f0884feaf70ccd3fa38e94",
+      "candidatePassedBoundaryWindows": 1,
+      "watchdogReportUnitsFixed": true,
+      "historicalWatchdogCauseResolved": false,
+      "productionSchedulingChanged": false
+    },
+    "latencyHandoff": {
+      "candidate": "21.1.250.154-beta",
+      "summary": "region-threading/evidence/player-region-tick-p5-154/summary.json",
+      "schema3": 144,
+      "schema4": 180,
+      "junitPassed": 407,
+      "singleProcess32ClientWindows": 12,
+      "extendedRecovery": "interrupted_by_user_handoff",
+      "speedupCertified": false,
+      "nextSession": "dedicated latency optimization"
+    }
   }
 }

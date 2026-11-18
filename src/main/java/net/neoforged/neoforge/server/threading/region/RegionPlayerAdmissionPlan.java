@@ -4,7 +4,6 @@
  */
 package net.neoforged.neoforge.server.threading.region;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Queue;
 import net.minecraft.network.Connection;
@@ -233,9 +232,7 @@ public final class RegionPlayerAdmissionPlan {
     }
 
     private static Object value(Object owner, Class<?> type, String name) throws ReflectiveOperationException {
-        Field field = type.getDeclaredField(name);
-        if (!field.trySetAccessible()) throw new IllegalAccessException(type.getName() + "." + name);
-        return field.get(owner);
+        return RegionPlayerFieldAccess.read(owner, type, name);
     }
 
     private static RegionPlayerExtensionSnapshot.Check check(Refusal refusal, String detail) {

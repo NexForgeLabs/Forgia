@@ -71,6 +71,8 @@ public final class RegionPlayerStatePlan {
     private final long listenerGeneration;
     private final int tick;
     private final List<Object> resources;
+    private final List<Object> menuResources;
+    private final List<Object> sharedResources;
     private final Set<ObjectiveCriteria> emptyCriteria;
     private final Scoreboard scoreboard;
     private final long scoreboardRevision;
@@ -117,6 +119,12 @@ public final class RegionPlayerStatePlan {
         this.scorePlan = scorePlan;
         this.maps = maps;
         this.damage = damage;
+        this.menuResources = List.copyOf(container.localResources());
+        List<Object> shared = new ArrayList<>(container.sharedResources());
+        shared.addAll(scorePlan.sharedResources());
+        shared.addAll(maps.sharedResources());
+        shared.addAll(damage.resources());
+        this.sharedResources = List.copyOf(shared);
     }
 
     public ServerPlayer player() {
@@ -130,7 +138,7 @@ public final class RegionPlayerStatePlan {
     List<Object> resources() {
         List<Object> combined = new ArrayList<>(this.resources);
         combined.addAll(this.inventory.resources());
-        combined.addAll(this.container.localResources());
+        combined.addAll(this.menuResources);
         combined.addAll(this.sharedResources());
         if (this.admission != null) combined.addAll(this.admission.resources());
         return List.copyOf(combined);
@@ -202,15 +210,16 @@ public final class RegionPlayerStatePlan {
     }
 
     List<Object> sharedResources() {
-        List<Object> shared = new ArrayList<>(this.container.sharedResources());
-        shared.addAll(this.scorePlan.sharedResources());
-        shared.addAll(this.maps.sharedResources());
-        shared.addAll(this.damage.resources());
-        return List.copyOf(shared);
+        return this.sharedResources;
+    }
+
+    private static boolean hasReference(List<Object> values, Object resource) {
+        for (int i = 0; i < values.size(); i++) if (values.get(i) == resource) return true;
+        return false;
     }
 
     boolean shares(Object resource) {
-        return sharedResources().stream().anyMatch(value -> value == resource);
+        return hasReference(this.sharedResources, resource);
     }
 
     RegionPlayerConflictPlan.Entry conflictEntry() {
@@ -219,7 +228,11 @@ public final class RegionPlayerStatePlan {
     }
 
     boolean owns(Object resource) {
-        return resources().stream().anyMatch(value -> value == resource);
+        // Checking a permission must not rebuild the entire claim list. Inventory can change
+        // during a captured pickup or menu click, so its original membership is still read live.
+        return hasReference(this.resources, resource) || hasReference(this.menuResources, resource)
+                || shares(resource) || (this.admission != null && hasReference(this.admission.resources(), resource))
+                || this.inventory.owns(resource);
     }
 
     boolean emptyScoreboard(Scoreboard board, ObjectiveCriteria criterion, Object holder) {

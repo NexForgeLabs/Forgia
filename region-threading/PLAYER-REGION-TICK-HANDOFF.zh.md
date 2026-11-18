@@ -1,3 +1,11 @@
+当前 P5 交接：以 `.154` 为专项优化候选。407 项 JUnit、同产物完整 schema 3/4 和 32 人四模式三分布已通过。开启 worker 的平均 MSPT 仍为 56–70 ms，关闭为 6–12 ms，尾延迟和写盘失败已单列。延长恢复回归按要求中断，隔离进程已退出。续接见 [P5 交接记录](PLAYER-REGION-TICK-P5.zh.md) 末尾和[测量摘要](evidence/player-region-tick-p5-154/summary.json)。整体仍 partial，默认关闭。以下为历史记录。
+
+P5 异常追查更新（2026-11-18）：在 `.152` 重现单进程 32 人进度广播夹具引发的 keepalive 超时，静音授予期并恢复规则后，两池单进程复验通过。旧 watchdog 同期四个客户端和 JMX 均断档，宿主根因仍未定；`.153` 候选修正报告单位，经隔离触发及 32 人跨区验收。详见 [P5 追查与回执](PLAYER-REGION-TICK-P5.zh.md) 末尾。调度优化和长期/Mod 客户端验收仍未完成。以下为历史证据。
+
+当前P5操作结论（2026-11-18）：**有界8真TCP操作/恢复已完成统一验收，整体P5仍partial。** native及FerriteCore+ModernFix各四模式共8安装、88操作窗、32次跨区命中、8次原门下界往返、17轮重连、16次boot和120项proof负控制通过；精确客户端/服务端/保存NBT物品XP一致，退出队列/owner/state为零。回执`tmp/player-region-tick-p5-operations07/acceptance02/receipt.json`。32真TCP四模式/三分布12窗与8项测量负控制统一审计通过（每服4个协议进程），回执`tmp/player-region-tick-p5-correctness32-04/acceptance01/receipt.json`；原单进程超时及一次watchdog/495秒采样断档仍保留且原因未定。本轮128项proof负控制、36次跨区命中，所有本轮隔离进程已退出。详见[P5记录](PLAYER-REGION-TICK-P5.zh.md)末尾。用户要求先操作验证、后续才降低调度开销；无生产Java/patch变更，默认false、未知Mod完整Tick串行、原MAIN/NETWORK/不重放/真实join保持。Create/Jade完整客户端及长期认证仍未覆盖。
+
+P5 已开始（2026-11-18）：用户授权进入多人/性能/长期恢复验收。基线 `.152` / 已推送 `188cdcf71`；P5 工具的 1/8 真 TCP 试跑及7项测量控制通过，全新 1/8/32×三分布×两池/off-on 矩阵进行中，尚无性能收益或整体 P5 完成结论。详见 [P5 实施记录](PLAYER-REGION-TICK-P5.zh.md)。默认关闭及未知扩展/MAIN/NETWORK/不重放/真实join合同保持，现用服不操作，失败证据保留。以下旧阶段状态保留历史。
+
 最终声明 payload API（2026-11-18）：**已按单处理器有界合同完成，产物 21.1.250.152-beta。** 新增 `playToServerRegion(type, codec, Payload.class, handler)`；现有 MAIN 默认和显式 NETWORK 不变，未知 Mod 完整玩家 Tick/未声明包继续串行。684 项/22 类 JUnit、3 项选定 GameTest、四模式真实 TCP 声明包、完整 schema3 144/schema4 180、P4 routes/async/queue、双入口 smoke、原 MAIN/NETWORK 和共享箱子补充验收通过，共 34 个隔离安装、208 项 proof 负控制。详见 [API 合同及完整失败记录](PLAYER-REGION-PAYLOAD-API.zh.md)最后收口；回执 `tmp/player-region-payload-api01/acceptance152-01/receipt.json`。默认 false、开始后不重放和真实 join 后清理保持。本增量无并发吞吐/性能结论；P5 未开始，整体仍 partial。P4 已推送 `9b4859bb8`，本增量未 commit/push/deploy。以下旧状态保留历史。
 
 当前增量（2026-11-18）：用户要求在 P5 前实现开发者显式声明的自定义 payload worker API。P4 已提交并推送 `9b4859bb8`；新增 `playToServerRegion` 仅声明单个服务端 PLAY 处理器，不放行整个 Mod/玩家 Tick，原 MAIN/NETWORK 默认合同保持。`.152` 冻结候选通过 684 项/22 类 JUnit 和三个选定 GameTest，四组声明 API 真实 TCP 已通过、同产物兼容矩阵验收进行中，尚未整体完成；P5 未开始。详见 [payload API 记录](PLAYER-REGION-PAYLOAD-API.zh.md)。下文旧状态保留历史。

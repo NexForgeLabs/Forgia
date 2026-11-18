@@ -1,0 +1,766 @@
+{
+  "status": "partial_correctness_verified_latency_unresolved",
+  "artifact": {
+    "path": "tmp/player-region-tick-p5-opt01/neoforge-21.1.250.154-beta-installer.jar",
+    "sha256": "bea6c18f1a5b7b055a3091bea3d60ce3683854f6b11f6fbac5315f7b790a429b",
+    "manifest": "tools/player-region-tick/reviewed-artifacts/21.1.250.154-beta.json",
+    "manifestSha256": "c38bce2ac80f71efc6fa150adb78db4abcec39fc1cb5d0f19549f046702b0068"
+  },
+  "junit": {
+    "classes": 9,
+    "tests": 407,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "schema3": 144,
+  "schema4": 180,
+  "measurements": {
+    "clients": 32,
+    "distributionOrder": [
+      "spread",
+      "same",
+      "boundary"
+    ],
+    "warmupSeconds": 10,
+    "measureSeconds": 30,
+    "trialsPerMode": 1,
+    "clientTopology": "single-protocol-process",
+    "quietAdvancementFixture": true,
+    "exactBarrierOverheadNanos": null,
+    "cells": {
+      "153-on-fixed": [
+        {
+          "name": "n32-spread",
+          "tickMs": {
+            "count": 302,
+            "mean": 75.8907345463576,
+            "p50": 71.012903,
+            "p95": 109.452903,
+            "p99": 121.290612,
+            "maximum": 130.698199
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 140.44553738593748,
+            "p50": 124.763803,
+            "p95": 374.569011,
+            "p99": 512.219993,
+            "maximum": 640.169191
+          },
+          "observedAllocationBytesPerSecond": 235343843.194574,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 9832,
+              "serial": 120,
+              "workerFraction": 0.9879421221864951,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 9836,
+              "serial": 116,
+              "workerFraction": 0.9883440514469454,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "ENTITY:OPTIONAL_TICK_STATE": 64,
+            "CONNECTION:OPTIONAL_TICK_STATE": 128,
+            "CONNECTION:NETWORK_TRANSITION": 47,
+            "ENTITY:NETWORK_TRANSITION": 23
+          },
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-same",
+          "tickMs": {
+            "count": 217,
+            "mean": 102.59605441013825,
+            "p50": 98.530402,
+            "p95": 136.577203,
+            "p99": 148.530904,
+            "maximum": 172.021904
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 205.472823459375,
+            "p50": 209.592304,
+            "p95": 467.395811,
+            "p99": 566.204514,
+            "maximum": 684.803117
+          },
+          "observedAllocationBytesPerSecond": 190916524.78302062,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 7010,
+              "serial": 158,
+              "workerFraction": 0.9779575892857143,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 7020,
+              "serial": 148,
+              "workerFraction": 0.9793526785714286,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "ENTITY:OPTIONAL_TICK_STATE": 64,
+            "CONNECTION:OPTIONAL_TICK_STATE": 128,
+            "CONNECTION:NETWORK_TRANSITION": 150,
+            "ENTITY:NETWORK_TRANSITION": 87
+          },
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-boundary",
+          "tickMs": {
+            "count": 202,
+            "mean": 107.41388723762375,
+            "p50": 104.5321,
+            "p95": 146.204201,
+            "p99": 161.140298,
+            "maximum": 171.289599
+          },
+          "pingMs": {
+            "count": 1952,
+            "mean": 221.07281999180327,
+            "p50": 221.3972,
+            "p95": 484.522001,
+            "p99": 644.789095,
+            "maximum": 689.119495
+          },
+          "observedAllocationBytesPerSecond": 188023784.8075002,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 6558,
+              "serial": 130,
+              "workerFraction": 0.9805622009569378,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 6563,
+              "serial": 125,
+              "workerFraction": 0.9813098086124402,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "ENTITY:OPTIONAL_TICK_STATE": 64,
+            "CONNECTION:OPTIONAL_TICK_STATE": 128,
+            "CONNECTION:NETWORK_TRANSITION": 129,
+            "ENTITY:NETWORK_TRANSITION": 63
+          },
+          "crossRegionAttackPassed": true
+        }
+      ],
+      "154-off-fixed": [
+        {
+          "name": "n32-spread",
+          "tickMs": {
+            "count": 594,
+            "mean": 6.091356380471381,
+            "p50": 5.8618,
+            "p95": 7.773,
+            "p99": 11.2073,
+            "maximum": 14.5647
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 5.777468933854166,
+            "p50": 5.7689,
+            "p95": 8.6277,
+            "p99": 9.7042,
+            "maximum": 11.5518
+          },
+          "observedAllocationBytesPerSecond": 17344211.18818863,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            },
+            "CONNECTION": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            }
+          },
+          "serialReasons": {},
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-same",
+          "tickMs": {
+            "count": 594,
+            "mean": 6.46065785016835,
+            "p50": 4.5008,
+            "p95": 17.5589,
+            "p99": 20.0624,
+            "maximum": 30.251
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 5.598198206770833,
+            "p50": 5.3797,
+            "p95": 8.0966,
+            "p99": 16.365,
+            "maximum": 16.7893
+          },
+          "observedAllocationBytesPerSecond": 13297095.185488572,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            },
+            "CONNECTION": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            }
+          },
+          "serialReasons": {},
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-boundary",
+          "tickMs": {
+            "count": 598,
+            "mean": 5.5878674046822745,
+            "p50": 5.4685,
+            "p95": 6.9196,
+            "p99": 8.4122,
+            "maximum": 14.9327
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 6.047432679166667,
+            "p50": 5.8667,
+            "p95": 8.7643,
+            "p99": 13.4334,
+            "maximum": 14.3458
+          },
+          "observedAllocationBytesPerSecond": 17461263.7575142,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            },
+            "CONNECTION": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            }
+          },
+          "serialReasons": {},
+          "crossRegionAttackPassed": true
+        }
+      ],
+      "154-on-fixed": [
+        {
+          "name": "n32-spread",
+          "tickMs": {
+            "count": 427,
+            "mean": 56.05722965807963,
+            "p50": 51.457704,
+            "p95": 87.729006,
+            "p99": 110.333808,
+            "maximum": 129.94151
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 101.454589384375,
+            "p50": 82.213838,
+            "p95": 221.642916,
+            "p99": 343.121625,
+            "maximum": 399.757329
+          },
+          "observedAllocationBytesPerSecond": 204071229.9591428,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 14075,
+              "serial": 69,
+              "workerFraction": 0.9951216063348416,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 14057,
+              "serial": 87,
+              "workerFraction": 0.9938489819004525,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "ENTITY:OPTIONAL_TICK_STATE": 32,
+            "ENTITY:NETWORK_TRANSITION": 15,
+            "CONNECTION:NETWORK_TRANSITION": 50,
+            "CONNECTION:OPTIONAL_TICK_STATE": 64
+          },
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-same",
+          "tickMs": {
+            "count": 383,
+            "mean": 63.43877001827676,
+            "p50": 61.864207,
+            "p95": 86.367453,
+            "p99": 107.036473,
+            "maximum": 127.804167
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 98.85746249218751,
+            "p50": 76.177508,
+            "p95": 213.512108,
+            "p99": 337.492471,
+            "maximum": 448.742283
+          },
+          "observedAllocationBytesPerSecond": 203790681.18863568,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 12624,
+              "serial": 112,
+              "workerFraction": 0.9912060301507538,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 12614,
+              "serial": 122,
+              "workerFraction": 0.9904208542713567,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "ENTITY:OPTIONAL_TICK_STATE": 65,
+            "ENTITY:NETWORK_TRANSITION": 17,
+            "CONNECTION:NETWORK_TRANSITION": 41,
+            "CONNECTION:OPTIONAL_TICK_STATE": 125
+          },
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-boundary",
+          "tickMs": {
+            "count": 444,
+            "mean": 56.15569808333333,
+            "p50": 53.528585,
+            "p95": 76.050757,
+            "p99": 91.301518,
+            "maximum": 102.317948
+          },
+          "pingMs": {
+            "count": 1952,
+            "mean": 80.3053161152664,
+            "p50": 62.693968,
+            "p95": 176.381635,
+            "p99": 214.107541,
+            "maximum": 306.177526
+          },
+          "observedAllocationBytesPerSecond": 238344932.09802252,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 14591,
+              "serial": 97,
+              "workerFraction": 0.9933959694989106,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 14588,
+              "serial": 100,
+              "workerFraction": 0.9931917211328976,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "ENTITY:OPTIONAL_TICK_STATE": 64,
+            "ENTITY:NETWORK_TRANSITION": 16,
+            "CONNECTION:NETWORK_TRANSITION": 32,
+            "CONNECTION:OPTIONAL_TICK_STATE": 128
+          },
+          "crossRegionAttackPassed": true
+        }
+      ],
+      "154-off-persistent": [
+        {
+          "name": "n32-spread",
+          "tickMs": {
+            "count": 594,
+            "mean": 5.896238575757576,
+            "p50": 5.695,
+            "p95": 7.3757,
+            "p99": 9.1033,
+            "maximum": 20.8558
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 5.098180540104167,
+            "p50": 4.9616,
+            "p95": 8.1022,
+            "p99": 11.117,
+            "maximum": 13.1346
+          },
+          "observedAllocationBytesPerSecond": 17104024.397895664,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            },
+            "CONNECTION": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            }
+          },
+          "serialReasons": {},
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-same",
+          "tickMs": {
+            "count": 598,
+            "mean": 11.803143591973244,
+            "p50": 8.8197,
+            "p95": 27.502999,
+            "p99": 40.992999,
+            "maximum": 82.064897
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 26.380188759895834,
+            "p50": 7.9648,
+            "p95": 92.888596,
+            "p99": 449.944082,
+            "maximum": 479.662181
+          },
+          "observedAllocationBytesPerSecond": 13243477.914819004,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            },
+            "CONNECTION": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            }
+          },
+          "serialReasons": {},
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-boundary",
+          "tickMs": {
+            "count": 598,
+            "mean": 6.44401981270903,
+            "p50": 6.393,
+            "p95": 7.8505,
+            "p99": 8.9045,
+            "maximum": 11.1782
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 5.438193452604167,
+            "p50": 5.008,
+            "p95": 7.9817,
+            "p99": 27.9672,
+            "maximum": 30.9653
+          },
+          "observedAllocationBytesPerSecond": 17211512.11748544,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            },
+            "CONNECTION": {
+              "worker": 0,
+              "serial": null,
+              "workerFraction": 0.0,
+              "accounting": "Original off path has no player coordinator counters; serial invocation count unmeasured"
+            }
+          },
+          "serialReasons": {},
+          "crossRegionAttackPassed": true
+        }
+      ],
+      "154-on-persistent": [
+        {
+          "name": "n32-spread",
+          "tickMs": {
+            "count": 406,
+            "mean": 58.29661343596059,
+            "p50": 55.899601,
+            "p95": 82.472501,
+            "p99": 90.792601,
+            "maximum": 99.269301
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 106.72671726458334,
+            "p50": 87.964601,
+            "p95": 231.802019,
+            "p99": 314.110308,
+            "maximum": 399.122204
+          },
+          "observedAllocationBytesPerSecond": 195134375.36572295,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 13390,
+              "serial": 82,
+              "workerFraction": 0.9939133016627079,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 13394,
+              "serial": 78,
+              "workerFraction": 0.9942102137767221,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "CONNECTION:NETWORK_TRANSITION": 9,
+            "CONNECTION:OPTIONAL_TICK_STATE": 64,
+            "ENTITY:OPTIONAL_TICK_STATE": 32,
+            "ENTITY:NETWORK_TRANSITION": 4
+          },
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-same",
+          "tickMs": {
+            "count": 340,
+            "mean": 69.93316308529413,
+            "p50": 68.934102,
+            "p95": 92.025602,
+            "p99": 116.926203,
+            "maximum": 154.113304
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 116.13176317864583,
+            "p50": 93.944601,
+            "p95": 272.482907,
+            "p99": 392.76681,
+            "maximum": 418.03471
+          },
+          "observedAllocationBytesPerSecond": 184449674.2327331,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 11285,
+              "serial": 75,
+              "workerFraction": 0.9933978873239436,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 11266,
+              "serial": 94,
+              "workerFraction": 0.9917253521126761,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "CONNECTION:NETWORK_TRANSITION": 54,
+            "CONNECTION:OPTIONAL_TICK_STATE": 64,
+            "ENTITY:OPTIONAL_TICK_STATE": 32,
+            "ENTITY:NETWORK_TRANSITION": 26
+          },
+          "crossRegionAttackPassed": false
+        },
+        {
+          "name": "n32-boundary",
+          "tickMs": {
+            "count": 377,
+            "mean": 64.19332121750662,
+            "p50": 61.566899,
+            "p95": 89.252808,
+            "p99": 105.407088,
+            "maximum": 111.189904
+          },
+          "pingMs": {
+            "count": 1920,
+            "mean": 103.24360288593749,
+            "p50": 83.323098,
+            "p95": 225.500708,
+            "p99": 346.363313,
+            "maximum": 386.489236
+          },
+          "observedAllocationBytesPerSecond": 207617648.00707614,
+          "phaseCoverage": {
+            "ENTITY": {
+              "worker": 12461,
+              "serial": 115,
+              "workerFraction": 0.9908555979643766,
+              "untrackedSerial": 0
+            },
+            "CONNECTION": {
+              "worker": 12478,
+              "serial": 98,
+              "workerFraction": 0.99220737913486,
+              "untrackedSerial": 0
+            }
+          },
+          "serialReasons": {
+            "CONNECTION:NETWORK_TRANSITION": 27,
+            "CONNECTION:OPTIONAL_TICK_STATE": 128,
+            "ENTITY:OPTIONAL_TICK_STATE": 64,
+            "ENTITY:NETWORK_TRANSITION": 11
+          },
+          "crossRegionAttackPassed": true
+        }
+      ]
+    }
+  },
+  "knownFailures": [
+    {
+      "case": "153-on-persistent",
+      "reason": "Post-measure RCON deadline expired during synchronous chunk flush; original failure excluded from comparison",
+      "path": "tmp/player-region-tick-p5-opt01/run-153-on-persistent/result.json"
+    },
+    {
+      "case": "154-on-fixed-extended-recovery",
+      "reason": "Stopped for user-requested handoff",
+      "completedCycles": 1,
+      "serverExits": [
+        0
+      ],
+      "clientsExit": 0
+    }
+  ],
+  "commands": [
+    {
+      "path": "tmp/player-region-tick-p5-opt01/build154b/result.json",
+      "sha256": "4384e97927cb3190a516b91de3eee062b594e53260387e0e7da4b39effc3fa8e",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/functional-off-fixed-command/result.json",
+      "sha256": "5e2317c367d00cd10e12c45629b76032085051ba925bc692f846b70b9f99b887",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/functional-on-fixed-command/result.json",
+      "sha256": "861495e39169b48efbfb1f73a6fbe846a7fa4f20b56fa190046371381e3e7549",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/functional-off-persistent-command/result.json",
+      "sha256": "7a768b84a528d7becde41ede19fbea5e87682dd47a01624a7062c8a0d79691c5",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/functional-on-persistent-command/result.json",
+      "sha256": "d93b82954e00f7fc6d6f996bb375a6de707099f80651491a71960475c79ef7b7",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/install-153-on-fixed/result.json",
+      "sha256": "1d06fd32fa02b61acfe35c33a70c8d5e5f3889c1a1e51c997d5d93d8a16a5cef",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/run-153-on-fixed/result.json",
+      "sha256": "6cd4aff5549897780df961ca3be7628af2373e274c59df288ecf2f27f7caf9e1",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/verify-153-on-fixed/result.json",
+      "sha256": "75f43ee40078eb3f5c3a06088da54b099c230d8711f60d0e289f442fcf231d9a",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/install-154-off-fixed/result.json",
+      "sha256": "094c9c69fb3eb3299204c354417e82e3be414b16243c5096d333624ff5c5fae0",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/run-154-off-fixed/result.json",
+      "sha256": "bea5ad788be1dbe36a3e0b4ea0160579ec5425f2578b09c45cc6defcbb7bc877",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/verify-154-off-fixed/result.json",
+      "sha256": "1a970caa644be0f47caaf68787a4828e859312132561c4849fff86658d54f733",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/install-154-on-fixed/result.json",
+      "sha256": "a8c3fa467199c83de0714e73746332b9bf307614df846ddb888eeb567c4d1be5",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/run-154-on-fixed/result.json",
+      "sha256": "760e9e234b0f195b17d992ba7020017757511c8b3b54ef606a8562681b3f9cf4",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/verify-154-on-fixed/result.json",
+      "sha256": "3271fef03e7e6366c7d905a98684c864012ef93d7d28e5213d75f849830b3e83",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/install-154-off-persistent/result.json",
+      "sha256": "84e8fa0faa3f0fe53e04fcf2711f344df09419fdcb2e9507b8685ede3b4e6618",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/run-154-off-persistent/result.json",
+      "sha256": "6d7762c309cb1086b0c47da8d1ecdb07d4573256b9af9d4852d85638c2855bf2",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/verify-154-off-persistent/result.json",
+      "sha256": "f73c881008064da98c24b82ca75e6e534239e15f8111496288f4a54d4536f23b",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/install-154-on-persistent/result.json",
+      "sha256": "c08d495cd53c8be8c07c6bf22d7d959c8ad9ba6ab70e1b81140a1ac6b2d80fe8",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/run-154-on-persistent/result.json",
+      "sha256": "e475b2d15d21bbbef8b4afb9e03c9b4f7d6f9c2e514f1de8ab13069d525b734b",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/verify-154-on-persistent/result.json",
+      "sha256": "65d69b6300cd4a50e6b691099b0287ebacfcc9dc3dc74f97d1804370119bf0ad",
+      "exit": 0
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/run-153-on-persistent/result.json",
+      "sha256": "22af09305bf47937539f4b3e4d8e97ca83b0c5784e3e3931a9c2b61c29397126",
+      "exit": 1
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/regress-command/result.json",
+      "sha256": "7657cc40aa85e7881be1ecf16335e9c6212749d27fa27d570a215ef058586d51",
+      "exit": -15
+    },
+    {
+      "path": "tmp/player-region-tick-p5-opt01/ops-on-fixed/run-on-fixed/result.json",
+      "sha256": "1cbce55c551845bb35fcd319ef8b4f24d08b1b4a7fb9b3ca5f6354be25476b75",
+      "exit": -2
+    }
+  ],
+  "diagnosticReceipt": "tmp/player-region-tick-p5-diagnose01/diagnostic-receipt.json",
+  "wholeP5Complete": false,
+  "speedupCertified": false,
+  "defaultEnabled": false
+}

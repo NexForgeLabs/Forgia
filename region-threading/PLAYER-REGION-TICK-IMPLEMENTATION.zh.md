@@ -1,3 +1,5 @@
+P5 已开始（2026-11-18）：用户授权进入多人/性能/长期恢复验收。基线 `.152` / 已推送 `188cdcf71`；P5 工具的 1/8 真 TCP 试跑及7项测量控制通过，全新 1/8/32×三分布×两池/off-on 矩阵进行中，尚无性能收益或整体 P5 完成结论。详见 [P5 实施记录](PLAYER-REGION-TICK-P5.zh.md)。默认关闭及未知扩展/MAIN/NETWORK/不重放/真实join合同保持，现用服不操作，失败证据保留。以下旧阶段状态保留历史。
+
 最终声明 payload API（2026-11-18）：**已按单处理器有界合同完成，产物 21.1.250.152-beta。** 新增 `playToServerRegion(type, codec, Payload.class, handler)`；现有 MAIN 默认和显式 NETWORK 不变，未知 Mod 完整玩家 Tick/未声明包继续串行。684 项/22 类 JUnit、3 项选定 GameTest、四模式真实 TCP 声明包、完整 schema3 144/schema4 180、P4 routes/async/queue、双入口 smoke、原 MAIN/NETWORK 和共享箱子补充验收通过，共 34 个隔离安装、208 项 proof 负控制。详见 [API 合同及完整失败记录](PLAYER-REGION-PAYLOAD-API.zh.md)最后收口；回执 `tmp/player-region-payload-api01/acceptance152-01/receipt.json`。默认 false、开始后不重放和真实 join 后清理保持。本增量无并发吞吐/性能结论；P5 未开始，整体仍 partial。P4 已推送 `9b4859bb8`，本增量未 commit/push/deploy。以下旧状态保留历史。
 
 当前增量（2026-11-18）：用户要求在 P5 前实现开发者显式声明的自定义 payload worker API。P4 已提交并推送 `9b4859bb8`；新增 `playToServerRegion` 仅声明单个服务端 PLAY 处理器，不放行整个 Mod/玩家 Tick，原 MAIN/NETWORK 默认合同保持。`.152` 冻结候选通过 684 项/22 类 JUnit 和三个选定 GameTest，四组声明 API 真实 TCP 已通过、同产物兼容矩阵验收进行中，尚未整体完成；P5 未开始。详见 [payload API 记录](PLAYER-REGION-PAYLOAD-API.zh.md)。下文旧状态保留历史。
@@ -961,3 +963,13 @@ JDI仅为loopback外部只读断点，没有Mod、Java instrumentation agent、�
 本轮证据目录当前约 3.19 GiB（含所有失败、私有Minecraft产物及新世界），避免恢复旧66 GiB测试目录。
 原P2压缩证据和最终产物继续保留，未操作现用服、未使用SubAgent、未commit/push/deploy或reset/clean。
 下一步仍在P3：闭合单球/最后一次XP的移除和tracking发布、多个观察者连接的原顺序与互斥，再扩展一般物品/库存/共享容器/伤害等。
+
+
+P5操作优先增量（2026-11-18）：用户明确先验证正常客户端操作，再降低调度开销；当前无生产Java/patch变更。8真TCP原包操作、共享BE/箱子守恒、骑乘/地图/传送/下界、重连与保存重启的精确进度、原失败和全新恢复目录见[当前P5实施记录](PLAYER-REGION-TICK-P5.zh.md)末尾；部分模式已独立通过，整四模式/32人/长期认证尚未完成，不撤回fixed性能退化或原超时失败。
+
+
+P5有界操作收口（2026-11-18）：native与FerriteCore+ModernFix各四模式/8真TCP共88操作窗、32跨区命中、17轮重连、16次boot和120项proof控制通过；分进程32真TCP四模式×三分布12窗、4次跨区命中及8项proof控制通过。客户端/服务端/保存NBT物品XP一致。最终回执为`tmp/player-region-tick-p5-operations07/acceptance02/receipt.json`和`tmp/player-region-tick-p5-correctness32-04/acceptance01/receipt.json`，总状态`operations07/closeout-state.json`。所有本轮测试进程退出；37生产源hash不变，未优化调度。整体P5仍partial；原单进程超时、watchdog/采样断档与P4旧stall原因未定，Jade/Create实际Mod客户端、长稳/retain/heap及性能认证未覆盖。详见[P5最终记录](PLAYER-REGION-TICK-P5.zh.md)末尾；28项失败/未知wrapper、原世界/包/工作树全部保留。
+
+P5 异常追查（2026-11-18）：`.152` 单进程 32 人超时在原进度广播夹具下复现，静音对照和两池复验通过；`.153` 修正 watchdog 报告单位并经隔离预期崩溃和 32 人正常跨区窗口验证。旧跨进程停顿根因、长期及 Mod 客户端仍未闭合，调度未改。详见 [P5 追查记录](PLAYER-REGION-TICK-P5.zh.md) 末尾。
+
+P5 `.154` 交接：407 JUnit、同产物四模式 schema 3（144）/4（180）、单进程 32 TCP 四模式三分布（12 窗）通过。开启的平均 MSPT 仍显著高于关闭，延长恢复回归按用户要求停止，P5 仍 partial。见 [P5 交接及下轮测量建议](PLAYER-REGION-TICK-P5.zh.md) 末尾。

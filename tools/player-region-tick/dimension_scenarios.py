@@ -4,19 +4,24 @@ import re
 import time
 
 
-def run_dimensions(session):
+def run_dimensions(session, actor='WorkerA'):
     def move(start, destination):
         steps=max(1,math.ceil(math.dist(start,destination)/.25))
         for step in range(1,steps+1):
             point=[a+(b-a)*step/steps for a,b in zip(start,destination)]
-            session.request('packet',name='WorkerA',packet='position_look',data={
+            session.request('packet',name=actor,packet='position_look',data={
                 'x':point[0],'y':point[1],'z':point[2],'yaw':0,'pitch':0,'onGround':True})
             time.sleep(.06)
         return list(destination)
     def client_position():
-        row=session.request('snapshot')['WorkerA']['position']
+        row=session.request('snapshot')[actor]['position']
         return [row[k] for k in ['x','y','z']]
-    def dimension():return session.command('data get entity WorkerA Dimension')
+    def dimension():return session.command(f'data get entity {actor} Dimension')
+    def resources(label):
+        if actor=='WorkerA':return session.resources(label)
+        values={key:session.command(f'data get entity {actor} '+key) for key in ['Inventory','XpTotal','XpLevel','XpP','Pos']}
+        (session.output/(label+'.json')).write_text(__import__('json').dumps(values,indent=2)+'\n')
+        return values
     def await_dimension(wanted):
         deadline=time.monotonic()+30
         reads=[]
@@ -43,19 +48,19 @@ def run_dimensions(session):
     session.request('mark',label='dimension_before')
     move([49.75,100,27.0],[54.5,100,24.5])
     outward=await_dimension('minecraft:the_nether')
-    session.snapshot('dimension-nether');session.resources('dimension-nether-resources')
+    session.snapshot('dimension-nether');resources('dimension-nether-resources')
     portal=client_position()
     outside=move(portal,[portal[0],portal[1],portal[2]+2.5])
     # Read the original player cooldown (10 ticks). It may already be zero after the walk out.
     deadline=time.monotonic()+45;cooldown=[]
     while time.monotonic()<deadline:
-        value=session.command('data get entity WorkerA PortalCooldown');cooldown.append(value)
+        value=session.command(f'data get entity {actor} PortalCooldown');cooldown.append(value)
         if re.search(r': 0\s*$',value):break
         time.sleep(.5)
     else:raise AssertionError('Original portal cooldown did not expire')
     move(outside,portal)
     inward=await_dimension('minecraft:overworld')
-    session.snapshot('dimension-overworld');session.resources('dimension-overworld-resources')
+    session.snapshot('dimension-overworld');resources('dimension-overworld-resources')
     session.request('mark',label='dimension_after')
     return {'initialDimension':initial,'outwardReads':outward,'inwardReads':inward,'cooldownReads':cooldown,
             'scope':'Original Nether portal round trip via client movement; fixture blocks only, no command teleport'}

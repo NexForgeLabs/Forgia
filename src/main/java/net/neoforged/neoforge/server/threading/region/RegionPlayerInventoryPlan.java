@@ -111,6 +111,17 @@ public final class RegionPlayerInventoryPlan {
         return pickups.containsKey(item);
     }
 
+    boolean owns(Object resource) {
+        for (Stack stack : slots) if (ownsStack(stack.original(), resource)) return true;
+        for (Stack stack : pickups.values()) if (ownsStack(stack.original(), resource)) return true;
+        for (Object object : player.getInventory().forgiaPlayerLocalObjects()) if (object == resource) return true;
+        return false;
+    }
+
+    private static boolean ownsStack(ItemStack stack, Object resource) {
+        return !stack.isEmpty() && (stack == resource || stack.getComponents() == resource);
+    }
+
     List<Object> resources() {
         List<Object> objects = new ArrayList<>(player.getInventory().forgiaPlayerLocalObjects());
         for (Stack stack : slots) add(objects, stack.original());

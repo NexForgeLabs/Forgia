@@ -4,7 +4,6 @@
  */
 package net.neoforged.neoforge.server.threading.region;
 
-import java.lang.reflect.Field;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
 import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
@@ -198,8 +197,6 @@ final class RegionPlayerPacketPlan {
     }
 
     private static Object field(Object object, Class<?> type, String name) throws ReflectiveOperationException {
-        Field field = type.getDeclaredField(name);
-        if (!field.trySetAccessible()) throw new IllegalAccessException(name);
-        return field.get(object);
+        return RegionPlayerFieldAccess.read(object, type, name);
     }
 }
