@@ -14,7 +14,7 @@
 
 | 我想…… | 阅读 | 主要类型 |
 |---|---|---|
-| 了解 Forgia 是什么、哪些已认证 | [README](../README.md)、[STATUS](../region-threading/STATUS.zh.md) | — |
+| 了解 Forgia 是什么、哪些已认证 | [README](https://github.com/NexForgeLabs/Forgia/blob/main/README.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.zh.md) | — |
 | 开启服务器 / 启用区域线程 | [观测与配置](modules/observability.zh.md) | `forgia.toml`、`/forgia` |
 | 调用面向模组的 API | [API 总览](api/README.zh.md) | `ParallelApi` |
 | 在主线程准备刷怪数据、在 worker 执行正文 | [刷怪准备](api/natural-spawn-preparation.zh.md) | `NaturalSpawnPreparation`、`Ready`、`ServerRequired` |
@@ -25,7 +25,7 @@
 | 安装或验证 Create 适配器 | [Create 适配器](adapters/create-adapter.zh.md) | `forgia_create:steady_ticks` |
 | 安装或验证 MobSpawnController 适配器 | [MSC 适配器](adapters/mobspawncontroller-adapter.zh.md) | `forgia_mobspawncontroller` |
 | 理解引擎内部实现 | [模块文档](modules/README.zh.md) | `RegionThreadingEngine`、`CanonicalBlockEntityCoordinator` |
-| 看测量本身而不是摘要 | [证据档案](../region-threading/STATUS.md) | — |
+| 看测量本身而不是摘要 | [证据档案](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) | — |
 
 ## 2. 文档结构
 
