@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 430" role="img" aria-labelledby="t d">
+<title id="t">Forgia region execution model</title><desc id="d">A central coordinator dispatches eligible work to three region workers, with explicit ownership boundaries.</desc>
+<defs>
+ <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#b9bdb5" stroke-width=".7" opacity=".55"/></pattern>
+ <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#d65a32" stroke-width="1.2"/></marker>
+</defs>
+<rect width="720" height="430" fill="#e8e7e0"/>
+<rect width="720" height="430" fill="url(#grid)"/>
+<g font-family="monospace" fill="#687174" font-size="11" letter-spacing="1.4">
+ <text x="28" y="34">SERVER PROCESS</text><text x="692" y="34" text-anchor="end">CONCEPTUAL / NOT TO SCALE</text>
+</g>
+<rect x="244" y="57" width="232" height="66" rx="2" fill="#202628"/>
+<text x="360" y="83" text-anchor="middle" fill="#ed7950" font-family="monospace" font-size="10" letter-spacing="1.5">COORDINATION</text>
+<text x="360" y="104" text-anchor="middle" fill="#f2f1ec" font-family="Arial,sans-serif" font-size="17" font-weight="700">Server scheduler</text>
+<path d="M360 123V156M124 156H596M124 156V190M360 156V190M596 156V190" fill="none" stroke="#d65a32" stroke-width="1.6" marker-end="url(#arrow)"/>
+<g>
+ <rect x="28" y="198" width="192" height="142" fill="#f2f1ec" stroke="#9da39e"/>
+ <rect x="264" y="198" width="192" height="142" fill="#f2f1ec" stroke="#9da39e"/>
+ <rect x="500" y="198" width="192" height="142" fill="#f2f1ec" stroke="#9da39e"/>
+ <g font-family="monospace" font-size="10" letter-spacing="1.2" fill="#d65a32">
+  <text x="44" y="222">WORKER / 01</text><text x="280" y="222">WORKER / 02</text><text x="516" y="222">WORKER / 03</text>
+ </g>
+ <g font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#202628">
+  <text x="44" y="250">Region A</text><text x="280" y="250">Region B</text><text x="516" y="250">Region C</text>
+ </g>
+ <g fill="#c9ccc4" stroke="#9da39e" stroke-width=".8">
+  <rect x="44" y="266" width="46" height="25"/><rect x="94" y="266" width="46" height="25"/><rect x="144" y="266" width="46" height="25"/>
+  <rect x="280" y="266" width="46" height="25"/><rect x="330" y="266" width="46" height="25"/><rect x="380" y="266" width="46" height="25"/>
+  <rect x="516" y="266" width="46" height="25"/><rect x="566" y="266" width="46" height="25"/><rect x="616" y="266" width="46" height="25"/>
+ </g>
+ <g font-family="monospace" font-size="9" fill="#687174">
+  <text x="44" y="316">OWNED WORKSET</text><text x="280" y="316">OWNED WORKSET</text><text x="516" y="316">OWNED WORKSET</text>
+ </g>
+</g>
+<path d="M220 270H264M456 270H500" stroke="#d65a32" stroke-width="1.2" stroke-dasharray="4 5"/>
+<g font-family="monospace" font-size="10" fill="#687174">
+ <text x="360" y="377" text-anchor="middle">EXPLICIT OWNERSHIP · CONTROLLED HANDOFF</text>
+ <text x="360" y="399" text-anchor="middle" fill="#d65a32">ELIGIBLE TASKS ONLY</text>
+</g>
+<path d="M28 356H692" stroke="#b9bdb5" stroke-width="1"/>
+</svg>
