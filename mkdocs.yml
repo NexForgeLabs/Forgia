@@ -1,5 +1,5 @@
 site_name: Forgia
-site_description: A regionized, multithreaded server core for NeoForge 1.21.1
+site_description: Regionized execution for the NeoForge ecosystem.
 site_url: https://nexforgelabs.github.io/Forgia/
 repo_url: https://github.com/NexForgeLabs/Forgia
 repo_name: NexForgeLabs/Forgia
@@ -8,21 +8,32 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   language: en
+  logo: assets/forgia-mark.svg
+  favicon: assets/forgia-mark.svg
+  custom_dir: docs/overrides
   features:
     - navigation.tabs
     - navigation.sections
     - navigation.top
+    - navigation.tracking
     - search.highlight
     - content.code.copy
   palette:
     - scheme: default
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - scheme: slate
+      primary: custom
+      accent: custom
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+
+extra_css:
+  - stylesheets/extra.css
 
 plugins:
   - search
@@ -39,7 +50,13 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Documentation:
-      - English: README.en.md
-      - 简体中文: README.zh.md
-
+  - Project:
+      - Overview: README.en.md
+      - API: api/README.en.md
+      - Adapters: adapters/README.en.md
+      - Engine internals: modules/README.en.md
+  - 中文:
+      - 项目文档: README.zh.md
+      - API: api/README.zh.md
+      - 适配器: adapters/README.zh.md
+      - 引擎内部: modules/README.zh.md
