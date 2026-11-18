@@ -1,7 +1,7 @@
 # 适配器模组 —— 架构、选择矩阵与编写指南
 
 [English](README.en.md) | 中文 · [API 索引](../api/README.zh.md)
-证据：[GENERAL-MOD-ADAPTER-ARCHITECTURE](../../region-threading/GENERAL-MOD-ADAPTER-ARCHITECTURE.md)、[MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE](../../region-threading/MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE.md)
+证据：[GENERAL-MOD-ADAPTER-ARCHITECTURE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GENERAL-MOD-ADAPTER-ARCHITECTURE.md)、[MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE.md)
 
 状态：已发布适配器均为**实验性**。核心**没有任何目标模组专用后端**：目标模组的类、指纹、分支条件和
 资源足迹全部位于适配器 jar。
@@ -28,7 +28,7 @@
 | 刷怪准备 | `NATURAL_SPAWN_PREPARATION`、`..._PLAN_PREPARATION`、`..._CLAIMS`、`ORDERED_SPAWN_FINALIZATION` | 纯快照、可选 claim + 有序最终化 | 冻结规则的刷怪正文在 worker 上 | 中 | [指南](../api/natural-spawn-preparation.zh.md) |
 | v1 BE tick 谓词 | `BLOCK_ENTITY_TICK_ADMISSION` | 逐次 `Decision` | 拒绝门；仅谓词不授予 canonical 路径 | 低 | [指南](../api/block-entity-ticks.zh.md) |
 | 受审计原 ticker | `AUDITED_BLOCK_ENTITY_TICKS` | 清单 + READ/WRITE 足迹 | canonical 阶段中原 ticker 在 worker 上 | 高 | [指南](../api/block-entity-ticks.zh.md) |
-| C5 通用/专用申请 | `GENERAL_BLOCK_ENTITY_ADAPTERS` | descriptor、资源、依赖 | 仅诊断；目标仍是完整串行 fence | 中 | [API 参考 §4.8](../../region-threading/API-REFERENCE.md) |
+| C5 通用/专用申请 | `GENERAL_BLOCK_ENTITY_ADAPTERS` | descriptor、资源、依赖 | 仅诊断；目标仍是完整串行 fence | 中 | [API 参考 §4.8](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/API-REFERENCE.md) |
 | 仅操作集成 | `BLOCK_ENTITY_OPERATIONS` | 不注册；使用 `blockEntities()` | 跨区完成交互，不并行 tick | 低 | [指南](../api/block-entity-operations.zh.md) |
 
 ## 3. 选择矩阵
