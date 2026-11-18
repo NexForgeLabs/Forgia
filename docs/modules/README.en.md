@@ -70,7 +70,7 @@ Ownership is by lease, not by thread name. `Thread.currentThread().getName()` is
 
 | Topic | Evidence document |
 |---|---|
-| Overall status and roadmap | [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) |
+| Overall status and roadmap | [STATUS](../status.en.md) |
 | Configuration matrix | [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md) |
 | Benchmarks | [PERFORMANCE-BENCHMARKS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md) |
 | Block entities | [BLOCK-ENTITY-PARALLELISM](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md), [CANONICAL-BLOCK-ENTITY-COORDINATOR](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-COORDINATOR.md) |
