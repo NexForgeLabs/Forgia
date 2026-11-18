@@ -68,7 +68,7 @@
 
 | 主题 | 证据文档 |
 |---|---|
-| 总体状态与路线图 | [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md) |
+| 总体状态与路线图 | [STATUS](../status.en.md) |
 | 配置矩阵 | [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md) |
 | 基准 | [PERFORMANCE-BENCHMARKS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md) |
 | 方块实体 | [BLOCK-ENTITY-PARALLELISM](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md)、[CANONICAL-BLOCK-ENTITY-COORDINATOR](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-COORDINATOR.md) |
