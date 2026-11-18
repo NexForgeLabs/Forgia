@@ -1,41 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 430" role="img" aria-labelledby="t d">
-<title id="t">Forgia region execution model</title><desc id="d">A central coordinator dispatches eligible work to three region workers, with explicit ownership boundaries.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 452" role="img" aria-labelledby="title desc">
+<title id="title">Forgia conceptual region execution model</title>
+<desc id="desc">A server coordinator schedules eligible work for independently owned regions. A dashed route marks coordination across region boundaries.</desc>
 <defs>
- <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="#b9bdb5" stroke-width=".7" opacity=".55"/></pattern>
- <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#d65a32" stroke-width="1.2"/></marker>
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#aeb4ad" stroke-width=".65" opacity=".42"/></pattern>
+  <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0L6 3L0 6" fill="none" stroke="#b94b2c" stroke-width="1.2"/></marker>
+  <marker id="arrow-muted" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0 0L5 3L0 6" fill="none" stroke="#687174" stroke-width="1"/></marker>
 </defs>
-<rect width="720" height="430" fill="#e8e7e0"/>
-<rect width="720" height="430" fill="url(#grid)"/>
-<g font-family="monospace" fill="#687174" font-size="11" letter-spacing="1.4">
- <text x="28" y="34">SERVER PROCESS</text><text x="692" y="34" text-anchor="end">CONCEPTUAL / NOT TO SCALE</text>
+<rect width="760" height="452" fill="#e9e8e1"/>
+<rect width="760" height="452" fill="url(#grid)"/>
+<g font-family="monospace" font-size="10" fill="#626d70">
+  <text x="28" y="30">SERVER PROCESS</text><text x="732" y="30" text-anchor="end">OWNERSHIP / EXECUTION</text>
 </g>
-<rect x="244" y="57" width="232" height="66" rx="2" fill="#202628"/>
-<text x="360" y="83" text-anchor="middle" fill="#ed7950" font-family="monospace" font-size="10" letter-spacing="1.5">COORDINATION</text>
-<text x="360" y="104" text-anchor="middle" fill="#f2f1ec" font-family="Arial,sans-serif" font-size="17" font-weight="700">Server scheduler</text>
-<path d="M360 123V156M124 156H596M124 156V190M360 156V190M596 156V190" fill="none" stroke="#d65a32" stroke-width="1.6" marker-end="url(#arrow)"/>
+<rect x="250" y="52" width="260" height="66" rx="3" fill="#202628"/>
+<text x="380" y="78" text-anchor="middle" font-family="monospace" font-size="10" fill="#ed7950">COORDINATION</text>
+<text x="380" y="99" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#f3f2ed">Scheduler</text>
+<path d="M380 118V151M128 151H632M128 151V181M380 151V181M632 151V181" fill="none" stroke="#b94b2c" stroke-width="1.5" marker-end="url(#arrow)"/>
 <g>
- <rect x="28" y="198" width="192" height="142" fill="#f2f1ec" stroke="#9da39e"/>
- <rect x="264" y="198" width="192" height="142" fill="#f2f1ec" stroke="#9da39e"/>
- <rect x="500" y="198" width="192" height="142" fill="#f2f1ec" stroke="#9da39e"/>
- <g font-family="monospace" font-size="10" letter-spacing="1.2" fill="#d65a32">
-  <text x="44" y="222">WORKER / 01</text><text x="280" y="222">WORKER / 02</text><text x="516" y="222">WORKER / 03</text>
- </g>
- <g font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#202628">
-  <text x="44" y="250">Region A</text><text x="280" y="250">Region B</text><text x="516" y="250">Region C</text>
- </g>
- <g fill="#c9ccc4" stroke="#9da39e" stroke-width=".8">
-  <rect x="44" y="266" width="46" height="25"/><rect x="94" y="266" width="46" height="25"/><rect x="144" y="266" width="46" height="25"/>
-  <rect x="280" y="266" width="46" height="25"/><rect x="330" y="266" width="46" height="25"/><rect x="380" y="266" width="46" height="25"/>
-  <rect x="516" y="266" width="46" height="25"/><rect x="566" y="266" width="46" height="25"/><rect x="616" y="266" width="46" height="25"/>
- </g>
- <g font-family="monospace" font-size="9" fill="#687174">
-  <text x="44" y="316">OWNED WORKSET</text><text x="280" y="316">OWNED WORKSET</text><text x="516" y="316">OWNED WORKSET</text>
- </g>
+  <rect x="28" y="190" width="200" height="148" fill="#f3f2ed" stroke="#929b96"/>
+  <rect x="280" y="190" width="200" height="148" fill="#f3f2ed" stroke="#929b96"/>
+  <rect x="532" y="190" width="200" height="148" fill="#f3f2ed" stroke="#929b96"/>
+  <g font-family="monospace" font-size="10" fill="#a84227">
+    <text x="44" y="214">WORKER / 01</text><text x="296" y="214">WORKER / 02</text><text x="548" y="214">WORKER / 03</text>
+  </g>
+  <g font-family="Arial,sans-serif" font-size="17" font-weight="600" fill="#202628">
+    <text x="44" y="242">Region A</text><text x="296" y="242">Region B</text><text x="548" y="242">Region C</text>
+  </g>
+  <g fill="#d7d9d1" stroke="#9ba39d" stroke-width=".8">
+    <rect x="44" y="258" width="52" height="27"/><rect x="100" y="258" width="52" height="27"/><rect x="156" y="258" width="52" height="27"/>
+    <rect x="296" y="258" width="52" height="27"/><rect x="352" y="258" width="52" height="27"/><rect x="408" y="258" width="52" height="27"/>
+    <rect x="548" y="258" width="52" height="27"/><rect x="604" y="258" width="52" height="27"/><rect x="660" y="258" width="52" height="27"/>
+  </g>
+  <g font-family="monospace" font-size="9" fill="#626d70">
+    <text x="44" y="310">OWNED WORKSET</text><text x="296" y="310">OWNED WORKSET</text><text x="548" y="310">OWNED WORKSET</text>
+  </g>
 </g>
-<path d="M220 270H264M456 270H500" stroke="#d65a32" stroke-width="1.2" stroke-dasharray="4 5"/>
-<g font-family="monospace" font-size="10" fill="#687174">
- <text x="360" y="377" text-anchor="middle">EXPLICIT OWNERSHIP · CONTROLLED HANDOFF</text>
- <text x="360" y="399" text-anchor="middle" fill="#d65a32">ELIGIBLE TASKS ONLY</text>
+<path d="M228 271H280M480 271H532" fill="none" stroke="#687174" stroke-width="1.2" stroke-dasharray="4 5"/>
+<path d="M128 338V365H632V338" fill="none" stroke="#b94b2c" stroke-width="1.3" stroke-dasharray="5 5" marker-end="url(#arrow)"/>
+<rect x="256" y="352" width="248" height="28" fill="#e9e8e1"/>
+<text x="380" y="370" text-anchor="middle" font-family="monospace" font-size="10" fill="#a84227">CROSS-REGION COORDINATION</text>
+<path d="M28 400H732" stroke="#c5c8bf" stroke-width="1"/>
+<g font-family="monospace" font-size="10" fill="#626d70">
+  <text x="28" y="423">ELIGIBLE WORK ONLY</text><text x="732" y="423" text-anchor="end">CONCEPTUAL · NOT TO SCALE</text>
 </g>
-<path d="M28 356H692" stroke="#b9bdb5" stroke-width="1"/>
 </svg>
