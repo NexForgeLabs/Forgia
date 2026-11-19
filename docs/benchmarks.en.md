@@ -85,8 +85,8 @@ Forgia separates **where region threading already wins** (entity-heavy worlds, m
 | 1024 chunks random ticks (9×9) | 5.59 / 5.87 ms slice | 4.80 / 4.64 ms | **1.15×–1.27×** |
 | 1024 chunks random ticks (3×3, interior lift) | 6.88–6.92 ms slice | 5.54 ms | **1.24×–1.25×** |
 | 289 chunks natural spawning | 4.13–4.62 ms slice | 2.79–3.93 ms | **1.15×–1.65×** |
-| 2048 hoppers | 3.27 mspt | 3.74–3.97 mspt | 0.82×–0.87× (slower) |
-| 4096 furnaces (historical before `7efd88d`) | 2.60 mspt | 2.70–3.34 mspt | 0.78×–0.96× (slower) |
+| 2048 hoppers | 3.27 mspt | 3.74–3.97 mspt | 0.82×–0.87× (slower · **Pending Optimization**) |
+| 4096 furnaces (historical before `7efd88d`) | 2.60 mspt | 2.70–3.34 mspt | 0.78×–0.96× (slower · **Pending Optimization**) |
 
 ---
 
@@ -103,7 +103,7 @@ Measured using `tools/performance/controlled_server.py` (64 continuously burning
 | Same-tree Forgia serial (`--bridge` off) | 0.354 / 0.342 | 0.297 / 0.305 | 0.555 / 0.517 | 0.989 / 0.821 | 1.483 / 1.840 | 0.000 / 0.000 | 0.46 / 0.44 |
 | Stock NeoForge `21.1.249` (historical ref) | 0.193–0.260 | 0.182–0.240 | 0.239–0.313 | 0.528–0.615 | 1.056–1.097 | 0.000 | 0.37–0.40 |
 
-**Takeaway**: `7efd88d` cuts MSPT mean by **40.1% (1.67× faster)**, P99 tail latency by **1.43×**, and server+worker allocation rate by **72.3% (3.61× reduction)** compared to the pre-optimization `BlockEntityResources` baseline. Even so, for 64 stationary vanilla furnaces, coordinating proof/lease/join across 4 worker threads still costs ~3.86× more than Forgia's serial path (`0.348 ms`), so block-entity switches remain opt-in (`false` by default).
+**Takeaway**: `7efd88d` cuts MSPT mean by **40.1% (1.67× faster)**, P99 tail latency by **1.43×**, and server+worker allocation rate by **72.3% (3.61× reduction)** compared to the pre-optimization `BlockEntityResources` baseline. Even so (**Pending Optimization**), for 64 stationary vanilla furnaces, coordinating proof/lease/join across 4 worker threads still costs ~3.86× more than Forgia's serial path (`0.348 ms`), so block-entity switches remain opt-in (`false` by default).
 
 ---
 
@@ -120,7 +120,33 @@ Measured with 32 real TCP clients (`verify_player_scale.py`, `n32-spread`, 10s w
 
 ---
 
-## 5. Evidence & Limits
+## 5. 10-Minute 32-Fake-Player Full-Parallel vs. Vanilla Serial Soak (`FullParallelSoakGameTests`)
+
+Measured with `tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java` (`:tests:runFullParallelSoakGameTestServer` vs. `:tests:runFullSerialSoakGameTestServer`, identical world seed `4242424242`, 32 `ServerPlayer` + `EmbeddedChannel` bots moving, breaking, and placing blocks for 600s):
+
+| Metric | Forgia Full Parallel (`DYNAMIC_CLUSTER`, 7 Workers) | Vanilla Serial (`Bridge = false`) | Status / Comparison |
+|---|---:|---:|---|
+| Elapsed / Total Ticks | 600.02 s / 11,873 | 600.04 s / 11,859 | +0.12% throughput |
+| Mean TPS | **19.79** | 19.76 | Parity |
+| **P50 MSPT** | **10.78 ms** | 11.61 ms | **-7.1% (faster)** |
+| **Mean MSPT** | 13.20 ms | **12.37 ms** | +6.7% (**Pending Optimization**) |
+| **P95 MSPT** | 27.75 ms | **25.03 ms** | +10.9% (**Pending Optimization**) |
+| **P99 MSPT** | 45.75 ms | **37.78 ms** | +21.1% (**Pending Optimization**) |
+| **Max MSPT** | **1026.41 ms** | 1110.14 ms | **-7.5% (lower spike)** |
+| **GC Count / Time** | **52 / 914 ms** | 63 / 1,786 ms | **-48.8% GC pause** |
+| **Final Heap Used** | **1,278 MiB** | 1,543 MiB | **-17.1% (lower)** |
+| Ownership Violations | **0** | N/A | `entityTicksOnWorkers=102,920` |
+
+### Items Trailing Vanilla Serial (Pending Optimization)
+
+1. **Mean / P95 / P99 MSPT under light load (+6.7% / +10.9% / +21.1%) — Pending Optimization**: At ~11–13 ms/tick where a single core is unsaturated, multi-slice barrier and coordination overhead exceeds parallel gains.
+2. **High Block-Entity & Scheduled-Tick Fallback Rate (`fallbackBlockEntityTicks=2,166,896`, `fallbackScheduledTicks=13,565`) — Pending Optimization**: Unadmitted mixed-world ticks still pay coordinator inspection overhead before falling back to serial execution.
+3. **Player Tick Serial Fallback on Undeclared Mods (`UNKNOWN_MOD`) — Pending Optimization**: Test mods without `regionThreading = COMPATIBLE` (such as `add_pack_finders_test`) force `playerTick` onto the server thread.
+4. **Server-Thread Entity Ratio & Soak Coverage (`serverThreadOnlyEntityTicks=379,968`, `attacks=0`, `merges=0`) — Pending Optimization**: Reduce server-thread-pinned entity categories and improve entity attack targeting and island merge/split coverage in `FullParallelSoakGameTests`.
+
+---
+
+## 6. Evidence & Limits
 
 - All benchmark tools live under [`tools/performance/`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/performance) and [`tools/player-region-tick/`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/player-region-tick).
 - Raw session reports and limitations are preserved in [`region-threading/PERFORMANCE-BENCHMARKS.md`](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md), [`region-threading/PLAYER-REGION-TICK-P5.zh.md`](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PLAYER-REGION-TICK-P5.zh.md), and [Status](status.en.md).

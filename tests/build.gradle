@@ -238,6 +238,23 @@ runs {
             systemProperty("neoforge.soakReference", project.file("runs/soakGameTestServer/soak-report/redstone-on.csv").absolutePath)
             systemProperty("neoforge.soakReport", "soak-report")
     }
+    fullParallelSoakGameTestServer {
+            type = "gameTestServer"
+            systemProperty("forgia.fullParallelSoak", "true")
+            systemProperty("forgia.dynamicPlayerSoak", "true")
+            systemProperty("forgia.fullParallelSoakSeconds", providers.gradleProperty("fullSoakSeconds").getOrElse("600"))
+            systemProperty("neoforge.gameTestServer.filter", "fullParallelSoak")
+            systemProperty("neoforge.gameTestWorldPreset", providers.gradleProperty("soakWorldPreset").getOrElse("minecraft:normal"))
+            systemProperty("neoforge.gameTestWorldSeed", providers.gradleProperty("soakWorldSeed").getOrElse("4242424242"))
+    }
+    fullSerialSoakGameTestServer {
+            type = "gameTestServer"
+            systemProperty("forgia.fullParallelSoak", "true")
+            systemProperty("forgia.fullParallelSoakSeconds", providers.gradleProperty("fullSoakSeconds").getOrElse("600"))
+            systemProperty("neoforge.gameTestServer.filter", "fullParallelSoak")
+            systemProperty("neoforge.gameTestWorldPreset", providers.gradleProperty("soakWorldPreset").getOrElse("minecraft:normal"))
+            systemProperty("neoforge.gameTestWorldSeed", providers.gradleProperty("soakWorldSeed").getOrElse("4242424242"))
+    }
     // The save/reload equivalence: the same fixture, the same save point and the same reload twice, once with
     // region threading on and once with it off. The threading-on run writes the observable state it reloaded
     // and the reference run compares its own reloaded state with that file. Each run starts from its own world
@@ -400,6 +417,54 @@ regionThreadingOwnershipViolationMode = "WARN"
             // point and the kill is the same in all of them.
             systemProperty("neoforge.crashRecoveryKillTicks", providers.gradleProperty("crashKillTicks").getOrElse("40"))
         }
+    }
+}
+
+def fullSoakConfigText(boolean parallel) {
+    return """# Written by fullParallelSoakGameTestServer / fullSerialSoakGameTestServer before the server starts.
+enableRegionThreadingBridge = ${parallel}
+enableRegionThreadingWorkers = ${parallel}
+enableGlobalRegionThreadingWorker = ${parallel}
+enableRegionThreadingEntityTicks = ${parallel}
+enableRegionThreadingPlayerTicks = ${parallel}
+enableRegionThreadingBlockEntityTicks = ${parallel}
+enableRegionThreadingFurnaceWorkWaves = ${parallel}
+enableRegionThreadingBlockEntityResources = ${parallel}
+enableRegionThreadingScheduledTicks = ${parallel}
+enableRegionThreadingRandomTicks = ${parallel}
+enableRegionThreadingSpawning = ${parallel}
+enableRegionThreadingPoi = ${parallel}
+enableRegionThreadingBorderUpdates = ${parallel}
+enableRegionThreadingGameEvents = ${parallel}
+enableRegionThreadingPersistentWorkers = ${parallel}
+enableRegionThreadingPackedRegionLeases = ${parallel}
+regionThreadingWorkerThreads = 0
+regionThreadingMode = "DYNAMIC_CLUSTER"
+regionThreadingDynamicSectionShift = 3
+regionThreadingDynamicSplitDelayTicks = 40
+regionThreadingOwnershipViolationMode = "WARN"
+"""
+}
+
+[
+    fullParallelSoakGameTestServer: [parallel: true, gameDirectory: "fullParallelSoakGameTestServer"],
+    fullSerialSoakGameTestServer  : [parallel: false, gameDirectory: "fullSerialSoakGameTestServer"]
+].each { String runName, Map options ->
+    def prepare = tasks.register("prepare${runName.capitalize()}") {
+        group = "runs"
+        description = "Writes the config for ${runName} and deletes its world directory."
+        def worldDirectory = layout.projectDirectory.dir("runs/${options.gameDirectory}/world").asFile
+        def configFile = layout.projectDirectory.file("runs/${options.gameDirectory}/config/forgia.toml").asFile
+        def configText = fullSoakConfigText(options.parallel)
+        doLast {
+            worldDirectory.deleteDir()
+            configFile.parentFile.mkdirs()
+            configFile.text = configText
+        }
+    }
+    tasks.named("run${runName.capitalize()}").configure {
+        dependsOn prepare
+        gameDirectory.set layout.projectDirectory.dir("runs/${options.gameDirectory}").asFile
     }
 }
 

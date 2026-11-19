@@ -13,6 +13,19 @@ the accepted optional-service profile uses its separately recorded G1/compressed
 原始 C5 request-only 接口仍保持完整 serial fence。结果和未覆盖项见[本轮方案](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)。
 这条新路线是明确的 trusted-adapter 合同，不将类指纹表述为自动语义证明。
 
+## 10-Minute 32-Fake-Player Full-Parallel vs. Vanilla Serial Soak (`FullParallelSoakGameTests`)
+
+A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](../tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) under seed `4242424242`:
+
+- **Forgia Full Parallel (`DYNAMIC_CLUSTER`, 7 Workers, all switches ON)**: `11,873` ticks, `19.79 TPS`, P50 `10.78 ms`, Mean `13.20 ms`, P95 `27.75 ms`, P99 `45.75 ms`, Max `1026.41 ms`, GC `52 / 914 ms`, final heap `1,278 MiB`, `entityTicksOnWorkers = 102,920`, **`ownershipViolations = 0`**.
+- **Vanilla Serial (`Bridge = false`)**: `11,859` ticks, `19.76 TPS`, P50 `11.61 ms`, Mean `12.37 ms`, P95 `25.03 ms`, P99 `37.78 ms`, Max `1110.14 ms`, GC `63 / 1,786 ms`, final heap `1,543 MiB`.
+- **Better than Vanilla Serial**: P50 MSPT (`-7.1%`), Max MSPT (`-7.5%`), GC pause time (`-48.8%`), final heap (`-17.1%`).
+- **Trailing Vanilla Serial / Pending Optimization**:
+  1. Mean (`+6.7%`), P95 (`+10.9%`), and P99 (`+21.1%`) MSPT under light load (~11–13 ms/tick) due to barrier/coordination fixed overhead;
+  2. High fallback rate on block-entity and scheduled ticks (`fallbackBlockEntityTicks = 2,166,896`, `fallbackScheduledTicks = 13,565`);
+  3. Player ticks fell back to serial due to undeclared test mods (`UNKNOWN_MOD:add_pack_finders_test`);
+  4. High server-thread-pinned entity ratio (`serverThreadOnlyEntityTicks = 379,968`), and soak harness coverage for attacks (`attacks = 0`) and island merges (`merges = 0`).
+
 ## Measured performance work and runtime commands — bounded implementation
 
 The [performance report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-OPTIMIZATION-REPORT.md), [controlled measurements](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md),

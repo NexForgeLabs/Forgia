@@ -85,8 +85,8 @@ Forgia 明确区分 **区域线程已取得显著加速的场景**（高密度�
 | 1024 chunk 随机 tick（9×9） | 5.59 / 5.87 ms 切片 | 4.80 / 4.64 ms | **1.15×–1.27×** |
 | 1024 chunk 随机 tick（3×3，解除内部规则） | 6.88–6.92 ms 切片 | 5.54 ms | **1.24×–1.25×** |
 | 289 chunk 自然刷怪 | 4.13–4.62 ms 切片 | 2.79–3.93 ms | **1.15×–1.65×** |
-| 2048 漏斗 | 3.27 mspt | 3.74–3.97 mspt | 0.82×–0.87×（更慢） |
-| 4096 熔炉（`7efd88d` 之前历史基线） | 2.60 mspt | 2.70–3.34 mspt | 0.78×–0.96×（更慢） |
+| 2048 漏斗 | 3.27 mspt | 3.74–3.97 mspt | 0.82×–0.87×（更慢 · **待优化**） |
+| 4096 熔炉（`7efd88d` 之前历史基线） | 2.60 mspt | 2.70–3.34 mspt | 0.78×–0.96×（更慢 · **待优化**） |
 
 ---
 
@@ -103,7 +103,7 @@ Forgia 明确区分 **区域线程已取得显著加速的场景**（高密度�
 | 同版 Forgia 串行（关闭 `--bridge`） | 0.354 / 0.342 | 0.297 / 0.305 | 0.555 / 0.517 | 0.989 / 0.821 | 1.483 / 1.840 | 0.000 / 0.000 | 0.46 / 0.44 |
 | 原版 NeoForge `21.1.249`（历史对照） | 0.193–0.260 | 0.182–0.240 | 0.239–0.313 | 0.528–0.615 | 1.056–1.097 | 0.000 | 0.37–0.40 |
 
-**结论**：相对优化前 `BlockEntityResources` 基线，`7efd88d` 将 64 熔炉 MSPT 均值降低 **40.1%（快 1.67 倍）**、P99 降低 **1.43 倍**、分配速率降低 **72.3%（降至 1/3.61）**。同时我们如实标注：在 64 熔炉这类极轻的静止方块实体负载上，4 线程同步、资源 proof 与 join 的固定开销仍使 worker 路径比同版串行（`0.348 ms`）慢约 **3.86 倍**，因此方块实体开关继续保持默认关闭。
+**结论**：相对优化前 `BlockEntityResources` 基线，`7efd88d` 将 64 熔炉 MSPT 均值降低 **40.1%（快 1.67 倍）**、P99 降低 **1.43 倍**、分配速率降低 **72.3%（降至 1/3.61）**。同时我们如实标注（**待优化**）：在 64 熔炉这类极轻的静止方块实体负载上，4 线程同步、资源 proof 与 join 的固定开销仍使 worker 路径比同版串行（`0.348 ms`）慢约 **3.86 倍**，因此方块实体开关继续保持默认关闭。
 
 ---
 
@@ -120,7 +120,33 @@ Forgia 明确区分 **区域线程已取得显著加速的场景**（高密度�
 
 ---
 
-## 5. 复现工具与证据文档
+## 5. 10 分钟 32 Fake Player 全并行 vs 原版串行综合耐久（`FullParallelSoakGameTests`）
+
+使用 `tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java`（`:tests:runFullParallelSoakGameTestServer` 与 `:tests:runFullSerialSoakGameTestServer`，相同世界种子 `4242424242`、32 个 `ServerPlayer` + `EmbeddedChannel` 持续移动/破坏/放置方块，时长 600 秒）：
+
+| 指标 | Forgia 全并行 (`DYNAMIC_CLUSTER`, 7 Workers) | 原版串行 (`Bridge = false`) | 状态 / 对比 |
+|---|---:|---:|---|
+| 运行时长 / 总 Tick | 600.02 s / 11,873 | 600.04 s / 11,859 | +0.12% 吞吐 |
+| 平均 TPS | **19.79** | 19.76 | 持平 |
+| **P50 MSPT（中位数）** | **10.78 ms** | 11.61 ms | **-7.1%（优于串行）** |
+| **Mean MSPT（均值）** | 13.20 ms | **12.37 ms** | +6.7%（**待优化**） |
+| **P95 MSPT** | 27.75 ms | **25.03 ms** | +10.9%（**待优化**） |
+| **P99 MSPT** | 45.75 ms | **37.78 ms** | +21.1%（**待优化**） |
+| **Max MSPT（峰值）** | **1026.41 ms** | 1110.14 ms | **-7.5%（优于串行）** |
+| **GC 次数 / 耗时** | **52 次 / 914 ms** | 63 次 / 1,786 ms | **GC 耗时 -48.8%** |
+| **结束堆内存** | **1,278 MiB** | 1,543 MiB | **-17.1%（优于串行）** |
+| 所有权违规 | **0** | N/A | `entityTicksOnWorkers=102,920` |
+
+### 不如原版串行及待优化项目
+
+1. **轻负载全开关开启的均值与尾延迟开销（Mean +6.7% / P95 +10.9% / P99 +21.1%）— 待优化**：在 ~11–13 ms/tick 的轻负载下，多切片屏障等待与协调开销高于并行收益。
+2. **方块实体与计划刻回退率高（`fallbackBlockEntityTicks=2,166,896`、`fallbackScheduledTicks=13,565`）— 待优化**：混合场景下未命中准入前缀仍支付了协调器检查成本，需降低空跑/回退路径的固定开销。
+3. **玩家 Tick 在未声明模组存在时整体回退串行（`UNKNOWN_MOD`）— 待优化**：GameTest 环境因 `add_pack_finders_test` 等测试模组未声明兼容导致 `playerTick` 全部退回主线程；需优化多模组环境下玩家切片的隔离准入策略。
+4. **实体主线程占比与压测攻击/岛合并覆盖（`serverThreadOnlyEntityTicks=379,968`、`attacks=0`、`merges=0`）— 待优化**：需继续缩减被迫停留在主线程的实体类型占比，并增强 `FullParallelSoakGameTests` 的实体攻击判定与跨 Section 岛合并/拆分触发率。
+
+---
+
+## 6. 复现工具与证据文档
 
 - 基准工具位于 [`tools/performance/`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/performance) 与 [`tools/player-region-tick/`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/player-region-tick)。
 - 原始测量记录与已知限制见 [`region-threading/PERFORMANCE-BENCHMARKS.md`](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md)、[`region-threading/PLAYER-REGION-TICK-P5.zh.md`](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PLAYER-REGION-TICK-P5.zh.md) 与 [项目状态](status.zh.md)。

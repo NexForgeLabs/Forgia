@@ -12,6 +12,19 @@
 原始 C5 request-only 接口仍保持完整 serial fence。结果和未覆盖项见[本轮方案](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)。
 这条新路线是明确的 trusted-adapter 合同，不将类指纹表述为自动语义证明。
 
+## 10 分钟 32 Fake Player 全并行 vs 原版串行耐久测试（`FullParallelSoakGameTests`）
+
+使用 [`FullParallelSoakGameTests.java`](../tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) 在同一种子（`4242424242`）下完成了 600 秒对照：
+
+- **Forgia 全并行（`DYNAMIC_CLUSTER`，7 Workers，全开关开启）**：`11,873` ticks，`19.79 TPS`，P50 `10.78 ms`、Mean `13.20 ms`、P95 `27.75 ms`、P99 `45.75 ms`、Max `1026.41 ms`，GC `52 次 / 914 ms`，结束堆 `1,278 MiB`，`entityTicksOnWorkers = 102,920`，**`ownershipViolations = 0`**。
+- **原版串行（`Bridge = false`）**：`11,859` ticks，`19.76 TPS`，P50 `11.61 ms`、Mean `12.37 ms`、P95 `25.03 ms`、P99 `37.78 ms`、Max `1110.14 ms`，GC `63 次 / 1,786 ms`，结束堆 `1,543 MiB`。
+- **优于原版串行**：P50 MSPT（`-7.1%`）、Max MSPT（`-7.5%`）、GC 耗时（`-48.8%`）、结束堆内存（`-17.1%`）。
+- **不如原版串行 / 待优化**：
+  1. 轻负载下 Mean（`+6.7%`）、P95（`+10.9%`）、P99（`+21.1%`）MSPT 偏高（屏障与协调固定开销大于单核未饱和收益）；
+  2. 方块实体与计划刻回退占比高（`fallbackBlockEntityTicks = 2,166,896`、`fallbackScheduledTicks = 13,565`）；
+  3. 玩家 Tick 因存在未声明模组（`UNKNOWN_MOD:add_pack_finders_test`）全部回退主线程；
+  4. 实体主线程占比仍偏高（`serverThreadOnlyEntityTicks = 379,968`），且本轮测试脚本的攻击判定（`attacks = 0`）与岛合并/拆分触发（`merges = 0`）有待加强。
+
 ## 测量过的性能工作与运行时命令 —— 有界实现
 
 [性能报告](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-OPTIMIZATION-REPORT.md)、[受控测量](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md)、
