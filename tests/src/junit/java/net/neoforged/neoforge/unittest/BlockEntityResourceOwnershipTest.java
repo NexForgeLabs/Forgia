@@ -7,13 +7,20 @@ package net.neoforged.neoforge.unittest;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.withSettings;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -24,6 +31,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.server.threading.region.BlockEntityResourceOwnership;
 import net.neoforged.neoforge.server.threading.region.BlockEntityResourceOwnership.Access;
 import net.neoforged.neoforge.server.threading.region.BlockEntityResourceOwnership.Binding;
@@ -32,6 +42,7 @@ import net.neoforged.neoforge.server.threading.region.BlockEntityResourceOwnersh
 import net.neoforged.neoforge.server.threading.region.BlockEntityResourceOwnership.Scope;
 import net.neoforged.neoforge.server.threading.region.BlockEntityResourceOwnership.SharedReads;
 import net.neoforged.neoforge.server.threading.region.BlockEntityWorkPlanner;
+import net.neoforged.neoforge.server.threading.region.RegionCoordinate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -886,6 +897,259 @@ class BlockEntityResourceOwnershipTest {
                 org.junit.jupiter.api.Assertions.assertArrayEquals(expected, actual, "mixed execution phase " + phase);
             }
         }
+    }
+
+    @Test
+    void sourceMapMutationAfterConstructionCannotAffectDefensivelyCopiedOwnership() {
+        final Object otherRegion = new Object();
+        final Map<Object, BooleanSupplier> sourceMap = new HashMap<>();
+        sourceMap.put(this.region, () -> true);
+        final Map<Object, BooleanSupplier> sourceIdentity = new IdentityHashMap<>();
+        sourceIdentity.put(this.region, () -> true);
+
+        for (final Map<Object, BooleanSupplier> source : List.of(sourceMap, sourceIdentity)) {
+            try (final var owner = new Owner(this.level, source, () -> true)) {
+                final Map<?, ?> backing = boundariesField(owner.delegate);
+                assertNotSame(source, backing);
+                assertInstanceOf(IdentityHashMap.class, backing);
+                source.put(this.region, () -> false);
+                source.put(otherRegion, () -> true);
+                source.clear();
+                assertEquals(1, backing.size());
+                assertNull(owner.tryAcquireAll(List.of(
+                        Claims.builder(this.level, otherRegion).claim(new Binding(new Identity(this.level, this.x), otherRegion, () -> true, null), Access.WRITE).build())));
+                final var leases = owner.tryAcquireAll(List.of(this.claims(this.x, Access.WRITE)));
+                assertNotNull(leases);
+                try (final var scope = leases.getFirst().enter()) {
+                    Scope.require(this.level, this.x, Access.WRITE);
+                }
+            }
+        }
+    }
+
+    @Test
+    void noConstructorExposesOrAcceptsTrustedExternalMapBypass() throws Exception {
+        assertEquals(0, BlockEntityResourceOwnership.class.getConstructors().length);
+        final Object scratch = newScratch();
+        for (final var constructor : BlockEntityResourceOwnership.class.getDeclaredConstructors()) {
+            assertFalse(Modifier.isPublic(constructor.getModifiers()));
+            assertFalse(Modifier.isProtected(constructor.getModifiers()));
+            for (final Class<?> param : constructor.getParameterTypes()) {
+                assertNotEquals(boolean.class, param, "No constructor may accept a trustBoundaries boolean");
+                assertNotEquals(Boolean.class, param, "No constructor may accept a trustBoundaries Boolean");
+            }
+            if (List.of(constructor.getParameterTypes()).contains(Map.class)) {
+                constructor.setAccessible(true);
+                final Map<Object, BooleanSupplier> external = new IdentityHashMap<>();
+                external.put(this.region, () -> true);
+                final BlockEntityResourceOwnership created = constructor.getParameterCount() == 3
+                        ? (BlockEntityResourceOwnership) constructor.newInstance(this.level, external, (BooleanSupplier) () -> true)
+                        : (BlockEntityResourceOwnership) constructor.newInstance(this.level, external, (BooleanSupplier) () -> true, scratch);
+                try (created) {
+                    final Map<?, ?> backing = boundariesField(created);
+                    assertNotSame(external, backing);
+                    assertInstanceOf(IdentityHashMap.class, backing);
+                }
+            }
+        }
+    }
+
+    @Test
+    void identitySemanticsNullValidationAndDuplicateAliasHandlingAreEnforced() {
+        final String keyA = new String("region-home");
+        final String keyB = new String("region-home");
+        assertEquals(keyA, keyB);
+        assertNotSame(keyA, keyB);
+        final Map<Object, BooleanSupplier> unmodifiable = Map.of(keyA, () -> true);
+        try (final var owner = new Owner(this.level, unmodifiable, () -> true)) {
+            assertNotSame(unmodifiable, boundariesField(owner.delegate));
+            assertNull(owner.tryAcquireAll(List.of(
+                    Claims.builder(this.level, keyB).claim(new Binding(new Identity(this.level, this.x), keyB, () -> true, null), Access.READ).build())));
+            final var leases = owner.tryAcquireAll(List.of(
+                    Claims.builder(this.level, keyA).claim(new Binding(new Identity(this.level, this.x), keyA, () -> true, null), Access.READ).build()));
+            assertNotNull(leases);
+        }
+
+        final IdentityOnly identityRegion = new IdentityOnly();
+        final Map<Object, BooleanSupplier> identityOnlyMap = new IdentityHashMap<>();
+        identityOnlyMap.put(identityRegion, () -> true);
+        try (final var owner = new Owner(this.level, identityOnlyMap, () -> true)) {
+            final var leases = owner.tryAcquireAll(List.of(
+                    Claims.builder(this.level, identityRegion).claim(new Binding(new Identity(this.level, this.x), identityRegion, () -> true, null), Access.READ).build()));
+            assertNotNull(leases);
+        }
+
+        final Map<Object, BooleanSupplier> nullKey = new IdentityHashMap<>();
+        nullKey.put(null, () -> true);
+        assertThrows(NullPointerException.class, () -> new Owner(this.level, nullKey, () -> true));
+
+        final Map<Object, BooleanSupplier> nullValue = new IdentityHashMap<>();
+        nullValue.put(this.region, null);
+        assertThrows(NullPointerException.class, () -> new Owner(this.level, nullValue, () -> true));
+    }
+
+    @Test
+    void coreHeldRegionsFactoryIsCoreControlledIsolatedAndRejectsForeignOrDuplicateHomes() throws Exception {
+        final ServerLevel serverLevel = mock(ServerLevel.class, withSettings().stubOnly());
+        final ServerLevel foreignLevel = mock(ServerLevel.class, withSettings().stubOnly());
+        final Object regionA = newRegionState(new RegionCoordinate(serverLevel, 0, 0));
+        final Object regionB = newRegionState(new RegionCoordinate(serverLevel, 1, 0));
+        final Object foreignRegion = newRegionState(new RegionCoordinate(foreignLevel, 0, 0));
+        markRegionRunning(regionA);
+        markRegionRunning(regionB);
+        markRegionRunning(foreignRegion);
+        final Object homeA = new Object();
+        final Object homeB = new Object();
+        final List<Object> leased = new ArrayList<>(List.of(regionA, regionB));
+        final Function<RegionCoordinate, Object> mapper = coord -> coord.regionX() == 0 ? homeA : homeB;
+
+        try (final var owner = newForHeldRegions(serverLevel, leased, mapper, () -> true, newScratch())) {
+            leased.clear();
+            final Map<?, ?> backing = boundariesField(owner);
+            assertInstanceOf(IdentityHashMap.class, backing);
+            assertEquals(2, backing.size());
+            final var claimsA = Claims.builder(serverLevel, homeA)
+                    .claim(new Binding(new Identity(serverLevel, this.x), homeA, () -> true, null), Access.WRITE).build();
+            final var claimsB = Claims.builder(serverLevel, homeB)
+                    .claim(new Binding(new Identity(serverLevel, this.y), homeB, () -> true, null), Access.WRITE).build();
+            final var grants = reflectTryAcquireAll(owner, List.of(claimsA, claimsB));
+            assertNotNull(grants);
+            assertEquals(2, grants.size());
+        }
+
+        assertThrows(IllegalStateException.class,
+                () -> newForHeldRegions(serverLevel, List.of(regionA, foreignRegion), mapper, () -> true, newScratch()));
+        assertThrows(IllegalStateException.class,
+                () -> newForHeldRegions(serverLevel, List.of(regionA, regionB), coord -> homeA, () -> true, newScratch()));
+        assertThrows(NullPointerException.class,
+                () -> newForHeldRegions(serverLevel, List.of(regionA), coord -> null, () -> true, newScratch()));
+    }
+
+    @Test
+    void concurrentWorkerReadsKeepBoundariesImmutableUntilAllWorkersPhysicallyComplete() throws Exception {
+        final ServerLevel serverLevel = mock(ServerLevel.class, withSettings().stubOnly());
+        final Object regionA = newRegionState(new RegionCoordinate(serverLevel, 0, 0));
+        final Object regionB = newRegionState(new RegionCoordinate(serverLevel, 1, 0));
+        markRegionRunning(regionA);
+        markRegionRunning(regionB);
+        final Object homeA = new Object();
+        final Object homeB = new Object();
+        final List<Object> leased = new ArrayList<>(List.of(regionA, regionB));
+        final Function<RegionCoordinate, Object> mapper = coord -> coord.regionX() == 0 ? homeA : homeB;
+
+        final var owner = newForHeldRegions(serverLevel, leased, mapper, () -> true, newScratch());
+        try (final var executor = Executors.newFixedThreadPool(2)) {
+            leased.clear();
+            final var backing = boundariesField(owner);
+            final var claimsA = Claims.builder(serverLevel, homeA)
+                    .claim(new Binding(new Identity(serverLevel, this.x), homeA, () -> true, null), Access.WRITE).build();
+            final var claimsB = Claims.builder(serverLevel, homeB)
+                    .claim(new Binding(new Identity(serverLevel, this.y), homeB, () -> true, null), Access.WRITE).build();
+            final var grants = reflectTryAcquireAll(owner, List.of(claimsA, claimsB));
+            assertNotNull(grants);
+
+            final var workersEntered = new CyclicBarrier(3);
+            final var allowWorkersExit = new CountDownLatch(1);
+            final var futureA = executor.submit(() -> {
+                try (final var scope = reflectEnter(grants.get(0))) {
+                    workersEntered.await(5, TimeUnit.SECONDS);
+                    Scope.require(serverLevel, this.x, Access.WRITE);
+                    assertTrue(allowWorkersExit.await(5, TimeUnit.SECONDS));
+                    Scope.require(serverLevel, this.x, Access.WRITE);
+                }
+                return null;
+            });
+            final var futureB = executor.submit(() -> {
+                try (final var scope = reflectEnter(grants.get(1))) {
+                    workersEntered.await(5, TimeUnit.SECONDS);
+                    Scope.require(serverLevel, this.y, Access.WRITE);
+                    assertTrue(allowWorkersExit.await(5, TimeUnit.SECONDS));
+                    Scope.require(serverLevel, this.y, Access.WRITE);
+                }
+                return null;
+            });
+
+            workersEntered.await(5, TimeUnit.SECONDS);
+            assertEquals(2, backing.size());
+            assertThrows(IllegalStateException.class, owner::close);
+            assertEquals(2, backing.size(), "failed close during active worker scopes must not mutate boundaries");
+
+            allowWorkersExit.countDown();
+            futureA.get(5, TimeUnit.SECONDS);
+            futureB.get(5, TimeUnit.SECONDS);
+
+            owner.close();
+            assertEquals(0, backing.size());
+            assertNull(reflectTryAcquireAll(owner, List.of(claimsA)));
+            assertThrows(IllegalStateException.class, () -> reflectEnter(grants.get(0)));
+        }
+    }
+
+    private static Map<?, ?> boundariesField(BlockEntityResourceOwnership ownership) {
+        return reflect(() -> {
+            final var field = BlockEntityResourceOwnership.class.getDeclaredField("boundaries");
+            field.setAccessible(true);
+            return (Map<?, ?>) field.get(ownership);
+        });
+    }
+
+    private static Object newScratch() {
+        return reflect(() -> {
+            final Class<?> scratchType = Class.forName(BlockEntityResourceOwnership.class.getName() + "$Scratch");
+            final var constructor = scratchType.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            return constructor.newInstance();
+        });
+    }
+
+    private static Object newRegionState(RegionCoordinate coordinate) {
+        return reflect(() -> {
+            final Class<?> regionStateType = Class.forName("net.neoforged.neoforge.server.threading.region.RegionState");
+            final var constructor = regionStateType.getDeclaredConstructor(RegionCoordinate.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(coordinate);
+        });
+    }
+
+    private static void markRegionRunning(Object regionState) {
+        reflect(() -> {
+            final var method = regionState.getClass().getDeclaredMethod("tryMarkRunning");
+            method.setAccessible(true);
+            assertTrue((Boolean) method.invoke(regionState));
+            return null;
+        });
+    }
+
+    private static BlockEntityResourceOwnership newForHeldRegions(
+            ServerLevel level,
+            List<?> leased,
+            Function<RegionCoordinate, Object> homeForCoordinate,
+            BooleanSupplier live,
+            Object scratch) {
+        return reflect(() -> {
+            final Class<?> scratchType = Class.forName(BlockEntityResourceOwnership.class.getName() + "$Scratch");
+            final var method = BlockEntityResourceOwnership.class.getDeclaredMethod(
+                    "forHeldRegions", ServerLevel.class, List.class, Function.class, BooleanSupplier.class, scratchType);
+            method.setAccessible(true);
+            return (BlockEntityResourceOwnership) method.invoke(null, level, leased, homeForCoordinate, live, scratch);
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<BlockEntityResourceOwnership.Lease> reflectTryAcquireAll(BlockEntityResourceOwnership ownership, List<Claims> claims) {
+        return reflect(() -> {
+            final var method = BlockEntityResourceOwnership.class.getDeclaredMethod("tryAcquireAll", List.class);
+            method.setAccessible(true);
+            return (List<BlockEntityResourceOwnership.Lease>) method.invoke(ownership, claims);
+        });
+    }
+
+    private static Scope reflectEnter(BlockEntityResourceOwnership.Lease lease) {
+        return reflect(() -> {
+            final var method = BlockEntityResourceOwnership.Lease.class.getDeclaredMethod("enter");
+            method.setAccessible(true);
+            return (Scope) method.invoke(lease);
+        });
     }
 
     // Tests reflect the internal grant/entry gates instead of exporting a permission-minting test API.

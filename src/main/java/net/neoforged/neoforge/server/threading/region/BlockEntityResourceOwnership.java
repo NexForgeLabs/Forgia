@@ -17,7 +17,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
+import java.util.function.Function;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -35,7 +37,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
     public static final int MAX_BINDINGS_PER_PHASE = 131072;
     private static final ThreadLocal<Scope> CURRENT = new ThreadLocal<>();
     private final Object domain;
-    private final Map<Object, BooleanSupplier> boundaries;
+    private final IdentityHashMap<Object, BooleanSupplier> boundaries;
     private final BooleanSupplier live;
     private final Scratch scratch;
     private final Thread coordinator = Thread.currentThread();
@@ -49,19 +51,58 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
     }
 
     BlockEntityResourceOwnership(Object domain, Map<Object, BooleanSupplier> heldRegions, BooleanSupplier live, Scratch scratch) {
-        this(domain, heldRegions, live, scratch, false);
-    }
-
-    BlockEntityResourceOwnership(Object domain, Map<Object, BooleanSupplier> heldRegions, BooleanSupplier live, Scratch scratch, boolean trustBoundaries) {
         this.domain = Objects.requireNonNull(domain);
-        if (trustBoundaries) {
-            this.boundaries = heldRegions;
-        } else {
-            this.boundaries = new IdentityHashMap<>(heldRegions.size());
-            heldRegions.forEach((region, current) -> this.boundaries.put(Objects.requireNonNull(region), Objects.requireNonNull(current)));
-        }
+        this.boundaries = new IdentityHashMap<>(heldRegions.size());
+        heldRegions.forEach((region, current) -> this.boundaries.put(Objects.requireNonNull(region), Objects.requireNonNull(current)));
         this.live = Objects.requireNonNull(live);
         this.scratch = Objects.requireNonNull(scratch);
+    }
+
+    private BlockEntityResourceOwnership(Object domain, int boundaryCapacity, BooleanSupplier live, Scratch scratch) {
+        this.domain = Objects.requireNonNull(domain);
+        this.boundaries = new IdentityHashMap<>(boundaryCapacity);
+        this.live = Objects.requireNonNull(live);
+        this.scratch = Objects.requireNonNull(scratch);
+    }
+
+    /**
+     * Core-only zero-copy construction path for coordinator-held {@link RegionState} leases.
+     * <p>
+     * Ownership and lifetime invariant:
+     * <ul>
+     *     <li>Only Core code inside {@code net.neoforged.neoforge.server.threading.region} holding
+     *     already-leased {@link RegionState} instances for {@code level} may invoke this factory.</li>
+     *     <li>The backing {@link IdentityHashMap} is allocated inside {@link BlockEntityResourceOwnership}
+     *     and never escapes to any caller, adapter, or Mod; no external map reference can mutate it
+     *     after construction.</li>
+     *     <li>Boundary entries remain immutable throughout {@link #tryAcquireAll(List)} and all active
+     *     worker scopes; {@link #close()} refuses to clear {@code boundaries} while any {@link Scope}
+     *     remains active.</li>
+     * </ul>
+     */
+    static BlockEntityResourceOwnership forHeldRegions(
+            ServerLevel level,
+            List<RegionState> leased,
+            Function<RegionCoordinate, Object> homeForCoordinate,
+            BooleanSupplier live,
+            Scratch scratch) {
+        Objects.requireNonNull(level);
+        Objects.requireNonNull(leased);
+        Objects.requireNonNull(homeForCoordinate);
+        final BlockEntityResourceOwnership ownership = new BlockEntityResourceOwnership(level, leased.size(), live, scratch);
+        for (final RegionState region : leased) {
+            Objects.requireNonNull(region);
+            if (region.coordinate().level() != level) {
+                throw new IllegalStateException("Resource proof received a foreign region lease");
+            }
+            final Object home = Objects.requireNonNull(homeForCoordinate.apply(region.coordinate()));
+            // Only the engine's coordinator calls this after acquiring its own exact region leases.
+            // No regionizer/lifecycle lock or world callback runs when a worker checks this predicate.
+            if (ownership.boundaries.put(home, () -> region.isRunning() && !region.isDead()) != null) {
+                throw new IllegalStateException("Duplicate region boundary home");
+            }
+        }
+        return ownership;
     }
 
     public enum Access {
@@ -817,6 +858,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
     public void close() {
         this.checkCoordinator();
         if (!this.open) throw new IllegalStateException("Resource ownership already closed");
+        if (this.activeScopes.get() != 0) throw new IllegalStateException("Cannot release resources while an ownership scope is active");
         this.open = false;
         if (this.activeScopes.get() != 0) {
             this.open = true;

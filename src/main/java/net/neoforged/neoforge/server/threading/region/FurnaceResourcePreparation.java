@@ -111,14 +111,7 @@ final class FurnaceResourcePreparation {
     }
 
     BlockEntityResourceOwnership underHeldRegions(List<RegionState> leased, BooleanSupplier live) {
-        final Map<Object, BooleanSupplier> boundaries = new IdentityHashMap<>(leased.size());
-        for (final RegionState region : leased) {
-            if (region.coordinate().level() != this.level) throw new IllegalStateException("Resource proof received a foreign region lease");
-            // Only the engine's coordinator calls this after acquiring its own exact region leases.
-            // No regionizer/lifecycle lock or world callback runs when a worker checks this predicate.
-            boundaries.put(this.home(region.coordinate()), () -> region.isRunning() && !region.isDead());
-        }
-        return new BlockEntityResourceOwnership(this.level, boundaries, live, this.scratch, true);
+        return BlockEntityResourceOwnership.forHeldRegions(this.level, leased, this::home, live, this.scratch);
     }
 
     Object home(RegionCoordinate coordinate) {
