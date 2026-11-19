@@ -1,31 +1,96 @@
 --- a/net/minecraft/world/inventory/AbstractContainerMenu.java
 +++ b/net/minecraft/world/inventory/AbstractContainerMenu.java
-@@ -167,2 +_,28 @@
+@@ -167,2 +_,85 @@
 +    /** Mutable menu objects participate in original-identity alias checks and pre-body validation. */
 +    public java.util.List<Object> forgiaPlayerLocalMenuObjects() {
-+        java.util.List<Object> objects = new java.util.ArrayList<>(java.util.List.of(this.slots, this.lastSlots,
-+            this.remoteSlots, this.dataSlots, this.remoteDataSlots, this.quickcraftSlots, this.containerListeners));
-+        objects.addAll(this.slots);
-+        objects.addAll(this.containerListeners);
++        java.util.List<Object> objects = new java.util.ArrayList<>();
++        this.forgiaCollectPlayerLocalMenuObjects(objects);
++        return objects;
++    }
++
++    protected void forgiaCollectPlayerLocalMenuObjects(java.util.List<Object> objects) {
++        objects.add(this.slots);
++        objects.add(this.lastSlots);
++        objects.add(this.remoteSlots);
++        objects.add(this.dataSlots);
++        objects.add(this.remoteDataSlots);
++        objects.add(this.quickcraftSlots);
++        objects.add(this.containerListeners);
++        for (int i = 0; i < this.slots.size(); i++) objects.add(this.slots.get(i));
++        for (int i = 0; i < this.containerListeners.size(); i++) objects.add(this.containerListeners.get(i));
 +        if (this.synchronizer != null) objects.add(this.synchronizer);
-+        for (var stacks : java.util.List.of(this.lastSlots, this.remoteSlots)) for (ItemStack stack : stacks) {
++        forgiaCollectPlayerSlotCopies(objects, this.lastSlots);
++        forgiaCollectPlayerSlotCopies(objects, this.remoteSlots);
++    }
++
++    protected int forgiaMatchesPlayerLocalMenuObjects(Object[] expected, int index, ContainerListener listener, ContainerSynchronizer sync) {
++        int size = this.slots.size();
++        if (this.containerListeners.size() != 1 || this.containerListeners.getFirst() != listener
++            || this.synchronizer != sync || sync == null || !this.dataSlots.isEmpty() || this.quickcraftStatus != 0 || !this.quickcraftSlots.isEmpty()
++            || this.lastSlots.size() != size || this.remoteSlots.size() != size || !this.remoteCarried.isEmpty()) {
++            return -1;
++        }
++        if (index + 9 + size > expected.length) return -1;
++        if (expected[index++] != this.slots || expected[index++] != this.lastSlots || expected[index++] != this.remoteSlots
++            || expected[index++] != this.dataSlots || expected[index++] != this.remoteDataSlots || expected[index++] != this.quickcraftSlots
++            || expected[index++] != this.containerListeners) {
++            return -1;
++        }
++        for (int i = 0; i < size; i++) {
++            if (expected[index++] != this.slots.get(i)) return -1;
++        }
++        if (expected[index++] != listener || expected[index++] != sync) return -1;
++        index = forgiaMatchesPlayerSlotCopies(expected, index, this.lastSlots);
++        if (index < 0) return -1;
++        return forgiaMatchesPlayerSlotCopies(expected, index, this.remoteSlots);
++    }
++
++    private static int forgiaMatchesPlayerSlotCopies(Object[] expected, int index, java.util.List<ItemStack> stacks) {
++        for (int i = 0, size = stacks.size(); i < size; i++) {
++            ItemStack stack = stacks.get(i);
++            if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(stack)) return -1;
++            if (!stack.isEmpty()) {
++                if (index + 2 > expected.length || expected[index++] != stack || expected[index++] != stack.getComponents()) return -1;
++            }
++        }
++        return index;
++    }
++
++    private static void forgiaCollectPlayerSlotCopies(java.util.List<Object> objects, java.util.List<ItemStack> stacks) {
++        for (int i = 0; i < stacks.size(); i++) {
++            ItemStack stack = stacks.get(i);
 +            if (!stack.isEmpty()) {
 +                objects.add(stack);
 +                objects.add(stack.getComponents());
 +            }
 +        }
-+        return objects;
 +    }
 +
 +    /** Exact listener/synchronizer identity captured on the server, not inferred from class names. */
 +    public boolean forgiaHasLocalSynchronizers(ContainerListener listener, ContainerSynchronizer sync) {
-+        return this.containerListeners.size() == 1 && this.containerListeners.getFirst() == listener
-+            && this.synchronizer == sync && sync != null && this.dataSlots.isEmpty() && this.quickcraftStatus == 0 && this.quickcraftSlots.isEmpty()
-+            && this.lastSlots.size() == this.slots.size() && this.remoteSlots.size() == this.slots.size()
-+            && this.lastSlots.stream().allMatch(net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan::supportedStack)
-+            && this.remoteSlots.stream().allMatch(net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan::supportedStack) && this.remoteCarried.isEmpty();
++        int size = this.slots.size();
++        if (this.containerListeners.size() != 1 || this.containerListeners.getFirst() != listener
++            || this.synchronizer != sync || sync == null || !this.dataSlots.isEmpty() || this.quickcraftStatus != 0 || !this.quickcraftSlots.isEmpty()
++            || this.lastSlots.size() != size || this.remoteSlots.size() != size || !this.remoteCarried.isEmpty()) {
++            return false;
++        }
++        for (int i = 0; i < size; i++) {
++            if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(this.lastSlots.get(i))
++                || !net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(this.remoteSlots.get(i))) {
++                return false;
++            }
++        }
++        return true;
 +    }
 +
      public void broadcastChanges() {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          for (int i = 0; i < this.slots.size(); i++) {
+@@ -169,4 +_,7 @@
+             ItemStack itemstack = this.slots.get(i).getItem();
++            if (itemstack == this.lastSlots.get(i) && (this.suppressRemoteUpdates || itemstack == this.remoteSlots.get(i))) {
++                continue;
++            }
+             Supplier<ItemStack> supplier = Suppliers.memoize(itemstack::copy);
+             this.triggerSlotListeners(i, itemstack, supplier);
+             this.synchronizeSlotToRemote(i, itemstack, supplier);

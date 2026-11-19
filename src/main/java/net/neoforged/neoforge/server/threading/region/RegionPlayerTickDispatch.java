@@ -7,6 +7,7 @@ package net.neoforged.neoforge.server.threading.region;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.entity.EntityInLevelCallback;
@@ -34,10 +35,12 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
     /** At most one group per actual pool worker; no queued task is awaited by another running group. */
     static final class StartGate {
         final CountDownLatch checked;
+        final int participants;
         final AtomicBoolean valid = new AtomicBoolean(true);
 
         StartGate(int groups) {
             this.checked = new CountDownLatch(groups);
+            this.participants = groups;
         }
 
         void refuse() {
@@ -47,6 +50,12 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
 
         boolean ready() {
             this.checked.countDown();
+            for (int spin = 0; spin < 256; ++spin) {
+                if (this.checked.getCount() == 0) {
+                    return this.valid.get();
+                }
+                Thread.onSpinWait();
+            }
             boolean interrupted = false;
             while (this.checked.getCount() != 0) {
                 try {
@@ -64,6 +73,39 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
     final RegionTickBatch parent;
     final RegionDeferredEntitySectionUpdates sections;
     final RegionDeferredEntityRemovals removals;
+    boolean localNetworkWave;
+    boolean parallelTemplateValidation;
+    @Nullable
+    private long[] laneEnter, laneAfterVal, laneAfterGate, laneExit;
+
+    void initLaneTimers(int lanes, long submitNanos) {
+        this.laneEnter = new long[lanes];
+        this.laneAfterVal = new long[lanes];
+        this.laneAfterGate = new long[lanes];
+        this.laneExit = new long[lanes];
+    }
+
+    void accumulateLaneTimers(RegionThreadingEngine.PlayerPrefixTiming timing, long submitted, long returned) {
+        if (this.laneEnter == null) return;
+        long maxWake = 0, maxVal = 0, maxGate = 0, maxLoop = 0, maxExit = 0;
+        for (int i = 0; i < this.laneEnter.length; i++) {
+            long e = this.laneEnter[i];
+            if (e == 0) continue;
+            long v = this.laneAfterVal[i];
+            long g = this.laneAfterGate[i];
+            long x = this.laneExit[i];
+            if (e - submitted > maxWake) maxWake = e - submitted;
+            if (v > e && v - e > maxVal) maxVal = v - e;
+            if (g > v && g - v > maxGate) maxGate = g - v;
+            if (x > g && x - g > maxLoop) maxLoop = x - g;
+            if (x > maxExit) maxExit = x;
+        }
+        timing.workerWakeDelayNanos += maxWake;
+        timing.validateLaneNanos += maxVal;
+        timing.startGateWaitNanos += maxGate;
+        timing.groupLoopNanos += maxLoop;
+        if (maxExit > 0 && returned > maxExit) timing.barrierWakeNanos += returned - maxExit;
+    }
 
     RegionPlayerTickDispatch(RegionThreadingEngine engine, RegionTickBatch parent) {
         this.engine = engine;
@@ -72,24 +114,84 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
         this.removals = new RegionDeferredEntityRemovals(parent);
     }
 
-    void runGroup(RegionPlayerSpatialLease lease, List<Call> calls, StartGate gate) {
+    /** A lane keeps separate leases/scopes for each conflict group; only submission is shared. */
+    record Group(RegionPlayerSpatialLease lease, List<Call> calls) {}
+
+    void runLane(List<Group> groups, StartGate startup, int lane, @Nullable AtomicInteger nextGroup) {
+        final boolean timed = this.laneEnter != null && lane < this.laneEnter.length;
+        if (timed) this.laneEnter[lane] = System.nanoTime();
+        boolean laneExtensionsVerified = false;
+        if (this.parallelTemplateValidation) {
+            if (!validateLane(groups, startup, lane, timed)) return;
+            laneExtensionsVerified = true;
+        } else if (timed) {
+            long now = System.nanoTime();
+            this.laneAfterVal[lane] = now;
+            this.laneAfterGate[lane] = now;
+        }
+        int index = lane;
+        do {
+            Group group = groups.get(index);
+            StartGate gate = index == lane && !this.parallelTemplateValidation ? startup : null;
+            Call last = group.calls().getLast();
+            this.runGroup(group.lease(), group.calls(), gate, laneExtensionsVerified);
+            if (last.failure != null || (!last.started && gate != null)) {
+                if (timed) this.laneExit[lane] = System.nanoTime();
+                return;
+            }
+            if (this.localNetworkWave && this.sections.pendingCount() == 0) {
+                var connection = last.admission.state().connection();
+                if (connection.isConnected()) this.engine.playerNetworkGate().resumeCompletedConnection(connection);
+            }
+            if (nextGroup == null) {
+                if (timed) this.laneExit[lane] = System.nanoTime();
+                return;
+            }
+            index = nextGroup.getAndIncrement();
+        } while (index < groups.size());
+        if (timed) this.laneExit[lane] = System.nanoTime();
+    }
+
+    private boolean validateLane(List<Group> groups, StartGate startup, int lane, boolean timed) {
+        boolean validated = false;
+        try {
+            if (!RegionWorkerScope.isNativeWorkerThread()) return false;
+            if (RegionPlayerExtensionSnapshot.capture().refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
+            for (int index = lane; index < groups.size(); index += startup.participants) {
+                if (!groups.get(index).calls().getFirst().admission.state().validatePrefix(true)) return false;
+            }
+            if (timed) this.laneAfterVal[lane] = System.nanoTime();
+            validated = true;
+            boolean ok = startup.ready();
+            if (timed) this.laneAfterGate[lane] = System.nanoTime();
+            return ok;
+        } finally {
+            if (!validated) startup.refuse();
+        }
+    }
+
+    private void runGroup(RegionPlayerSpatialLease lease, List<Call> calls, @Nullable StartGate gate) {
+        this.runGroup(lease, calls, gate, false);
+    }
+
+    private void runGroup(RegionPlayerSpatialLease lease, List<Call> calls, @Nullable StartGate gate, boolean laneExtensionsVerified) {
         if (!RegionWorkerScope.isNativeWorkerThread()) {
-            gate.refuse();
+            if (gate != null) gate.refuse();
             return;
         }
         boolean checked = false;
         try (var spatial = lease.open()) {
             RegionPlayerStateScope first;
             try {
-                first = lease.openPlayerState(calls.getFirst().admission.state());
+                first = lease.openPlayerState(calls.getFirst().admission.state(), laneExtensionsVerified);
             } catch (IllegalStateException refused) {
-                gate.refuse();
+                if (gate != null) gate.refuse();
                 checked = true;
                 return;
             }
             try (first) {
                 checked = true;
-                if (!gate.ready()) return;
+                if (gate != null && !gate.ready()) return;
                 this.runOriginal(calls.getFirst());
             }
             if (calls.getFirst().failure != null || !calls.getFirst().started) return;
@@ -97,7 +199,7 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
                 Call call = calls.get(i);
                 RegionPlayerStateScope state;
                 try {
-                    state = lease.openPlayerState(call.admission.state());
+                    state = lease.openPlayerState(call.admission.state(), laneExtensionsVerified);
                 } catch (IllegalStateException refused) {
                     return;
                 }
@@ -107,7 +209,7 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
                 if (call.failure != null) return;
             }
         } finally {
-            if (!checked) gate.refuse();
+            if (!checked && gate != null) gate.refuse();
         }
     }
 

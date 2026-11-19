@@ -8,3 +8,39 @@
      private static final int MIN_PALETTE_BITS = 0;
      private final PaletteResize<T> dummyPaletteResize = (p_238275_, p_238276_) -> 0;
      private final IdMap<T> registry;
+@@ -33,2 +_,6 @@
+     private volatile PalettedContainer.Data<T> data;
++    private Palette<T> forgiaCheckedPalette;
++    private Predicate<T> forgiaCheckedPredicate;
++    private int forgiaCheckedPaletteSize;
++    private boolean forgiaPaletteExcluded;
+     private final PalettedContainer.Strategy strategy;
+@@ -171,3 +_,4 @@
+         try {
++            this.forgiaCheckedPalette = null;
+             int i = p_63119_.readByte();
+             PalettedContainer.Data<T> data = this.createOrReuseData(this.data, i);
+@@ -283,1 +_,23 @@
++    /** Publisher-only palette check for a stable predicate over immutable values. */
++    public boolean forgiaPaletteExcludes(Predicate<T> predicate) {
++        Palette<T> palette = this.data.palette();
++        if (palette.getClass() != SingleValuePalette.class && palette.getClass() != LinearPalette.class
++                && palette.getClass() != HashMapPalette.class) {
++            return !palette.maybeHas(predicate);
++        }
++        // These palettes only append values until either read() or a resize replaces the proof.
++        // Changing which existing palette entry a cell uses cannot change the predicate result.
++        int size = palette.getSize();
++        if (this.forgiaCheckedPalette == palette && this.forgiaCheckedPaletteSize == size
++                && this.forgiaCheckedPredicate == predicate) {
++            return this.forgiaPaletteExcluded;
++        }
++        boolean excluded = !palette.maybeHas(predicate);
++        this.forgiaCheckedPalette = palette;
++        this.forgiaCheckedPaletteSize = size;
++        this.forgiaCheckedPredicate = predicate;
++        this.forgiaPaletteExcluded = excluded;
++        return excluded;
++    }
++
+     public PalettedContainer<T> copy() {

@@ -275,6 +275,20 @@ public final class RegionTaskBatch {
          * Waits until every group of the batch finished, preserving the interrupt status of the caller.
          */
         public void awaitCompletion() {
+            if (this.pendingGroups.get() == 0) {
+                return;
+            }
+            // Short batches (such as player waves) finish in ~0.2-0.9 ms; spinning briefly avoids
+            // a ~40 us OS futex sleep/wake round-trip while still parking on any longer stall.
+            final long spinDeadline = System.nanoTime() + 1_500_000L;
+            do {
+                for (int spin = 0; spin < 256; ++spin) {
+                    if (this.pendingGroups.get() == 0) {
+                        return;
+                    }
+                    Thread.onSpinWait();
+                }
+            } while (System.nanoTime() < spinDeadline);
             boolean interrupted = false;
             while (true) {
                 try {

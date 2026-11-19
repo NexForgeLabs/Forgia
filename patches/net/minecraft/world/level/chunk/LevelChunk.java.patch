@@ -34,12 +34,11 @@
          for (Entry<Heightmap.Types, Heightmap> entry : p_196851_.getHeightmaps()) {
              if (ChunkStatus.FULL.heightmapsAfter().contains(entry.getKey())) {
                  this.setHeightmap(entry.getKey(), entry.getValue().getRawData());
-@@ -175,6 +_,18 @@
+@@ -175,6 +_,17 @@
  
      @Override
      public BlockState getBlockState(BlockPos p_62923_) {
-+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerBlockAccess(this.level, p_62923_);
-+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.requiresStableForeignRead(this)) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.requiresStableForeignReadAt(this, p_62923_.getX(), p_62923_.getY(), p_62923_.getZ())) {
 +            // Neo: the read is of another region's chunk, where a deferred border block write of this region is
 +            // applied at the barrier. The read returns the state before the write and the count makes that
 +            // documented read-after-write approximation observable.
@@ -53,12 +52,11 @@
          int i = p_62923_.getX();
          int j = p_62923_.getY();
          int k = p_62923_.getZ();
-@@ -215,6 +_,17 @@
+@@ -215,6 +_,16 @@
      }
  
      public FluidState getFluidState(int p_62815_, int p_62816_, int p_62817_) {
-+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerBlockAccess(this.level, p_62815_, p_62816_, p_62817_);
-+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.requiresStableForeignRead(this)) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.requiresStableForeignReadAt(this, p_62815_, p_62816_, p_62817_)) {
 +            // Neo: see getBlockState; a fluid read of another region's chunk after a deferred border block write
 +            // of this region observes the state before the write and is counted.
 +            net.neoforged.neoforge.server.threading.RegionThreadingHooks.observeReadAfterDeferredBlockWrite(p_62815_, p_62816_, p_62817_);

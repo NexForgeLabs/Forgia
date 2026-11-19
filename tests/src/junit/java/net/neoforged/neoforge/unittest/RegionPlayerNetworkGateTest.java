@@ -25,6 +25,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.network.Connection;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate;
@@ -105,6 +108,152 @@ class RegionPlayerNetworkGateTest {
         assertEquals(0, packet.refCnt());
         assertEquals(0, this.gate.snapshot().pending());
         if (!outcome.equals("close")) { assertTrue(freeze()); thaw(); }
+    }
+
+    @Test
+    void connectionTickDisconnectionFollowsEarlierNetworkCallbacksOnThePublisher() throws Exception {
+        var channel = mock(io.netty.channel.Channel.class);
+        var loop = mock(io.netty.channel.EventLoop.class);
+        when(this.connection.channel()).thenReturn(channel);
+        when(channel.eventLoop()).thenReturn(loop);
+        var network = new ArrayDeque<Runnable>();
+        doAnswer(call -> {
+            network.add(call.getArgument(0));
+            return null;
+        }).when(loop).execute(any(Runnable.class));
+        assertTrue((boolean) invoke("freezePreservingNetworkThread", new Class<?>[] { MinecraftServer.class }, this.server));
+        var calls = new ArrayList<String>();
+        assertNull(enter(() -> calls.add("network"), null));
+        assertNull(invoke("enter", new Class<?>[] { MinecraftServer.class, Connection.class, Runnable.class, Object.class, boolean.class },
+                this.server, this.connection, (Runnable) () -> calls.add("disconnected"), null, true));
+        assertTrue(this.queued.isEmpty());
+        assertTrue(network.isEmpty());
+        thaw();
+        network.remove().run();
+        network.remove().run();
+        assertEquals(List.of("network"), calls);
+        assertFalse(freeze());
+        this.queued.remove().run();
+        assertEquals(List.of("network", "disconnected"), calls);
+        assertEquals(0, this.gate.snapshot().pending());
+        assertTrue(freeze());
+        thaw();
+    }
+
+    @Test
+    void completedConnectionResumesItsOwnCallbacksWhileOtherConnectionsStayPaused() throws Exception {
+        var channel = mock(io.netty.channel.Channel.class);
+        var loop = mock(io.netty.channel.EventLoop.class);
+        when(channel.eventLoop()).thenReturn(loop);
+        when(this.connection.channel()).thenReturn(channel);
+        var other = mock(Connection.class);
+        when(other.channel()).thenReturn(channel);
+        var network = new ArrayDeque<Runnable>();
+        doAnswer(call -> {
+            network.add(call.getArgument(0));
+            return null;
+        }).when(loop).execute(any(Runnable.class));
+        assertTrue((boolean) invoke("freezePreservingNetworkThread", new Class<?>[] { MinecraftServer.class }, this.server));
+        var calls = new ArrayList<Integer>();
+        assertNull(enter(() -> calls.add(1), null));
+        assertNull(invoke("enter", new Class<?>[] { MinecraftServer.class, Connection.class, Runnable.class, Object.class },
+                this.server, other, (Runnable) () -> calls.add(3), null));
+        invoke("resumeCompletedConnection", new Class<?>[] { Connection.class }, this.connection);
+        assertNull(enter(() -> calls.add(2), null));
+        network.remove().run();
+        network.remove().run();
+        assertEquals(List.of(1, 2), calls);
+        assertTrue(network.isEmpty());
+        assertTrue(this.gate.snapshot().frozen());
+        thaw();
+        network.remove().run();
+        assertEquals(List.of(1, 2, 3), calls);
+        assertEquals(0, this.gate.snapshot().pending());
+    }
+
+    @Test
+    void localWaveOnlyPausesItsParticipantsAndRetainsTheirCallbackOrder() throws Exception {
+        var channel = mock(io.netty.channel.Channel.class);
+        var loop = mock(io.netty.channel.EventLoop.class);
+        when(channel.eventLoop()).thenReturn(loop);
+        when(this.connection.channel()).thenReturn(channel);
+        var network = new ArrayDeque<Runnable>();
+        doAnswer(call -> {
+            network.add(call.getArgument(0));
+            return null;
+        }).when(loop).execute(any(Runnable.class));
+        var other = mock(Connection.class);
+        var outside = mock(Connection.class);
+        assertTrue((boolean) invoke("freezeLocalWave", new Class<?>[] { MinecraftServer.class, List.class }, this.server, List.of(this.connection, other)));
+        var participant = new Class<?>[] { Connection.class };
+        assertTrue((boolean) invoke("workerConnectionFrozen", participant, this.connection));
+        assertTrue((boolean) invoke("workerConnectionFrozen", participant, other));
+        assertFalse((boolean) invoke("workerConnectionFrozen", participant, outside));
+        try (var reader = (RegionPlayerNetworkGate.Scope) invoke("enter", new Class<?>[] { MinecraftServer.class, Connection.class, Runnable.class, Object.class },
+                this.server, outside, (Runnable) () -> {}, null)) {
+            assertNotNull(reader);
+        }
+        var calls = new ArrayList<Integer>();
+        assertNull(enter(() -> calls.add(1), null));
+        assertTrue(network.isEmpty());
+        invoke("resumeCompletedConnection", participant, this.connection);
+        assertNull(enter(() -> calls.add(2), null));
+        network.remove().run();
+        network.remove().run();
+        assertEquals(List.of(1, 2), calls);
+        assertFalse((boolean) invoke("workerConnectionFrozen", participant, this.connection));
+        // This participant completes without needing to schedule a callback.
+        invoke("resumeCompletedConnection", participant, other);
+        assertFalse((boolean) invoke("workerConnectionFrozen", participant, other));
+        thaw();
+        assertEquals(0, this.gate.snapshot().readers());
+        assertEquals(0, this.gate.snapshot().pending());
+    }
+
+    @Test
+    void localCompletionSchedulesAnEnvelopeThatIsStillBeingInserted() throws Exception {
+        var channel = mock(io.netty.channel.Channel.class);
+        var loop = mock(io.netty.channel.EventLoop.class);
+        when(this.connection.channel()).thenReturn(channel);
+        when(channel.eventLoop()).thenReturn(loop);
+        var network = new ArrayDeque<Runnable>();
+        doAnswer(call -> {
+            network.add(call.getArgument(0));
+            return null;
+        }).when(loop).execute(any(Runnable.class));
+        assertTrue((boolean) invoke("freezeLocalWave", new Class<?>[] { MinecraftServer.class, List.class }, this.server, List.of(this.connection)));
+
+        var retaining = new CountDownLatch(1);
+        var finishInsert = new CountDownLatch(1);
+        var completing = new CountDownLatch(1);
+        var payload = mock(io.netty.util.ReferenceCounted.class);
+        when(payload.retain()).thenAnswer(call -> {
+            retaining.countDown();
+            assertTrue(finishInsert.await(5, TimeUnit.SECONDS));
+            return payload;
+        });
+        var observed = new ArrayList<Integer>();
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var insertion = executor.submit(() -> enter(() -> observed.add(1), payload));
+            try {
+                assertTrue(retaining.await(5, TimeUnit.SECONDS));
+                var completion = executor.submit(() -> {
+                    completing.countDown();
+                    return invoke("resumeCompletedConnection", new Class<?>[] { Connection.class }, this.connection);
+                });
+                assertTrue(completing.await(5, TimeUnit.SECONDS));
+                finishInsert.countDown();
+                assertNull(insertion.get(5, TimeUnit.SECONDS));
+                completion.get(5, TimeUnit.SECONDS);
+            } finally {
+                finishInsert.countDown();
+            }
+        }
+        network.remove().run();
+        assertEquals(List.of(1), observed);
+        assertTrue(network.isEmpty());
+        verify(payload).release();
+        thaw();
     }
 
     @Test

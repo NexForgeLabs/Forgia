@@ -5,6 +5,7 @@
 
 package net.neoforged.neoforge.server.threading.region;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -16,6 +17,8 @@ import java.util.function.BooleanSupplier;
  */
 final class RegionWorkAdmission {
     private Thread phaseOwner;
+    // Marks start under the same monitor as tryEnter; releases only make the count fall.
+    private final AtomicInteger activeClaims = new AtomicInteger();
 
     synchronized boolean allowsCurrentThread() {
         return this.phaseOwner == null || this.phaseOwner == Thread.currentThread();
@@ -26,13 +29,29 @@ final class RegionWorkAdmission {
     }
 
     synchronized boolean tryStart(BooleanSupplier transition) {
-        return this.allowsCurrentThread() && transition.getAsBoolean();
+        return this.allowsCurrentThread() && this.markClaim(transition);
     }
 
     synchronized boolean trySubmit(BooleanSupplier transition) {
         // The coordinator may acquire its ordinary leases, but even it cannot start an unrelated
         // Region/GlobalRegion Worker from inside an Unknown callback or a prefix commit.
-        return this.phaseOwner == null && transition.getAsBoolean();
+        return this.phaseOwner == null && this.markClaim(transition);
+    }
+
+    private boolean markClaim(BooleanSupplier transition) {
+        if (!transition.getAsBoolean()) return false;
+        this.activeClaims.incrementAndGet();
+        return true;
+    }
+
+    void releaseClaim() {
+        this.activeClaims.decrementAndGet();
+    }
+
+    // Call inside tryEnter so a foreign start cannot publish between the two observations.
+    boolean hasNoActiveClaims() {
+        if (!Thread.holdsLock(this)) throw new IllegalStateException("Claim check requires the admission monitor");
+        return this.activeClaims.get() == 0;
     }
 
     synchronized boolean tryEnter(BooleanSupplier quiescent) {

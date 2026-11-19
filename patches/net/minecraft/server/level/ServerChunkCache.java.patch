@@ -96,6 +96,43 @@
                  ChunkAccess chunkaccess1 = chunkholder.getChunkIfPresent(ChunkStatus.FULL);
                  if (chunkaccess1 != null) {
                      this.storeInCache(i, chunkaccess1, ChunkStatus.FULL);
+@@ -200,4 +_,36 @@
++    // Positive FULL observations used by the player publisher. Ticket updates and cache clears
++    // invalidate the entire table before a holder can be demoted, replaced, or unpublished.
++    private it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> forgiaPlayerChunks;
++    private long forgiaPlayerChunkGeneration;
++
++    /** Publisher-owned generation of the positive FULL chunk observations. */
++    public long forgiaPlayerChunkGeneration() {
++        return this.forgiaPlayerChunkGeneration;
++    }
++
++    @Nullable
++    public LevelChunk forgiaObservedPlayerChunk(long position) {
++        if (Thread.currentThread() != this.mainThread) throw new IllegalStateException("Player chunk observation requires the server publisher");
++        var observed = this.forgiaPlayerChunks;
++        LevelChunk cached = observed == null ? null : observed.get(position);
++        if (cached != null && cached.isLoaded()) return cached;
++        ChunkHolder holder = this.getVisibleChunkIfPresent(position);
++        if (holder == null || holder.currentlyLoading != null
++                || !(holder.getChunkIfPresent(ChunkStatus.FULL) instanceof LevelChunk chunk) || !chunk.isLoaded()) return null;
++        if (observed == null) {
++            this.forgiaPlayerChunks = observed = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
++        }
++        if (observed.size() < 4096) observed.put(position, chunk);
++        return chunk;
++    }
++
++    private void forgiaClearPlayerChunkObservations() {
++        ++this.forgiaPlayerChunkGeneration;
++        if (this.forgiaPlayerChunks != null) this.forgiaPlayerChunks.clear();
++    }
++
+     private void clearCache() {
++        this.forgiaClearPlayerChunkObservations();
+         Arrays.fill(this.lastChunkPos, ChunkPos.INVALID_CHUNK_POS);
+         Arrays.fill(this.lastChunkStatus, null);
+         Arrays.fill(this.lastChunk, null);
 @@ -205,6 +_,11 @@
  
      public CompletableFuture<ChunkResult<ChunkAccess>> getChunkFuture(int p_8432_, int p_8433_, ChunkStatus p_330326_, boolean p_8435_) {
@@ -108,7 +145,7 @@
          CompletableFuture<ChunkResult<ChunkAccess>> completablefuture;
          if (flag) {
              completablefuture = this.getChunkFutureMainThread(p_8432_, p_8433_, p_330326_, p_8435_);
-@@ -270,6 +_,12 @@
+@@ -270,6 +_,13 @@
          return this.mainThreadProcessor.pollTask();
      }
  
@@ -119,6 +156,7 @@
 +    }
 +
      boolean runDistanceManagerUpdates() {
++        this.forgiaClearPlayerChunkObservations();
          boolean flag = this.distanceManager.runAllUpdates(this.chunkMap);
          boolean flag1 = this.chunkMap.promoteChunkMap();
 @@ -343,30 +_,71 @@

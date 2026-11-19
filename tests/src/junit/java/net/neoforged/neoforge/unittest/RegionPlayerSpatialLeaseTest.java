@@ -7,6 +7,7 @@ package net.neoforged.neoforge.unittest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,10 +55,13 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.entity.EntityInLevelCallback;
 import net.minecraft.world.level.entity.EntitySection;
 import net.minecraft.world.level.entity.EntityTypeTest;
@@ -177,6 +181,9 @@ class RegionPlayerSpatialLeaseTest {
                 var chunk = mock(LevelChunk.class);
                 when(chunk.getPos()).thenReturn(new ChunkPos(x, z));
                 when(chunk.getLevel()).thenReturn(this.level);
+                when(chunk.getBlockState(any())).thenAnswer(read -> this.level.getBlockState(read.getArgument(0)));
+                when(chunk.getFluidState(any(BlockPos.class))).thenAnswer(read -> this.level.getFluidState(read.getArgument(0)));
+                when(chunk.getBlockEntity(any(), eq(LevelChunk.EntityCreationType.IMMEDIATE))).thenAnswer(read -> this.level.getBlockEntity(read.getArgument(0)));
                 return chunk;
             });
         });
@@ -514,6 +521,24 @@ class RegionPlayerSpatialLeaseTest {
         when(this.player.forgiaStationarySpatialInputs()).thenReturn(true);
         doReturn(Blocks.WATER.defaultBlockState()).when(this.level).getBlockState(any());
         assertEquals(RegionPlayerSpatialPlan.Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN, this.engine.capturePlayerSpatialPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION).refusal());
+    }
+
+    @Test
+    void newlyUnsafeBlockInLeasedChunkRefusesBeforeBody() throws Exception {
+        var result = (RegionPlayerSpatialPlan.Capture) invoke(RegionPlayerSpatialPlan.class, "capture",
+                new Class<?>[] { RegionThreadingEngine.class, ServerPlayer.class, RegionPlayerTickCoordinator.Phase.class, boolean.class },
+                this.engine, this.player, RegionPlayerTickCoordinator.Phase.CONNECTION, true);
+        var plan = result.plan();
+        assertNotNull(plan);
+        BlockPos feet = this.player.blockPosition();
+        var chunk = this.chunks.get(ChunkPos.asLong(feet));
+        var section = new LevelChunkSection(new PalettedContainer<>(net.minecraft.world.level.block.Block.BLOCK_STATE_REGISTRY,
+                Blocks.AIR.defaultBlockState(), PalettedContainer.Strategy.SECTION_STATES), null);
+        when(chunk.getSections()).thenReturn(new LevelChunkSection[] { section });
+        when(chunk.getSectionIndex(anyInt())).thenReturn(0);
+        section.setBlockState(feet.getX() & 15, feet.getY() & 15, feet.getZ() & 15, Blocks.WATER.defaultBlockState());
+        assertNull(reserve(plan));
+        assertEquals(0, invoke(this.batch, "playerSpatialReservationCount", new Class<?>[] {}));
     }
 
     @Test
@@ -902,6 +927,28 @@ class RegionPlayerSpatialLeaseTest {
         var result = this.engine.capturePlayerStatePlan(spatial);
         assertEquals(RegionPlayerStatePlan.Refusal.NONE, result.refusal());
         return result.plan();
+    }
+
+    @Test
+    void stableStateTemplateReusesObservationsButRebuildsAfterAnInventoryChange() throws Exception {
+        var local = localState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        local.advancements().forgiaCriterionListeners().removeAll(net.minecraft.advancements.CriteriaTriggers.TICK);
+        doCallRealMethod().when(this.player).forgiaPlayerStateTemplate(anyInt());
+        doCallRealMethod().when(this.player).forgiaPlayerStateTemplate(anyInt(), org.mockito.ArgumentMatchers.nullable(RegionPlayerStatePlan.Template.class));
+        var signature = new Class<?>[] { RegionThreadingEngine.class, RegionPlayerSpatialPlan.class };
+        var first = (RegionPlayerStatePlan.Capture) invoke(RegionPlayerStatePlan.class, "captureTick", signature, this.engine, capture());
+        assertEquals(RegionPlayerStatePlan.Refusal.NONE, first.refusal());
+        assertNotNull(this.player.forgiaPlayerStateTemplate(first.plan().phase().ordinal()));
+        var second = (RegionPlayerStatePlan.Capture) invoke(RegionPlayerStatePlan.class, "captureTick", signature, this.engine, capture());
+        assertEquals(RegionPlayerStatePlan.Refusal.NONE, second.refusal());
+        assertNotSame(first.plan(), second.plan());
+        assertSame(field(first.plan(), "inventory"), field(second.plan(), "inventory"));
+        when(this.player.getInventory().getItem(8)).thenReturn(new ItemStack(Items.DIAMOND));
+        var changed = (RegionPlayerStatePlan.Capture) invoke(RegionPlayerStatePlan.class, "captureTick", signature, this.engine, capture());
+        assertEquals(RegionPlayerStatePlan.Refusal.NONE, changed.refusal());
+        assertNotSame(field(second.plan(), "inventory"), field(changed.plan(), "inventory"));
+        this.engine.invalidatePlayerTickPlans(this.player);
+        assertNull(this.player.forgiaPlayerStateTemplate(changed.plan().phase().ordinal()));
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -1365,9 +1412,26 @@ class RegionPlayerSpatialLeaseTest {
         };
     }
 
+    @Test
+    void isolatedResourceProofRejectsAChangedAlias() throws Exception {
+        var claims = construct("RegionPlayerPrefixClaims", new Class<?>[0]);
+        var signature = new Class<?>[] { RegionPlayerTickCoordinator.Phase.class, List.class };
+        var phase = RegionPlayerTickCoordinator.Phase.CONNECTION;
+        Object first = new Object();
+        var safe = List.of(List.of(first, first), List.of(new Object()));
+        assertTrue((boolean) invoke(claims, "tryAcquire", signature, phase, safe));
+        assertEquals(2, invoke(claims, "count", new Class<?>[0]));
+        invoke(claims, "release", new Class<?>[0]);
+        assertTrue((boolean) invoke(claims, "tryAcquire", signature, phase, safe));
+        invoke(claims, "release", new Class<?>[0]);
+        assertFalse((boolean) invoke(claims, "tryAcquire", signature, phase, List.of(safe.getFirst(), List.of(first))));
+        assertFalse((boolean) invoke(claims, "tryAcquire", signature, phase, List.of(safe.getFirst(), safe.getFirst())));
+        assertEquals(0, invoke(claims, "count", new Class<?>[0]));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({ "false,false", "false,true", "true,false", "true,true" })
-    void partiallyRejectedDispatchJoinsNativeGroupBeforeSerialFallbackWithoutStartingAnyBody(boolean persistent, boolean throwsOnSubmit) throws Exception {
+    void partiallyRejectedLanePreventsLaterGroupsFromStartingBeforeSerialFallback(boolean persistent, boolean throwsOnSubmit) throws Exception {
         if (persistent) initialize(true);
         localState(net.minecraft.advancements.AdvancementRewards.EMPTY);
         var spatial = capture();
@@ -1379,12 +1443,24 @@ class RegionPlayerSpatialLeaseTest {
             assertEquals(RegionPlayerStatePlan.Refusal.NONE, lease.bindPlayerState(List.of(local)));
             Object dispatch = construct("RegionPlayerTickDispatch", new Class<?>[] { RegionThreadingEngine.class, Class.forName(PKG + "RegionTickBatch") }, this.engine, this.batch);
             Object call = dispatchCall(local, ticket, bodies::incrementAndGet);
-            Object gate = construct("RegionPlayerTickDispatch$StartGate", new Class<?>[] { int.class }, 2);
+            var startup = construct("RegionPlayerTickDispatch$StartGate", new Class<?>[] { int.class }, 2);
+            Class<?>[] signature = { RegionPlayerSpatialLease.class, List.class };
+            var group = construct("RegionPlayerTickDispatch$Group", signature, lease, List.of(call));
+            var rejected = construct("RegionPlayerTickDispatch$Group", signature, null, List.of(call));
+            var groups = List.of(group, rejected, group, rejected); // No later group may reach its lease.
+            var nextGroup = new java.util.concurrent.atomic.AtomicInteger(2);
             var work = new net.neoforged.neoforge.server.threading.region.RegionTaskBatch();
-            work.add("accepted native player group", (Runnable) invoke(this.batch, "groupWork", new Class<?>[] { Runnable.class }, dispatchGroup(dispatch, lease, call, gate)));
-            // RegionTaskBatch's original rejection path executes this group on the publisher. It must
-            // vote refusal without opening any lease or running the original body, and unblock group 1.
-            work.add("rejected player group", dispatchGroup(dispatch, null, call, gate));
+            for (int i = 0; i < 2; i++) {
+                int lane = i;
+                Runnable run = () -> {
+                    try {
+                        invoke(dispatch, "runLane", new Class<?>[] { List.class, startup.getClass(), int.class, java.util.concurrent.atomic.AtomicInteger.class }, groups, startup, lane, nextGroup);
+                    } catch (Exception failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                };
+                work.add("player lane " + i, (Runnable) invoke(this.batch, "groupWork", new Class<?>[] { Runnable.class }, run));
+            }
             var pool = (RegionWorkerExecutor) field(this.engine, "workerPool");
             var submissions = new java.util.concurrent.atomic.AtomicInteger();
             var joined = work.submit((description, task) -> {
@@ -1395,6 +1471,8 @@ class RegionPlayerSpatialLeaseTest {
             joined.awaitCompletion();
             joined.throwIfFailed();
             assertEquals(1, joined.rejectedCount());
+            assertEquals(0, ((java.util.concurrent.CountDownLatch) field(startup, "checked")).getCount());
+            assertFalse(((java.util.concurrent.atomic.AtomicBoolean) field(startup, "valid")).get());
             assertEquals(0, bodies.get());
             assertFalse(ticket.started());
             this.engine.playerTicks().cancel(ticket);

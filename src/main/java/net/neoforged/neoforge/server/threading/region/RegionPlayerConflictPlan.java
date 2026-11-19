@@ -6,6 +6,7 @@ package net.neoforged.neoforge.server.threading.region;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -66,8 +67,26 @@ public final class RegionPlayerConflictPlan {
     private static Prefix groups(List<Entry> ordered, int size, boolean oversized) {
         int[] parent = new int[size];
         for (int i = 0; i < size; i++) parent[i] = i;
-        for (int i = 0; i < size; i++) for (int j = 0; j < i; j++) {
-            if (conflict(ordered.get(i), ordered.get(j)) != null) parent[root(parent, i)] = root(parent, j);
+        if (size <= 4) {
+            for (int i = 0; i < size; i++) for (int j = 0; j < i; j++) {
+                if (conflict(ordered.get(i), ordered.get(j)) != null) parent[root(parent, i)] = root(parent, j);
+            }
+        } else {
+            // Every object/coordinate induces a clique. Linking to its first occurrence gives
+            // exactly the same components without examining every pair of independent players.
+            Map<RegionCoordinate, Integer> homes = new HashMap<>();
+            Map<RegionCoordinate, Integer> regions = new HashMap<>();
+            Map<Entity, Integer> players = new IdentityHashMap<>();
+            Map<Entity, Integer> targets = new IdentityHashMap<>();
+            Map<Object, Integer> resources = new IdentityHashMap<>();
+            for (int i = 0; i < size; i++) {
+                Entry entry = ordered.get(i);
+                connect(parent, i, players, entry.player);
+                connect(parent, i, homes, entry.home);
+                for (var region : entry.footprint.regions()) connect(parent, i, regions, region);
+                for (var target : entry.targets) connect(parent, i, targets, target);
+                for (var resource : entry.sharedResources) connect(parent, i, resources, resource);
+            }
         }
         Map<Integer, List<Entry>> members = new LinkedHashMap<>();
         Map<Integer, Integer> first = new LinkedHashMap<>();
@@ -83,6 +102,7 @@ public final class RegionPlayerConflictPlan {
             List<Entry> entries = component.getValue();
             for (int i = 0; i < entries.size(); i++) {
                 regions.addAll(entries.get(i).footprint.regions());
+                // The exact pairwise diagnostic is needed only within a conflict component.
                 for (int j = 0; j < i; j++) {
                     Conflict reason = conflict(entries.get(i), entries.get(j));
                     if (reason != null) reasons.add(reason);
@@ -100,6 +120,11 @@ public final class RegionPlayerConflictPlan {
         return new Prefix(result, size, oversized);
     }
 
+    private static <T> void connect(int[] parent, int index, Map<T, Integer> first, T key) {
+        Integer other = first.putIfAbsent(key, index);
+        if (other != null) parent[root(parent, index)] = root(parent, other);
+    }
+
     private static int root(int[] parent, int index) {
         while (parent[index] != index) {
             parent[index] = parent[parent[index]];
@@ -111,13 +136,23 @@ public final class RegionPlayerConflictPlan {
     @Nullable
     private static Conflict conflict(Entry a, Entry b) {
         if (a.player == b.player || a.home.equals(b.home)) return Conflict.SAME_REGION;
-        Set<Entity> identities = Collections.newSetFromMap(new IdentityHashMap<>());
-        identities.addAll(a.targets);
-        if (b.targets.stream().anyMatch(identities::contains)) return Conflict.SHARED_TARGET;
-        Set<Object> shared = Collections.newSetFromMap(new IdentityHashMap<>());
-        shared.addAll(a.sharedResources);
-        if (b.sharedResources.stream().anyMatch(shared::contains)) return Conflict.SHARED_RESOURCE;
-        if (a.footprint.regions().stream().anyMatch(b.footprint.regions()::contains)) return Conflict.HALO_INTERSECTION;
+        if (sharesIdentity(a.targets, b.targets)) return Conflict.SHARED_TARGET;
+        if (sharesIdentity(a.sharedResources, b.sharedResources)) return Conflict.SHARED_RESOURCE;
+        for (RegionCoordinate region : a.footprint.regions()) if (b.footprint.regions().contains(region)) return Conflict.HALO_INTERSECTION;
         return null;
+    }
+
+    private static boolean sharesIdentity(List<?> a, List<?> b) {
+        if (a.isEmpty() || b.isEmpty()) return false;
+        if ((long) a.size() * b.size() <= 64) {
+            for (Object x : a) for (Object y : b) if (x == y) return true;
+        } else {
+            List<?> shorter = a.size() <= b.size() ? a : b;
+            List<?> longer = shorter == a ? b : a;
+            Set<Object> identities = Collections.newSetFromMap(new IdentityHashMap<>(shorter.size()));
+            identities.addAll(shorter);
+            for (Object object : longer) if (identities.contains(object)) return true;
+        }
+        return false;
     }
 }

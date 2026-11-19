@@ -1,19 +1,42 @@
 --- a/net/minecraft/world/inventory/InventoryMenu.java
 +++ b/net/minecraft/world/inventory/InventoryMenu.java
-@@ -52,2 +_,16 @@
+@@ -52,2 +_,39 @@
 +    public java.util.List<Object> forgiaPlayerLocalContainers() {
-+        java.util.List<Object> objects = this.forgiaPlayerLocalMenuObjects();
-+        objects.add(this.craftSlots);
-+        objects.add(this.resultSlots);
++        java.util.List<Object> objects = new java.util.ArrayList<>();
++        this.forgiaCollectPlayerLocalContainers(objects);
 +        return objects;
 +    }
 +
++    public void forgiaCollectPlayerLocalContainers(java.util.List<Object> objects) {
++        this.forgiaCollectPlayerLocalMenuObjects(objects);
++        objects.add(this.craftSlots);
++        objects.add(this.resultSlots);
++    }
++
++    public int forgiaMatchesPlayerLocalContainers(Object[] expected, int index, Player player, ContainerListener listener, ContainerSynchronizer sync) {
++        if (this.owner != player || player.getInventory().getClass() != Inventory.class || this.slots.size() != 46
++            || this.craftSlots.getClass() != TransientCraftingContainer.class || this.resultSlots.getClass() != ResultContainer.class
++            || !this.craftSlots.isEmpty() || !this.resultSlots.isEmpty() || !this.getCarried().isEmpty()) {
++            return -1;
++        }
++        index = this.forgiaMatchesPlayerLocalMenuObjects(expected, index, listener, sync);
++        if (index < 0 || index + 2 > expected.length) return -1;
++        if (expected[index++] != this.craftSlots || expected[index++] != this.resultSlots) return -1;
++        return index;
++    }
++
 +    public boolean forgiaIsLocalTo(Player player) {
-+        return this.owner == player && player.getInventory().getClass() == Inventory.class && this.slots.size() == 46
-+            && this.craftSlots.getClass() == TransientCraftingContainer.class && this.resultSlots.getClass() == ResultContainer.class
-+            && this.craftSlots.isEmpty() && this.resultSlots.isEmpty() && this.getCarried().isEmpty()
-+            && this.slots.stream().allMatch(slot -> slot.container == player.getInventory()
-+                || slot.container == this.craftSlots || slot.container == this.resultSlots);
++        Inventory inventory = player.getInventory();
++        if (this.owner != player || inventory.getClass() != Inventory.class || this.slots.size() != 46
++            || this.craftSlots.getClass() != TransientCraftingContainer.class || this.resultSlots.getClass() != ResultContainer.class
++            || !this.craftSlots.isEmpty() || !this.resultSlots.isEmpty() || !this.getCarried().isEmpty()) {
++            return false;
++        }
++        for (int i = 0, size = this.slots.size(); i < size; i++) {
++            net.minecraft.world.Container container = this.slots.get(i).container;
++            if (container != inventory && container != this.craftSlots && container != this.resultSlots) return false;
++        }
++        return true;
 +    }
      public InventoryMenu(Inventory p_39706_, boolean p_39707_, final Player p_39708_) {
          super(null, 0);

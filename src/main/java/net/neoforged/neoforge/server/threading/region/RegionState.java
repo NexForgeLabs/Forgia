@@ -42,6 +42,9 @@ final class RegionState {
     private final RegionTaskQueue taskQueue = new RegionTaskQueue();
     private final RegionTickTimer tickTimer = new RegionTickTimer(System.nanoTime());
     private final RegionTickMetrics tickMetrics = new RegionTickMetrics();
+    long cachedPlayerChunksGeneration = Long.MIN_VALUE;
+    @Nullable
+    it.unimi.dsi.fastutil.longs.Long2ObjectMap<net.minecraft.world.level.chunk.LevelChunk> cachedPlayerChunks;
     private final AtomicReference<RegionLifecycleState> lifecycleState = new AtomicReference<>(RegionLifecycleState.READY);
     private final AtomicBoolean pendingRecalculation = new AtomicBoolean();
     private final AtomicBoolean workerSubmitted = new AtomicBoolean();
@@ -588,7 +591,7 @@ final class RegionState {
     synchronized void clearRunning() {
         if (this.ownerThread != null || this.blockEntityExecution != null)
             throw new IllegalStateException("Cannot release a region with live execution authority");
-        this.lifecycleState.compareAndSet(RegionLifecycleState.TICKING, RegionLifecycleState.READY);
+        if (this.lifecycleState.compareAndSet(RegionLifecycleState.TICKING, RegionLifecycleState.READY)) this.workAdmission.releaseClaim();
         this.notifyAll();
     }
 
@@ -601,7 +604,7 @@ final class RegionState {
     }
 
     synchronized void clearWorkerSubmitted() {
-        this.workerSubmitted.set(false);
+        if (this.workerSubmitted.getAndSet(false)) this.workAdmission.releaseClaim();
         this.notifyAll();
     }
 
@@ -626,11 +629,18 @@ final class RegionState {
     }
 
     boolean tryMarkDead() {
-        return this.lifecycleState.compareAndSet(RegionLifecycleState.READY, RegionLifecycleState.DEAD);
+        boolean dead = this.lifecycleState.compareAndSet(RegionLifecycleState.READY, RegionLifecycleState.DEAD);
+        if (dead) {
+            this.cachedPlayerChunks = null;
+            this.cachedPlayerChunksGeneration = Long.MIN_VALUE;
+        }
+        return dead;
     }
 
     void markDead() {
-        this.lifecycleState.set(RegionLifecycleState.DEAD);
+        if (this.lifecycleState.getAndSet(RegionLifecycleState.DEAD) == RegionLifecycleState.TICKING) this.workAdmission.releaseClaim();
+        this.cachedPlayerChunks = null;
+        this.cachedPlayerChunksGeneration = Long.MIN_VALUE;
         this.tickMetrics.release();
     }
 

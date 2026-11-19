@@ -55,6 +55,15 @@ final class RegionPlayerMapPlan {
         return new RegionPlayerMapPlan(player, id, data);
     }
 
+    boolean hasMap() {
+        return this.data != null;
+    }
+
+    boolean currentAfterInventory() {
+        // Every slot was just matched by stack identity and count. ItemStack's item is final.
+        return this.data == null || this.current();
+    }
+
     boolean current() {
         int found = 0;
         var inventory = player.getInventory();

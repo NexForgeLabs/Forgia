@@ -4,6 +4,7 @@
  */
 package net.neoforged.neoforge.server.threading.region;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -72,11 +73,17 @@ final class RegionPlayerExtensionSnapshot {
     private static final Set<String> BASE_MODS = Set.of("minecraft", "neoforge");
     private static final List<MixinEnvironment.Phase> PHASES = List.of(MixinEnvironment.Phase.PREINIT, MixinEnvironment.Phase.INIT, MixinEnvironment.Phase.DEFAULT);
     // Module membership, parent layers and module descriptors are immutable after definition.
-    private record ProviderSnapshot(ModuleLayer layer, Set<String> names) {}
+    private record ProviderSnapshot(ModuleLayer layer, Set<String> names, @org.jetbrains.annotations.Nullable String firstUnknown) {}
     private static volatile ProviderSnapshot providerSnapshot;
 
-    private record BusAccess(Method lookup, Field registrations, List<Class<?>> events) {}
+    private record BusAccess(Method lookup, Field registrations, Class<?>[] events, boolean[] allowsBuiltIn) {}
     private static volatile BusAccess busAccess;
+    // Bus 8 installs each event's ListenerList with computeIfAbsent and never replaces it.
+    // The list's live dispatch array still changes on registration/unregistration, including ancestors.
+    private record BusLists(WeakReference<IEventBus> bus, ListenerList[] lists) {}
+    private static volatile BusLists busLists;
+    private record VerifiedListeners(WeakReference<IEventBus> bus, Object[] arrays, Check result) {}
+    private static volatile VerifiedListeners verifiedListeners;
 
     private RegionPlayerExtensionSnapshot() {}
 
@@ -85,15 +92,22 @@ final class RegionPlayerExtensionSnapshot {
             ModList mods = ModList.get();
             ModuleLayer layer = FMLLoader.getGameLayer();
             if (mods == null || layer == null) return unavailable("loader not ready");
-            Set<String> ids = new HashSet<>();
-            mods.getMods().forEach(mod -> ids.add(mod.getModId()));
-            Set<String> configs = new HashSet<>();
-            for (var phase : PHASES) {
-                configs.addAll(MixinEnvironment.getEnvironment(phase).getMixinConfigs());
+            boolean minecraft = false, neoforge = false;
+            String unknown = null;
+            for (var mod : mods.getMods()) {
+                String id = mod.getModId();
+                if (id.equals("minecraft")) minecraft = true;
+                else if (id.equals("neoforge")) neoforge = true;
+                else if (unknown == null || id.compareTo(unknown) < 0) unknown = id;
             }
-            Mixins.getConfigs().forEach(config -> configs.add(config.getName()));
-            Check installed = installed(ids, configs, providers(layer));
-            if (installed.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return installed;
+            if (!minecraft || !neoforge) return unavailable("base mods absent");
+            if (unknown != null) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_MOD, unknown);
+            for (var phase : PHASES) {
+                for (String name : MixinEnvironment.getEnvironment(phase).getMixinConfigs()) unknown = unknownConfig(unknown, name);
+            }
+            for (var config : Mixins.getConfigs()) unknown = unknownConfig(unknown, config.getName());
+            if (unknown == null) unknown = firstUnknownProvider(layer);
+            if (unknown != null) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM, unknown);
             return listeners(NeoForge.EVENT_BUS);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
             // Missing inspection dependencies are a pre-body serial decision. No original tick is caught.
@@ -101,14 +115,21 @@ final class RegionPlayerExtensionSnapshot {
         }
     }
 
-    private static Set<String> providers(ModuleLayer layer) {
+    private static String unknownConfig(String first, String name) {
+        return !CONFIGS.contains(name) && (first == null || name.compareTo(first) < 0) ? name : first;
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private static String firstUnknownProvider(ModuleLayer layer) {
         ProviderSnapshot snapshot = providerSnapshot;
-        if (snapshot != null && snapshot.layer() == layer) return snapshot.names();
+        if (snapshot != null && snapshot.layer() == layer) return snapshot.firstUnknown();
         Set<String> providers = new HashSet<>();
         collectProviders(layer, new HashSet<>(), providers);
-        snapshot = new ProviderSnapshot(layer, Set.copyOf(providers));
+        Set<String> immutable = Set.copyOf(providers);
+        String firstUnknown = firstUnknown(immutable, PROVIDERS);
+        snapshot = new ProviderSnapshot(layer, immutable, firstUnknown);
         providerSnapshot = snapshot;
-        return snapshot.names();
+        return firstUnknown;
     }
 
     private static void collectProviders(ModuleLayer layer, Set<ModuleLayer> visited, Set<String> providers) {
@@ -147,49 +168,81 @@ final class RegionPlayerExtensionSnapshot {
         Method lookup = EventBus.class.getDeclaredMethod("getListenerList", Class.class);
         Field registrations = EventBus.class.getDeclaredField("listeners");
         if (!lookup.trySetAccessible() || !registrations.trySetAccessible()) throw new IllegalAccessException("Event bus inspection unavailable");
-        List<Class<?>> events = new ArrayList<>(EVENTS.size());
-        for (String name : EVENTS) events.add(Class.forName("net.neoforged.neoforge.event." + name));
-        access = new BusAccess(lookup, registrations, List.copyOf(events));
+        int count = EVENTS.size();
+        Class<?>[] events = new Class<?>[count];
+        boolean[] allowsBuiltIn = new boolean[count];
+        for (int i = 0; i < count; i++) {
+            String name = EVENTS.get(i);
+            events[i] = Class.forName("net.neoforged.neoforge.event." + name);
+            allowsBuiltIn[i] = name.equals("tick.EntityTickEvent$Pre") || name.equals("entity.EntityLeaveLevelEvent");
+        }
+        access = new BusAccess(lookup, registrations, events, allowsBuiltIn);
         busAccess = access;
         return access;
+    }
+
+    private static ListenerList[] lists(IEventBus bus, BusAccess access) throws ReflectiveOperationException {
+        BusLists cached = busLists;
+        if (cached != null && cached.bus().get() == bus) return cached.lists();
+        ListenerList[] lists = new ListenerList[access.events().length];
+        for (int i = 0; i < lists.length; i++) lists[i] = (ListenerList) access.lookup().invoke(bus, access.events()[i]);
+        busLists = new BusLists(new WeakReference<>(bus), lists);
+        return lists;
     }
 
     static Check listeners(IEventBus bus) throws ReflectiveOperationException {
         if (bus.getClass() != EventBus.class) return unavailable("unknown event bus " + bus.getClass().getName());
         // Cache reflection metadata only. Owner registrations and inherited dispatch lists are live.
+        // ListenerList.getListeners() returns a fresh array whenever any listener is added or removed,
+        // so comparing every live array reference still observes all live registrations.
         BusAccess access = busAccess();
-        Map<?, ?> owners = (Map<?, ?>) access.registrations().get(bus);
-        // EventBus.register owns these exact registrations. The only built-in EntityTick.Pre
-        // subscriber is NeoForgeEventHandler.onEntityTick, whose ServerPlayer branch returns without
-        // publishing a mapping. Its EntityLeaveLevel handler removes the existing region mapping
-        // on the original publisher after physical join. Neither approval extends to a consumer,
-        // subclass or another callback.
-        Set<Object> builtIn = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        for (var entry : owners.entrySet()) {
-            if (entry.getKey().getClass() == NeoForgeEventHandler.class) {
-                for (Object registration : (List<?>) entry.getValue()) {
-                    builtIn.add(registration);
-                    // Bus 8 unwraps non-cancellable events in its dispatch cache. This final
-                    // built-in wrapper's accessor only returns its exact registered handler.
-                    if (registration.getClass() == SubscribeEventListener.class)
-                        builtIn.add(((SubscribeEventListener) registration).getWithoutCheck());
+        ListenerList[] lists = lists(bus, access);
+        VerifiedListeners verified = verifiedListeners;
+        if (verified != null && verified.bus().get() == bus) {
+            Object[] prev = verified.arrays();
+            boolean same = true;
+            for (int index = 0; index < lists.length; index++) {
+                if (lists[index].getListeners() != prev[index]) {
+                    same = false;
+                    break;
                 }
             }
+            if (same) return verified.result();
         }
+        Map<?, ?> owners = (Map<?, ?>) access.registrations().get(bus);
+        Object[] snapshot = new Object[lists.length];
+        boolean[] allowsBuiltIn = access.allowsBuiltIn();
         List<String> found = null;
-        for (int index = 0; index < EVENTS.size(); index++) {
-            String name = EVENTS.get(index);
-            Class<?> event = access.events().get(index);
-            ListenerList list = (ListenerList) access.lookup().invoke(bus, event);
-            for (var listener : list.getListeners()) {
-                if ((!name.equals("tick.EntityTickEvent$Pre") && !name.equals("entity.EntityLeaveLevelEvent")) || !builtIn.contains(listener)) {
+        for (int index = 0; index < lists.length; index++) {
+            var live = lists[index].getListeners();
+            snapshot[index] = live;
+            if (live.length == 0) continue;
+            boolean builtInAllowed = allowsBuiltIn[index];
+            for (var listener : live) {
+                if (!builtInAllowed || !isBuiltInListener(owners, listener)) {
                     if (found == null) found = new ArrayList<>();
-                    found.add(event.getName());
+                    found.add(access.events()[index].getName());
                     break;
                 }
             }
         }
-        return found == null ? Check.ok() : new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, String.join(",", found));
+        Check result = found == null ? Check.ok() : new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, String.join(",", found));
+        verifiedListeners = new VerifiedListeners(new WeakReference<>(bus), snapshot, result);
+        return result;
+    }
+
+    private static boolean isBuiltInListener(Map<?, ?> owners, Object listener) {
+        // Bus 8 uses the registered wrapper for cancellable events and its exact unchecked
+        // delegate for other dispatch arrays. Check the live owner map in both cases.
+        for (var entry : owners.entrySet()) {
+            if (entry.getKey().getClass() != NeoForgeEventHandler.class) continue;
+            for (Object registration : (List<?>) entry.getValue()) {
+                if (registration == listener || registration instanceof SubscribeEventListener wrapper && wrapper.getWithoutCheck() == listener) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static Check unavailable(String detail) {

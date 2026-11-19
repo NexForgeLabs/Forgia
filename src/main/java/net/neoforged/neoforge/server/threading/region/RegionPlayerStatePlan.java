@@ -71,9 +71,11 @@ public final class RegionPlayerStatePlan {
     private final long listenerGeneration;
     private final int tick;
     private final List<Object> resources;
+    private final Object[] resourceArray;
     private final List<Object> menuResources;
+    @Nullable
+    private final Template template;
     private final List<Object> sharedResources;
-    private final Set<ObjectiveCriteria> emptyCriteria;
     private final Scoreboard scoreboard;
     private final long scoreboardRevision;
     private final Map<StatType<?>, Map<?, Stat<?>>> stats;
@@ -85,6 +87,9 @@ public final class RegionPlayerStatePlan {
     private final RegionPlayerMapPlan maps;
     private final RegionPlayerDamagePlan damage;
     private boolean consumed;
+    private boolean publisherLocalStateChecked;
+    private boolean needsTemplateValidation;
+    private boolean invalidTemplate;
     @Nullable
     private RegionPlayerAdmissionPlan admission;
 
@@ -96,7 +101,7 @@ public final class RegionPlayerStatePlan {
     private int remainingExperience = 7;
 
     private RegionPlayerStatePlan(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, List<Object> resources,
-            Set<ObjectiveCriteria> criteria, Map<StatType<?>, Map<?, Stat<?>>> stats, Map<AdvancementHolder, AwardSnapshot> awards,
+            Map<StatType<?>, Map<?, Stat<?>>> stats, Map<AdvancementHolder, AwardSnapshot> awards,
             Map<ExperienceOrb, Integer> orbs, RegionPlayerInventoryPlan inventory, RegionPlayerContainerPlan container, RegionPlayerScoreboardPlan scorePlan, RegionPlayerMapPlan maps, RegionPlayerDamagePlan damage) {
         this.engine = engine;
         this.spatial = spatial;
@@ -108,7 +113,7 @@ public final class RegionPlayerStatePlan {
         this.listenerGeneration = advancements.forgiaCriterionListeners().generation();
         this.listeners = advancements.forgiaCriterionListeners().snapshot();
         this.resources = List.copyOf(resources);
-        this.emptyCriteria = Set.copyOf(criteria);
+        this.resourceArray = this.resources.toArray();
         this.scoreboard = player.getScoreboard();
         this.scoreboardRevision = scoreboard.forgiaObjectiveRevision();
         this.stats = Collections.unmodifiableMap(new IdentityHashMap<>(stats));
@@ -120,11 +125,218 @@ public final class RegionPlayerStatePlan {
         this.maps = maps;
         this.damage = damage;
         this.menuResources = List.copyOf(container.localResources());
+        this.template = null;
         List<Object> shared = new ArrayList<>(container.sharedResources());
         shared.addAll(scorePlan.sharedResources());
         shared.addAll(maps.sharedResources());
         shared.addAll(damage.resources());
         this.sharedResources = List.copyOf(shared);
+    }
+
+    /** A reusable recipe for the simple branch. No chunk, lease, ticket, body or foreign entity. */
+    @ApiStatus.Internal
+    public static final class Template {
+        private final PlayerAdvancements advancements;
+        private final ServerGamePacketListenerImpl listener;
+        private final Connection connection;
+        private final PlayerCriterionListeners.Snapshot listeners;
+        private final long listenerGeneration;
+        private final List<Object> resources;
+        private final Object[] resourceArray;
+        private final Object[] ownedTable;
+        private final int ownedMask;
+        private final Scoreboard scoreboard;
+        private final long scoreboardRevision;
+        private final Map<StatType<?>, Map<?, Stat<?>>> stats;
+        private final RegionPlayerInventoryPlan inventory;
+        private final List<Object> inventoryResources;
+        @Nullable
+        private List<Object> admissionResources;
+        @Nullable
+        private Object adm0, adm1, adm2, adm3;
+        @Nullable
+        private List<Object> claims;
+        private final RegionPlayerContainerPlan container;
+        private final RegionPlayerScoreboardPlan scorePlan;
+        private final RegionPlayerMapPlan maps;
+        private final RegionPlayerDamagePlan damage;
+
+        private Template(RegionPlayerStatePlan source) {
+            this.advancements = source.advancements;
+            this.listener = source.listener;
+            this.connection = source.connection;
+            this.listeners = source.listeners;
+            this.listenerGeneration = source.listenerGeneration;
+            this.resources = source.resources;
+            this.resourceArray = source.resourceArray;
+            this.scoreboard = source.scoreboard;
+            this.scoreboardRevision = source.scoreboardRevision;
+            this.stats = source.stats;
+            this.inventory = source.inventory;
+            this.inventoryResources = List.copyOf(source.inventory.resources());
+            this.container = source.container;
+            this.scorePlan = source.scorePlan;
+            this.maps = source.maps;
+            this.damage = source.damage;
+            int total = this.resourceArray.length + this.inventoryResources.size();
+            int cap = 16;
+            while (cap < total * 2) cap <<= 1;
+            Object[] table = new Object[cap];
+            int mask = cap - 1;
+            for (Object obj : this.resourceArray) insertOwned(table, mask, obj);
+            for (Object obj : this.inventoryResources) insertOwned(table, mask, obj);
+            this.ownedTable = table;
+            this.ownedMask = mask;
+        }
+
+        private static void insertOwned(Object[] table, int mask, Object obj) {
+            if (obj == null) return;
+            int slot = System.identityHashCode(obj) & mask;
+            while (true) {
+                Object existing = table[slot];
+                if (existing == null || existing == obj) {
+                    table[slot] = obj;
+                    return;
+                }
+                slot = (slot + 1) & mask;
+            }
+        }
+
+        boolean containsOwned(Object obj) {
+            if (obj == null) return false;
+            Object[] table = this.ownedTable;
+            int mask = this.ownedMask;
+            int slot = System.identityHashCode(obj) & mask;
+            while (true) {
+                Object existing = table[slot];
+                if (existing == obj) return true;
+                if (existing == null) return false;
+                slot = (slot + 1) & mask;
+            }
+        }
+
+        @Nullable
+        List<Object> reuseAdmissionResources(Object a0, Object a1, Object a2, Object a3) {
+            if (this.admissionResources != null && this.adm0 == a0 && this.adm1 == a1 && this.adm2 == a2 && this.adm3 == a3) {
+                return this.admissionResources;
+            }
+            return null;
+        }
+    }
+
+    private RegionPlayerStatePlan(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, Template template) {
+        this.engine = engine;
+        this.spatial = spatial;
+        this.player = spatial.player();
+        this.advancements = template.advancements;
+        this.listener = template.listener;
+        this.connection = template.connection;
+        this.tick = player.server.getTickCount();
+        this.listeners = template.listeners;
+        this.listenerGeneration = template.listenerGeneration;
+        this.resources = template.resources;
+        this.resourceArray = template.resourceArray;
+        this.menuResources = List.of();
+        this.sharedResources = List.of();
+        this.scoreboard = template.scoreboard;
+        this.scoreboardRevision = template.scoreboardRevision;
+        this.stats = template.stats;
+        this.awards = Map.of();
+        this.orbs = Map.of();
+        this.inventory = template.inventory;
+        this.template = template;
+        this.container = template.container;
+        this.scorePlan = template.scorePlan;
+        this.maps = template.maps;
+        this.damage = template.damage;
+    }
+
+    private static boolean simpleTick(RegionPlayerSpatialPlan spatial) {
+        ServerPlayer player = spatial.player();
+        return spatial.members().size() == 1 && player.containerMenu == player.inventoryMenu && !RegionPlayerDamagePlan.starving(player);
+    }
+
+    // Audited movement needs a separate stat handle and scoreboard check for WALK_ONE_CM.
+    static final int MOVEMENT_TEMPLATE = 2;
+
+    private static int templateIndex(RegionPlayerSpatialPlan spatial) {
+        return RegionPlayerPacketPlan.preparesMovement(spatial.player()) ? MOVEMENT_TEMPLATE : spatial.phase().ordinal();
+    }
+
+    @Nullable
+    static RegionPlayerStatePlan rebindTick(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial) {
+        return rebindTick(engine, spatial, false);
+    }
+
+    @Nullable
+    static RegionPlayerStatePlan rebindTick(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, boolean deferValidation) {
+        if (!simpleTick(spatial)) return null;
+        Template template = spatial.player().forgiaPlayerStateTemplate(templateIndex(spatial));
+        if (template == null) return null;
+        var plan = new RegionPlayerStatePlan(engine, spatial, template);
+        // The sealed wave can compare all claim identities in parallel while the bodies are idle.
+        plan.needsTemplateValidation = true;
+        if (deferValidation) return plan.currentOwner() ? plan : null;
+        return plan.validateTemplate() ? plan : null;
+    }
+
+    boolean needsTemplateValidation() {
+        return this.needsTemplateValidation;
+    }
+
+    boolean validateTemplate() {
+        if (!this.needsTemplateValidation) return true;
+        boolean localOk = ServerPlayer.forgiaMatchesLocalTemplateResources(this.player, this.resourceArray)
+                || (this.player.forgiaHasLocalStateBindings() && this.localResourcesCurrent());
+        if (!this.currentOwner() || !localOk
+                || !this.inventory.current(this.spatial, true) || !this.scorePlan.current()) {
+            this.invalidTemplate = true;
+            return false;
+        }
+        this.needsTemplateValidation = false;
+        return true;
+    }
+
+    boolean validatePrefix(boolean worker) {
+        if (!this.validateTemplate()) return false;
+        if (!this.spatial.validateTerrain(worker)) {
+            this.invalidTemplate = true;
+            return false;
+        }
+        return true;
+    }
+
+    /** Invoked on the publisher after the worker lane has physically returned. */
+    void discardInvalidTemplate() {
+        if (this.invalidTemplate) {
+            int index = templateIndex(this.spatial);
+            if (this.player.forgiaPlayerStateTemplate(index) == this.template) {
+                this.player.forgiaPlayerStateTemplate(index, null);
+            }
+        }
+    }
+
+    static Capture captureTick(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial) {
+        var rebound = rebindTick(engine, spatial);
+        if (rebound != null) return new Capture(rebound, Refusal.NONE);
+        Capture capture = captureFresh(engine, spatial);
+        var plan = capture.plan();
+        spatial.player().forgiaPlayerStateTemplate(templateIndex(spatial), simpleTick(spatial) && plan != null && plan.sharedResources.isEmpty()
+                && plan.menuResources.isEmpty() && plan.awards.isEmpty() && plan.orbs.isEmpty() ? new Template(plan) : null);
+        return capture;
+    }
+
+    boolean hasOnlyPlainLocalInventory() {
+        // Only the already validated isolated template has no pickup, award or map effect.
+        return this.publisherLocalStateChecked && !this.maps.hasMap();
+    }
+
+    boolean permitsLocalNetworkReturn() {
+        return this.template != null && this.spatial.members().size() == 1;
+    }
+
+    Connection connection() {
+        return this.connection;
     }
 
     public ServerPlayer player() {
@@ -135,9 +347,38 @@ public final class RegionPlayerStatePlan {
         return this.spatial.phase();
     }
 
+    @Nullable
+    List<Object> reuseTemplateAdmissionResources(Object a0, Object a1, Object a2, Object a3) {
+        return this.template == null ? null : this.template.reuseAdmissionResources(a0, a1, a2, a3);
+    }
+
     List<Object> resources() {
+        if (this.template != null && this.admission != null) {
+            // Both callers are on the publisher. The rebound plan already compared the live
+            // local objects and inventory against the template. Check the other four identities
+            // before reusing the immutable resource list for this invocation.
+            List<Object> captured = this.admission.resources();
+            if (this.template.claims != null && this.template.admissionResources == captured) {
+                return this.template.claims;
+            }
+            if (this.template.claims == null || !sameReferences(this.template.admissionResources, captured)) {
+                this.template.claims = this.buildResources();
+                this.template.admissionResources = captured;
+                if (captured.size() == 4) {
+                    this.template.adm0 = captured.get(0);
+                    this.template.adm1 = captured.get(1);
+                    this.template.adm2 = captured.get(2);
+                    this.template.adm3 = captured.get(3);
+                }
+            }
+            return this.template.claims;
+        }
+        return this.buildResources();
+    }
+
+    private List<Object> buildResources() {
         List<Object> combined = new ArrayList<>(this.resources);
-        combined.addAll(this.inventory.resources());
+        combined.addAll(this.template == null ? this.inventory.resources() : this.template.inventoryResources);
         combined.addAll(this.menuResources);
         combined.addAll(this.sharedResources());
         if (this.admission != null) combined.addAll(this.admission.resources());
@@ -159,7 +400,10 @@ public final class RegionPlayerStatePlan {
     }
 
     boolean currentOwner() {
-        RegionPlayerSpatialLease lease = RegionPlayerSpatialLease.current();
+        return this.currentOwner(RegionPlayerSpatialLease.current());
+    }
+
+    boolean currentOwner(@Nullable RegionPlayerSpatialLease lease) {
         boolean activeScope = consumed && lease != null && lease.hasStatePlan(this);
         // Stop-new-admission and the physical channel's open bit are not revocation of an already
         // consumed scope. The original tick observes socket loss; its lifecycle callback remains gated
@@ -173,16 +417,28 @@ public final class RegionPlayerStatePlan {
     /** Recheck on the publishing thread immediately before dispatch; rejection is still pre-body. */
     public boolean revalidate() {
         if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("State revalidation requires publishing thread");
-        return !consumed && spatial.revalidate() && stateCurrent();
+        return !consumed && spatial.revalidate() && stateCurrent(true);
     }
 
-    private boolean stateCurrent() {
-        return (admission == null || admission.current()) && currentOwner() && player.forgiaHasLocalStateBindings() && player.forgiaHasSimpleSharedState()
+    // The immediately preceding spatial reservation already validated the full footprint.
+    boolean revalidateLocal() {
+        return !consumed && stateCurrent(false);
+    }
+
+    /** The sole indexed entity in this scope has no recipients or shared state. Its mutable
+     * local objects are server-owned until submission, then owned exclusively until return. */
+    void completeSealedLocalCheck() {
+        if (this.template == null || this.spatial.members().size() != 1) return;
+        this.publisherLocalStateChecked = true;
+    }
+
+    private boolean stateCurrent(boolean beforeBody) {
+        return (admission == null || admission.current(beforeBody)) && currentOwner() && player.forgiaHasLocalStateBindings() && player.forgiaHasSimpleSharedState()
                 && advancements.forgiaCriterionListeners().matches(listeners) && boundedExperience(player)
-                && sameReferences(resources, localResources(player)) && player.getScoreboard() == scoreboard
+                && localResourcesCurrent() && player.getScoreboard() == scoreboard
                 && scoreboard.forgiaObjectiveRevision() == scoreboardRevision
                 && awards.values().stream().allMatch(AwardSnapshot::current)
-                && orbsCurrent() && inventory.current(spatial) && container.current() && scorePlan.current() && maps.current() && damage.current();
+                && orbsCurrent() && inventory.current(spatial, this.template != null) && container.current() && scorePlan.current() && maps.currentAfterInventory() && damage.current();
     }
 
     boolean allowsPickupRemoval(net.minecraft.world.entity.Entity entity) {
@@ -204,13 +460,29 @@ public final class RegionPlayerStatePlan {
 
     /** Final unstarted check on the original lease's worker, before any original invocation effects. */
     synchronized boolean consume() {
-        if (consumed || !stateCurrent()) return false;
+        return consume(false);
+    }
+
+    synchronized boolean consume(boolean laneExtensionsVerified) {
+        if (consumed || this.needsTemplateValidation) return false;
+        boolean current = this.publisherLocalStateChecked
+                ? admission != null && admission.current(true, laneExtensionsVerified) && currentOwner() && player.forgiaHasSimpleSharedState()
+                        && advancements.forgiaCriterionListeners().matches(listeners) && boundedExperience(player)
+                        && (laneExtensionsVerified ? player.containerMenu == player.inventoryMenu : container.current() && scorePlan.current())
+                        && damage.current()
+                : stateCurrent(true);
+        if (!current) return false;
         consumed = true;
         return true;
     }
 
     List<Object> sharedResources() {
         return this.sharedResources;
+    }
+
+    private static boolean hasReference(Object[] values, Object resource) {
+        for (int i = 0; i < values.length; i++) if (values[i] == resource) return true;
+        return false;
     }
 
     private static boolean hasReference(List<Object> values, Object resource) {
@@ -228,11 +500,14 @@ public final class RegionPlayerStatePlan {
     }
 
     boolean owns(Object resource) {
+        // Fast O(1) identity hash lookup for the template-owned local objects and inventory.
+        if (this.template != null && this.template.containsOwned(resource)) return true;
+        if (this.admission != null && hasReference(this.admission.resources(), resource)) return true;
+        if (this.template != null) return this.inventory.owns(resource);
         // Checking a permission must not rebuild the entire claim list. Inventory can change
         // during a captured pickup or menu click, so its original membership is still read live.
-        return hasReference(this.resources, resource) || hasReference(this.menuResources, resource)
-                || shares(resource) || (this.admission != null && hasReference(this.admission.resources(), resource))
-                || this.inventory.owns(resource);
+        return hasReference(this.resourceArray, resource) || hasReference(this.menuResources, resource)
+                || shares(resource) || this.inventory.owns(resource);
     }
 
     boolean emptyScoreboard(Scoreboard board, ObjectiveCriteria criterion, Object holder) {
@@ -286,10 +561,48 @@ public final class RegionPlayerStatePlan {
         return true;
     }
 
+    private static boolean sameReferences(Object[] a, ArrayList<Object> b) {
+        int size = a.length;
+        if (size != b.size()) return false;
+        for (int i = 0; i < size; i++) if (a[i] != b.get(i)) return false;
+        return true;
+    }
+
     private static boolean sameReferences(List<Object> a, List<Object> b) {
         if (a.size() != b.size()) return false;
         for (int i = 0; i < a.size(); i++) if (a.get(i) != b.get(i)) return false;
         return true;
+    }
+
+    private static final ThreadLocal<ArrayList<Object>> RESOURCE_CHECK = ThreadLocal.withInitial(ArrayList::new);
+
+    private boolean localResourcesCurrent() {
+        if (this.template == null) return sameReferences(this.resources, localResources(this.player));
+        final Thread thread = Thread.currentThread();
+        ArrayList<Object> current = thread instanceof RegionWorkerThread wt ? wt.resourceCheckScratch() : RESOURCE_CHECK.get();
+        try {
+            // Each reference is still read from its original holder. Scratch storage is cleared
+            // before returning and cannot pin players, listeners or stacks between calls.
+            var player = this.player;
+            current.add(player);
+            current.add(player.getAdvancements());
+            current.add(player.getAdvancements().forgiaCriterionListeners());
+            current.add(player.getStats());
+            current.add(player.getAttributes());
+            current.add(player.getFoodData());
+            current.add(player.getCooldowns());
+            current.add(player.getInventory());
+            current.add(player.inventoryMenu);
+            current.add(player.connection);
+            current.add(player.connection.getConnection());
+            current.add(player.gameMode);
+            player.getWardenSpawnTracker().ifPresent(current::add);
+            player.getAttributes().forgiaCollectPlayerLocalAttributes(current);
+            player.inventoryMenu.forgiaCollectPlayerLocalContainers(current);
+            return sameReferences(this.resourceArray, current);
+        } finally {
+            current.clear();
+        }
     }
 
     static List<Object> localResources(ServerPlayer player) {
@@ -316,11 +629,20 @@ public final class RegionPlayerStatePlan {
     }
 
     static Capture capture(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial) {
+        return capture(engine, spatial, false);
+    }
+
+    /** The caller just captured geometry and has not run any original body or callback. */
+    static Capture captureFresh(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial) {
+        return capture(engine, spatial, true);
+    }
+
+    private static Capture capture(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, boolean fresh) {
         ServerPlayer player = spatial.player();
         if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Player state capture requires server thread");
         if (!spatial.belongsTo(engine) || !engine.playerCriterionStorageEnabled()) return reject(Refusal.DEPENDENCIES);
-        if (!engine.isQuiescentForParallelApi()) return reject(Refusal.NOT_QUIESCENT);
-        if (!spatial.revalidate() || player.getAdvancements() == null || !player.getAdvancements().forgiaCriterionListeners().enabled()
+        if (!fresh && !engine.isQuiescentForParallelApi()) return reject(Refusal.NOT_QUIESCENT);
+        if ((!fresh && !spatial.revalidate()) || player.getAdvancements() == null || !player.getAdvancements().forgiaCriterionListeners().enabled()
                 || player.connection == null || player.server.getPlayerList().getPlayer(player.getUUID()) != player)
             return reject(Refusal.STALE_OWNER);
         if (!player.forgiaHasLocalStateBindings()) return reject(Refusal.SHARED_MENU);
@@ -388,11 +710,9 @@ public final class RegionPlayerStatePlan {
         Scoreboard board = player.getScoreboard();
         RegionPlayerScoreboardPlan scorePlan = RegionPlayerScoreboardPlan.capture(player, criteria);
         if (scorePlan == null) return reject(Refusal.SCOREBOARD_OBJECTIVES);
-        // Materialize all per-player instances so shared attribute templates never initialize lazily.
-        for (var attribute : net.minecraft.core.registries.BuiltInRegistries.ATTRIBUTE.holders().toList()) {
-            var instance = player.getAttributes().getInstance(attribute);
-            if (instance != null) instance.getValue();
-        }
-        return new Capture(new RegionPlayerStatePlan(engine, spatial, localResources(player), criteria, stats, awards, orbs, inventory, container, scorePlan, maps, damage), Refusal.NONE);
+        // Materialize all per-player instances once; dirty values subsequently recompute against
+        // the same owned instances. The resource claim still observes all current instances.
+        engine.warmPlayerAttributes(player.getAttributes());
+        return new Capture(new RegionPlayerStatePlan(engine, spatial, localResources(player), stats, awards, orbs, inventory, container, scorePlan, maps, damage), Refusal.NONE);
     }
 }

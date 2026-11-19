@@ -52,14 +52,8 @@ abstract class RegionTickBatch {
      * handoff.
      */
     private static final ThreadLocal<RegionTickBatch> CURRENT = new ThreadLocal<>();
-    /**
-     * The deferred block-write effects of the batch whose group executes on the current thread. It is set for
-     * the duration of every group, including a group the executor rejected and that therefore runs inline on the
-     * publishing thread, and it is {@code null} everywhere else - in particular on the server thread that
-     * publishes the batch and on the server thread that applies the records at the barrier, so a block write
-     * outside a group publishes inline.
-     */
     private static final ThreadLocal<RegionDeferredBlockUpdates> CURRENT_BLOCK_UPDATES = new ThreadLocal<>();
+    private static volatile int fallbackDepth;
 
     private final ServerLevel level;
     private final RegionTickSlice slice;
@@ -142,7 +136,11 @@ abstract class RegionTickBatch {
      * {@return the batch whose group work executes on the current thread, or {@code null} outside a batch}
      */
     static RegionTickBatch current() {
-        return CURRENT.get();
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.tickBatch;
+        }
+        return fallbackDepth != 0 ? CURRENT.get() : null;
     }
 
     /**
@@ -150,7 +148,11 @@ abstract class RegionTickBatch {
      * {@code null} outside a group}
      */
     static RegionDeferredBlockUpdates currentBlockUpdates() {
-        return CURRENT_BLOCK_UPDATES.get();
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.blockUpdates;
+        }
+        return fallbackDepth != 0 ? CURRENT_BLOCK_UPDATES.get() : null;
     }
 
     final ServerLevel level() {
@@ -305,14 +307,38 @@ abstract class RegionTickBatch {
 
     private void pumpSpawnAdmissions() {
         if (this.spawnAdmissions == null) return;
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            final var previous = worker.tickBatch;
+            worker.tickBatch = this;
+            try {
+                this.spawnAdmissions.pump();
+            } finally {
+                worker.tickBatch = previous;
+            }
+            return;
+        }
         final var previous = CURRENT.get();
+        if (previous == null) incrementFallback();
         CURRENT.set(this);
         try {
             this.spawnAdmissions.pump();
         } finally {
-            if (previous == null) CURRENT.remove();
-            else CURRENT.set(previous);
+            if (previous == null) {
+                CURRENT.remove();
+                decrementFallback();
+            } else {
+                CURRENT.set(previous);
+            }
         }
+    }
+
+    private static synchronized void incrementFallback() {
+        ++fallbackDepth;
+    }
+
+    private static synchronized void decrementFallback() {
+        --fallbackDepth;
     }
 
     final Runnable groupWork(Runnable work) {
@@ -321,9 +347,34 @@ abstract class RegionTickBatch {
 
     final Runnable groupWork(Runnable work, Runnable unstartedCleanup) {
         final Runnable body = () -> {
+            final Thread current = Thread.currentThread();
+            if (current instanceof RegionWorkerThread worker) {
+                final boolean alreadyExecuting = Boolean.TRUE.equals(this.executing.get());
+                final RegionTickBatch previousBatch = worker.tickBatch;
+                final RegionDeferredBlockUpdates previousUpdates = worker.blockUpdates;
+                this.executing.set(Boolean.TRUE);
+                worker.tickBatch = this;
+                worker.blockUpdates = this.blockUpdates;
+                RegionBarrierAttribution.groupStarted(this.firstGroupStartNanos);
+                try {
+                    work.run();
+                } finally {
+                    RegionBarrierAttribution.groupEnded(this.lastGroupEndNanos);
+                    if (alreadyExecuting) {
+                        this.executing.set(Boolean.TRUE);
+                    } else {
+                        this.executing.remove();
+                    }
+                    worker.tickBatch = previousBatch;
+                    worker.blockUpdates = previousUpdates;
+                }
+                return;
+            }
             final boolean alreadyExecuting = Boolean.TRUE.equals(this.executing.get());
             final RegionTickBatch previousBatch = CURRENT.get();
             final RegionDeferredBlockUpdates previousUpdates = CURRENT_BLOCK_UPDATES.get();
+            final boolean enteredFallback = previousBatch == null && previousUpdates == null;
+            if (enteredFallback) incrementFallback();
             this.executing.set(Boolean.TRUE);
             CURRENT.set(this);
             CURRENT_BLOCK_UPDATES.set(this.blockUpdates);
@@ -348,6 +399,7 @@ abstract class RegionTickBatch {
                 } else {
                     CURRENT_BLOCK_UPDATES.remove();
                 }
+                if (enteredFallback) decrementFallback();
             }
         };
         if (this.spawnAdmissions == null) return body;

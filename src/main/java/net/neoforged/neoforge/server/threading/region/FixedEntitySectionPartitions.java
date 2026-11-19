@@ -253,7 +253,38 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
         final int maxSectionX = Math.min(SectionPos.posToSectionCoord(box.maxX + 2.0), maxChunkX);
         final int maxSectionY = SectionPos.posToSectionCoord(box.maxY + 0.0);
         final int maxSectionZ = Math.min(SectionPos.posToSectionCoord(box.maxZ + 2.0), maxChunkZ);
-        if (minSectionX > maxSectionX || minSectionZ > maxSectionZ) {
+        if (minSectionX > maxSectionX || minSectionZ > maxSectionZ || minSectionY > maxSectionY) {
+            return;
+        }
+        if (bucket.sections.size() == 1) {
+            final long sectionId = bucket.sectionIds.firstLong();
+            final int sx = SectionPos.x(sectionId);
+            final int sy = SectionPos.y(sectionId);
+            final int sz = SectionPos.z(sectionId);
+            if (sx >= minSectionX && sx <= maxSectionX && sy >= minSectionY && sy <= maxSectionY
+                    && sz >= minSectionZ && sz <= maxSectionZ) {
+                final EntitySection<T> section = bucket.sections.get(sectionId);
+                if (section != null && !section.isEmpty() && section.getStatus().isAccessible()) {
+                    consumer.accept(section);
+                }
+            }
+            return;
+        }
+        // Small boxes can read the section map directly. Within one X, packed order places
+        // nonnegative Z and Y before negative values. Fall back to the ID tree at those seams.
+        if (maxSectionX - minSectionX <= 1 && maxSectionY - (long) minSectionY <= 2 && maxSectionZ - minSectionZ <= 1
+                && (minSectionZ >= 0 || maxSectionZ < 0) && (minSectionY >= 0 || maxSectionY < 0)
+                && SectionPos.y(SectionPos.asLong(0, minSectionY, 0)) == minSectionY
+                && SectionPos.y(SectionPos.asLong(0, maxSectionY, 0)) == maxSectionY) {
+            for (int x = minSectionX; x <= maxSectionX; x++) {
+                for (int z = minSectionZ; z <= maxSectionZ; z++) {
+                    for (int y = minSectionY; y <= maxSectionY; y++) {
+                        EntitySection<T> section = bucket.sections.get(SectionPos.asLong(x, y, z));
+                        if (section != null && !section.isEmpty() && section.getStatus().isAccessible()
+                                && consumer.accept(section).shouldAbort()) return;
+                    }
+                }
+            }
             return;
         }
         for (int sectionX = minSectionX; sectionX <= maxSectionX; sectionX++) {
@@ -280,13 +311,20 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
 
     /** Complete-set scan in ORIGINAL signed packed section order, never region-group order. */
     public void forEachAccessibleNonEmptySectionInRegions(java.util.List<RegionCoordinate> coordinates, AABB box, AbortableIterationConsumer<EntitySection<T>> consumer) {
-        if (coordinates.isEmpty() || coordinates.size() > RegionPlayerFootprint.MAX_REGIONS || new java.util.HashSet<>(coordinates).size() != coordinates.size())
+        if (coordinates.isEmpty() || coordinates.size() > RegionPlayerFootprint.MAX_REGIONS
+                || (coordinates.size() > 1 && new java.util.HashSet<>(coordinates).size() != coordinates.size()))
             throw new IllegalArgumentException("Invalid complete region set");
         // Validate ALL leases before any bucket or predicate is visited.
         if (RegionWorkerScope.isNativeWorkerThread()) for (RegionCoordinate coordinate : coordinates)
             RegionThreadingHooks.assertLeasedEntityQuery(coordinate.level(), coordinate.regionX(), coordinate.regionZ());
         RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
         if (playerSpace != null) playerSpace.requireSections(coordinates.getFirst().level(), coordinates, box);
+        if (coordinates.size() == 1) {
+            // A single bucket already has the required signed packed order.
+            var region = coordinates.getFirst();
+            this.forEachAccessibleNonEmptySectionInRegion(region.regionX(), region.regionZ(), box, consumer);
+            return;
+        }
         Long2ObjectMap<EntitySection<T>> selected = new Long2ObjectOpenHashMap<>();
         LongSortedSet ordered = new LongAVLTreeSet();
         int size = this.layout.regionChunkSize();

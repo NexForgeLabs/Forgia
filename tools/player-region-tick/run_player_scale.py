@@ -202,7 +202,16 @@ def main():
         session.command('save-all flush')
         session.request('close')
         session.bots.wait(timeout=15)
-        time.sleep(.6)
+        # Process exit closes sockets, but the original server traversal can still be draining
+        # their disconnect callbacks. Require the same empty snapshot within a bounded deadline.
+        deadline = time.monotonic() + 15
+        attempt = 0
+        while True:
+            state = checkpoint(f'disconnect-drain-{attempt}')
+            if not state['players'] or time.monotonic() >= deadline:
+                break
+            attempt += 1
+            time.sleep(.2)
         result['final'] = checkpoint('final')
         assert not result['final']['players']
         stop.write_text('normal sampler stop\n')

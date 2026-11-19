@@ -19,6 +19,7 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public final class RegionWorkerScope {
     private static final ThreadLocal<Boolean> NATIVE_WORKER = new ThreadLocal<>();
+    private static volatile int fallbackDepth;
 
     private RegionWorkerScope() {}
 
@@ -26,14 +27,38 @@ public final class RegionWorkerScope {
      * {@return true when the current thread executes work of a region worker pool}
      */
     public static boolean isNativeWorkerThread() {
-        return Boolean.TRUE.equals(NATIVE_WORKER.get());
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.inWorkerScope;
+        }
+        return fallbackDepth != 0 && Boolean.TRUE.equals(NATIVE_WORKER.get());
     }
 
     static void enter() {
-        NATIVE_WORKER.set(Boolean.TRUE);
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            worker.inWorkerScope = true;
+            return;
+        }
+        synchronized (RegionWorkerScope.class) {
+            if (!Boolean.TRUE.equals(NATIVE_WORKER.get())) {
+                NATIVE_WORKER.set(Boolean.TRUE);
+                ++fallbackDepth;
+            }
+        }
     }
 
     static void exit() {
-        NATIVE_WORKER.remove();
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            worker.inWorkerScope = false;
+            return;
+        }
+        synchronized (RegionWorkerScope.class) {
+            if (Boolean.TRUE.equals(NATIVE_WORKER.get())) {
+                NATIVE_WORKER.remove();
+                --fallbackDepth;
+            }
+        }
     }
 }

@@ -145,6 +145,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
 
     private static final ThreadLocal<RegionEntityOwnershipScope> CURRENT = new ThreadLocal<>();
     private static final ThreadLocal<Long> CURRENT_LEASE_ID = new ThreadLocal<>();
+    private static volatile int fallbackDepth;
     private static final AtomicLong NEXT_LEASE_ID = new AtomicLong();
     private static final AtomicLong ALLOWED_MUTATION_COUNT = new AtomicLong();
     private static final AtomicLong REJECTED_MUTATION_COUNT = new AtomicLong();
@@ -157,38 +158,81 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     private final long leaseId;
     @Nullable
     private final RegionEntityOwnershipScope previous;
-    @Nullable
-    private final Long previousLeaseId;
+    private final long previousLeaseId;
+    private final boolean fallbackThread;
     private boolean closed;
 
-    private RegionEntityOwnershipScope(RegionCoordinate coordinate, RegionOwnershipLeaseGroup group, long leaseId) {
+    private RegionEntityOwnershipScope(RegionCoordinate coordinate, RegionOwnershipLeaseGroup group, long leaseId,
+            @Nullable RegionEntityOwnershipScope previous, long previousLeaseId, boolean fallbackThread) {
         this.coordinate = coordinate;
         this.group = group;
         this.leaseId = leaseId;
-        this.previous = CURRENT.get();
-        this.previousLeaseId = CURRENT_LEASE_ID.get();
+        this.previous = previous;
+        this.previousLeaseId = previousLeaseId;
+        this.fallbackThread = fallbackThread;
+    }
+
+    @Nullable
+    private static RegionEntityOwnershipScope currentScope() {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.entityOwnershipScope;
+        }
+        return fallbackDepth != 0 ? CURRENT.get() : null;
+    }
+
+    private static synchronized void incrementFallback() {
+        ++fallbackDepth;
+    }
+
+    private static synchronized void decrementFallback() {
+        --fallbackDepth;
     }
 
     /**
      * Installs a new lease for the worker tick loop of {@code group} on the current thread.
      */
     static RegionEntityOwnershipScope open(RegionCoordinate coordinate, RegionOwnershipLeaseGroup group) {
-        final RegionEntityOwnershipScope scope = new RegionEntityOwnershipScope(coordinate, group, NEXT_LEASE_ID.incrementAndGet());
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            final long id = ++worker.nextEntityLeaseId;
+            final RegionEntityOwnershipScope scope = new RegionEntityOwnershipScope(
+                    coordinate, group, id, worker.entityOwnershipScope, worker.entityLeaseId, false);
+            worker.entityOwnershipScope = scope;
+            worker.entityLeaseId = id;
+            return scope;
+        }
+        final long id = NEXT_LEASE_ID.incrementAndGet();
+        final RegionEntityOwnershipScope prev = CURRENT.get();
+        final Long prevId = CURRENT_LEASE_ID.get();
+        if (prev == null) incrementFallback();
+        final RegionEntityOwnershipScope scope = new RegionEntityOwnershipScope(
+                coordinate, group, id, prev, prevId == null ? 0L : prevId.longValue(), true);
         CURRENT.set(scope);
-        CURRENT_LEASE_ID.set(scope.leaseId);
+        CURRENT_LEASE_ID.set(id);
         return scope;
     }
 
+    boolean isGroupAndLease(RegionOwnershipLeaseGroup expectedGroup, long currentLeaseId) {
+        return !this.closed && this.group == expectedGroup && this.leaseId == currentLeaseId;
+    }
+
     static boolean isCurrentGroup(RegionOwnershipLeaseGroup group) {
-        RegionEntityOwnershipScope scope = CURRENT.get();
-        return scope != null && scope.isActive() && scope.group == group;
+        RegionEntityOwnershipScope scope = currentScope();
+        return scope != null && scope.group == group && scope.isInstalledLease();
+    }
+
+    @Nullable
+    static RegionPlayerSpatialLease currentPlayerLease() {
+        var scope = currentScope();
+        return scope != null && scope.group instanceof RegionPlayerSpatialLease lease && scope.isInstalledLease() ? lease : null;
     }
 
     /**
      * {@return whether the lease of the current thread grants the entity mutation {@code operation}}
      * <p>
-     * The mutation is granted only while a lease is active, its lease id is the newest one of the current
-     * thread, its level is the entity's level, the operation is one of the
+     * The mutation is granted only while the open lease is installed on the current thread, its level is
+     * the entity's level, the operation is one of the
      * {@linkplain #GRANTABLE_OPERATIONS grantable vanilla mutations} or one of the
      * {@linkplain #GRANTABLE_REMOVAL_OPERATIONS grantable removals}, and the group owns the entity. A field
      * mutation additionally needs the entity not to be removed; a removal of an entity that is already
@@ -212,7 +256,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * record.
      */
     public static boolean grantsEntityMutation(ServerLevel level, Entity entity, String operation) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null || !scope.isActive()) {
             return false;
         }
@@ -338,7 +382,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      *         {@code false} when the caller keeps the storage refusal
      */
     public static boolean deferEntityAddition(ServerLevel level, Entity entity) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null
                 || !scope.isActive()
                 || !RegionWorkerScope.isNativeWorkerThread()
@@ -373,7 +417,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * so a half graph is never admitted.
      */
     public static boolean deferSpawnAddition(ServerLevel level, Entity entity) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null
                 || !scope.isActive()
                 || !RegionWorkerScope.isNativeWorkerThread()
@@ -413,7 +457,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      *         {@code false} when the caller keeps it
      */
     public static boolean deferPortalTransition(ServerLevel level, Entity entity) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null
                 || !scope.isActive()
                 || !RegionWorkerScope.isNativeWorkerThread()
@@ -463,7 +507,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      */
     @Nullable
     static RegionCoordinate queryCoordinate(ServerLevel level) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null
                 || !scope.isActive()
                 || !RegionWorkerScope.isNativeWorkerThread()
@@ -528,9 +572,16 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     public static boolean deferEntitySectionUpdate(Entity entity, EntityInLevelCallback callback, double x, double y, double z) {
         final RegionEntityOwnershipScope scope = sectionUpdateOwner(entity);
         if (scope == null) {
+            RegionPlayerSpatialLease playerSpace = RegionPlayerSpatialLease.current();
+            if (playerSpace != null) playerSpace.requirePosition(entity, x, y, z);
             return false;
         }
-        if (scope.group instanceof RegionPlayerSpatialLease playerSpace) playerSpace.requirePosition(entity, x, y, z);
+        if (scope.group instanceof RegionPlayerSpatialLease playerSpace) {
+            // setPosRaw does not call onMove when coordinates are unchanged. The exact loaded
+            // chunk in this lease already satisfies the remaining vanilla FULL-chunk access.
+            if (playerSpace.alreadyLoadedAtUnchangedPosition(entity, x, y, z)) return true;
+            playerSpace.requirePosition(entity, x, y, z);
+        }
         final long targetSection = SectionPos.asLong(
                 SectionPos.posToSectionCoord(x),
                 SectionPos.posToSectionCoord(y),
@@ -564,7 +615,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * not depend on the section seam of the batch, because no update is recorded for a removed entity.
      */
     public static boolean skipsSectionUpdateOfRemovedEntity(Entity entity) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         return entity.isRemoved()
                 && scope != null
                 && scope.isActive()
@@ -597,7 +648,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * @return {@code true} when the caller must skip the level callback, because the barrier runs it instead
      */
     public static boolean deferEntityRemoval(Entity entity, EntityInLevelCallback callback, Entity.RemovalReason reason) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null
                 || !scope.isActive()
                 || !RegionWorkerScope.isNativeWorkerThread()
@@ -618,7 +669,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      */
     @Nullable
     private static RegionEntityOwnershipScope sectionUpdateOwner(Entity entity) {
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null
                 || !scope.isActive()
                 || !RegionWorkerScope.isNativeWorkerThread()
@@ -634,11 +685,22 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * {@return true while this scope is the open, newest lease of the current thread}
      */
     private boolean isActive() {
+        return currentScope() == this && this.isInstalledLease();
+    }
+
+    private boolean isInstalledLease() {
+        if (this.closed) {
+            return false;
+        }
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.entityLeaseId == this.leaseId;
+        }
+        if (fallbackDepth == 0) {
+            return false;
+        }
         final Long currentLeaseId = CURRENT_LEASE_ID.get();
-        return !this.closed
-                && CURRENT.get() == this
-                && currentLeaseId != null
-                && currentLeaseId.longValue() == this.leaseId;
+        return currentLeaseId != null && currentLeaseId.longValue() == this.leaseId;
     }
 
     /**
@@ -652,18 +714,29 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     @Override
     public void close() {
         this.closed = true;
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            if (worker.entityOwnershipScope != this) {
+                return;
+            }
+            worker.entityOwnershipScope = this.previous;
+            worker.entityLeaseId = this.previousLeaseId;
+            return;
+        }
         if (CURRENT.get() != this) {
             return;
         }
         if (this.previous == null) {
             CURRENT.remove();
+            CURRENT_LEASE_ID.remove();
+            if (this.fallbackThread) decrementFallback();
         } else {
             CURRENT.set(this.previous);
-        }
-        if (this.previousLeaseId == null) {
-            CURRENT_LEASE_ID.remove();
-        } else {
-            CURRENT_LEASE_ID.set(this.previousLeaseId);
+            if (this.previousLeaseId == 0L) {
+                CURRENT_LEASE_ID.remove();
+            } else {
+                CURRENT_LEASE_ID.set(this.previousLeaseId);
+            }
         }
     }
 
@@ -699,7 +772,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     @Nullable
     static RegionCoordinate currentLeaseCoordinate(ServerLevel level) {
         if (RegionPlayerSpatialLease.current() != null) throw new IllegalStateException("Player unbounded index/POI access has no complete spatial contract");
-        final RegionEntityOwnershipScope scope = CURRENT.get();
+        final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null || !scope.isActive() || !RegionWorkerScope.isNativeWorkerThread()) {
             return null;
         }

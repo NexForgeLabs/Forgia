@@ -34,6 +34,11 @@ final class RegionPlayerScopedQuery {
 
     static List<Entity> query(ServerLevel level, @Nullable Entity excluded, AABB box, Predicate<? super Entity> predicate) {
         List<Entity> result = new ArrayList<>();
+        RegionPlayerSpatialLease lease = RegionPlayerSpatialLease.current();
+        if (lease != null && lease.excludesOnlyMember(level, excluded, box)) {
+            RegionEntityOwnershipScope.recordAllowedQuery();
+            return result;
+        }
         visit(level, box, entity -> {
             if (entity != excluded && predicate.test(entity)) result.add(entity);
             return AbortableIterationConsumer.Continuation.CONTINUE;

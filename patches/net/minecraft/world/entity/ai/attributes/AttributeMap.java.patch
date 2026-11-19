@@ -1,13 +1,28 @@
 --- a/net/minecraft/world/entity/ai/attributes/AttributeMap.java
 +++ b/net/minecraft/world/entity/ai/attributes/AttributeMap.java
-@@ -27,2 +_,9 @@
+@@ -27,2 +_,24 @@
 +    /** Original per-player objects; used to detect aliases before dispatch, never copied for execution. */
 +    public java.util.List<Object> forgiaPlayerLocalObjects() {
-+        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
 +        java.util.List<Object> result = new java.util.ArrayList<>();
-+        result.add(this); result.addAll(this.attributes.values());
++        this.forgiaCollectPlayerLocalAttributes(result);
 +        return result;
 +    }
++
++    public void forgiaCollectPlayerLocalAttributes(java.util.List<Object> destination) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
++        destination.add(this);
++        for (var attribute : this.attributes.values()) destination.add(attribute);
++    }
++
++    public int forgiaMatchesPlayerLocalAttributes(Object[] expected, int index) {
++        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
++        if (index >= expected.length || expected[index++] != this) return -1;
++        for (var attribute : this.attributes.values()) {
++            if (index >= expected.length || expected[index++] != attribute) return -1;
++        }
++        return index;
++    }
++
      public AttributeMap(AttributeSupplier p_22144_) {
          this.supplier = p_22144_;
 @@ -51,2 +_,3 @@

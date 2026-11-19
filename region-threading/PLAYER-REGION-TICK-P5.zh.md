@@ -111,3 +111,25 @@ native其余三模式已通过上述完整动作/恢复（`operations05`）。�
 按用户要求停止本轮专项前的回归队列。`.154` fixed 开启组延长恢复测试已走过 11 个操作窗口及 1 个重连周期，随后中断；原 runner 非零、服务端和客户端退出均为 0，不计该套通过。另一个池的延长恢复、`.154` 混合 Mod 操作和 payload 安装回归、旧外来观察者饥饿场景未运行。此前 `.152` 的对应证据范围不变；真实 Create/Jade 客户端、多小时长稳和旧 watchdog 环境断档根因仍未闭合。
 
 下一会话从 `.154` 开始：先用相同 32 人夹具重复两池 on/off 对照，并将主线程准入、租约前后校验、提交到真实 join 和 join 后清理分别计时，再决定是否合并重复校验。较早 JFR 的热区见 `tmp/player-region-tick-p5-opt01/profile-summary.txt`；诊断录制并非正常对照。保留高尾延迟、写盘失败和中断原证据，无隔离测试进程继续运行。
+
+## `.221` 调度延迟专项优化（2026-11-19）
+
+在保持默认关闭、未知 Mod/监听器/回调完整串行、租约与物理 join 合同不变的前提下，完成纯 Java 调度与准入热路径专项优化，候选 `21.1.250.221-beta` 通过全部 **414 项 JUnit**（`*RegionPlayer*` + `*RegionPayload*`）及 32 真实 TCP 客户端 `verify_player_scale.py` 验收（含 `spread` / `same` / `boundary` 三分布及跨区攻击 `20→19`）。
+
+主要改动：
+- 新增专用 `RegionWorkerThread`，将 `RegionWorkerScope`、`RegionTickBatch`、`RegionEntityOwnershipScope`（原始 `long` 租约号 + 线程本地递增）、`RegionPlayerSpatialLease`、`RegionPlayerStateScope`、`RegionPlayerTickCoordinator.WORKER_INVOCATION`、`RegionWorkerPool.RuntimeCounters` 从高频 `ThreadLocal` 探针迁移为线程直访字段（非 Worker 线程保留回退路径）。
+- `RegionWorkerPool.preWake` 在 `dispatchPlayerPrefix` 入口提前唤醒持久化 Worker，将 ~90 µs OS futex 唤醒与主线程准入/租约重叠；`RegionTaskBatch.Barrier.awaitCompletion()` 与 `StartGate.ready()` 引入有界自旋后回退阻塞。
+- `RegionPlayerExtensionSnapshot` 缓存不可变 `firstUnknownProvider` 并对 37 个事件的实时 `ListenerList.getListeners()` 数组做引用恒等快速路径；`RegionPlayerAdmissionPlan` 的 19 个 `IntrinsicFields` 从反射 `Field` 升级为 `VarHandle` 并消除 `mainSupportingBlockPos.stream()`；`RegionPlayerSpatialPlan.isEyeInWall()` 直接查已捕获 chunk 替代 `BlockPos.betweenClosedStream`。
+- `ServerPlayer.forgiaMatchesLocalTemplateResources` 将多趟容器/属性/同步器与局部对象引用校验合并为单趟零分配遍历，消除 `InventoryMenu` / `AbstractContainerMenu` 中 `.stream().allMatch(...)`；模板新增 O(1) 开放寻址 `ownedTable` 替代 `owns()` 线性扫描；单 Region 9-chunk 按 generation 缓存、单成员/单 section bucket 快路径、`Long2ObjectOpenHashMap` 替代 `pending` 装箱、复用未变 `owner.binding` 及批量 `finishWorkerPrefix`。
+
+32 真实 TCP 客户端 `n32-spread`（10s 预热 / 30s 测量，全部通过 `verify_player_scale.py`）：
+
+| 版本与配置 | Tick Mean (ms) | Tick p50 (ms) | Tick p99 (ms) | Ping p99 (ms) | 相对同版串行 / `.154` 开 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `.154` persistent 关（历史串行基线） | 5.896 | 5.695 | 9.103 | 11.117 | — |
+| `.154` persistent 开（历史开启基线） | 58.297 | 55.900 | 90.793 | 314.110 | — |
+| `.221` persistent 关（串行，2 轮均值） | 4.237 | 4.073 | 6.134 | 6.027 | 串行基线（较 `.154` 关降 28.1%） |
+| `.221` persistent 开（2 Workers，r2 / 2 轮均值） | 4.223 / 4.332 | 4.082 / 4.182 | 5.670 / 6.114 | 6.179 / 6.290 | 与串行基本持平 / 较 `.154` 开快 ~13.5× |
+| `.221` persistent 开（4 Workers） | **3.965** | **3.800** | 6.517 | 6.346 | **较同版串行降 6.4%（p50 降 6.7%）** / 较 `.154` 开快 ~14.7× |
+
+`prefixTiming`（2 Workers，`n32-spread`）显示两阶段合计总调度开销由接手基线 `ab212` 的 **2.450 ms/tick** 降至 **0.918 ms/tick**（`workerWake` 186→42 µs、`barrierWake` 75→6 µs、`workerWrapper` 1.207→0.273 ms），其中 `CONNECTION` 单阶段壁钟（1.105–1.123 ms）已低于其串行正文（1.217–1.228 ms）。本次测试临时目录 `tmp/player-region-tick-latency02/` 已在验收记录后清理；多小时长稳、真实 Create/Jade 客户端与混合 Mod 回归范围仍沿用前文说明。

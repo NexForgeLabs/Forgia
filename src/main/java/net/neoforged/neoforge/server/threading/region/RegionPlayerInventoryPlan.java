@@ -19,26 +19,33 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public final class RegionPlayerInventoryPlan {
     private record Stack(ItemStack original, int count, Object components) {
+        private static final Stack EMPTY = new Stack(ItemStack.EMPTY);
+
+        static Stack capture(ItemStack stack) {
+            return stack == ItemStack.EMPTY ? EMPTY : new Stack(stack);
+        }
+
         Stack(ItemStack stack) {
             this(stack, stack.getCount(), stack.getComponents());
         }
 
-        boolean current(ItemStack stack) {
-            return stack == original && stack.getCount() == count && stack.getComponents() == components && supportedStack(stack);
+        boolean current(ItemStack stack, boolean mustBeEmpty) {
+            if (stack != original) return false;
+            if (this == EMPTY) return true;
+            return stack.getCount() == count && stack.getComponents() == components && (mustBeEmpty ? stack.isEmpty() : supportedStack(stack));
         }
     }
 
     private final ServerPlayer player;
     private final int selected;
-    private final List<Stack> slots;
+    private final Stack[] slots;
     private final Map<ItemEntity, Stack> pickups;
 
-    private RegionPlayerInventoryPlan(ServerPlayer player, Map<ItemEntity, Stack> pickups) {
+    private RegionPlayerInventoryPlan(ServerPlayer player, int selected, Stack[] slots, Map<ItemEntity, Stack> pickups) {
         this.player = player;
-        this.selected = player.getInventory().selected;
-        this.slots = new ArrayList<>();
-        for (int i = 0; i < 41; i++) this.slots.add(new Stack(player.getInventory().getItem(i)));
-        this.pickups = java.util.Collections.unmodifiableMap(new IdentityHashMap<>(pickups));
+        this.selected = selected;
+        this.slots = slots;
+        this.pickups = pickups.isEmpty() ? Map.of() : java.util.Collections.unmodifiableMap(pickups);
     }
 
     public static boolean supportedStack(ItemStack stack) {
@@ -62,7 +69,15 @@ public final class RegionPlayerInventoryPlan {
 
     static RegionPlayerInventoryPlan capture(RegionPlayerSpatialPlan spatial) {
         ServerPlayer player = spatial.player();
-        if (!supportedInventory(player)) return null;
+        var inventory = player.getInventory();
+        int selected = inventory.selected;
+        if (inventory.getContainerSize() != 41 || selected < 0 || selected >= 9) return null;
+        Stack[] slots = new Stack[41];
+        for (int i = 0; i < 41; i++) {
+            ItemStack stack = inventory.getItem(i);
+            if ((i == selected || i >= 36) ? !stack.isEmpty() : !supportedStack(stack)) return null;
+            slots[i] = Stack.capture(stack);
+        }
         Map<ItemEntity, Stack> pickups = new IdentityHashMap<>();
         for (var target : spatial.members().keySet()) {
             if (target instanceof ItemEntity item && target.getBoundingBox().intersects(spatial.footprint().queryBounds())) {
@@ -70,11 +85,12 @@ public final class RegionPlayerInventoryPlan {
                 pickups.put(item, new Stack(item.getItem()));
             }
         }
-        var result = new RegionPlayerInventoryPlan(player, pickups);
+        var result = new RegionPlayerInventoryPlan(player, selected, slots, pickups);
         return result.capacityClosed() ? result : null;
     }
 
     private boolean capacityClosed() {
+        if (pickups.isEmpty()) return true;
         // Only existing non-equipped stacks may receive the pickup. The sum is independent of
         // original query order, and prevents Inventory.add from selecting any empty equipment slot.
         Map<Item, Integer> room = new IdentityHashMap<>();
@@ -93,14 +109,26 @@ public final class RegionPlayerInventoryPlan {
     }
 
     boolean current(RegionPlayerSpatialPlan spatial) {
+        return this.current(spatial, false);
+    }
+
+    boolean current(RegionPlayerSpatialPlan spatial, boolean rebindLocalTemplate) {
         var inventory = player.getInventory();
-        if (!supportedInventory(player) || inventory.selected != selected) return false;
-        for (int i = 0; i < slots.size(); i++) if (!slots.get(i).current(inventory.getItem(i))) return false;
+        int currentSlot = inventory.selected;
+        Stack[] captured = this.slots;
+        if (inventory.getContainerSize() != captured.length || currentSlot < 0 || currentSlot >= 9
+                || (currentSlot != selected && (!rebindLocalTemplate || !this.pickups.isEmpty()))) return false;
+        for (int i = 0; i < captured.length; i++) {
+            if (!captured[i].current(inventory.getItem(i), i == currentSlot || i >= 36)) return false;
+        }
+        if (this.pickups.isEmpty() && spatial.members().size() == 1) {
+            return true;
+        }
         int found = 0;
         for (var entity : spatial.members().keySet()) {
             if (entity instanceof ItemEntity item && entity.getBoundingBox().intersects(spatial.footprint().queryBounds())) {
                 Stack stack = pickups.get(item);
-                if (stack == null || !stack.current(item.getItem())) return false;
+                if (stack == null || !stack.current(item.getItem(), false)) return false;
                 found++;
             }
         }

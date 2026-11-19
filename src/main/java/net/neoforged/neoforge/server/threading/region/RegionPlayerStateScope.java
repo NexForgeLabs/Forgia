@@ -22,32 +22,68 @@ import org.jetbrains.annotations.Nullable;
 @ApiStatus.Internal
 public final class RegionPlayerStateScope implements AutoCloseable {
     private static final ThreadLocal<RegionPlayerStateScope> CURRENT = new ThreadLocal<>();
+    private static volatile int fallbackDepth;
     @Nullable
     private RegionPlayerStatePlan plan;
     @Nullable
     private RegionPlayerSpatialLease lease;
     private final Thread worker;
 
-    private RegionPlayerStateScope(RegionPlayerSpatialLease lease, RegionPlayerStatePlan plan) {
+    private RegionPlayerStateScope(RegionPlayerSpatialLease lease, RegionPlayerStatePlan plan, Thread worker) {
         this.lease = lease;
         this.plan = plan;
-        this.worker = Thread.currentThread();
+        this.worker = worker;
+    }
+
+    @Nullable
+    private static RegionPlayerStateScope currentSlot() {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.playerStateScope;
+        }
+        return fallbackDepth != 0 ? CURRENT.get() : null;
+    }
+
+    private static synchronized void incrementFallback() {
+        ++fallbackDepth;
+    }
+
+    private static synchronized void decrementFallback() {
+        --fallbackDepth;
     }
 
     static RegionPlayerStateScope open(RegionPlayerSpatialLease lease, RegionPlayerStatePlan plan) {
-        if (CURRENT.get() != null || RegionPlayerSpatialLease.current() != lease || !lease.hasStatePlan(plan)
-                || !lease.owns(plan.player()) || !lease.geometryCurrent(plan.spatial()) || !plan.consume())
+        return open(lease, plan, false);
+    }
+
+    static RegionPlayerStateScope open(RegionPlayerSpatialLease lease, RegionPlayerStatePlan plan, boolean laneExtensionsVerified) {
+        final Thread current = Thread.currentThread();
+        if (currentSlot() != null || RegionPlayerSpatialLease.current() != lease || !lease.hasStatePlan(plan)
+                || !lease.owns(plan.player()) || !lease.geometryCurrent(plan.spatial(), laneExtensionsVerified) || !plan.consume(laneExtensionsVerified))
             throw new IllegalStateException("No current original player state/lease binding");
-        RegionPlayerStateScope scope = new RegionPlayerStateScope(lease, plan);
-        CURRENT.set(scope);
+        RegionPlayerStateScope scope = new RegionPlayerStateScope(lease, plan, current);
+        if (current instanceof RegionWorkerThread wt) {
+            wt.playerStateScope = scope;
+        } else {
+            incrementFallback();
+            CURRENT.set(scope);
+        }
         return scope;
     }
 
     @Nullable
     public static RegionPlayerStateScope current() {
-        RegionPlayerStateScope scope = CURRENT.get();
-        return scope != null && scope.worker == Thread.currentThread() && scope.plan != null && scope.lease != null
-                && RegionPlayerSpatialLease.current() == scope.lease && scope.plan.currentOwner() ? scope : null;
+        RegionPlayerStateScope scope = currentSlot();
+        return scope != null && scope.isCurrent() ? scope : null;
+    }
+
+    private boolean isCurrent() {
+        return this.worker == Thread.currentThread() && this.plan != null && this.lease != null
+                && RegionPlayerSpatialLease.current() == this.lease && this.plan.currentOwner(this.lease);
+    }
+
+    boolean bindsPlayer(ServerPlayer player) {
+        return this.plan != null && this.plan.player() == player;
     }
 
     /** Reuses the existing level-random router for incidental vanilla draws (even empty shoulders). */
@@ -65,7 +101,14 @@ public final class RegionPlayerStateScope implements AutoCloseable {
 
     /** Keeps ordinary non-player worker contracts untouched; active player scopes cannot access foreign state. */
     public static void checkLocal(Object object) {
-        if (CURRENT.get() != null && !require().owns(object)) throw new IllegalStateException("Foreign player-local state object");
+        RegionPlayerStateScope scope = currentSlot();
+        if (scope != null && (!scope.isCurrent() || !scope.plan.owns(object))) throw new IllegalStateException("Foreign player-local state object");
+    }
+
+    /** A consumed isolated player cannot introduce a complex stack during its original tick. */
+    public static boolean hasOnlyPlainLocalInventory(ServerPlayer player) {
+        var scope = current();
+        return scope != null && scope.plan.player() == player && scope.plan.hasOnlyPlainLocalInventory();
     }
 
     /** Native access to advancement storage always needs this exact original owner, even with no scope. */
@@ -90,21 +133,21 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void checkReward(AdvancementRewards reward, ServerPlayer player) {
-        if (RegionWorkerScope.isNativeWorkerThread() || CURRENT.get() != null) {
+        if (RegionWorkerScope.isNativeWorkerThread() || currentSlot() != null) {
             var plan = require();
             if (plan.player() != player || !plan.allowsReward(reward)) throw new IllegalStateException("Uncaptured synchronous reward");
         }
     }
 
     public static void checkExperience(Player player, int amount) {
-        if (CURRENT.get() != null) {
+        if (currentSlot() != null) {
             var plan = require();
             if (plan.player() != player || !plan.takeExperience(amount)) throw new IllegalStateException("XP result exceeds captured local reward branch");
         }
     }
 
     public static boolean emptyObjectives(Scoreboard scoreboard, ObjectiveCriteria criterion, Object holder) {
-        if (CURRENT.get() == null) return false;
+        if (currentSlot() == null) return false;
         if (!require().allowsScoreboard(scoreboard, criterion, holder)) throw new IllegalStateException("Player scoreboard mutation requires a complete serial fence");
         return require().emptyScoreboard(scoreboard, criterion, holder); // Nonempty captured objectives retain the complete ORIGINAL traversal/consumer/dirty callback.
     }
@@ -114,22 +157,22 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void checkDamage(net.minecraft.world.entity.Entity target, net.minecraft.world.damagesource.DamageSource source, float amount) {
-        if (CURRENT.get() != null) require().checkDamage(target, source, amount);
+        if (currentSlot() != null) require().checkDamage(target, source, amount);
     }
 
     public static void checkMapCarrier(net.minecraft.world.level.saveddata.maps.MapItemSavedData data, Player player) {
-        if (CURRENT.get() != null) require().checkMapCarrier(data, player);
+        if (currentSlot() != null) require().checkMapCarrier(data, player);
     }
 
     public static void checkObjective(Scoreboard board, Object holder, net.minecraft.world.scores.Objective objective) {
-        if (CURRENT.get() != null && !require().allowsObjective(board, holder, objective))
+        if (currentSlot() != null && !require().allowsObjective(board, holder, objective))
             throw new IllegalStateException("Uncaptured player/objective scoreboard mutation");
     }
 
     @Nullable
     @SuppressWarnings("unchecked")
     public static <T> Stat<T> stat(StatType<T> type, T value) {
-        if (CURRENT.get() == null) return null;
+        if (currentSlot() == null) return null;
         Stat<?> stat = require().stat(type, value);
         if (stat == null) throw new IllegalStateException("Uncaptured global stat cache lookup");
         return (Stat<T>) stat;
@@ -145,18 +188,24 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static boolean hasThreadBinding() {
-        return CURRENT.get() != null;
+        return currentSlot() != null;
     }
 
     public static void rejectServicePump() {
-        if (CURRENT.get() != null) throw new IllegalStateException("Owner-local player branch cannot pump arbitrary server work");
+        if (currentSlot() != null) throw new IllegalStateException("Owner-local player branch cannot pump arbitrary server work");
     }
 
     @Override
     public void close() {
         if (plan == null) return;
-        if (worker != Thread.currentThread() || CURRENT.get() != this) throw new IllegalStateException("Player state scope must physically return on its worker");
-        CURRENT.remove();
+        final Thread currentThread = Thread.currentThread();
+        if (worker != currentThread || currentSlot() != this) throw new IllegalStateException("Player state scope must physically return on its worker");
+        if (currentThread instanceof RegionWorkerThread wt) {
+            wt.playerStateScope = null;
+        } else {
+            CURRENT.remove();
+            decrementFallback();
+        }
         plan = null;
         lease = null;
     }

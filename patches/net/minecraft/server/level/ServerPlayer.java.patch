@@ -11,10 +11,26 @@
              ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(p_143455_.containerId, p_143456_, p_143457_));
          }
      };
-@@ -490,6 +_,34 @@
+@@ -490,6 +_,85 @@
++    // Publisher-only reusable observations for the exact original player. Never retains a spatial lease.
++    private net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template[] forgiaPlayerStateTemplates;
++
++    public net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template forgiaPlayerStateTemplate(int phase) {
++        return this.forgiaPlayerStateTemplates == null ? null : this.forgiaPlayerStateTemplates[phase];
++    }
++
++    public void forgiaPlayerStateTemplate(int phase, net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template template) {
++        if (this.forgiaPlayerStateTemplates == null) {
++            if (template == null) return;
++            this.forgiaPlayerStateTemplates = new net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template[3];
++        }
++        this.forgiaPlayerStateTemplates[phase] = template;
++    }
++
 +    /** Original local object and optional-state prerequisites, independent of callback admission. */
 +    public boolean forgiaHasLocalStateBindings() {
-+        return net.neoforged.neoforge.server.threading.region.RegionPlayerContainerPlan.supportedMenu(this) && this.inventoryMenu.getClass() == net.minecraft.world.inventory.InventoryMenu.class
++        return (this.containerMenu == this.inventoryMenu || net.neoforged.neoforge.server.threading.region.RegionPlayerContainerPlan.supportedMenu(this))
++            && this.inventoryMenu.getClass() == net.minecraft.world.inventory.InventoryMenu.class
 +            && this.inventoryMenu.forgiaIsLocalTo(this)
 +            && this.inventoryMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer)
 +            && (this.containerMenu == this.inventoryMenu || this.containerMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer))
@@ -23,10 +39,45 @@
 +            && this.getStats().getClass() == net.minecraft.stats.ServerStatsCounter.class;
 +    }
 +
++    /** Single-pass zero-allocation template verification for the simple inventoryMenu branch. */
++    public static boolean forgiaMatchesLocalTemplateResources(ServerPlayer player, Object[] expected) {
++        if (player.containerListener == null || player.containerSynchronizer == null) return false;
++        if (player.containerMenu != player.inventoryMenu
++            || player.inventoryMenu.getClass() != net.minecraft.world.inventory.InventoryMenu.class
++            || player.getFoodData().getClass() != net.minecraft.world.food.FoodData.class
++            || player.getCooldowns().getClass() != net.minecraft.world.item.ServerItemCooldowns.class
++            || player.getStats().getClass() != net.minecraft.stats.ServerStatsCounter.class) {
++            return false;
++        }
++        int index = 0;
++        if (expected.length < 13
++            || expected[index++] != player
++            || expected[index++] != player.getAdvancements()
++            || expected[index++] != player.getAdvancements().forgiaCriterionListeners()
++            || expected[index++] != player.getStats()
++            || expected[index++] != player.getAttributes()
++            || expected[index++] != player.getFoodData()
++            || expected[index++] != player.getCooldowns()
++            || expected[index++] != player.getInventory()
++            || expected[index++] != player.inventoryMenu
++            || expected[index++] != player.connection
++            || expected[index++] != player.connection.getConnection()
++            || expected[index++] != player.gameMode) {
++            return false;
++        }
++        var warden = player.getWardenSpawnTracker();
++        if (warden.isPresent() && (index >= expected.length || expected[index++] != warden.get())) return false;
++        index = player.getAttributes().forgiaMatchesPlayerLocalAttributes(expected, index);
++        if (index < 0) return false;
++        index = player.inventoryMenu.forgiaMatchesPlayerLocalContainers(expected, index, player, player.containerListener, player.containerSynchronizer);
++        return index == expected.length;
++    }
++
++    // The admission plan separately checks the whole inventory while capturing/comparing its slots.
 +    public boolean forgiaHasSimpleSharedState() {
 +        return this.levitationStartPos == null && this.startingToFallPosition == null && this.enteredLavaOnVehiclePosition == null
 +            && this.getCamera() == this && !this.isSleeping() && this.getFoodData().getFoodLevel() >= 0
-+            && net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedInventory(this) && this.getActiveEffects().isEmpty() && this.getUseItem().isEmpty();
++            && this.getActiveEffects().isEmpty() && this.getUseItem().isEmpty();
 +    }
 +
 +    /** Neo: spatial prerequisite only; never a callback, lifecycle or worker-admission proof. */
@@ -56,6 +107,10 @@
 +            if (playerPhase != null) playerPhase.close();
 +        }
      }
+@@ -555,1 +_,2 @@
+-            for (int i = 0; i < this.getInventory().getContainerSize(); i++) {
++            boolean scanComplexItems = !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasOnlyPlainLocalInventory(this);
++            for (int i = 0; scanComplexItems && i < this.getInventory().getContainerSize(); i++) {
 @@ -606,6 +_,11 @@
                  this.connection.send(new ClientboundSetExperiencePacket(this.experienceProgress, this.totalExperience, this.experienceLevel));
              }

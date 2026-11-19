@@ -226,7 +226,7 @@ public final class RegionThreadingHooks {
         final var scope = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
         if (scope != null) {
             if (!(level instanceof ServerLevel serverLevel)) throw new IllegalStateException("Player block access crossed level");
-            scope.requireBlock(serverLevel, new BlockPos(x, y, z));
+            scope.requireBlock(serverLevel, x, y, z);
         }
     }
 
@@ -530,8 +530,6 @@ public final class RegionThreadingHooks {
      *         acquisition, because the barrier applies them instead
      */
     public static boolean deferEntitySectionUpdate(Entity entity, EntityInLevelCallback callback, double x, double y, double z) {
-        final var playerSpace = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
-        if (playerSpace != null) playerSpace.requirePosition(entity, x, y, z);
         return RegionEntityOwnershipScope.deferEntitySectionUpdate(entity, callback, x, y, z);
     }
 
@@ -1311,8 +1309,20 @@ public final class RegionThreadingHooks {
         return vanilla;
     }
 
-    /** Foreign scalar reads use a bounded seqlock; a refusal never replays a partially executed callback. */
+    /** Checks the complete player footprint and exact chunk in one scalar-read guard. */
+    public static boolean requiresStableForeignReadAt(net.minecraft.world.level.chunk.LevelChunk chunk, int x, int y, int z) {
+        if (net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.checkCapturedBlock(chunk, x, y, z)) return false;
+        return requiresStableNonPlayerRead(chunk);
+    }
+
+    /** Foreign scalar reads use a bounded seqlock. */
     public static boolean requiresStableForeignRead(net.minecraft.world.level.chunk.LevelChunk chunk) {
+        final var playerSpace = net.neoforged.neoforge.server.threading.region.RegionPlayerSpatialLease.current();
+        if (playerSpace != null && playerSpace.ownsCapturedChunk(chunk)) return false;
+        return requiresStableNonPlayerRead(chunk);
+    }
+
+    private static boolean requiresStableNonPlayerRead(net.minecraft.world.level.chunk.LevelChunk chunk) {
         final boolean resourceRead = BlockEntityResourceOwnership.Scope.checkChunk(chunk, false);
         if (FurnaceWorkScope.checkChunk(chunk, false) || resourceRead) return false;
         RegionBlockEntityWorkGraph.chunkAccess(chunk, false);

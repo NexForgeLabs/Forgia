@@ -163,7 +163,7 @@ final class PlayerRegionTransitions {
     /** Player-stage publication is also quiescent after the original entity groups physically joined. */
     void publishAtPlayerStage(RegionThreadingEngine engine, ServerPlayer player) {
         ServerLevel level = player.serverLevel();
-        if (engine.isShutDown() || engine.isLevelClosed(level) || !engine.isQuiescentForParallelApi()) {
+        if (engine.isShutDown() || engine.isLevelClosed(level) || !engine.playerCaptureQuiescent()) {
             this.refusedTransitions.incrementAndGet();
             return;
         }

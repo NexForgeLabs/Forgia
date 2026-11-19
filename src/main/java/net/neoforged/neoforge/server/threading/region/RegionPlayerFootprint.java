@@ -20,6 +20,7 @@ public final class RegionPlayerFootprint {
     private final int regionChunks;
     private final AABB queries;
     private final AABB blocks;
+    private final double minBlockX, minBlockY, minBlockZ, maxBlockX, maxBlockY, maxBlockZ;
     private final List<RegionCoordinate> regions;
 
     private RegionPlayerFootprint(ServerLevel level, int regionChunks, AABB queries, AABB blocks, List<RegionCoordinate> regions) {
@@ -27,7 +28,17 @@ public final class RegionPlayerFootprint {
         this.regionChunks = regionChunks;
         this.queries = queries;
         this.blocks = blocks;
+        this.minBlockX = Math.floor(blocks.minX);
+        this.minBlockY = Math.floor(blocks.minY);
+        this.minBlockZ = Math.floor(blocks.minZ);
+        this.maxBlockX = Math.floor(blocks.maxX);
+        this.maxBlockY = Math.floor(blocks.maxY);
+        this.maxBlockZ = Math.floor(blocks.maxZ);
         this.regions = List.copyOf(regions);
+    }
+
+    static RegionPlayerFootprint localEntity(ServerLevel level, int regionChunks, RegionCoordinate home, AABB body) {
+        return new RegionPlayerFootprint(level, regionChunks, body, body, List.of(home));
     }
 
     /**
@@ -83,9 +94,12 @@ public final class RegionPlayerFootprint {
     public boolean containsBlock(ServerLevel level, BlockPos pos) {
         // Vanilla block scans enumerate integer cell origins from floor(min) through floor(max).
         // Comparing an origin against fractional min would reject the first ORIGINAL collision cell.
-        return level == this.level && pos.getX() >= Math.floor(this.blocks.minX) && pos.getX() <= Math.floor(this.blocks.maxX)
-                && pos.getY() >= Math.floor(this.blocks.minY) && pos.getY() <= Math.floor(this.blocks.maxY)
-                && pos.getZ() >= Math.floor(this.blocks.minZ) && pos.getZ() <= Math.floor(this.blocks.maxZ);
+        return this.containsBlock(level, pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    boolean containsBlock(ServerLevel level, int x, int y, int z) {
+        return level == this.level && x >= this.minBlockX && x <= this.maxBlockX
+                && y >= this.minBlockY && y <= this.maxBlockY && z >= this.minBlockZ && z <= this.maxBlockZ;
     }
 
     public boolean containsQuery(ServerLevel level, AABB box) {

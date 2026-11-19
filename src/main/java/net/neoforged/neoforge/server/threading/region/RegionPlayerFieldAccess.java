@@ -19,7 +19,7 @@ final class RegionPlayerFieldAccess {
 
     private RegionPlayerFieldAccess() {}
 
-    static Object read(Object receiver, Class<?> type, String name) throws ReflectiveOperationException {
+    static Field resolve(Class<?> type, String name) throws ReflectiveOperationException {
         var fields = FIELDS.get(type);
         Field field = fields.get(name);
         if (field == null) {
@@ -28,6 +28,10 @@ final class RegionPlayerFieldAccess {
             Field existing = fields.putIfAbsent(name, field);
             if (existing != null) field = existing;
         }
-        return field.get(receiver);
+        return field;
+    }
+
+    static Object read(Object receiver, Class<?> type, String name) throws ReflectiveOperationException {
+        return resolve(type, name).get(receiver);
     }
 }

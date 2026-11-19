@@ -61,7 +61,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
      * thread, so a worker that just finished a group of the previous batch finds the next one while spinning;
      * an idle worker parks after at most this many iterations and costs no CPU.
      */
-    private static final int SPIN_ATTEMPTS = 128;
+    private static final int SPIN_ATTEMPTS = 256;
     /** Longest a parked worker sleeps before it re-checks its own and the other deques. */
     private static final long PARK_NANOS = 1_000_000L;
     /**
@@ -314,6 +314,28 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
         }
     }
 
+    /**
+     * Hints that up to {@code count} persistent workers will receive a short batch shortly
+     * (e.g. after publisher admission), overlapping OS wake-up latency with server-thread setup.
+     */
+    void preWake(int count) {
+        if (this.workers == null || this.closed || count <= 0) {
+            return;
+        }
+        final long deadline = System.nanoTime() + 450_000L;
+        int woken = 0;
+        for (final Worker worker : this.workers) {
+            if (woken >= count) {
+                break;
+            }
+            worker.preWakeDeadlineNanos = deadline;
+            if (worker.parked) {
+                LockSupport.unpark(worker.thread);
+            }
+            ++woken;
+        }
+    }
+
     /** {@return true when any worker still has a task pushed onto its deque that nobody took} */
     private boolean anyPending() {
         for (final Worker worker : this.workers) {
@@ -328,7 +350,18 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
      * Runs one accepted task on the calling worker thread with the native worker scope installed.
      */
     private void runTask(String description, Runnable task, long queuedAt, boolean swallowFailure) {
-        final RuntimeCounters counters = this.localRuntime.get();
+        final Thread current = Thread.currentThread();
+        final RuntimeCounters counters;
+        if (current instanceof RegionWorkerThread wt) {
+            RuntimeCounters cached = (RuntimeCounters) wt.poolRuntime;
+            if (cached == null) {
+                cached = this.localRuntime.get();
+                wt.poolRuntime = cached;
+            }
+            counters = cached;
+        } else {
+            counters = this.localRuntime.get();
+        }
         final long start = queuedAt == 0L ? 0L : System.nanoTime();
         this.pendingTasks.decrementAndGet();
         counters.busy = true;
@@ -541,12 +574,14 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
         private volatile boolean busy;
         /** Whether this worker is parked; a submission that cannot hand its task to a running worker wakes one. */
         private volatile boolean parked;
+        /** Optional short spin deadline set by {@link #preWake(int)} to overlap OS wake-up with publisher prep. */
+        private volatile long preWakeDeadlineNanos;
         /** Rotating start of the theft scan, so a worker does not always steal from the same neighbour. */
         private int stealCursor;
 
         private Worker(int index) {
             this.index = index;
-            this.thread = new Thread(this::run, "NeoForge Region Worker #" + (index + 1));
+            this.thread = new RegionWorkerThread(this::run, "NeoForge Region Worker #" + (index + 1));
             this.thread.setDaemon(true);
             RegionWorkerPool.this.workerThreads.add(this.thread);
         }
@@ -575,6 +610,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                     task = this.steal();
                 }
                 if (task != null) {
+                    this.preWakeDeadlineNanos = 0L;
                     if (spins < SPIN_ATTEMPTS) {
                         RegionWorkerPool.this.spinWakeUps.incrementAndGet();
                     } else {
@@ -606,6 +642,14 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                 if (spins < SPIN_ATTEMPTS) {
                     Thread.onSpinWait();
                     continue;
+                }
+                final long wakeDeadline = this.preWakeDeadlineNanos;
+                if (wakeDeadline != 0L) {
+                    if (System.nanoTime() < wakeDeadline) {
+                        Thread.onSpinWait();
+                        continue;
+                    }
+                    this.preWakeDeadlineNanos = 0L;
                 }
                 // Publish the parked state and then re-check every source before parking: the epoch read after
                 // the publication catches a submission that is being pushed right now, and the parked scan of
@@ -700,7 +744,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
 
         @Override
         public Thread newThread(Runnable task) {
-            final Thread thread = new Thread(task, "NeoForge Region Worker #" + this.counter.incrementAndGet());
+            final Thread thread = new RegionWorkerThread(task, "NeoForge Region Worker #" + this.counter.incrementAndGet());
             thread.setDaemon(true);
             this.workerThreads.add(thread);
             return thread;

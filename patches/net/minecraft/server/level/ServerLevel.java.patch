@@ -615,7 +615,7 @@
      }
  
      @Override
-@@ -1600,7 +_,42 @@
+@@ -1600,7 +_,50 @@
  
      @Override
      public LevelEntityGetter<Entity> getEntities() {
@@ -649,6 +649,14 @@
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertLeasedEntityQuery(this, regionX, regionZ);
 +        this.entityManager.forEachAccessibleNonEmptySectionInRegion(regionX, regionZ, box, consumer);
      }
++
++    /** Original physical single-bucket traversal during the player publisher's pre-body check. */
++    public void forgiaVerifyPlayerSectionMembers(int regionX, int regionZ, AABB box, AbortableIterationConsumer<net.minecraft.world.level.entity.EntitySection<Entity>> consumer) {
++        if (!this.getServer().isSameThread() || net.neoforged.neoforge.server.threading.region.RegionWorkerScope.isNativeWorkerThread()) {
++            throw new IllegalStateException("Player section proof requires the original server thread");
++        }
++        this.entityManager.forEachAccessibleNonEmptySectionInRegion(regionX, regionZ, box, consumer);
++    }
 +
 +    public void forEachAccessibleNonEmptySectionInRegions(java.util.List<net.neoforged.neoforge.server.threading.region.RegionCoordinate> regions, AABB box, AbortableIterationConsumer<net.minecraft.world.level.entity.EntitySection<Entity>> consumer) {
 +        for (var region : regions) {

@@ -76,6 +76,17 @@ final class RegionTaskQueue {
         return this.schedule(task, initialDelayTicks, periodTicks);
     }
 
+    /** Completes an empty drain at the same lock boundary used by task insertion. */
+    boolean advanceIfEmpty() {
+        synchronized (this.scheduledTasks) {
+            if (this.closed || !this.drainingThreads.isEmpty() || !this.tasks.isEmpty() || !this.scheduledTasks.isEmpty()) {
+                return false;
+            }
+            ++this.currentTick;
+            return true;
+        }
+    }
+
     int drain() {
         return this.drain(RegionThreadingConfig.maxImmediateTasksPerDrain(), RegionThreadingConfig.maxScheduledTasksPerDrain());
     }

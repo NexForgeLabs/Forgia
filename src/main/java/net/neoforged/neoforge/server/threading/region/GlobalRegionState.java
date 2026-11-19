@@ -64,7 +64,7 @@ final class GlobalRegionState {
     }
 
     void clearRunning() {
-        this.running.set(false);
+        if (this.running.getAndSet(false)) this.workAdmission.releaseClaim();
     }
 
     boolean isRunning() {
@@ -76,7 +76,7 @@ final class GlobalRegionState {
     }
 
     void clearWorkerSubmitted() {
-        this.workerSubmitted.set(false);
+        if (this.workerSubmitted.getAndSet(false)) this.workAdmission.releaseClaim();
     }
 
     boolean isWorkerSubmitted() {
