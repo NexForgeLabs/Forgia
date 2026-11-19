@@ -118,7 +118,7 @@ final class FurnaceResourcePreparation {
             // No regionizer/lifecycle lock or world callback runs when a worker checks this predicate.
             boundaries.put(this.home(region.coordinate()), () -> region.isRunning() && !region.isDead());
         }
-        return new BlockEntityResourceOwnership(this.level, boundaries, live, this.scratch);
+        return new BlockEntityResourceOwnership(this.level, boundaries, live, this.scratch, true);
     }
 
     Object home(RegionCoordinate coordinate) {

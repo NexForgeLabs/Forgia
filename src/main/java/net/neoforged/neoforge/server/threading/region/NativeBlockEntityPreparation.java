@@ -80,8 +80,23 @@ public final class NativeBlockEntityPreparation {
         if (!VERIFIED || TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
                 || !admission.isCurrent() || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(admission.type()))
             return null;
+        final HopperBlockEntity source = isNativeValid(admission, null, null);
+        if (source == null) return null;
+        final var position = admission.position();
+        final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+        if (!isHopperChunkValid(admission, source, chunk)) return null;
+        return new HopperCandidate(admission, source, chunk);
+    }
+
+    @Nullable
+    private static HopperBlockEntity isNativeValid(RegionBlockEntityTickAdmission admission,
+            @Nullable HopperBlockEntity expectedSource, @Nullable LevelChunk expectedChunk) {
+        if (!VERIFIED || TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
+                || !admission.isCurrent() || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(admission.type()))
+            return null;
         final HopperBlockEntity source = LevelChunk.nativeHopperSource(admission.ticker());
-        if (source == null || source.getClass() != HopperBlockEntity.class || source.hasAttachments()
+        if (source == null || (expectedSource != null && source != expectedSource)
+                || source.getClass() != HopperBlockEntity.class || source.hasAttachments()
                 || source.getLevel() != admission.level() || source.isRemoved())
             return null;
         final var border = admission.level().getWorldBorder();
@@ -90,16 +105,18 @@ public final class NativeBlockEntityPreparation {
             return null;
         final var clock = admission.level().getLevelData();
         if (clock == null || clock.getClass() != net.minecraft.world.level.storage.PrimaryLevelData.class) return null;
+        if (expectedChunk != null && !isHopperChunkValid(admission, source, expectedChunk)) return null;
+        return source;
+    }
+
+    private static boolean isHopperChunkValid(RegionBlockEntityTickAdmission admission, HopperBlockEntity source, @Nullable LevelChunk chunk) {
+        if (chunk == null || chunk.getClass() != LevelChunk.class || !chunk.isLoaded() || !LevelChunk.furnaceWorkMatchesChunk(admission.ticker(), chunk))
+            return false;
         final var position = admission.position();
-        final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
-        if (chunk == null || chunk.getClass() != LevelChunk.class || !chunk.isLoaded() || !LevelChunk.furnaceWorkMatchesChunk(admission.ticker(), chunk)
-                || chunk.getBlockEntities().get(position) != source)
-            return null;
+        if (chunk.getBlockEntities().get(position) != source) return false;
         final var state = chunk.getBlockState(position);
-        if (state != source.getBlockState() || state.getBlock() != Blocks.HOPPER || !source.getType().isValid(state)
-                || !source.nativeTickHasNoCallbacks(state))
-            return null;
-        return new HopperCandidate(admission, source, chunk);
+        return state == source.getBlockState() && state.getBlock() == Blocks.HOPPER && source.getType().isValid(state)
+                && source.nativeTickHasNoCallbacks(state);
     }
 
     sealed interface Candidate permits HopperCandidate, AuditedBlockEntityPreparation.Candidate {
@@ -115,8 +132,7 @@ public final class NativeBlockEntityPreparation {
     private record HopperCandidate(RegionBlockEntityTickAdmission admission, HopperBlockEntity source, LevelChunk chunk) implements Candidate {
         @Override
         public boolean fresh() {
-            final var current = prepare(this.admission);
-            return current instanceof HopperCandidate candidate && candidate.source == this.source && candidate.chunk == this.chunk;
+            return isNativeValid(this.admission, this.source, this.chunk) != null;
         }
     }
 }

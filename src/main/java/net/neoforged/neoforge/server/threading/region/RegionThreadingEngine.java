@@ -6576,6 +6576,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     @org.jetbrains.annotations.VisibleForTesting
     public void setFurnaceBodyObserverForTesting(@Nullable java.util.function.Consumer<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> observer) {
         this.furnaceBodyObserverForTesting = observer;
+        FurnaceWorkScope.mirrorThreadLocalForTesting = observer != null;
     }
 
     /** Successfully returned boundary ticker invocations on native workers; executor rejection is excluded. */
@@ -6926,11 +6927,21 @@ public final class RegionThreadingEngine implements RegionThreading {
                     private FurnaceWorkPreparation furnaceLookahead;
                     private Set<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceAliases;
                     private java.util.IdentityHashMap<Object, Access> executionRoots;
+                    private BlockEntityResourceOwnership.PrefixIndependence prefixResources;
+                    private it.unimi.dsi.fastutil.longs.LongOpenHashSet furnacePositions;
+                    private Set<RegionState> nativeRegions;
+                    private Set<BlockEntity> nativeSources;
+                    private List<AuditedBlockEntityPreparation.Candidate> auditedNativeCandidates;
 
                     private void discardLookahead() {
                         this.furnaceLookahead = null;
                         this.furnaceAliases = null;
                         this.executionRoots = null;
+                        if (this.prefixResources != null) this.prefixResources.reset();
+                        if (this.furnacePositions != null) this.furnacePositions.clear();
+                        if (this.nativeRegions != null) this.nativeRegions.clear();
+                        if (this.nativeSources != null) this.nativeSources.clear();
+                        if (this.auditedNativeCandidates != null) this.auditedNativeCandidates.clear();
                     }
 
                     @Override
@@ -7038,35 +7049,66 @@ public final class RegionThreadingEngine implements RegionThreading {
                             this.executionRoots.putAll(candidate.manifest().roots());
                             return true;
                         }
-                        if (prefix.getFirst() instanceof ModInvocation) {
-                            if (!(next instanceof ModInvocation)) return false;
-                            final var claims = new ArrayList<BlockEntityResourceOwnership.Claims>();
-                            for (final var unit : prefix) claims.add(((ModInvocation) unit).claims());
-                            claims.add(((ModInvocation) next).claims());
-                            final var plan = BlockEntityResourceOwnership.plan(claims);
-                            return plan.claims().stream().allMatch(BlockEntityResourceOwnership.Claims::complete)
-                                    && plan.dependencies().waves().size() == 1 && claims.size() <= workerPool.threadCount();
+                        if (prefix.getFirst() instanceof ModInvocation firstMod) {
+                            if (!(next instanceof ModInvocation nextMod) || prefix.size() >= workerPool.threadCount()) return false;
+                            if (this.prefixResources == null) this.prefixResources = new BlockEntityResourceOwnership.PrefixIndependence();
+                            if (prefix.size() == 1) {
+                                this.prefixResources.reset();
+                                if (!this.prefixResources.tryAppend(firstMod.claims())) return false;
+                            }
+                            return this.prefixResources.tryAppend(nextMod.claims());
                         }
-                        if (prefix.getFirst() instanceof FurnaceInvocation) {
-                            if (!(next instanceof FurnaceInvocation)) return false;
-                            final List<CanonicalBlockEntityCoordinator.Unit> proposed = new ArrayList<>(prefix);
-                            proposed.add(next);
-                            return furnacePrefixIndependent(level, proposed, resources);
+                        if (prefix.getFirst() instanceof FurnaceInvocation firstFurnace) {
+                            if (!(next instanceof FurnaceInvocation nextFurnace)) return false;
+                            if (resources == null) {
+                                if (this.furnacePositions == null) this.furnacePositions = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+                                if (prefix.size() == 1) {
+                                    this.furnacePositions.clear();
+                                    this.furnacePositions.add(firstFurnace.admission().position().asLong());
+                                }
+                                return this.furnacePositions.add(nextFurnace.admission().position().asLong());
+                            }
+                            if (this.prefixResources == null) this.prefixResources = new BlockEntityResourceOwnership.PrefixIndependence();
+                            if (prefix.size() == 1) {
+                                this.prefixResources.reset();
+                                if (!this.prefixResources.tryAppend(firstFurnace.claims())) return false;
+                            }
+                            return this.prefixResources.tryAppend(nextFurnace.claims());
                         }
-                        if (!(next instanceof NativeInvocation)) return false;
-                        final Set<RegionState> regions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-                        for (final var unit : prefix) {
-                            final var nativeUnit = (NativeInvocation) unit;
-                            final var nextNative = (NativeInvocation) next;
-                            if (nativeUnit.proof().source() == nextNative.proof().source()
-                                    || nativeUnit.proof().conflictsWith(nextNative.proof()))
-                                return false;
-                            regions.add(nativeUnit.region());
+                        if (!(next instanceof NativeInvocation nextNative)) return false;
+                        if (this.nativeRegions == null) {
+                            this.nativeRegions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                            this.nativeSources = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
                         }
-                        regions.add(((NativeInvocation) next).region());
-                        // Every checker must be able to run before any body. Do not park more checking
-                        // groups than there are real workers, including persistent queues.
-                        return regions.size() <= workerPool.threadCount();
+                        if (prefix.size() == 1) {
+                            final var firstNative = (NativeInvocation) prefix.getFirst();
+                            this.nativeRegions.clear();
+                            this.nativeSources.clear();
+                            if (this.auditedNativeCandidates != null) this.auditedNativeCandidates.clear();
+                            this.nativeRegions.add(firstNative.region());
+                            this.nativeSources.add(firstNative.proof().source());
+                            if (firstNative.proof() instanceof AuditedBlockEntityPreparation.Candidate audited) {
+                                if (this.auditedNativeCandidates == null) this.auditedNativeCandidates = new ArrayList<>();
+                                this.auditedNativeCandidates.add(audited);
+                            }
+                        }
+                        final int maxRegions = workerPool.threadCount();
+                        if (!this.nativeRegions.contains(nextNative.region()) && this.nativeRegions.size() >= maxRegions) return false;
+                        if (this.nativeSources.contains(nextNative.proof().source())) return false;
+                        if (nextNative.proof() instanceof AuditedBlockEntityPreparation.Candidate nextAudited) {
+                            for (int i = 0; i < prefix.size(); ++i) {
+                                if (((NativeInvocation) prefix.get(i)).proof().conflictsWith(nextAudited)) return false;
+                            }
+                            if (this.auditedNativeCandidates == null) this.auditedNativeCandidates = new ArrayList<>();
+                            this.auditedNativeCandidates.add(nextAudited);
+                        } else if (this.auditedNativeCandidates != null && !this.auditedNativeCandidates.isEmpty()) {
+                            for (int i = 0; i < this.auditedNativeCandidates.size(); ++i) {
+                                if (this.auditedNativeCandidates.get(i).conflictsWith(nextNative.proof())) return false;
+                            }
+                        }
+                        this.nativeRegions.add(nextNative.region());
+                        this.nativeSources.add(nextNative.proof().source());
+                        return true;
                     }
 
                     @Override
@@ -7465,41 +7507,35 @@ public final class RegionThreadingEngine implements RegionThreading {
     private int executeCanonicalFurnacePrefix(RegionBlockEntityTickBatch batch, List<RegionBlockEntityTickAdmission> ordered,
             List<CanonicalBlockEntityCoordinator.Unit> units, @Nullable RegionBlockEntityWorkGraph.Phase graph,
             RegionTickBarrier barrier, @Nullable FurnaceResourcePreparation resources) {
-        if (units.size() < 2 || !this.furnacePrefixIndependent(batch.level(), units, resources)) {
+        final int count = units.size();
+        if (count < 2) {
             this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SINGLE_UNIT);
             return 0;
         }
-        final var aliasOrder = ordered;
-        if (ordered.size() > RegionBlockEntityWorkGraph.MAX_UNITS) {
-            final int start = ordered.indexOf(units.getFirst().admission());
-            ordered = ordered.subList(start, Math.min(ordered.size(), start + RegionBlockEntityWorkGraph.MAX_UNITS));
+        final List<RegionBlockEntityTickAdmission> waveOrdered = new ArrayList<>(count);
+        final List<FurnaceWorkPreparation.Candidate> candidates = new ArrayList<>(count);
+        final List<BlockEntityResourceOwnership.Claims> claims = resources == null ? List.of() : new ArrayList<>(count);
+        final List<Integer> wave = new ArrayList<>(count);
+        for (int i = 0; i < count; ++i) {
+            final var furnace = (FurnaceInvocation) units.get(i);
+            waveOrdered.add(furnace.admission());
+            candidates.add(furnace.candidate());
+            if (resources != null) claims.add(furnace.claims());
+            wave.add(i);
         }
-        final List<FurnaceWorkPreparation.Candidate> candidates = new ArrayList<>(java.util.Collections.nCopies(ordered.size(), null));
-        final List<BlockEntityResourceOwnership.Claims> claims = resources == null ? List.of() : new ArrayList<>();
-        if (resources != null) for (final var admission : ordered) claims.add(resources.fence(admission));
-        final List<Integer> wave = new ArrayList<>();
-        for (final var unit : units) {
-            final var furnace = (FurnaceInvocation) unit;
-            int index = 0;
-            while (index < ordered.size() && ordered.get(index) != furnace.admission()) ++index;
-            if (index == ordered.size()) throw new IllegalStateException("Foreign furnace invocation in canonical prefix");
-            candidates.set(index, furnace.candidate());
-            if (resources != null) claims.set(index, furnace.claims());
-            wave.add(index);
-        }
-        final List<FurnaceWorkResult> results = new ArrayList<>();
+        final List<FurnaceWorkResult> results = new ArrayList<>(count);
         batch.externalWaveActive(true);
         this.beginRegionPhase(batch.level());
         try {
             // The existing bridge still performs a whole-wave fresh audit, alias pass, every validator
             // and all-or-none reservation before any original body. It uses this phase's same kernel.
-            this.executeFurnaceWave(batch, ordered, candidates, wave, results, graph, barrier, resources, claims, aliasOrder);
+            this.executeFurnaceWave(batch, waveOrdered, candidates, wave, results, graph, barrier, resources, claims, ordered);
             batch.reportTickFailures();
             if (results.isEmpty()) {
                 this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.REVALIDATION);
                 return 0;
             }
-            return units.size();
+            return count;
         } finally {
             this.levelTickPhaseState(batch.level()).endRegionPhase();
             batch.externalWaveActive(false);
@@ -7513,6 +7549,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             final var unit = (NativeInvocation) units.get(offset);
             groups.computeIfAbsent(unit.region(), unused -> new ArrayList<>()).add(new NativeEntry(offset, unit));
         }
+        this.workerPool.preWake(groups.size());
         final var gate = new NativePrefixGate(groups.size(), units.size());
         Throwable failure = null;
         boolean workPhase = false;
@@ -7599,29 +7636,28 @@ public final class RegionThreadingEngine implements RegionThreading {
                 region.beginOwnership();
                 owner = true;
                 guard = batch.execution().regionOwner(region);
-                for (final var entry : entries) {
-                    if (entry.offset() >= gate.admitted.get()) break;
-                    final var unit = entry.invocation();
-                    final var admission = unit.admission();
-                    final var current = new boolean[1];
-                    this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                            batch.level(), region.coordinate(), region, null), () -> current[0] = unit.proof().fresh());
-                    if (!current[0] || !batch.tryReserveBlockUpdates()) {
-                        gate.refuse(entry.offset());
-                        break;
-                    }
-                    if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED) {
-                        try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
-                            final boolean[] admitted = { false };
-                            this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                                    batch.level(), region.coordinate(), region, null), () -> admitted[0] = ParallelAdapterRuntime.admitBlockEntityTick(admission, unit.inspection().descriptor()) && unit.proof().fresh());
-                            if (!admitted[0]) {
-                                gate.refuse(entry.offset());
-                                break;
+                this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
+                        batch.level(), region.coordinate(), region, null), () -> {
+                    for (int i = 0; i < entries.size(); ++i) {
+                        final var entry = entries.get(i);
+                        if (entry.offset() >= gate.admitted.get()) break;
+                        final var unit = entry.invocation();
+                        final var admission = unit.admission();
+                        if (!unit.proof().fresh() || !batch.tryReserveBlockUpdates()) {
+                            gate.refuse(entry.offset());
+                            break;
+                        }
+                        if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED) {
+                            try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
+                                if (!ParallelAdapterRuntime.admitBlockEntityTick(admission, unit.inspection().descriptor())
+                                        || !unit.proof().fresh()) {
+                                    gate.refuse(entry.offset());
+                                    break;
+                                }
                             }
                         }
                     }
-                }
+                });
             } catch (Throwable throwable) {
                 gate.failure.compareAndSet(null, throwable);
                 gate.refuse(0);
@@ -7827,6 +7863,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         long revalidationStart = 0L;
         Throwable failure = null;
         try {
+            this.workerPool.preWake(Math.min(wave.size(), this.workerPool.threadCount()));
             final Set<RegionState> regions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
             for (final int index : wave) {
                 final var region = this.regionizer.getOrCreate(this.layout.regionAt(level, ordered.get(index).position()));

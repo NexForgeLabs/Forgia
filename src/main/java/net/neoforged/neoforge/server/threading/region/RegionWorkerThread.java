@@ -33,6 +33,10 @@ final class RegionWorkerThread extends Thread {
     Object poolRuntime;
     @Nullable
     ArrayList<Object> resourceCheckScratch;
+    @Nullable
+    BlockEntityResourceOwnership.Scope resourceOwnershipScope;
+    @Nullable
+    FurnaceWorkScope furnaceWorkScope;
 
     RegionWorkerThread(Runnable target, String name) {
         super(target, name);

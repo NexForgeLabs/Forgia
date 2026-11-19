@@ -49,9 +49,17 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
     }
 
     BlockEntityResourceOwnership(Object domain, Map<Object, BooleanSupplier> heldRegions, BooleanSupplier live, Scratch scratch) {
+        this(domain, heldRegions, live, scratch, false);
+    }
+
+    BlockEntityResourceOwnership(Object domain, Map<Object, BooleanSupplier> heldRegions, BooleanSupplier live, Scratch scratch, boolean trustBoundaries) {
         this.domain = Objects.requireNonNull(domain);
-        this.boundaries = new IdentityHashMap<>(heldRegions.size());
-        heldRegions.forEach((region, current) -> this.boundaries.put(Objects.requireNonNull(region), Objects.requireNonNull(current)));
+        if (trustBoundaries) {
+            this.boundaries = heldRegions;
+        } else {
+            this.boundaries = new IdentityHashMap<>(heldRegions.size());
+            heldRegions.forEach((region, current) -> this.boundaries.put(Objects.requireNonNull(region), Objects.requireNonNull(current)));
+        }
         this.live = Objects.requireNonNull(live);
         this.scratch = Objects.requireNonNull(scratch);
     }
@@ -125,6 +133,31 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
             this.size = size;
         }
 
+        private SharedReads(Object domain, Object primary, Set<?> uniqueInstances, BooleanSupplier current) {
+            this.domain = Objects.requireNonNull(domain);
+            this.current = Objects.requireNonNull(current);
+            Objects.requireNonNull(primary);
+            final int total = uniqueInstances.size() + (uniqueInstances.contains(primary) ? 0 : 1);
+            this.count = Math.min(total, MAX_RESOURCES_PER_UNIT + 1);
+            final int bounded = this.count <= MAX_RESOURCES_PER_UNIT ? this.count : 0;
+            this.instances = new Object[bounded];
+            this.index = bounded <= 8 ? null : new int[tableCapacity(bounded)];
+            if (bounded > 0) {
+                int size = 0;
+                this.instances[size] = primary;
+                indexIdentity(this.index, primary, size++);
+                for (final Object instance : uniqueInstances) {
+                    if (instance != primary) {
+                        this.instances[size] = Objects.requireNonNull(instance);
+                        indexIdentity(this.index, instance, size++);
+                    }
+                }
+                this.size = size;
+            } else {
+                this.size = 0;
+            }
+        }
+
         private boolean contains(Object instance) {
             return identityIndex(this.instances, this.size, this.index, instance) >= 0;
         }
@@ -137,6 +170,10 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
 
         public static SharedReads capture(Object domain, List<?> instances, BooleanSupplier current) {
             return new SharedReads(domain, instances, current);
+        }
+
+        static SharedReads captureUnique(Object domain, Object primary, Set<?> uniqueInstances, BooleanSupplier current) {
+            return new SharedReads(domain, primary, uniqueInstances, current);
         }
     }
 
@@ -153,6 +190,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         private final int size;
         private final Binding[] bindings;
         private final SharedReads shared;
+        private final boolean hasSharedHome;
         private final boolean complete;
 
         private Claims(Object domain, Object home, Binding[] bindings, Access[] modes, @Nullable SharedReads shared, boolean complete) {
@@ -178,11 +216,15 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
             if (shared != null) {
                 for (int slot = 0; slot < size; ++slot) if (this.access[slot] == Access.WRITE && shared.contains(this.instances[slot])) complete = false;
             }
+            boolean sharedHome = false;
             BlockPos firstPosition = null;
             Object firstInstance = null;
             Map<BlockPos, Object> positions = null;
             for (final Binding binding : bindings) {
-                if (binding.home == null && this.localPermission(binding.identity.instance) == Access.WRITE) complete = false;
+                if (binding.home == null) {
+                    sharedHome = true;
+                    if (this.localPermission(binding.identity.instance) == Access.WRITE) complete = false;
+                }
                 if (binding.position == null) continue;
                 if (firstPosition == null) {
                     firstPosition = binding.position;
@@ -195,6 +237,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
                     if (previous != null && previous != binding.identity.instance) complete = false;
                 }
             }
+            this.hasSharedHome = sharedHome;
             this.complete = complete && (size != 0 || (shared != null && shared.size != 0));
         }
 
@@ -208,6 +251,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
             this.size = local.size;
             this.bindings = local.bindings;
             this.shared = fresh;
+            this.hasSharedHome = local.hasSharedHome;
             boolean complete = local.complete && fresh.domain == this.domain
                     && this.bindings.length + fresh.count <= MAX_RESOURCES_PER_UNIT;
             for (int slot = 0; complete && slot < this.size; ++slot) {
@@ -356,44 +400,71 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
     }
 
     static Plan plan(List<Claims> input, Scratch scratch) {
-        if (input.size() > RegionBlockEntityWorkGraph.MAX_UNITS) throw new IllegalArgumentException("Resource proof unit budget exceeded");
+        final int n = input.size();
+        if (n > RegionBlockEntityWorkGraph.MAX_UNITS) throw new IllegalArgumentException("Resource proof unit budget exceeded");
         final Map<SharedReads, Boolean> groups = new IdentityHashMap<>();
         final int entries = entryBudget(input, groups);
         if (entries < 0) throw new IllegalArgumentException("Resource proof phase budget exceeded");
         final ResourceTable table = scratch.acquire(entries);
         try {
-            for (final SharedReads group : groups.keySet()) {
-                for (int slot = 0; slot < group.size; ++slot) table.flags[table.slot(group.domain, group.instances[slot])] |= ResourceTable.SHARED;
-            }
-            for (final Claims claims : input) {
+            for (int index = 0; index < n; ++index) {
+                final Claims claims = input.get(index);
                 if (!claims.complete) continue;
+                final Object domain = claims.domain;
+                final Object home = claims.home;
+                final boolean singleHome = !claims.hasSharedHome;
                 for (int local = 0; local < claims.size; ++local) {
-                    final int slot = table.slot(claims.domain, claims.instances[local]);
+                    final Object instance = claims.instances[local];
+                    final int slot = table.slot(domain, instance);
                     table.flags[slot] |= claims.access[local] == Access.WRITE ? ResourceTable.WRITE : ResourceTable.READ;
+                    if (singleHome) table.home(slot, home);
                 }
-                for (final Binding binding : claims.bindings) table.home(table.slot(claims.domain, binding.identity.instance), binding.home);
+                if (!singleHome) {
+                    for (final Binding binding : claims.bindings) table.home(table.slot(domain, binding.identity.instance), binding.home);
+                }
             }
-            for (int slot = 0; slot < table.flags.length; ++slot) {
+            for (int i = 0; i < table.usedCount; ++i) {
+                final int slot = table.usedSlots[i];
                 if ((table.flags[slot] & (ResourceTable.SHARED | ResourceTable.WRITE)) == (ResourceTable.SHARED | ResourceTable.WRITE)) table.flags[slot] |= ResourceTable.INVALID;
             }
-            for (final SharedReads group : groups.keySet()) {
-                for (int local = 0; local < group.size; ++local) {
-                    if (table.invalid(table.slot(group.domain, group.instances[local]))) {
-                        groups.put(group, Boolean.TRUE);
-                        break;
+            if (!groups.isEmpty()) {
+                for (int index = 0; index < n; ++index) {
+                    final Claims claims = input.get(index);
+                    if (!claims.complete) continue;
+                    for (int local = 0; local < claims.size; ++local) {
+                        if (claims.access[local] != Access.WRITE) continue;
+                        final Object instance = claims.instances[local];
+                        for (final SharedReads group : groups.keySet()) {
+                            if (group != claims.shared && group.domain == claims.domain && group.contains(instance)) {
+                                groups.put(group, Boolean.TRUE);
+                                table.flags[table.slot(claims.domain, instance)] |= ResourceTable.INVALID;
+                            }
+                        }
+                    }
+                }
+                for (int i = 0; i < table.usedCount; ++i) {
+                    final int slot = table.usedSlots[i];
+                    if (table.invalid(slot)) {
+                        final Object domain = table.keys[slot * 2];
+                        final Object instance = table.keys[slot * 2 + 1];
+                        for (final SharedReads group : groups.keySet()) {
+                            if (group.domain == domain && group.contains(instance)) {
+                                groups.put(group, Boolean.TRUE);
+                            }
+                        }
                     }
                 }
             }
-            final List<Claims> effective = new ArrayList<>(input.size());
+            final List<Claims> effective = new ArrayList<>(n);
             final List<List<Integer>> waves = new ArrayList<>();
             final int[] writers = new int[table.flags.length];
             final int[] readers = new int[table.flags.length];
             int barrier = 0;
             int maximum = -1;
             int width = 0;
-            for (int index = 0; index < input.size(); ++index) {
+            for (int index = 0; index < n; ++index) {
                 Claims claims = input.get(index);
-                boolean invalid = groups.get(claims.shared) == Boolean.TRUE;
+                boolean invalid = claims.shared != null && groups.get(claims.shared) == Boolean.TRUE;
                 for (int local = 0; claims.complete && !invalid && local < claims.size; ++local) invalid = table.invalid(table.slot(claims.domain, claims.instances[local]));
                 if (claims.complete && invalid) claims = Claims.fence(claims.domain, claims.home);
                 effective.add(claims);
@@ -432,16 +503,17 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
     }
 
-    /** Charge logical uses before allocating a table; only storage for identical publications is shared. */
+    /** Charge logical uses before allocating a table; SharedReads are checked via their own index without table insertion. */
     private static int entryBudget(List<Claims> input, Map<SharedReads, Boolean> groups) {
         int bindings = 0;
         int entries = 0;
-        for (final Claims claims : input) {
+        for (int i = 0; i < input.size(); ++i) {
+            final Claims claims = input.get(i);
             bindings += claims.resourceCount();
             if (bindings > MAX_BINDINGS_PER_PHASE) return -1;
             if (!claims.complete) continue;
             entries += claims.size;
-            if (claims.shared != null && groups.put(claims.shared, Boolean.FALSE) == null) entries += claims.shared.size;
+            if (claims.shared != null) groups.putIfAbsent(claims.shared, Boolean.FALSE);
         }
         return entries;
     }
@@ -494,9 +566,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
 
         private void release() {
             if (Thread.currentThread() != this.coordinator || !this.inUse) throw new IllegalStateException("Resource scratch released out of order");
-            Arrays.fill(this.table.keys, null);
-            Arrays.fill(this.table.homes, null);
-            Arrays.fill(this.table.flags, (byte) 0);
+            this.table.clear();
             this.inUse = false;
         }
     }
@@ -510,12 +580,15 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         private final Object[] keys;
         private final Object[] homes;
         private final byte[] flags;
+        private final int[] usedSlots;
+        private int usedCount;
 
         private ResourceTable(int entries) {
             final int capacity = tableCapacity(entries);
             this.keys = new Object[capacity * 2];
             this.homes = new Object[capacity];
             this.flags = new byte[capacity];
+            this.usedSlots = new int[capacity];
         }
 
         private int slot(Object domain, Object instance) {
@@ -528,6 +601,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
             }
             this.keys[slot * 2] = domain;
             this.keys[slot * 2 + 1] = instance;
+            this.usedSlots[this.usedCount++] = slot;
             return slot;
         }
 
@@ -540,6 +614,110 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         private boolean invalid(int slot) {
             return (this.flags[slot] & INVALID) != 0;
         }
+
+        private void clear() {
+            if (this.usedCount <= (this.flags.length >> 2)) {
+                for (int i = 0; i < this.usedCount; ++i) {
+                    final int slot = this.usedSlots[i];
+                    this.keys[slot * 2] = null;
+                    this.keys[slot * 2 + 1] = null;
+                    this.homes[slot] = null;
+                    this.flags[slot] = 0;
+                }
+            } else {
+                Arrays.fill(this.keys, null);
+                Arrays.fill(this.homes, null);
+                Arrays.fill(this.flags, (byte) 0);
+            }
+            this.usedCount = 0;
+        }
+    }
+
+    /**
+     * Incremental O(1)-per-unit independence checker for contiguous canonical prefixes.
+     * Enforces the exact same conflict, home-consistency, shared-read and budget rules as {@link #plan}.
+     */
+    static final class PrefixIndependence {
+        private ResourceTable table = new ResourceTable(64);
+        private final Set<SharedReads> sharedGroups = Collections.newSetFromMap(new IdentityHashMap<>());
+        private int unitCount;
+        private int logicalBindings;
+
+        void reset() {
+            this.table.clear();
+            this.sharedGroups.clear();
+            this.unitCount = 0;
+            this.logicalBindings = 0;
+        }
+
+        boolean tryAppend(Claims claims) {
+            if (!claims.complete || this.unitCount >= RegionBlockEntityWorkGraph.MAX_UNITS) return false;
+            final int count = claims.resourceCount();
+            if (count > MAX_BINDINGS_PER_PHASE - this.logicalBindings) return false;
+            final SharedReads shared = claims.shared;
+            final boolean newShared = shared != null && !this.sharedGroups.contains(shared);
+            if (newShared) {
+                for (int i = 0; i < this.table.usedCount; ++i) {
+                    final int slot = this.table.usedSlots[i];
+                    if ((this.table.flags[slot] & ResourceTable.WRITE) != 0
+                            && this.table.keys[slot * 2] == shared.domain
+                            && shared.contains(this.table.keys[slot * 2 + 1])) {
+                        return false;
+                    }
+                }
+            }
+            if (this.table.usedCount + claims.size > (this.table.flags.length >> 1)) {
+                this.grow(this.table.usedCount + claims.size);
+            }
+            final Object domain = claims.domain;
+            final Object home = claims.home;
+            final boolean singleHome = !claims.hasSharedHome;
+            for (int local = 0; local < claims.size; ++local) {
+                final Object instance = claims.instances[local];
+                final int slot = this.table.slot(domain, instance);
+                final int occupied = this.table.flags[slot];
+                final int mode = claims.access[local] == Access.WRITE ? ResourceTable.WRITE : ResourceTable.READ;
+                if ((occupied & ResourceTable.WRITE) != 0 || (mode == ResourceTable.WRITE && (occupied & (ResourceTable.READ | ResourceTable.SHARED)) != 0)) {
+                    return false;
+                }
+                if (mode == ResourceTable.WRITE && !this.sharedGroups.isEmpty()) {
+                    for (final SharedReads group : this.sharedGroups) {
+                        if (group != shared && group.domain == domain && group.contains(instance)) return false;
+                    }
+                }
+                this.table.flags[slot] |= mode;
+                if (singleHome) {
+                    this.table.home(slot, home);
+                    if (this.table.invalid(slot)) return false;
+                }
+            }
+            if (!singleHome) {
+                for (final Binding binding : claims.bindings) {
+                    final int slot = this.table.slot(domain, binding.identity.instance);
+                    this.table.home(slot, binding.home);
+                    if (this.table.invalid(slot)
+                            || (this.table.flags[slot] & (ResourceTable.SHARED | ResourceTable.WRITE)) == (ResourceTable.SHARED | ResourceTable.WRITE)) {
+                        return false;
+                    }
+                }
+            }
+            if (newShared) this.sharedGroups.add(shared);
+            this.logicalBindings += count;
+            ++this.unitCount;
+            return true;
+        }
+
+        private void grow(int needed) {
+            final ResourceTable old = this.table;
+            final ResourceTable next = new ResourceTable(Math.max(needed, old.flags.length));
+            for (int i = 0; i < old.usedCount; ++i) {
+                final int oldSlot = old.usedSlots[i];
+                final int newSlot = next.slot(old.keys[oldSlot * 2], old.keys[oldSlot * 2 + 1]);
+                next.homes[newSlot] = old.homes[oldSlot];
+                next.flags[newSlot] = old.flags[oldSlot];
+            }
+            this.table = next;
+        }
     }
 
     /**
@@ -549,45 +727,81 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
     @Nullable
     List<Lease> tryAcquireAll(List<Claims> requests) {
         this.checkCoordinator();
-        if (!this.open || this.reserved || requests.isEmpty() || requests.size() > RegionBlockEntityWorkGraph.MAX_UNITS || !this.live.getAsBoolean()) return null;
+        final int n = requests.size();
+        if (!this.open || this.reserved || n == 0 || n > RegionBlockEntityWorkGraph.MAX_UNITS || !this.live.getAsBoolean()) return null;
         final Map<SharedReads, Boolean> groups = new IdentityHashMap<>();
         final int entries = entryBudget(requests, groups);
         if (entries < 0) return null;
         final ResourceTable table = this.scratch.acquire(entries);
         try {
-            for (final SharedReads group : groups.keySet()) {
-                for (int local = 0; local < group.size; ++local) table.flags[table.slot(group.domain, group.instances[local])] |= ResourceTable.SHARED;
-            }
-            final Set<Object> checkedHomes = Collections.newSetFromMap(new IdentityHashMap<>(this.boundaries.size()));
-            for (final Claims claims : requests) {
-                final BooleanSupplier boundary = this.boundaries.get(claims.home);
-                if (!claims.complete || claims.domain != this.domain || boundary == null || (checkedHomes.add(claims.home) && !boundary.getAsBoolean())) return null;
+            final boolean hasGroups = !groups.isEmpty();
+            final BooleanSupplier[] requestBoundaries = new BooleanSupplier[n];
+            final Set<Object> checkedHomes = this.boundaries.size() <= 1 ? null : Collections.newSetFromMap(new IdentityHashMap<>(this.boundaries.size()));
+            Object singleHome = null;
+            BooleanSupplier singleBoundary = null;
+            for (int index = 0; index < n; ++index) {
+                final Claims claims = requests.get(index);
+                if (!claims.complete || claims.domain != this.domain) return null;
+                final BooleanSupplier boundary;
+                if (checkedHomes == null) {
+                    if (singleHome == claims.home) {
+                        boundary = singleBoundary;
+                    } else if (singleHome == null) {
+                        boundary = this.boundaries.get(claims.home);
+                        if (boundary == null || !boundary.getAsBoolean()) return null;
+                        singleHome = claims.home;
+                        singleBoundary = boundary;
+                    } else {
+                        return null;
+                    }
+                } else {
+                    boundary = this.boundaries.get(claims.home);
+                    if (boundary == null || (checkedHomes.add(claims.home) && !boundary.getAsBoolean())) return null;
+                }
+                requestBoundaries[index] = boundary;
+                final Object home = claims.home;
+                final boolean singleClaimHome = !claims.hasSharedHome;
                 for (int local = 0; local < claims.size; ++local) {
-                    final int slot = table.slot(claims.domain, claims.instances[local]);
+                    final Object instance = claims.instances[local];
+                    final int slot = table.slot(this.domain, instance);
                     final int occupied = table.flags[slot];
                     final int mode = claims.access[local] == Access.WRITE ? ResourceTable.WRITE : ResourceTable.READ;
                     if ((occupied & ResourceTable.WRITE) != 0 || (mode == ResourceTable.WRITE && (occupied & (ResourceTable.READ | ResourceTable.SHARED)) != 0)) return null;
+                    if (mode == ResourceTable.WRITE && hasGroups) {
+                        for (final SharedReads group : groups.keySet()) {
+                            if (group != claims.shared && group.domain == this.domain && group.contains(instance)) return null;
+                        }
+                    }
                     table.flags[slot] |= mode;
+                    if (singleClaimHome) {
+                        table.home(slot, home);
+                        if (table.invalid(slot)) return null;
+                    }
                 }
-                for (final Binding binding : claims.bindings) {
-                    final int slot = table.slot(claims.domain, binding.identity.instance);
-                    table.home(slot, binding.home);
-                    if (table.invalid(slot)) return null;
+                if (!singleClaimHome) {
+                    for (final Binding binding : claims.bindings) {
+                        final int slot = table.slot(this.domain, binding.identity.instance);
+                        table.home(slot, binding.home);
+                        if (table.invalid(slot)
+                                || (table.flags[slot] & (ResourceTable.SHARED | ResourceTable.WRITE)) == (ResourceTable.SHARED | ResourceTable.WRITE)) return null;
+                    }
                 }
             }
-            for (int slot = 0; slot < table.flags.length; ++slot) {
-                if ((table.flags[slot] & (ResourceTable.SHARED | ResourceTable.WRITE)) == (ResourceTable.SHARED | ResourceTable.WRITE)) return null;
-            }
-            for (final Claims claims : requests) {
+            for (int index = 0; index < n; ++index) {
+                final Claims claims = requests.get(index);
                 for (final Binding binding : claims.bindings) if (!binding.current.getAsBoolean()) return null;
                 if (claims.shared != null && groups.put(claims.shared, Boolean.TRUE) != Boolean.TRUE && !claims.shared.current.getAsBoolean()) return null;
             }
             // A pure validator may have observed a lifecycle transition; never publish a partial proof.
             if (!this.live.getAsBoolean()) return null;
-            for (final Object home : checkedHomes) if (!this.boundaries.get(home).getAsBoolean()) return null;
-            final List<Lease> granted = new ArrayList<>(requests.size());
-            for (final Claims claims : requests) granted.add(new Lease(this, claims, this.boundaries.get(claims.home)));
-            this.leases = List.copyOf(granted);
+            if (checkedHomes == null) {
+                if (singleBoundary != null && !singleBoundary.getAsBoolean()) return null;
+            } else {
+                for (final Object home : checkedHomes) if (!this.boundaries.get(home).getAsBoolean()) return null;
+            }
+            final Lease[] granted = new Lease[n];
+            for (int index = 0; index < n; ++index) granted[index] = new Lease(this, requests.get(index), requestBoundaries[index]);
+            this.leases = Collections.unmodifiableList(Arrays.asList(granted));
             this.reserved = true;
             return this.leases;
         } finally {
@@ -610,6 +824,32 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
         for (final Lease lease : this.leases) lease.release();
         this.boundaries.clear();
+    }
+
+    private static @Nullable Scope currentScope() {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.resourceOwnershipScope;
+        }
+        return CURRENT.get();
+    }
+
+    private static void setCurrentScope(Scope scope) {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            worker.resourceOwnershipScope = scope;
+            return;
+        }
+        CURRENT.set(scope);
+    }
+
+    private static void clearCurrentScope() {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            worker.resourceOwnershipScope = null;
+            return;
+        }
+        CURRENT.remove();
     }
 
     /** One-shot invocation authority. Holding a handle alone grants no access outside its entered scope. */
@@ -638,7 +878,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
 
         boolean isEnteredFor(Object domain, Object home, Claims expected) {
-            final Scope scope = CURRENT.get();
+            final Scope scope = currentScope();
             return this.claims == expected && this.domain == domain && this.claims.home == home && this.owner.open && this.owner.reserved
                     && this.state.get() == ENTERED && scope != null && scope.lease == this && !scope.closed
                     && this.boundary.getAsBoolean();
@@ -653,7 +893,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
 
         Scope enter() {
-            if (CURRENT.get() != null) throw new IllegalStateException("Nested resource ownership scopes are forbidden");
+            if (currentScope() != null) throw new IllegalStateException("Nested resource ownership scopes are forbidden");
             this.owner.activeScopes.incrementAndGet();
             if (!this.owner.open || !this.owner.reserved || !this.state.compareAndSet(RESERVED, ENTERED)) {
                 this.owner.activeScopes.decrementAndGet();
@@ -662,7 +902,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
             try {
                 if (!this.owner.open || !this.boundary.getAsBoolean()) throw new IllegalStateException("Resource lease lost its outer region exclusion");
                 final Scope scope = new Scope(this);
-                CURRENT.set(scope);
+                setCurrentScope(scope);
                 return scope;
             } catch (Throwable failure) {
                 this.state.set(CONSUMED);
@@ -687,12 +927,12 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
 
         public static boolean active() {
-            return CURRENT.get() != null;
+            return currentScope() != null;
         }
 
         public static void require(Object domain, Object instance, Access requested) {
             Objects.requireNonNull(requested);
-            final Scope scope = CURRENT.get();
+            final Scope scope = currentScope();
             if (scope == null) throw new IllegalStateException("No block-entity resource ownership scope");
             final Lease lease = scope.lease;
             if (scope.closed || domain != lease.domain || !lease.boundary.getAsBoolean())
@@ -703,7 +943,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
 
         /** Live BE lookups expose mutable objects and therefore require WRITE, not a read-only promise. */
         public static void checkReference(Level level, BlockPos position) {
-            final Scope scope = CURRENT.get();
+            final Scope scope = currentScope();
             if (scope == null) return;
             Object instance = null;
             for (final Binding binding : scope.lease.claims.bindings) {
@@ -717,7 +957,7 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
 
         public static boolean checkChunk(ChunkAccess chunk, boolean write) {
-            final Scope scope = CURRENT.get();
+            final Scope scope = currentScope();
             if (scope == null) return false;
             boolean local = false;
             for (final Binding binding : scope.lease.claims.bindings) if (binding.home != null && binding.identity.instance == chunk) local = true;
@@ -728,14 +968,14 @@ public final class BlockEntityResourceOwnership implements AutoCloseable {
         }
 
         public static void rejectEffect(String operation) {
-            if (CURRENT.get() != null) throw new IllegalStateException("Resource-owned work has no effect protocol for " + operation);
+            if (currentScope() != null) throw new IllegalStateException("Resource-owned work has no effect protocol for " + operation);
         }
 
         @Override
         public void close() {
-            if (this.closed || CURRENT.get() != this) throw new IllegalStateException("Resource ownership scope closed on the wrong thread or out of order");
+            if (this.closed || currentScope() != this) throw new IllegalStateException("Resource ownership scope closed on the wrong thread or out of order");
             this.closed = true;
-            CURRENT.remove();
+            clearCurrentScope();
             this.lease.state.set(Lease.CONSUMED);
             this.lease.owner.activeScopes.decrementAndGet();
         }

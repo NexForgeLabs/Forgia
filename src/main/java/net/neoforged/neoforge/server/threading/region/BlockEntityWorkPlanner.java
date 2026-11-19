@@ -76,10 +76,28 @@ public final class BlockEntityWorkPlanner {
         }
     }
 
+    private static final class TrustedWaveList extends java.util.AbstractList<List<Integer>> implements java.util.RandomAccess {
+        private final List<Integer>[] waves;
+
+        private TrustedWaveList(List<Integer>[] waves) {
+            this.waves = waves;
+        }
+
+        @Override
+        public List<Integer> get(int index) {
+            return this.waves[index];
+        }
+
+        @Override
+        public int size() {
+            return this.waves.length;
+        }
+    }
+
     /** Execution-only result. Graph links and connected components are computed only by {@link #plan}. */
     public record ExecutionPlan(List<List<Integer>> waves, int maxWidth) {
         public ExecutionPlan {
-            waves = waves.stream().map(List::copyOf).toList();
+            if (!(waves instanceof TrustedWaveList)) waves = waves.stream().map(List::copyOf).toList();
         }
     }
 
@@ -88,54 +106,107 @@ public final class BlockEntityWorkPlanner {
      * A fence follows the global maximum and replaces all earlier resource state with its barrier depth.
      * No reader/predecessor index sets, union-find or quadratic fence links are needed for execution.
      */
+    @SuppressWarnings("unchecked")
     public static ExecutionPlan planExecution(List<Unit> input) {
-        if (input.size() > RegionBlockEntityWorkGraph.MAX_UNITS) throw new IllegalArgumentException("Work graph unit limit exceeded");
-        final Map<Resource, Depths> accesses = new HashMap<>();
-        final List<List<Integer>> waves = new ArrayList<>();
+        final int n = input.size();
+        if (n > RegionBlockEntityWorkGraph.MAX_UNITS) throw new IllegalArgumentException("Work graph unit limit exceeded");
+        if (n == 0) return new ExecutionPlan(new TrustedWaveList(new List[0]), 0);
+        int totalResources = 0;
+        for (int index = 0; index < n; ++index) {
+            final Unit unit = input.get(index);
+            if (!unit.exclusive()) totalResources += unit.reads().size() + unit.writes().size();
+        }
+        final int capacity = tableCapacity(Math.max(4, totalResources));
+        final int mask = capacity - 1;
+        final Resource[] keys = new Resource[capacity];
+        final int[] writers = new int[capacity];
+        final int[] readers = new int[capacity];
+        final int[] stamps = new int[capacity];
+        int generation = 1;
+
+        final int[] unitDepth = new int[n];
+        int[] waveSizes = new int[Math.min(n, 16)];
         int barrier = 0;
         int maximum = -1;
         int width = 0;
-        for (int index = 0; index < input.size(); ++index) {
+        for (int index = 0; index < n; ++index) {
             final Unit unit = input.get(index);
-            int depth = unit.exclusive() ? maximum + 1 : barrier;
-            if (!unit.exclusive()) {
+            final boolean exclusive = unit.exclusive();
+            int depth = exclusive ? maximum + 1 : barrier;
+            if (!exclusive) {
                 for (final Resource resource : unit.reads()) {
-                    final Depths previous = accesses.get(resource);
-                    if (previous != null) depth = Math.max(depth, previous.writer + 1);
+                    final int slot = findSlot(keys, stamps, generation, mask, resource);
+                    if (slot >= 0) depth = Math.max(depth, writers[slot] + 1);
                 }
                 for (final Resource resource : unit.writes()) {
-                    final Depths previous = accesses.get(resource);
-                    if (previous != null) depth = Math.max(depth, Math.max(previous.writer, previous.reader) + 1);
+                    final int slot = findSlot(keys, stamps, generation, mask, resource);
+                    if (slot >= 0) depth = Math.max(depth, Math.max(writers[slot], readers[slot]) + 1);
                 }
             }
-            while (waves.size() <= depth) waves.add(new ArrayList<>());
-            final List<Integer> wave = waves.get(depth);
-            wave.add(index);
-            width = Math.max(width, wave.size());
+            unitDepth[index] = depth;
+            if (depth >= waveSizes.length) waveSizes = java.util.Arrays.copyOf(waveSizes, Math.max(depth + 1, waveSizes.length * 2));
+            final int waveSize = ++waveSizes[depth];
+            width = Math.max(width, waveSize);
             maximum = Math.max(maximum, depth);
-            if (unit.exclusive()) {
+            if (exclusive) {
                 barrier = depth + 1;
-                accesses.clear();
+                ++generation;
             } else {
+                final Set<Resource> writes = unit.writes();
                 for (final Resource resource : unit.reads()) {
-                    if (!unit.writes().contains(resource)) {
-                        final Depths state = accesses.computeIfAbsent(resource, ignored -> new Depths());
-                        state.reader = Math.max(state.reader, depth);
+                    if (!writes.contains(resource)) {
+                        final int slot = ensureSlot(keys, writers, readers, stamps, generation, mask, resource);
+                        if (depth > readers[slot]) readers[slot] = depth;
                     }
                 }
-                for (final Resource resource : unit.writes()) {
-                    final Depths state = accesses.computeIfAbsent(resource, ignored -> new Depths());
-                    state.writer = depth;
-                    state.reader = -1;
+                for (final Resource resource : writes) {
+                    final int slot = ensureSlot(keys, writers, readers, stamps, generation, mask, resource);
+                    writers[slot] = depth;
+                    readers[slot] = -1;
                 }
             }
         }
-        return new ExecutionPlan(waves, width);
+        final int waveCount = maximum + 1;
+        final List<Integer>[] waveLists = new List[waveCount];
+        final Integer[][] waveArrays = new Integer[waveCount][];
+        final int[] offsets = new int[waveCount];
+        for (int d = 0; d < waveCount; ++d) {
+            waveArrays[d] = new Integer[waveSizes[d]];
+            waveLists[d] = java.util.Collections.unmodifiableList(java.util.Arrays.asList(waveArrays[d]));
+        }
+        for (int index = 0; index < n; ++index) {
+            final int d = unitDepth[index];
+            waveArrays[d][offsets[d]++] = index;
+        }
+        return new ExecutionPlan(new TrustedWaveList(waveLists), width);
     }
 
-    private static final class Depths {
-        private int writer = -1;
-        private int reader = -1;
+    private static int tableCapacity(int entries) {
+        return Math.max(8, Integer.highestOneBit(Math.max(1, entries * 2 - 1)) << 1);
+    }
+
+    private static int findSlot(Resource[] keys, int[] stamps, int generation, int mask, Resource resource) {
+        final int h = resource.hashCode();
+        int slot = (h ^ (h >>> 16)) & mask;
+        while (stamps[slot] == generation) {
+            if (keys[slot].equals(resource)) return slot;
+            slot = (slot + 1) & mask;
+        }
+        return -1;
+    }
+
+    private static int ensureSlot(Resource[] keys, int[] writers, int[] readers, int[] stamps, int generation, int mask, Resource resource) {
+        final int h = resource.hashCode();
+        int slot = (h ^ (h >>> 16)) & mask;
+        while (stamps[slot] == generation) {
+            if (keys[slot].equals(resource)) return slot;
+            slot = (slot + 1) & mask;
+        }
+        keys[slot] = resource;
+        writers[slot] = -1;
+        readers[slot] = -1;
+        stamps[slot] = generation;
+        return slot;
     }
 
     public static Plan plan(List<Unit> input) {

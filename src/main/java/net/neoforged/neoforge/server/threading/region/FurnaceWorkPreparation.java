@@ -131,21 +131,44 @@ final class FurnaceWorkPreparation {
         final ItemStack output = source.getItem(2);
         if (!plain(input) || !plain(fuel) || !plain(output)) return this.refuse(FurnaceWorkMetrics.Refusal.CUSTOM_ITEM);
         if (!this.catalogs.computeIfAbsent(source.furnaceWorkRecipeType(), this::pureCatalog)) return this.refuse(FurnaceWorkMetrics.Refusal.CUSTOM_RECIPE);
-        if (source.furnaceWorkMayNotify() && !this.inertNotifications(position)) return this.refuse(FurnaceWorkMetrics.Refusal.ACTIVE_NOTIFICATIONS);
+        if (source.furnaceWorkMayNotify() && !this.inertNotifications(position, chunk)) return this.refuse(FurnaceWorkMetrics.Refusal.ACTIVE_NOTIFICATIONS);
         return new Candidate(admission, source, chunk, this.recipes,
                 this.captureResources ? this.catalogResources.get(source.furnaceWorkRecipeType()) : null, input, fuel, output,
                 (input.isEmpty() ? 0 : 1) | (fuel.isEmpty() ? 0 : 2) | (output.isEmpty() ? 0 : 4));
     }
 
-    private boolean inertNotifications(net.minecraft.core.BlockPos position) {
+    private boolean inertNotifications(net.minecraft.core.BlockPos position, LevelChunk centerChunk) {
         // setChanged calls six neighbours, and weak-change receivers one block beyond a conductor.
         // Unknown/active neighbours are serial fences before a body can alter an inventory.
+        final int px = position.getX();
+        final int py = position.getY();
+        final int pz = position.getZ();
+        final int centerChunkX = centerChunk.getPos().x;
+        final int centerChunkZ = centerChunk.getPos().z;
+        final boolean fixedLayout = this.layout.isFixed();
+        final int centerRegionX = fixedLayout ? this.layout.regionX(centerChunkX) : 0;
+        final int centerRegionZ = fixedLayout ? this.layout.regionZ(centerChunkZ) : 0;
+        final RegionCoordinate centerCoord = fixedLayout ? null : this.layout.regionAt(this.level, centerChunkX, centerChunkZ);
+        final net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+        final var chunkSource = this.level.getChunkSource();
         for (final var direction : net.minecraft.core.Direction.values()) {
+            final int dx = direction.getStepX();
+            final int dy = direction.getStepY();
+            final int dz = direction.getStepZ();
             for (int distance = 1; distance <= 2; ++distance) {
-                final var pos = position.relative(direction, distance);
+                final int x = px + dx * distance;
+                final int y = py + dy * distance;
+                final int z = pz + dz * distance;
+                pos.set(x, y, z);
                 if (this.level.isOutsideBuildHeight(pos)) continue;
-                if (!this.layout.isInRegion(this.level, pos, this.layout.regionAt(this.level, position))) return false;
-                final var loaded = this.level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+                final int cx = x >> 4;
+                final int cz = z >> 4;
+                if (fixedLayout) {
+                    if (this.layout.regionX(cx) != centerRegionX || this.layout.regionZ(cz) != centerRegionZ) return false;
+                } else if (!this.layout.isInRegion(this.level, cx, cz, centerCoord)) {
+                    return false;
+                }
+                final LevelChunk loaded = (cx == centerChunkX && cz == centerChunkZ) ? centerChunk : chunkSource.getChunkNow(cx, cz);
                 if (loaded == null || !loaded.isLoaded() || !INERT.contains(loaded.getBlockState(pos).getBlock())) return false;
             }
         }
@@ -171,12 +194,12 @@ final class FurnaceWorkPreparation {
                 for (final var item : ingredient.getItems()) {
                     captureRecipeRead(reads, item);
                     if (!item.isEmpty() && (!item.isComponentsPatchEmpty()
-                            || !BuiltInRegistries.ITEM.getKey(item.getItem()).getNamespace().equals("minecraft")))
+                            || !item.getItem().builtInRegistryHolder().key().location().getNamespace().equals("minecraft")))
                         return false;
                 }
                 // The OR wrapper's merged cache may deduplicate equal stacks from different children.
                 // matches() still reads each child's own cache, so capture all audited descendants too.
-                if (reads != null) captureIngredientReads(reads, ingredient);
+                if (reads != null && ingredient.isCustom()) captureCustomIngredientReads(reads, ingredient);
             }
             final var result = recipe.getResultItem(this.level.registryAccess());
             captureRecipeRead(reads, result);
@@ -185,22 +208,19 @@ final class FurnaceWorkPreparation {
                             + " componentPatch=" + !result.isComponentsPatchEmpty());
         }
         if (reads != null) {
-            final List<Object> publication = new java.util.ArrayList<>(reads.size() + 1);
-            publication.add(this.recipes);
-            publication.addAll(reads);
             // This object belongs only to this fresh preparation pass. Per-wave revalidation constructs a
             // new preparation and re-audits mutable results/ingredients even when the manager is unchanged.
-            this.catalogResources.put(type, BlockEntityResourceOwnership.SharedReads.capture(this.level, publication,
+            this.catalogResources.put(type, BlockEntityResourceOwnership.SharedReads.captureUnique(this.level, this.recipes, reads,
                     () -> this.level.getRecipeManager() == this.recipes));
         }
         return true;
     }
 
-    private static void captureIngredientReads(Set<ItemStack> reads, Ingredient ingredient) {
-        for (final ItemStack stack : ingredient.getItems()) captureRecipeRead(reads, stack);
+    private static void captureCustomIngredientReads(Set<ItemStack> reads, Ingredient ingredient) {
         if (ingredient.isCustom()) {
             for (final Ingredient child : ((net.neoforged.neoforge.common.crafting.CompoundIngredient) ingredient.getCustomIngredient()).children()) {
-                captureIngredientReads(reads, child);
+                for (final ItemStack stack : child.getItems()) captureRecipeRead(reads, stack);
+                if (child.isCustom()) captureCustomIngredientReads(reads, child);
             }
         }
     }
@@ -241,7 +261,7 @@ final class FurnaceWorkPreparation {
         if (stack.isEmpty()) return true;
         final Item item = stack.getItem();
         return stack.isComponentsPatchEmpty() && (item.getClass() == Item.class || item.getClass() == BlockItem.class || item.getClass() == DyeItem.class || item.getClass() == ItemNameBlockItem.class)
-                && BuiltInRegistries.ITEM.getKey(item).getNamespace().equals("minecraft");
+                && item.builtInRegistryHolder().key().location().getNamespace().equals("minecraft");
     }
 
     record Candidate(RegionBlockEntityTickAdmission admission, AbstractFurnaceBlockEntity source, LevelChunk chunk,
@@ -264,21 +284,22 @@ final class FurnaceWorkPreparation {
 
     /** Public inventory references must be exclusive, even if a mod aliases two otherwise vanilla instances. */
     static Set<AbstractFurnaceBlockEntity> aliased(List<RegionBlockEntityTickAdmission> admissions) {
-        final var owners = new IdentityHashMap<ItemStack, AbstractFurnaceBlockEntity>();
-        final Set<AbstractFurnaceBlockEntity> bad = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        for (final var admission : admissions) {
-            final var source = LevelChunk.furnaceWorkSource(admission.ticker());
+        final var owners = new IdentityHashMap<ItemStack, AbstractFurnaceBlockEntity>(Math.max(16, admissions.size() * 3));
+        Set<AbstractFurnaceBlockEntity> bad = null;
+        for (int i = 0; i < admissions.size(); ++i) {
+            final var source = LevelChunk.furnaceWorkSource(admissions.get(i).ticker());
             if (source == null || !FURNACES.contains(source.getClass())) continue;
             for (int slot = 0; slot < 3; ++slot) {
                 final var stack = source.getItem(slot);
                 if (stack.isEmpty()) continue;
                 final var previous = owners.putIfAbsent(stack, source);
                 if (previous != null) {
+                    if (bad == null) bad = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
                     bad.add(previous);
                     bad.add(source);
                 }
             }
         }
-        return bad;
+        return bad == null ? Set.of() : bad;
     }
 }

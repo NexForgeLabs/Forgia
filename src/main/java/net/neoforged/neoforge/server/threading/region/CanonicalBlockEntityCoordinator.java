@@ -38,27 +38,30 @@ final class CanonicalBlockEntityCoordinator {
     private int cursor;
 
     CanonicalBlockEntityCoordinator(List<RegionBlockEntityTickAdmission> ordered) {
-        this.ordered = List.copyOf(ordered);
+        this.ordered = ordered;
         long previous = -1;
-        for (final var admission : ordered) {
-            if (admission.sequence() <= previous) throw new IllegalArgumentException("Noncanonical invocation ordinals");
-            previous = admission.sequence();
+        for (int i = 0; i < ordered.size(); ++i) {
+            final long seq = ordered.get(i).sequence();
+            if (seq <= previous) throw new IllegalArgumentException("Noncanonical invocation ordinals");
+            previous = seq;
         }
     }
 
     void execute(Driver driver) {
-        while (this.cursor < this.ordered.size()) {
+        final List<Unit> prefix = new ArrayList<>();
+        final int total = this.ordered.size();
+        while (this.cursor < total) {
             final var first = driver.prepare(this.cursor);
             if (first == null) {
                 driver.serial(this.cursor);
                 ++this.cursor;
                 continue;
             }
-            final List<Unit> prefix = new ArrayList<>();
+            prefix.clear();
             prefix.add(first);
             final int limit = Math.min(RegionBlockEntityWorkGraph.MAX_UNITS, driver.prefixLimit(first));
             if (limit < 1) throw new IllegalStateException("Empty canonical planning window");
-            for (int index = this.cursor + 1; index < this.ordered.size() && prefix.size() < limit; ++index) {
+            for (int index = this.cursor + 1; index < total && prefix.size() < limit; ++index) {
                 final var next = driver.prepare(index);
                 if (next == null || !driver.mayAppend(prefix, next)) break;
                 prefix.add(next);

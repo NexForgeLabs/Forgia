@@ -36,17 +36,47 @@ public final class FurnaceWorkScope implements AutoCloseable {
     private boolean taskStarted;
     private boolean closed;
 
+    static volatile boolean mirrorThreadLocalForTesting;
+
+    private static @Nullable FurnaceWorkScope currentScope() {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            return worker.furnaceWorkScope;
+        }
+        return CURRENT.get();
+    }
+
+    private static void setCurrentScope(FurnaceWorkScope scope) {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            worker.furnaceWorkScope = scope;
+            if (mirrorThreadLocalForTesting) CURRENT.set(scope);
+            return;
+        }
+        CURRENT.set(scope);
+    }
+
+    private static void clearCurrentScope() {
+        final Thread current = Thread.currentThread();
+        if (current instanceof RegionWorkerThread worker) {
+            worker.furnaceWorkScope = null;
+            if (mirrorThreadLocalForTesting) CURRENT.remove();
+            return;
+        }
+        CURRENT.remove();
+    }
+
     private FurnaceWorkScope(RegionBlockEntityTickAdmission admission, AbstractFurnaceBlockEntity source,
             LevelChunk chunk, Consumer<AbstractFurnaceBlockEntity> bodyObserver, Runnable bodyEndObserver,
             @Nullable BlockEntityResourceOwnership.Lease lease) {
-        if (CURRENT.get() != null) throw new IllegalStateException("Nested furnace work scopes are not allowed");
+        if (currentScope() != null) throw new IllegalStateException("Nested furnace work scopes are not allowed");
         this.admission = admission;
         this.source = source;
         this.chunk = chunk;
         this.bodyObserver = bodyObserver;
         this.bodyEndObserver = bodyEndObserver;
         this.resources = lease == null ? null : lease.enter();
-        CURRENT.set(this);
+        setCurrentScope(this);
     }
 
     public static BlockEntityTicker<AbstractFurnaceBlockEntity> ticker() {
@@ -61,24 +91,24 @@ public final class FurnaceWorkScope implements AutoCloseable {
 
     /** Pure identity/lifetime check for VM metadata access; it invokes no protected ticker/getter. */
     static boolean ownsWrapperReference(Level level, Object root, boolean write) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         return scope != null && !scope.closed && scope.admission.level() == level
                 && (root == scope.admission.ticker() && !write || root == scope.admission.binding().delegate());
     }
 
     public static boolean active() {
-        return CURRENT.get() != null;
+        return currentScope() != null;
     }
 
     public static boolean admitted(ServerLevel level, @Nullable TickingBlockEntity ticker, BlockPos position) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         return scope != null && !scope.closed && level == scope.admission.level()
                 && (ticker == scope.admission.ticker() || ticker == scope.admission.binding().delegate())
                 && position.equals(scope.admission.position()) && scope.admission.isCurrent();
     }
 
     public static boolean runTask(ServerLevel level, BlockPos position, Runnable task) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         if (scope == null) return false;
         if (level != scope.admission.level() || !position.equals(scope.admission.position()) || scope.taskStarted) {
             throw new IllegalStateException("Furnace work attempted an unrelated or repeated block task");
@@ -89,7 +119,7 @@ public final class FurnaceWorkScope implements AutoCloseable {
     }
 
     public static void beforeBody(Level level, AbstractFurnaceBlockEntity source) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         if (scope == null) return;
         if (level != scope.admission.level() || source != scope.source || scope.bodyStarted) {
             throw new IllegalStateException("Furnace work attempted an unrelated or repeated original body");
@@ -108,7 +138,7 @@ public final class FurnaceWorkScope implements AutoCloseable {
 
     /** Success intervals end in the original method, not after its wrapper/diagnostics returned. */
     public static void afterBody(Level level, AbstractFurnaceBlockEntity source) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         if (scope == null) return;
         if (level != scope.admission.level() || source != scope.source || !scope.bodyStarted || scope.bodyEnded) {
             throw new IllegalStateException("Furnace body completion did not match its entry");
@@ -124,7 +154,7 @@ public final class FurnaceWorkScope implements AutoCloseable {
     }
 
     public static boolean deferChanged(Level level, BlockPos position, BlockState state) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         if (scope == null) return false;
         if (level != scope.admission.level() || !position.equals(scope.admission.position()) || state != scope.source.getBlockState()) {
             throw new IllegalStateException("Furnace work attempted a foreign block-entity notification");
@@ -136,7 +166,7 @@ public final class FurnaceWorkScope implements AutoCloseable {
 
     /** Validate before any lookup. No AIR/null substitution and no acquiring another resource mid-body. */
     public static void checkReference(Level level, BlockPos position) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         if (scope != null && (level != scope.admission.level() || !position.equals(scope.admission.position()))) {
             throw new IllegalStateException("Furnace work attempted a foreign block-entity lookup");
         }
@@ -144,14 +174,14 @@ public final class FurnaceWorkScope implements AutoCloseable {
 
     /** True only for an already-captured read chunk; all chunk mutations stay forbidden. */
     public static boolean checkChunk(ChunkAccess chunk, boolean write) {
-        final var scope = CURRENT.get();
+        final var scope = currentScope();
         if (scope == null) return false;
         if (write || chunk != scope.chunk) throw new IllegalStateException("Furnace work exceeded its captured read-only chunk");
         return true;
     }
 
     public static void rejectEffect(String operation) {
-        if (CURRENT.get() != null) throw new IllegalStateException("Furnace work cannot perform " + operation);
+        if (currentScope() != null) throw new IllegalStateException("Furnace work cannot perform " + operation);
     }
 
     boolean bodyStarted() {
@@ -164,12 +194,12 @@ public final class FurnaceWorkScope implements AutoCloseable {
 
     @Override
     public void close() {
-        if (this.closed || CURRENT.get() != this) throw new IllegalStateException("Furnace work scope closed out of order");
+        if (this.closed || currentScope() != this) throw new IllegalStateException("Furnace work scope closed out of order");
         try {
             this.endBody(); // Failed original bodies have no success tail; close their interval without replay.
         } finally {
             this.closed = true;
-            CURRENT.remove();
+            clearCurrentScope();
             if (this.resources != null) this.resources.close();
         }
     }
