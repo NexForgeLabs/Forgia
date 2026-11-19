@@ -62,6 +62,7 @@ public final class RegionBlockEntityTickChunkCache {
 
     private final RegionLayout layout;
     private final long tickerRevision;
+    private final long declarationVersion;
     private final boolean interiorChunk;
     private final boolean borderUpdatesEnabled;
     private final List<RegionBlockEntityTickAdmission> admissions;
@@ -70,10 +71,11 @@ public final class RegionBlockEntityTickChunkCache {
     private final boolean allAdmitted;
     private boolean released;
 
-    private RegionBlockEntityTickChunkCache(RegionLayout layout, long tickerRevision, boolean interiorChunk,
+    private RegionBlockEntityTickChunkCache(RegionLayout layout, long tickerRevision, long declarationVersion, boolean interiorChunk,
             boolean borderUpdatesEnabled, List<RegionBlockEntityTickAdmission> admissions) {
         this.layout = layout;
         this.tickerRevision = tickerRevision;
+        this.declarationVersion = declarationVersion;
         this.interiorChunk = interiorChunk;
         this.borderUpdatesEnabled = borderUpdatesEnabled;
         this.admissions = admissions;
@@ -112,6 +114,7 @@ public final class RegionBlockEntityTickChunkCache {
      */
     static RegionBlockEntityTickChunkCache build(ServerLevel level, LevelChunk chunk, RegionLayout layout, boolean interiorChunk, boolean borderUpdatesEnabled) {
         final long tickerRevision = chunk.blockEntityTickerRevision();
+        final long declarationVersion = RegionTickCompatibility.declarationVersion();
         final List<TickingBlockEntity> tickers = new ArrayList<>(chunk.blockEntityTickers());
         tickers.sort(Comparator.comparingLong(LevelChunk::blockEntityTickerSequence));
         final List<RegionBlockEntityTickAdmission> admissions = new ArrayList<>(tickers.size());
@@ -126,7 +129,7 @@ public final class RegionBlockEntityTickChunkCache {
                     RegionTickCompatibility.decideBlockEntityTick(level, type, interiorChunk, borderUpdatesEnabled),
                     LevelChunk.blockEntityTickerSequence(ticker)));
         }
-        return new RegionBlockEntityTickChunkCache(layout, tickerRevision, interiorChunk, borderUpdatesEnabled, List.copyOf(admissions));
+        return new RegionBlockEntityTickChunkCache(layout, tickerRevision, declarationVersion, interiorChunk, borderUpdatesEnabled, List.copyOf(admissions));
     }
 
     /**
@@ -140,7 +143,9 @@ public final class RegionBlockEntityTickChunkCache {
      * @param tickerRevision the ticker revision of the chunk
      */
     public boolean isCurrent(RegionLayout layout, long tickerRevision) {
-        return this.layout == layout && this.tickerRevision == tickerRevision;
+        return this.layout == layout
+                && this.tickerRevision == tickerRevision
+                && this.declarationVersion == RegionTickCompatibility.declarationVersion();
     }
 
     /** Includes the propagation policy that authorized boundary tickers; chunk availability is never cached. */

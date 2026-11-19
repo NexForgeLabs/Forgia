@@ -34,18 +34,22 @@ public class CapabilityListenerHolder {
      */
     private final ReferenceQueue<ICapabilityInvalidationListener> queue = new ReferenceQueue<>();
 
+    private final Object lock = new Object();
+
     /**
      * Adds a listener.
      */
     public void addListener(BlockPos pos, ICapabilityInvalidationListener listener) {
         pos = pos.immutable();
-        var chunkHolder = byChunkThenBlock.computeIfAbsent(ChunkPos.asLong(pos), l -> new Long2ReferenceOpenHashMap<>());
-        var listenersSet = chunkHolder.computeIfAbsent(pos.asLong(), l -> new ObjectOpenHashSet<>());
+        synchronized (this.lock) {
+            var chunkHolder = byChunkThenBlock.computeIfAbsent(ChunkPos.asLong(pos), l -> new Long2ReferenceOpenHashMap<>());
+            var listenersSet = chunkHolder.computeIfAbsent(pos.asLong(), l -> new ObjectOpenHashSet<>());
 
-        var reference = new ListenerReference(queue, pos, listener);
-        if (!listenersSet.add(reference)) {
-            // Clear the reference immediately if it was a duplicate.
-            reference.clear();
+            var reference = new ListenerReference(queue, pos, listener);
+            if (!listenersSet.add(reference)) {
+                // Clear the reference immediately if it was a duplicate.
+                reference.clear();
+            }
         }
     }
 
@@ -53,11 +57,14 @@ public class CapabilityListenerHolder {
      * Invalidates listeners at a specific block position.
      */
     public void invalidatePos(BlockPos pos) {
-        var chunkHolder = byChunkThenBlock.get(ChunkPos.asLong(pos));
-        if (chunkHolder != null) {
-            var caches = chunkHolder.get(pos.asLong());
-            if (caches != null)
-                invalidateList(caches);
+        synchronized (this.lock) {
+            var chunkHolder = byChunkThenBlock.get(ChunkPos.asLong(pos));
+            if (chunkHolder != null) {
+                var caches = chunkHolder.get(pos.asLong());
+                if (caches != null) {
+                    invalidateList(caches);
+                }
+            }
         }
     }
 
@@ -65,45 +72,52 @@ public class CapabilityListenerHolder {
      * Invalidates listeners at a specific chunk position.
      */
     public void invalidateChunk(ChunkPos chunkPos) {
-        var chunkHolder = byChunkThenBlock.get(chunkPos.toLong());
-        if (chunkHolder != null) {
-            for (var caches : chunkHolder.values())
-                invalidateList(caches);
+        synchronized (this.lock) {
+            var chunkHolder = byChunkThenBlock.get(chunkPos.toLong());
+            if (chunkHolder != null) {
+                for (var caches : chunkHolder.values()) {
+                    invalidateList(caches);
+                }
+            }
         }
     }
 
     private void invalidateList(Set<ListenerReference> caches) {
-        caches.removeIf(ref -> {
+        for (var ref : caches.toArray(ListenerReference[]::new)) {
             var listener = ref.get();
-            return listener == null || !listener.onInvalidate();
-        });
+            if (listener == null || !listener.onInvalidate()) {
+                caches.remove(ref);
+            }
+        }
     }
 
     /**
      * Poll the reference queue, and remove garbage-collected listener references entries from {@link #byChunkThenBlock}.
      */
     public void clean() {
-        while (true) {
-            ListenerReference ref = (ListenerReference) queue.poll();
-            if (ref == null)
-                return;
+        synchronized (this.lock) {
+            while (true) {
+                ListenerReference ref = (ListenerReference) queue.poll();
+                if (ref == null)
+                    return;
 
-            var chunkHolder = byChunkThenBlock.get(ChunkPos.asLong(ref.pos));
-            if (chunkHolder == null)
-                continue;
+                var chunkHolder = byChunkThenBlock.get(ChunkPos.asLong(ref.pos));
+                if (chunkHolder == null)
+                    continue;
 
-            var set = chunkHolder.get(ref.pos.asLong());
-            if (set == null)
-                continue;
-            // We might remove a different garbage-collected reference,
-            // or we might remove nothing if the reference was already removed.
-            // Because the hash codes will match, that is fine.
-            boolean removed = set.remove(ref);
+                var set = chunkHolder.get(ref.pos.asLong());
+                if (set == null)
+                    continue;
+                // We might remove a different garbage-collected reference,
+                // or we might remove nothing if the reference was already removed.
+                // Because the hash codes will match, that is fine.
+                boolean removed = set.remove(ref);
 
-            if (removed && set.isEmpty()) {
-                chunkHolder.remove(ref.pos.asLong());
-                if (chunkHolder.isEmpty()) {
-                    byChunkThenBlock.remove(ChunkPos.asLong(ref.pos));
+                if (removed && set.isEmpty()) {
+                    chunkHolder.remove(ref.pos.asLong());
+                    if (chunkHolder.isEmpty()) {
+                        byChunkThenBlock.remove(ChunkPos.asLong(ref.pos));
+                    }
                 }
             }
         }

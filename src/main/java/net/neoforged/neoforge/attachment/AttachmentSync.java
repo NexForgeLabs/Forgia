@@ -115,6 +115,10 @@ public final class AttachmentSync {
         if (type.syncHandler == null || !(blockEntity.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerAttachmentSync(
+                serverLevel, () -> syncBlockEntityUpdate(blockEntity, type))) {
+            return;
+        }
         syncUpdate(blockEntity, type, serverLevel.getChunkSource().chunkMap.getPlayers(new ChunkPos(blockEntity.getBlockPos()), false));
     }
 
@@ -122,11 +126,19 @@ public final class AttachmentSync {
         if (type.syncHandler == null || !(chunk.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerAttachmentSync(
+                serverLevel, () -> syncChunkUpdate(chunk, holder, type))) {
+            return;
+        }
         syncUpdate(holder, type, serverLevel.getChunkSource().chunkMap.getPlayers(chunk.getPos(), false));
     }
 
     public static void syncEntityUpdate(Entity entity, AttachmentType<?> type) {
         if (type.syncHandler == null || !(entity.level() instanceof ServerLevel serverLevel)) {
+            return;
+        }
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerAttachmentSync(
+                serverLevel, () -> syncEntityUpdate(entity, type))) {
             return;
         }
         var players = serverLevel.getChunkSource().chunkMap.getPlayersWatching(entity);
@@ -142,6 +154,10 @@ public final class AttachmentSync {
 
     public static void syncLevelUpdate(ServerLevel level, AttachmentType<?> type) {
         if (type.syncHandler == null) {
+            return;
+        }
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerAttachmentSync(
+                level, () -> syncLevelUpdate(level, type))) {
             return;
         }
         syncUpdate(level, type, level.players());

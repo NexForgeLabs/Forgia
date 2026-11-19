@@ -823,6 +823,121 @@ class RegionSelfDrivenEntityTickTest {
     }
 
     @Test
+    void capabilityAndSavedDataGuardsAdmitOwnedRegionAndFallBackCrossRegionOrSavedDataAccess() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Thread serverThread = Thread.currentThread();
+        final net.minecraft.world.entity.monster.Husk localCapMob = this.entity(
+                net.minecraft.world.entity.monster.Husk.class, level, new AtomicReference<>(new BlockPos(17, 64, 17)));
+        final net.minecraft.world.entity.monster.Drowned crossRegionCapMob = this.entity(
+                net.minecraft.world.entity.monster.Drowned.class, level, new AtomicReference<>(new BlockPos(100, 64, 17)));
+        final net.minecraft.world.entity.monster.Stray savedDataMob = this.entity(
+                net.minecraft.world.entity.monster.Stray.class, level, new AtomicReference<>(new BlockPos(200, 64, 17)));
+
+        final List<Thread> localCapThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> crossRegionCapThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> savedDataThreads = new CopyOnWriteArrayList<>();
+
+        doAnswer(call -> {
+            localCapThreads.add(Thread.currentThread());
+            // Querying a block capability inside the owned region, an entity capability, and an owned entity attachment succeeds.
+            RegionThreadingHooks.assertBlockCapabilityAccess(level, new BlockPos(17, 64, 17), "neoforge:item_handler");
+            RegionThreadingHooks.assertEntityCapabilityAccess(localCapMob, "neoforge:item_handler");
+            RegionThreadingHooks.assertAttachmentHolderAccess(localCapMob, "AttachmentHolder.getData");
+            return null;
+        }).when(localCapMob).tick();
+
+        doAnswer(call -> {
+            crossRegionCapThreads.add(Thread.currentThread());
+            // Querying a block capability in a foreign region (e.g. block 1000, 64, 1000 -> chunk 62, 62) throws RegionWorkerBoundaryException.
+            RegionThreadingHooks.assertBlockCapabilityAccess(level, new BlockPos(1000, 64, 1000), "neoforge:energy");
+            return null;
+        }).when(crossRegionCapMob).tick();
+
+        doAnswer(call -> {
+            savedDataThreads.add(Thread.currentThread());
+            // Accessing DimensionDataStorage directly on a worker throws RegionWorkerBoundaryException.
+            RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.computeIfAbsent:mod_power_grid");
+            return null;
+        }).when(savedDataMob).tick();
+
+        this.tickList.add(localCapMob);
+        this.tickList.add(crossRegionCapMob);
+        this.tickList.add(savedDataMob);
+
+        // Tick 1: localCapMob succeeds on a worker; crossRegionCapMob and savedDataMob hit boundary guards and demote.
+        this.plan(level).executeAndAwait();
+        assertEquals(1, localCapThreads.size());
+        assertEquals(1, crossRegionCapThreads.size());
+        assertEquals(1, savedDataThreads.size());
+        assertTrue(localCapThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertTrue(crossRegionCapThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertTrue(savedDataThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(2L, this.engine.boundaryFallbackEntityTickCount());
+
+        // Tick 2: localCapMob stays on a worker while crossRegionCapMob and savedDataMob run on the server thread.
+        this.plan(level).executeAndAwait();
+        assertEquals(2, localCapThreads.size());
+        assertEquals(2, crossRegionCapThreads.size());
+        assertEquals(2, savedDataThreads.size());
+        assertTrue(localCapThreads.get(1).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(serverThread, crossRegionCapThreads.get(1));
+        assertEquals(serverThread, savedDataThreads.get(1));
+        assertEquals(2L, this.engine.boundaryFallbackEntityTickCount());
+    }
+
+    @Test
+    void foreignOrLevelWideAttachmentAccessDemotesEntityToServerThreadAndDeferAttachmentSync() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Thread serverThread = Thread.currentThread();
+        final net.minecraft.world.entity.monster.Spider localSyncMob = this.entity(
+                net.minecraft.world.entity.monster.Spider.class, level, new AtomicReference<>(new BlockPos(17, 64, 17)));
+        final net.minecraft.world.entity.monster.CaveSpider levelAttachmentMob = this.entity(
+                net.minecraft.world.entity.monster.CaveSpider.class, level, new AtomicReference<>(new BlockPos(100, 64, 17)));
+
+        final List<Thread> localSyncThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> levelAttachmentThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> deferredSyncThreads = new CopyOnWriteArrayList<>();
+
+        doAnswer(call -> {
+            localSyncThreads.add(Thread.currentThread());
+            RegionThreadingHooks.assertAttachmentHolderAccess(localSyncMob, "AttachmentHolder.setData");
+            assertTrue(RegionThreadingHooks.deferWorkerAttachmentSync(level, () -> deferredSyncThreads.add(Thread.currentThread())));
+            return null;
+        }).when(localSyncMob).tick();
+
+        doAnswer(call -> {
+            levelAttachmentThreads.add(Thread.currentThread());
+            // Accessing a level-wide attachment on a worker throws RegionWorkerBoundaryException.
+            RegionThreadingHooks.assertAttachmentHolderAccess(level, "AttachmentHolder.getData");
+            return null;
+        }).when(levelAttachmentMob).tick();
+
+        this.tickList.add(localSyncMob);
+        this.tickList.add(levelAttachmentMob);
+
+        // Tick 1: localSyncMob stays on a worker and defers its attachment network sync to the server thread;
+        // levelAttachmentMob hits the boundary guard and demotes its class.
+        this.plan(level).executeAndAwait();
+        assertEquals(1, localSyncThreads.size());
+        assertEquals(1, levelAttachmentThreads.size());
+        assertTrue(localSyncThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertTrue(levelAttachmentThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(List.of(serverThread), deferredSyncThreads);
+        assertEquals(1L, this.engine.boundaryFallbackEntityTickCount());
+
+        // Tick 2: localSyncMob continues on a worker while levelAttachmentMob runs on the server thread.
+        this.plan(level).executeAndAwait();
+        assertEquals(2, localSyncThreads.size());
+        assertEquals(2, levelAttachmentThreads.size());
+        assertTrue(localSyncThreads.get(1).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(serverThread, levelAttachmentThreads.get(1));
+        assertEquals(List.of(serverThread, serverThread), deferredSyncThreads);
+        assertEquals(1L, this.engine.boundaryFallbackEntityTickCount());
+    }
+
+    @Test
     void failedQueuedAttackIsReportedAfterTheOtherAcceptedAttackRuns() {
         this.installEngine();
         final ServerLevel level = this.mockLevel();

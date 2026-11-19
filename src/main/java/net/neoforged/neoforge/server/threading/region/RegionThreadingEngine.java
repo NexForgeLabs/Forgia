@@ -241,6 +241,10 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final AtomicLong boundaryFallbackEntityTicks = new AtomicLong();
     /** Classes already demoted to the server thread due to a worker boundary violation. */
     private final Set<Class<?>> boundaryFallbackEntityTickClasses = ConcurrentHashMap.newKeySet();
+    /** Block-entity ticks truncated because a worker crossed a storage, capability or global-state boundary guard. */
+    private final AtomicLong boundaryFallbackBlockEntityTicks = new AtomicLong();
+    /** Block-entity types already demoted to the server thread due to a worker boundary violation. */
+    private final Set<String> boundaryFallbackBlockEntityTypes = ConcurrentHashMap.newKeySet();
     /**
      * Entity ticks a worker handed back because the chunk source refused a chunk the tick needed. Each one
      * is ticked on the server thread after the batch instead of blocking the worker on the chunk source.
@@ -8013,6 +8017,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                                 permit.succeeded();
                                 this.blockEntityTicksOnWorkers.incrementAndGet();
                             } catch (Throwable throwable) {
+                                if (this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
+                                    continue;
+                                }
                                 this.recordWorkerTickFailure(batch, region.coordinate(), null, throwable);
                                 break;
                             }
@@ -8830,6 +8837,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                                             }
                                         }
                                     } catch (Throwable throwable) {
+                                        if (this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
+                                            continue;
+                                        }
                                         // Once a ticker body started, a chunk refusal is a real failure. Its
                                         // earlier inventory/world/event effects cannot be rolled back or replayed.
                                         this.recordWorkerTickFailure(group.batch(), coordinate, null, throwable);
@@ -10149,9 +10159,14 @@ public final class RegionThreadingEngine implements RegionThreading {
     /** The reason token of the declaration a chunk-truncated entity tick produces. */
     public static final String CHUNK_UNAVAILABLE_ENTITY_REASON = "chunk_unavailable";
     public static final String BOUNDARY_VIOLATION_ENTITY_REASON = "worker_boundary_violation";
+    public static final String BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON = "worker_boundary_violation";
 
     public long boundaryFallbackEntityTickCount() {
         return this.boundaryFallbackEntityTicks.get();
+    }
+
+    public long boundaryFallbackBlockEntityTickCount() {
+        return this.boundaryFallbackBlockEntityTicks.get();
     }
 
     /**
@@ -10215,6 +10230,27 @@ public final class RegionThreadingEngine implements RegionThreading {
             LOGGER.warn("Region worker truncated the tick of {} due to worker boundary guard [{}]: {}. "
                     + "Ticks of this class now fall back to the server thread.",
                     entity.getClass().getName(), violation.category(), violation.getMessage());
+        }
+        return true;
+    }
+
+    /**
+     * Generic safety-net fallback when a worker block-entity tick crosses a server-owned storage, capability,
+     * or global-state guard. Truncates the current tick and dynamically demotes the block-entity type to the
+     * server thread so subsequent ticks run legally without crashing the server.
+     */
+    private boolean truncateIfBlockEntityBoundaryViolation(RegionBlockEntityTickAdmission admission, Throwable throwable) {
+        final RegionWorkerBoundaryException violation = RegionWorkerBoundaryException.findBoundaryViolation(throwable);
+        if (violation == null) {
+            return false;
+        }
+        this.boundaryFallbackBlockEntityTicks.incrementAndGet();
+        final String type = admission.type();
+        RegionTickCompatibility.declareServerThreadOnlyType(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
+        if (this.boundaryFallbackBlockEntityTypes.add(type)) {
+            LOGGER.warn("Region worker truncated the tick of block entity {} at {} due to worker boundary guard [{}]: {}. "
+                    + "Ticks of this type now fall back to the server thread.",
+                    type, admission.position(), violation.category(), violation.getMessage());
         }
         return true;
     }

@@ -100,6 +100,7 @@ public final class RegionTickCompatibility {
      * future caller from believing it would.
      */
     private static volatile Map<String, String> serverThreadOnlyTypes = Map.of();
+    private static volatile long declarationVersion;
 
     /**
      * Types a pack author admitted to worker ticks, by type id.
@@ -123,6 +124,11 @@ public final class RegionTickCompatibility {
 
     private RegionTickCompatibility() {}
 
+    /** {@return the current declaration version, bumped whenever declarations change} */
+    public static long declarationVersion() {
+        return declarationVersion;
+    }
+
     /**
      * Replaces the declared server-thread-only block-entity types.
      * <p>
@@ -134,6 +140,24 @@ public final class RegionTickCompatibility {
      */
     public static void declareServerThreadOnlyTypes(Map<String, String> declarations) {
         serverThreadOnlyTypes = Map.copyOf(declarations);
+        ++declarationVersion;
+    }
+
+    /**
+     * Dynamically pins {@code type} to the server thread with {@code reason} and bumps
+     * {@link #declarationVersion()} so cached chunk admission snapshots rebuild on the next tick.
+     */
+    public static synchronized void declareServerThreadOnlyType(String type, String reason) {
+        if (type == null || type.isBlank() || reason == null || reason.isBlank()) {
+            return;
+        }
+        if (reason.equals(serverThreadOnlyTypes.get(type))) {
+            return;
+        }
+        final java.util.HashMap<String, String> updated = new java.util.HashMap<>(serverThreadOnlyTypes);
+        updated.put(type, reason);
+        serverThreadOnlyTypes = Map.copyOf(updated);
+        ++declarationVersion;
     }
 
     /**
@@ -147,6 +171,7 @@ public final class RegionTickCompatibility {
      */
     public static void declareAdmittedBlockEntityTypes(Set<String> types) {
         admittedTypes = Set.copyOf(types);
+        ++declarationVersion;
     }
 
     /** {@return the block-entity types a pack admitted to worker ticks} */

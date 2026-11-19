@@ -1448,6 +1448,213 @@ public final class RegionThreadingHooks {
     }
 
     /**
+     * Guards a {@link net.neoforged.neoforge.capabilities.BlockCapability} query on {@code level} at {@code pos}.
+     * <p>
+     * On the server thread, client level, or any non-worker thread this is a no-op. On a native region worker,
+     * querying a block capability returns a live mutable capability view (such as an {@code IItemHandler},
+     * {@code IEnergyStorage} or {@code IFluidHandler}), so the target position must belong to the region lease
+     * held by the current worker thread and must pass the active player/resource scope checks. Cross-region
+     * capability queries throw {@link net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException}
+     * before any provider callback runs, allowing the engine to fall the offending entity or block-entity type
+     * back to the server thread instead of racing another region worker.
+     */
+    public static void assertBlockCapabilityAccess(net.minecraft.world.level.Level level, BlockPos pos, String capabilityName) {
+        if (!(level instanceof ServerLevel serverLevel) || !RegionWorkerScope.isNativeWorkerThread()) {
+            return;
+        }
+        try {
+            assertPlayerBlockAccess(serverLevel, pos);
+            BlockEntityResourceOwnership.Scope.checkReference(serverLevel, pos);
+            FurnaceWorkScope.checkReference(serverLevel, pos);
+        } catch (IllegalStateException ex) {
+            if (ex instanceof net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException boundary) {
+                throw boundary;
+            }
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.capabilityAccess(
+                    "BlockCapability:" + capabilityName, ex.getMessage());
+        }
+        RegionBlockEntityWorkGraph.blockEntityReference(serverLevel, pos);
+        if (!isRegionTickOwnedByCurrentThread(serverLevel, pos)) {
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.capabilityAccess(
+                    "BlockCapability:" + capabilityName,
+                    "Native region worker queried block capability '" + capabilityName + "' at " + pos + " outside its leased region");
+        }
+    }
+
+    /**
+     * Guards an {@link net.neoforged.neoforge.capabilities.EntityCapability} query on {@code entity}.
+     * <p>
+     * On the server thread, client level, or any non-worker thread this is a no-op. On a native region worker,
+     * the target entity must be owned by the current thread's active {@link RegionEntityOwnershipScope}.
+     */
+    public static void assertEntityCapabilityAccess(Entity entity, String capabilityName) {
+        if (!(entity.level() instanceof ServerLevel serverLevel) || !RegionWorkerScope.isNativeWorkerThread()) {
+            return;
+        }
+        try {
+            assertPlayerTargetMutation(entity, "EntityCapability:" + capabilityName);
+            BlockEntityResourceOwnership.Scope.rejectEffect("entity capability access");
+            FurnaceWorkScope.rejectEffect("entity capability access");
+        } catch (IllegalStateException ex) {
+            if (ex instanceof net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException boundary) {
+                throw boundary;
+            }
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.capabilityAccess(
+                    "EntityCapability:" + capabilityName, ex.getMessage());
+        }
+        RegionBlockEntityWorkGraph.opaqueEffect();
+        if (!RegionEntityOwnershipScope.ownsEntity(serverLevel, entity)) {
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.capabilityAccess(
+                    "EntityCapability:" + capabilityName,
+                    "Native region worker queried entity capability '" + capabilityName + "' on unowned entity " + entity.getType());
+        }
+    }
+
+    /**
+     * Guards direct access to {@link net.minecraft.world.level.storage.DimensionDataStorage} from a native
+     * region worker outside a serviced map-storage handoff.
+     * <p>
+     * {@code DimensionDataStorage} is backed by an unsynchronized {@code HashMap} and holds level-wide mutable
+     * {@link net.minecraft.world.level.saveddata.SavedData} graphs (power networks, claims, team data, etc.).
+     * Throwing {@link net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException} allows
+     * the region engine to safely fall the offending entity or block-entity type back to the server thread.
+     */
+    public static void assertDimensionDataStorageAccess(String operation) {
+        if (RegionWorkerScope.isNativeWorkerThread()) {
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.globalSavedData(
+                    operation,
+                    "Native region worker attempted direct DimensionDataStorage access (" + operation + ")");
+        }
+    }
+
+    /**
+     * Guards access to a NeoForge {@link net.neoforged.neoforge.attachment.IAttachmentHolder} from a native
+     * region worker.
+     * <p>
+     * On the server thread, client level, or any non-worker thread this is a no-op. On a native region worker:
+     * <ul>
+     *     <li>{@link ServerLevel} attachments are level-wide global state and are rejected with
+     *     {@link net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException}.</li>
+     *     <li>{@link Entity} attachments require the target entity to be owned by the current worker's
+     *     {@link RegionEntityOwnershipScope}.</li>
+     *     <li>{@link net.minecraft.world.level.block.entity.BlockEntity} and
+     *     {@link net.minecraft.world.level.chunk.LevelChunk} attachments require the holder's position to
+     *     belong to the current worker's region lease.</li>
+     * </ul>
+     */
+    public static void assertAttachmentHolderAccess(net.neoforged.neoforge.attachment.IAttachmentHolder holder, String operation) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return;
+        }
+        if (holder instanceof ServerLevel) {
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                    operation,
+                    "Native region worker attempted level-wide attachment access (" + operation + ")");
+        }
+        if (holder instanceof Entity entity) {
+            if (!(entity.level() instanceof ServerLevel serverLevel)) {
+                return;
+            }
+            try {
+                assertPlayerTargetMutation(entity, operation);
+                BlockEntityResourceOwnership.Scope.rejectEffect("entity attachment access");
+                FurnaceWorkScope.rejectEffect("entity attachment access");
+            } catch (IllegalStateException ex) {
+                if (ex instanceof net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException boundary) {
+                    throw boundary;
+                }
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                        operation, ex.getMessage());
+            }
+            RegionBlockEntityWorkGraph.opaqueEffect();
+            if (!RegionEntityOwnershipScope.ownsEntity(serverLevel, entity)) {
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                        operation,
+                        "Native region worker accessed attachment on unowned entity " + entity.getType() + " (" + operation + ")");
+            }
+            return;
+        }
+        if (holder instanceof net.minecraft.world.level.block.entity.BlockEntity blockEntity) {
+            final net.minecraft.world.level.Level level = blockEntity.getLevel();
+            if (!(level instanceof ServerLevel serverLevel)) {
+                return;
+            }
+            final BlockPos pos = blockEntity.getBlockPos();
+            try {
+                assertPlayerBlockAccess(serverLevel, pos);
+                BlockEntityResourceOwnership.Scope.checkReference(serverLevel, pos);
+                FurnaceWorkScope.checkReference(serverLevel, pos);
+            } catch (IllegalStateException ex) {
+                if (ex instanceof net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException boundary) {
+                    throw boundary;
+                }
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                        operation, ex.getMessage());
+            }
+            RegionBlockEntityWorkGraph.blockEntityReference(serverLevel, pos);
+            if (!isRegionTickOwnedByCurrentThread(serverLevel, pos)) {
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                        operation,
+                        "Native region worker accessed block-entity attachment at " + pos + " outside its leased region (" + operation + ")");
+            }
+            return;
+        }
+        if (holder instanceof net.minecraft.world.level.chunk.LevelChunk chunk) {
+            if (!(chunk.getLevel() instanceof ServerLevel serverLevel)) {
+                return;
+            }
+            final BlockPos pos = chunk.getPos().getWorldPosition();
+            try {
+                assertPlayerBlockAccess(serverLevel, pos);
+                BlockEntityResourceOwnership.Scope.checkChunk(chunk, true);
+                FurnaceWorkScope.checkChunk(chunk, true);
+            } catch (IllegalStateException ex) {
+                if (ex instanceof net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException boundary) {
+                    throw boundary;
+                }
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                        operation, ex.getMessage());
+            }
+            RegionBlockEntityWorkGraph.chunkAccess(chunk, true);
+            if (!isRegionTickOwnedByCurrentThread(serverLevel, pos)) {
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                        operation,
+                        "Native region worker accessed chunk attachment at " + chunk.getPos() + " outside its leased region (" + operation + ")");
+            }
+        }
+    }
+
+    /**
+     * Defers attachment network synchronization when triggered from a native region worker.
+     * <p>
+     * {@code AttachmentSync} queries {@code ChunkMap.getPlayersWatching} / {@code getPlayers}, which are
+     * server-owned tracking structures. When a worker mutates or initializes a synced attachment on an owned
+     * holder, this hook queues the sync task onto the active batch's post-barrier server-thread queue (or the
+     * server's main-thread executor) so the worker tick completes in parallel without touching {@code ChunkMap}.
+     *
+     * @return {@code true} when the sync was routed to the server thread and the caller must return immediately
+     */
+    public static boolean deferWorkerAttachmentSync(ServerLevel level, Runnable syncAction) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return false;
+        }
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            if (engine.queueServerTaskInCurrentBatch(syncAction)) {
+                return true;
+            }
+        }
+        final MinecraftServer server = level.getServer();
+        if (server != null) {
+            server.execute(syncAction);
+            return true;
+        }
+        throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
+                "AttachmentSync",
+                "Native region worker attempted attachment network sync without an active batch or server");
+    }
+
+    /**
      * {@return true when a region execution context is running on the current thread and that context
      * holds the lease of the region containing {@code pos}}
      * <p>

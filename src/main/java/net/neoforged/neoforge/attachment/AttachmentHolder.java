@@ -38,16 +38,18 @@ public abstract class AttachmentHolder implements IAttachmentHolder {
     }
 
     @Nullable
-    Map<AttachmentType<?>, Object> attachments = null;
+    volatile Map<AttachmentType<?>, Object> attachments = null;
 
     /**
      * Create the attachment map if it does not yet exist, or return the current map.
      */
-    final Map<AttachmentType<?>, Object> getAttachmentMap() {
-        if (attachments == null) {
-            attachments = new IdentityHashMap<>(4);
+    synchronized final Map<AttachmentType<?>, Object> getAttachmentMap() {
+        Map<AttachmentType<?>, Object> map = attachments;
+        if (map == null) {
+            map = new IdentityHashMap<>(4);
+            attachments = map;
         }
-        return attachments;
+        return map;
     }
 
     /**
@@ -61,22 +63,45 @@ public abstract class AttachmentHolder implements IAttachmentHolder {
 
     @Override
     public final boolean hasAttachments() {
-        return attachments != null && !attachments.isEmpty();
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.hasAttachments");
+        final Map<AttachmentType<?>, Object> map = attachments;
+        if (map == null) {
+            return false;
+        }
+        synchronized (this) {
+            return !map.isEmpty();
+        }
     }
 
     @Override
     public final boolean hasData(AttachmentType<?> type) {
         validateAttachmentType(type);
-        return attachments != null && attachments.containsKey(type);
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.hasData");
+        final Map<AttachmentType<?>, Object> map = attachments;
+        if (map == null) {
+            return false;
+        }
+        synchronized (this) {
+            return map.containsKey(type);
+        }
     }
 
     @Override
     public final <T> T getData(AttachmentType<T> type) {
         validateAttachmentType(type);
-        T ret = (T) getAttachmentMap().get(type);
-        if (ret == null) {
-            ret = type.defaultValueSupplier.apply(getExposedHolder());
-            attachments.put(type, ret);
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.getData");
+        T ret;
+        boolean created = false;
+        synchronized (this) {
+            final Map<AttachmentType<?>, Object> map = getAttachmentMap();
+            ret = (T) map.get(type);
+            if (ret == null) {
+                ret = type.defaultValueSupplier.apply(getExposedHolder());
+                map.put(type, ret);
+                created = true;
+            }
+        }
+        if (created) {
             syncData(type);
         }
         return ret;
@@ -86,10 +111,14 @@ public abstract class AttachmentHolder implements IAttachmentHolder {
     @Nullable
     public <T> T getExistingDataOrNull(AttachmentType<T> type) {
         validateAttachmentType(type);
-        if (attachments == null) {
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.getExistingDataOrNull");
+        final Map<AttachmentType<?>, Object> map = this.attachments;
+        if (map == null) {
             return null;
         }
-        return (T) this.attachments.get(type);
+        synchronized (this) {
+            return (T) map.get(type);
+        }
     }
 
     @Override
@@ -97,7 +126,11 @@ public abstract class AttachmentHolder implements IAttachmentHolder {
     public <T> @Nullable T setData(AttachmentType<T> type, T data) {
         validateAttachmentType(type);
         Objects.requireNonNull(data);
-        var previousData = (T) getAttachmentMap().put(type, data);
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.setData");
+        final T previousData;
+        synchronized (this) {
+            previousData = (T) getAttachmentMap().put(type, data);
+        }
         syncData(type);
         return previousData;
     }
@@ -106,10 +139,15 @@ public abstract class AttachmentHolder implements IAttachmentHolder {
     @MustBeInvokedByOverriders
     public <T> @Nullable T removeData(AttachmentType<T> type) {
         validateAttachmentType(type);
-        if (attachments == null) {
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.removeData");
+        final Map<AttachmentType<?>, Object> map = this.attachments;
+        if (map == null) {
             return null;
         }
-        var previousData = (T) attachments.remove(type);
+        final T previousData;
+        synchronized (this) {
+            previousData = (T) map.remove(type);
+        }
         syncData(type);
         return previousData;
     }

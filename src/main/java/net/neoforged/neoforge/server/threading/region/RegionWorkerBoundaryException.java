@@ -42,6 +42,18 @@ public final class RegionWorkerBoundaryException extends IllegalStateException {
         return new RegionWorkerBoundaryException("player_lifecycle", operation, message);
     }
 
+    public static RegionWorkerBoundaryException capabilityAccess(String operation, String message) {
+        return new RegionWorkerBoundaryException("capability_access", operation, message);
+    }
+
+    public static RegionWorkerBoundaryException globalSavedData(String operation, String message) {
+        return new RegionWorkerBoundaryException("global_saved_data", operation, message);
+    }
+
+    public static RegionWorkerBoundaryException attachmentAccess(String operation, String message) {
+        return new RegionWorkerBoundaryException("attachment_access", operation, message);
+    }
+
     public String category() {
         return this.category;
     }

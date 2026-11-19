@@ -1,5 +1,21 @@
 --- a/net/minecraft/world/level/storage/DimensionDataStorage.java
 +++ b/net/minecraft/world/level/storage/DimensionDataStorage.java
+@@ -40,6 +_,7 @@
+     }
+ 
+     public <T extends SavedData> T computeIfAbsent(SavedData.Factory<T> p_294124_, String p_164864_) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.computeIfAbsent:" + p_164864_);
+         T t = this.get(p_294124_, p_164864_);
+         if (t != null) {
+             return t;
+@@ -52,6 +_,7 @@
+ 
+     @Nullable
+     public <T extends SavedData> T get(SavedData.Factory<T> p_295091_, String p_164860_) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.get:" + p_164860_);
+         SavedData saveddata = this.cache.get(p_164860_);
+         if (saveddata == null && !this.cache.containsKey(p_164860_)) {
+             saveddata = this.readSavedData(p_295091_.deserializer(), p_295091_.type(), p_164860_);
 @@ -63,7 +_,7 @@
      }
  
@@ -9,7 +25,11 @@
          try {
              File file1 = this.getDataFile(p_164870_);
              if (file1.exists()) {
-@@ -81,7 +_,7 @@
+@@ -78,9 +_,10 @@
+     }
+ 
+     public void set(String p_164856_, SavedData p_164857_) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.set:" + p_164856_);
          this.cache.put(p_164856_, p_164857_);
      }
  

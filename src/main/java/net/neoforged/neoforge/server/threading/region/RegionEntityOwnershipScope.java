@@ -255,6 +255,19 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * are not counted as a rejected spawn: the entity is being constructed for an admission the lease may
      * record.
      */
+    /**
+     * {@return true when the current native region worker holds an active entity ownership lease for
+     * {@code level} that owns {@code entity}}
+     */
+    public static boolean ownsEntity(ServerLevel level, Entity entity) {
+        final RegionEntityOwnershipScope scope = currentScope();
+        return scope != null
+                && scope.isActive()
+                && RegionWorkerScope.isNativeWorkerThread()
+                && scope.coordinate.level() == level
+                && (scope.group.owns(entity) || (!hasLevelEffects(entity) && !entity.isRemoved() && entity.level() == level));
+    }
+
     public static boolean grantsEntityMutation(ServerLevel level, Entity entity, String operation) {
         final RegionEntityOwnershipScope scope = currentScope();
         if (scope == null || !scope.isActive()) {

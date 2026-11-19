@@ -97,6 +97,7 @@ public final class EntityCapability<T, C extends @Nullable Object> extends BaseC
     @ApiStatus.Internal
     @Nullable
     public T getCapability(Entity entity, C context) {
+        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertEntityCapabilityAccess(entity, this.name().toString());
         for (var provider : providers.getOrDefault(entity.getType(), List.of())) {
             var ret = provider.getCapability(entity, context);
             if (ret != null)

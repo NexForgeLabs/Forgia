@@ -83,6 +83,8 @@ class RegionBlockEntityTickTest {
     @AfterEach
     void shutdownEngine() {
         RegionThreadingManager.clear();
+        net.neoforged.neoforge.server.threading.region.RegionTickCompatibility.declareServerThreadOnlyTypes(java.util.Map.of());
+        net.neoforged.neoforge.server.threading.region.RegionTickCompatibility.declareAdmittedBlockEntityTypes(java.util.Set.of());
         this.engine = null;
     }
 
@@ -158,6 +160,96 @@ class RegionBlockEntityTickTest {
         assertEquals(1L, this.engine.diagnostics().blockEntityTicksOnWorkers());
         assertEquals(0L, this.engine.diagnostics().skippedBlockEntityTicks());
         assertEquals(0, this.engine.diagnostics().runningRegionCount());
+    }
+
+    @Test
+    void blockEntityBoundaryViolationDemotesTypeToServerThreadOnNextTick() {
+        this.installEngine(true);
+        final ServerLevel level = mockLevel();
+        final Thread serverThread = Thread.currentThread();
+        final String moddedType = "modid:cross_region_cable";
+        net.neoforged.neoforge.server.threading.region.RegionTickCompatibility.declareAdmittedBlockEntityTypes(java.util.Set.of(moddedType));
+
+        final TickingBlockEntity cableTicker = mockTicker(new BlockPos(17, 64, 17), moddedType);
+        final TickingBlockEntity safeTicker = mockTicker(new BlockPos(512 + 17, 64, 512 + 17), "minecraft:furnace");
+        final List<Thread> cableThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> safeThreads = new CopyOnWriteArrayList<>();
+
+        doAnswer(invocation -> {
+            cableThreads.add(Thread.currentThread());
+            // Querying a block capability outside the leased region throws RegionWorkerBoundaryException on a worker
+            // and is a no-op on the server thread.
+            RegionThreadingHooks.assertBlockCapabilityAccess(level, new BlockPos(500, 64, 500), "neoforge:energy");
+            return null;
+        }).when(cableTicker).tick();
+
+        doAnswer(invocation -> {
+            safeThreads.add(Thread.currentThread());
+            RegionThreadingHooks.assertBlockCapabilityAccess(level, new BlockPos(512 + 17, 64, 512 + 17), "neoforge:item_handler");
+            return null;
+        }).when(safeTicker).tick();
+
+        // Tick 1: both run on the worker; cableTicker hits the cross-region capability boundary and demotes its type.
+        final RegionBlockEntityTickPlan plan1 = plan(level);
+        plan1.accept(cableTicker);
+        plan1.accept(safeTicker);
+        plan1.executeAndAwait();
+
+        assertEquals(1, cableThreads.size());
+        assertEquals(1, safeThreads.size());
+        assertTrue(cableThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertTrue(safeThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(1L, this.engine.boundaryFallbackBlockEntityTickCount());
+
+        // Tick 2: cableTicker is now automatically routed to the server thread while safeTicker stays on a worker.
+        final RegionBlockEntityTickPlan plan2 = plan(level);
+        plan2.accept(cableTicker);
+        plan2.accept(safeTicker);
+        plan2.executeAndAwait();
+
+        assertEquals(2, cableThreads.size());
+        assertEquals(2, safeThreads.size());
+        assertEquals(serverThread, cableThreads.get(1));
+        assertTrue(safeThreads.get(1).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(1L, this.engine.boundaryFallbackBlockEntityTickCount());
+    }
+
+    @Test
+    void capabilityListenerHolderSupportsConcurrentAddInvalidateAndClean() throws Exception {
+        final var holder = new net.neoforged.neoforge.capabilities.CapabilityListenerHolder();
+        final int threads = 4;
+        final CyclicBarrier startBarrier = new CyclicBarrier(threads);
+        final List<Thread> workers = new ArrayList<>(threads);
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+
+        for (int t = 0; t < threads; t++) {
+            final int workerId = t;
+            final Thread thread = new Thread(() -> {
+                try {
+                    startBarrier.await(5, TimeUnit.SECONDS);
+                    for (int i = 0; i < 250; i++) {
+                        final boolean keep = (i & 1) == 0;
+                        final BlockPos pos = new BlockPos((workerId * 16) + (i & 7), 64, i & 15);
+                        final net.neoforged.neoforge.capabilities.ICapabilityInvalidationListener listener = () -> keep;
+                        holder.addListener(pos, listener);
+                        holder.invalidatePos(pos);
+                        if ((i & 15) == 0) {
+                            holder.invalidateChunk(new net.minecraft.world.level.ChunkPos(pos));
+                            holder.clean();
+                        }
+                    }
+                } catch (Throwable throwable) {
+                    failure.compareAndSet(null, throwable);
+                }
+            });
+            workers.add(thread);
+            thread.start();
+        }
+
+        for (final Thread worker : workers) {
+            worker.join(10_000L);
+        }
+        assertNull(failure.get(), () -> "Concurrent CapabilityListenerHolder access failed: " + failure.get());
     }
 
     @Test
