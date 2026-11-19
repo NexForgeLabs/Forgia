@@ -5428,10 +5428,14 @@ public final class RegionThreadingEngine implements RegionThreading {
         player.forgiaPlayerStateTemplate(RegionPlayerStatePlan.MOVEMENT_TEMPLATE, null);
     }
 
+    private boolean playerTickLayoutSupported() {
+        return this.layout.isFixed() || this.layout.isDynamicCluster() && Boolean.getBoolean("forgia.dynamicPlayerSoak");
+    }
+
     /** Storage prerequisites match the actual player phase dependencies; no slice is enabled here. */
     @ApiStatus.Internal
     public boolean playerCriterionStorageEnabled() {
-        return this.playerTickPlanningRequested && !this.shutdown && this.layout.isFixed()
+        return this.playerTickPlanningRequested && !this.shutdown && this.playerTickLayoutSupported()
                 && this.entityStorageMode == RegionEntityStorageMode.REGION_OWNED && this.entityTickWorkerExecutionEnabled;
     }
 
@@ -5468,7 +5472,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             RegionPlayerTickCoordinator.Phase phase) {
         if (!player.server.isSameThread()) throw new IllegalStateException("Player phase must enter on its original server thread");
         if (!this.playerTickPlanningRequested || this.shutdown) return null;
-        if (!this.layout.isFixed() || this.entityStorageMode != RegionEntityStorageMode.REGION_OWNED || !this.entityTickWorkerExecutionEnabled) {
+        if (!this.playerTickLayoutSupported() || this.entityStorageMode != RegionEntityStorageMode.REGION_OWNED || !this.entityTickWorkerExecutionEnabled) {
             this.playerTicks.recordUntrackedSerial(phase, RegionPlayerTickCoordinator.Reason.DEPENDENCIES);
             return null;
         }
