@@ -287,6 +287,7 @@ abstract class RegionTickBatch {
      */
     final void enableOrderedSpawnAdmissions(int workers, Runnable beforeTransaction) {
         if (this.submitted || this.spawnAdmissions != null) throw new IllegalStateException("Spawn admission mode is startup-only");
+        this.dispatchTopology = null;
         this.spawnAdmissions = new RegionSpawnAdmissionBarrier(workers, beforeTransaction);
     }
 

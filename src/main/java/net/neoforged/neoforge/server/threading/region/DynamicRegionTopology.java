@@ -467,6 +467,11 @@ public final class DynamicRegionTopology {
         this.pendingActivations.clear();
         this.newlyEmptiedSections.clear();
         this.pendingEmptySinceTick.clear();
+        this.neighborRegionScratch.clear();
+        this.splitCandidateRegionsScratch.clear();
+        this.expiredSectionsScratch.clear();
+        this.bfsQueueScratch.clear();
+        this.bfsVisitedScratch.clear();
         this.publishedSectionToRegion = newSectionRegionMap();
         this.topologyVersion++;
     }
@@ -544,7 +549,7 @@ public final class DynamicRegionTopology {
         }
     }
 
-    long coalescedSubmissions() {
+    public long coalescedSubmissions() {
         return this.coalescedSubmissions.sum();
     }
 

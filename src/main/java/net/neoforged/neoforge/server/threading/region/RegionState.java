@@ -686,9 +686,10 @@ final class RegionState {
         // A retired region owns no mapping anymore, so its index is empty by the time it retires; clear it
         // anyway so a retired region can never keep an entity entry - or the entity - alive.
         this.clearEntityTickEntries();
-        // A retired region is dropped from the regionizer, so its metric window is released here instead of
-        // waiting for the last reference to the dead region state to disappear.
+        // A retired region is dropped from the regionizer, so its metric window and dispatch timing history
+        // are released here instead of waiting for the last reference to the dead region state to disappear.
         this.tickMetrics.release();
+        this.dispatchCosts = null;
         return true;
     }
 }

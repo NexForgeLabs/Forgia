@@ -75,6 +75,7 @@ public final class RegionTaskBatch {
 
     /** Coalesces light tasks while keeping spare work available and bounding the cost of each pack. */
     void groupByLoadedIsland(DynamicRegionTopology topology, int workerCount) {
+        if (workerCount <= 0) return;
         int mergeBudget = this.groups.size() - workerCount;
         if (mergeBudget <= 0) return;
         long knownTotal = 0L;
@@ -115,7 +116,7 @@ public final class RegionTaskBatch {
                 grouped.add(group);
                 continue;
             }
-            final List<Runnable> works = pack.coordinate() == null ? pack.works() : new ArrayList<>(pack.works());
+            final List<Runnable> works = pack.works() instanceof ArrayList<Runnable> mutable ? mutable : new ArrayList<>(pack.works());
             works.addAll(group.works());
             grouped.set(slot, new Group("loaded island " + island, works, null, packCost + cost));
             --mergeBudget;
