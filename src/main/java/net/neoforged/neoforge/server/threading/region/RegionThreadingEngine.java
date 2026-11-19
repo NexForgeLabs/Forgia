@@ -237,6 +237,10 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final AtomicLong truncatedEntityTicks = new AtomicLong();
     /** Classes already reported for a truncated tick, so one class cannot flood the log. */
     private final Set<Class<?>> truncatedEntityTickClasses = ConcurrentHashMap.newKeySet();
+    /** Entity ticks truncated because a worker crossed a storage or player-state boundary guard. */
+    private final AtomicLong boundaryFallbackEntityTicks = new AtomicLong();
+    /** Classes already demoted to the server thread due to a worker boundary violation. */
+    private final Set<Class<?>> boundaryFallbackEntityTickClasses = ConcurrentHashMap.newKeySet();
     /**
      * Entity ticks a worker handed back because the chunk source refused a chunk the tick needed. Each one
      * is ticked on the server thread after the batch instead of blocking the worker on the chunk source.
@@ -3023,6 +3027,43 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (source != null && source.level() == group.level() && group.owns(source)) {
             this.submitEntityInteraction(source, player, (attacker, target) -> target.hurt(damage, amount));
         }
+    }
+
+    /**
+     * Routes a worker-initiated player-state mutation (such as applying/removing a mob effect or firing a
+     * criterion trigger) onto the server thread without failing the worker tick or demoting the caller's class.
+     * <p>
+     * Inside an entity tick batch this queues an owner-validated interaction on the current batch so the action
+     * runs deterministically on the server thread right after the batch in the same tick. Outside an entity tick
+     * group (for example from a block-entity, scheduled-tick or chunk worker) it falls back to
+     * {@link MinecraftServer#execute(Runnable)} with live-level revalidation.
+     */
+    @ApiStatus.Internal
+    public boolean queuePlayerAction(ServerPlayer player, Consumer<ServerPlayer> action) {
+        if (!RegionWorkerScope.isNativeWorkerThread() || this.shutdown) {
+            return false;
+        }
+        final ServerLevel level = player.level() instanceof ServerLevel serverLevel ? serverLevel : null;
+        if (level == null || this.regionizer.isLevelClosed(level)) {
+            return false;
+        }
+        final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
+        if (group == null || group.level() != level) {
+            return false;
+        }
+        final RegionEntityInteractionTask request = new RegionEntityInteractionTask(
+                player, level,
+                target -> {
+                    if (target instanceof ServerPlayer livePlayer) {
+                        action.accept(livePlayer);
+                    }
+                },
+                state -> this.interactionOutcomes.incrementAndGet(state.ordinal()));
+        if (group.batch().queueInteraction(request, this.interactionContinuation(request, group, level, player))) {
+            this.interactionAdmissions.incrementAndGet();
+            return true;
+        }
+        return false;
     }
 
     private EntityInteractionTask submitEntityInteraction(Entity source, Entity target, BiConsumer<Entity, Entity> action) {
@@ -6317,6 +6358,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                                         failureObserver.accept(entity, throwable);
                                         continue;
                                     }
+                                    if (this.truncateIfBoundaryViolation(entity, throwable)) {
+                                        // The tick crossed a worker-forbidden storage or player-state boundary.
+                                        // Truncate this tick and dynamically fall back the runtime class to the
+                                        // server thread instead of crashing the server.
+                                        continue;
+                                    }
                                     // The failure is recorded for the server thread instead of being turned into
                                     // a crash report on this worker; the group stops here, exactly like the
                                     // vanilla entity pass stops at its first failing entity.
@@ -6453,6 +6500,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                                         // group keeps ticking its remaining entities instead of stopping at the
                                         // first one.
                                         failureObserver.accept(entity, throwable);
+                                        continue;
+                                    }
+                                    if (this.truncateIfBoundaryViolation(entity, throwable)) {
+                                        // The tick crossed a worker-forbidden storage or player-state boundary.
+                                        // Truncate this tick and dynamically fall back the runtime class to the
+                                        // server thread instead of crashing the server.
                                         continue;
                                     }
                                     // The failure is recorded for the server thread instead of being turned into
@@ -10023,6 +10076,11 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     /** The reason token of the declaration a chunk-truncated entity tick produces. */
     public static final String CHUNK_UNAVAILABLE_ENTITY_REASON = "chunk_unavailable";
+    public static final String BOUNDARY_VIOLATION_ENTITY_REASON = "worker_boundary_violation";
+
+    public long boundaryFallbackEntityTickCount() {
+        return this.boundaryFallbackEntityTicks.get();
+    }
 
     /**
      * Counts one tick failure of a worker group of {@code batch} and records it for the server thread.
@@ -10065,6 +10123,26 @@ public final class RegionThreadingEngine implements RegionThreading {
             LOGGER.warn("Region worker truncated the tick of {}: the chunk it needs is not loaded ({}). "
                     + "Ticks of this class now run on the server thread.",
                     entity.getClass().getName(), throwable.getMessage());
+        }
+        return true;
+    }
+
+    /**
+     * Generic safety-net fallback when a worker entity tick crosses a server-owned storage or player-local
+     * state guard. Truncates the current tick and dynamically demotes the entity's runtime class to the
+     * server thread so subsequent ticks run legally without crashing the server.
+     */
+    private boolean truncateIfBoundaryViolation(Entity entity, Throwable throwable) {
+        final RegionWorkerBoundaryException violation = RegionWorkerBoundaryException.findBoundaryViolation(throwable);
+        if (violation == null) {
+            return false;
+        }
+        this.boundaryFallbackEntityTicks.incrementAndGet();
+        this.entityTickPolicy.serverThreadOnly(entity.getClass(), BOUNDARY_VIOLATION_ENTITY_REASON);
+        if (this.boundaryFallbackEntityTickClasses.add(entity.getClass())) {
+            LOGGER.warn("Region worker truncated the tick of {} due to worker boundary guard [{}]: {}. "
+                    + "Ticks of this class now fall back to the server thread.",
+                    entity.getClass().getName(), violation.category(), violation.getMessage());
         }
         return true;
     }

@@ -95,14 +95,14 @@ public final class RegionPlayerStateScope implements AutoCloseable {
 
     private static RegionPlayerStatePlan require() {
         RegionPlayerStateScope scope = current();
-        if (scope == null) throw new IllegalStateException("No live owner-local player state permission");
+        if (scope == null) throw RegionWorkerBoundaryException.playerState("require", "No live owner-local player state permission");
         return scope.plan;
     }
 
     /** Keeps ordinary non-player worker contracts untouched; active player scopes cannot access foreign state. */
     public static void checkLocal(Object object) {
         RegionPlayerStateScope scope = currentSlot();
-        if (scope != null && (!scope.isCurrent() || !scope.plan.owns(object))) throw new IllegalStateException("Foreign player-local state object");
+        if (scope != null && (!scope.isCurrent() || !scope.plan.owns(object))) throw RegionWorkerBoundaryException.playerState("checkLocal", "Foreign player-local state object");
     }
 
     /** A consumed isolated player cannot introduce a complex stack during its original tick. */
@@ -113,42 +113,42 @@ public final class RegionPlayerStateScope implements AutoCloseable {
 
     /** Native access to advancement storage always needs this exact original owner, even with no scope. */
     public static void checkAdvancements(PlayerAdvancements owner) {
-        if (RegionWorkerScope.isNativeWorkerThread() && require().player().getAdvancements() != owner) throw new IllegalStateException("Foreign advancement owner");
+        if (RegionWorkerScope.isNativeWorkerThread() && require().player().getAdvancements() != owner) throw RegionWorkerBoundaryException.playerState("checkAdvancements", "Foreign advancement owner");
     }
 
     public static void checkListenerStorage(PlayerCriterionListeners storage) {
-        if (RegionWorkerScope.isNativeWorkerThread() && !require().owns(storage)) throw new IllegalStateException("Foreign criterion listener owner");
+        if (RegionWorkerScope.isNativeWorkerThread() && !require().owns(storage)) throw RegionWorkerBoundaryException.playerState("checkListenerStorage", "Foreign criterion listener owner");
     }
 
     public static void checkTrigger(SimpleCriterionTrigger<?> trigger, ServerPlayer player) {
         if (RegionWorkerScope.isNativeWorkerThread()) {
             var plan = require();
-            if (plan.player() != player || !plan.allowsTrigger(trigger)) throw new IllegalStateException("Uncaptured player criterion trigger");
+            if (plan.player() != player || !plan.allowsTrigger(trigger)) throw RegionWorkerBoundaryException.playerState("checkTrigger", "Uncaptured player criterion trigger");
         }
     }
 
     public static void checkAward(PlayerAdvancements owner, AdvancementHolder holder) {
         checkAdvancements(owner);
-        if (RegionWorkerScope.isNativeWorkerThread() && !require().allowsAward(holder)) throw new IllegalStateException("Uncaptured synchronous award/reward");
+        if (RegionWorkerScope.isNativeWorkerThread() && !require().allowsAward(holder)) throw RegionWorkerBoundaryException.playerState("checkAward", "Uncaptured synchronous award/reward");
     }
 
     public static void checkReward(AdvancementRewards reward, ServerPlayer player) {
         if (RegionWorkerScope.isNativeWorkerThread() || currentSlot() != null) {
             var plan = require();
-            if (plan.player() != player || !plan.allowsReward(reward)) throw new IllegalStateException("Uncaptured synchronous reward");
+            if (plan.player() != player || !plan.allowsReward(reward)) throw RegionWorkerBoundaryException.playerState("checkReward", "Uncaptured synchronous reward");
         }
     }
 
     public static void checkExperience(Player player, int amount) {
         if (currentSlot() != null) {
             var plan = require();
-            if (plan.player() != player || !plan.takeExperience(amount)) throw new IllegalStateException("XP result exceeds captured local reward branch");
+            if (plan.player() != player || !plan.takeExperience(amount)) throw RegionWorkerBoundaryException.playerState("checkExperience", "XP result exceeds captured local reward branch");
         }
     }
 
     public static boolean emptyObjectives(Scoreboard scoreboard, ObjectiveCriteria criterion, Object holder) {
         if (currentSlot() == null) return false;
-        if (!require().allowsScoreboard(scoreboard, criterion, holder)) throw new IllegalStateException("Player scoreboard mutation requires a complete serial fence");
+        if (!require().allowsScoreboard(scoreboard, criterion, holder)) throw RegionWorkerBoundaryException.playerState("emptyObjectives", "Player scoreboard mutation requires a complete serial fence");
         return require().emptyScoreboard(scoreboard, criterion, holder); // Nonempty captured objectives retain the complete ORIGINAL traversal/consumer/dirty callback.
     }
 
@@ -166,7 +166,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
 
     public static void checkObjective(Scoreboard board, Object holder, net.minecraft.world.scores.Objective objective) {
         if (currentSlot() != null && !require().allowsObjective(board, holder, objective))
-            throw new IllegalStateException("Uncaptured player/objective scoreboard mutation");
+            throw RegionWorkerBoundaryException.playerState("checkObjective", "Uncaptured player/objective scoreboard mutation");
     }
 
     @Nullable
@@ -174,7 +174,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     public static <T> Stat<T> stat(StatType<T> type, T value) {
         if (currentSlot() == null) return null;
         Stat<?> stat = require().stat(type, value);
-        if (stat == null) throw new IllegalStateException("Uncaptured global stat cache lookup");
+        if (stat == null) throw RegionWorkerBoundaryException.playerState("stat", "Uncaptured global stat cache lookup");
         return (Stat<T>) stat;
     }
 
@@ -184,7 +184,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void rejectLifecycle(String operation) {
-        if (RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Player lifecycle remains server-thread-only: " + operation);
+        if (RegionWorkerScope.isNativeWorkerThread()) throw RegionWorkerBoundaryException.playerLifecycle(operation, "Player lifecycle remains server-thread-only: " + operation);
     }
 
     public static boolean hasThreadBinding() {
@@ -192,7 +192,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void rejectServicePump() {
-        if (currentSlot() != null) throw new IllegalStateException("Owner-local player branch cannot pump arbitrary server work");
+        if (currentSlot() != null) throw RegionWorkerBoundaryException.playerState("rejectServicePump", "Owner-local player branch cannot pump arbitrary server work");
     }
 
     @Override

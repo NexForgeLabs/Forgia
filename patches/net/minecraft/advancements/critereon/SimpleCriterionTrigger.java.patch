@@ -1,6 +1,6 @@
 --- a/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java
 +++ b/net/minecraft/advancements/critereon/SimpleCriterionTrigger.java
-@@ -19,28 +_,45 @@
+@@ -19,28 +_,49 @@
  
      @Override
      public final void addPlayerListener(PlayerAdvancements p_66243_, CriterionTrigger.Listener<T> p_66244_) {
@@ -46,6 +46,10 @@
      }
  
      protected void trigger(ServerPlayer p_66235_, Predicate<T> p_66236_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldRouteWorkerPlayerAction()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerAction(p_66235_, livePlayer -> this.trigger(livePlayer, p_66236_))) {
++            return;
++        }
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkTrigger(this, p_66235_);
          PlayerAdvancements playeradvancements = p_66235_.getAdvancements();
 -        Set<CriterionTrigger.Listener<T>> set = this.players.get(playeradvancements);

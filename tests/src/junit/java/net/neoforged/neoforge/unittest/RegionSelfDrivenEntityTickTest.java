@@ -698,6 +698,131 @@ class RegionSelfDrivenEntityTickTest {
     }
 
     @Test
+    void playerEffectsAndCriterionTriggersFromAnEntityTickRunOnTheServerThread() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Mob caster = this.entity(Mob.class, level, new AtomicReference<>(new BlockPos(1, 64, 1)));
+        final ServerPlayer player = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(49, 64, 1)));
+        final var effect = mock(net.minecraft.world.effect.MobEffectInstance.class);
+        @SuppressWarnings("unchecked")
+        final net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effectHolder = mock(net.minecraft.core.Holder.class);
+        final var trigger = new net.minecraft.advancements.critereon.EffectsChangedTrigger();
+        final var advancements = mock(net.minecraft.server.PlayerAdvancements.class);
+        when(player.getAdvancements()).thenReturn(advancements);
+        when(advancements.forgiaCriterionListeners()).thenReturn(new net.neoforged.neoforge.server.threading.region.PlayerCriterionListeners(true));
+        final Thread serverThread = Thread.currentThread();
+        final AtomicInteger addApplications = new AtomicInteger();
+        final AtomicInteger forceAddApplications = new AtomicInteger();
+        final AtomicInteger removeApplications = new AtomicInteger();
+        final AtomicInteger triggerApplications = new AtomicInteger();
+        final AtomicInteger workerTicks = new AtomicInteger();
+
+        doAnswer(call -> {
+            if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+                return call.callRealMethod();
+            }
+            assertEquals(serverThread, Thread.currentThread());
+            addApplications.incrementAndGet();
+            return true;
+        }).when(player).addEffect(effect, null);
+        doAnswer(call -> {
+            if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+                return call.callRealMethod();
+            }
+            assertEquals(serverThread, Thread.currentThread());
+            forceAddApplications.incrementAndGet();
+            return null;
+        }).when(player).forceAddEffect(effect, caster);
+        doAnswer(call -> {
+            if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+                return call.callRealMethod();
+            }
+            assertEquals(serverThread, Thread.currentThread());
+            removeApplications.incrementAndGet();
+            return true;
+        }).when(player).removeEffect(effectHolder);
+        when(player.getAdvancements()).thenAnswer(call -> {
+            assertEquals(serverThread, Thread.currentThread(), "criterion trigger must execute on server thread");
+            triggerApplications.incrementAndGet();
+            return advancements;
+        });
+
+        doAnswer(call -> {
+            assertTrue(RegionThreadingHooks.isNativeRegionWorkerThread());
+            final int before = workerTicks.getAndIncrement();
+            assertFalse(player.addEffect(effect, null));
+            player.forceAddEffect(effect, caster);
+            assertFalse(player.removeEffect(effectHolder));
+            trigger.trigger(player, null);
+            assertEquals(before, addApplications.get());
+            assertEquals(before, forceAddApplications.get());
+            assertEquals(before, removeApplications.get());
+            assertEquals(before, triggerApplications.get());
+            return null;
+        }).when(caster).tick();
+        this.tickList.add(caster);
+
+        this.plan(level).executeAndAwait();
+        assertEquals(1, workerTicks.get());
+        assertEquals(1, addApplications.get());
+        assertEquals(1, forceAddApplications.get());
+        assertEquals(1, removeApplications.get());
+        assertEquals(1, triggerApplications.get());
+        assertEquals(0L, this.engine.boundaryFallbackEntityTickCount());
+
+        // The caster class stays parallel on workers on subsequent ticks (not demoted).
+        this.plan(level).executeAndAwait();
+        assertEquals(2, workerTicks.get());
+        assertEquals(2, addApplications.get());
+        assertEquals(2, forceAddApplications.get());
+        assertEquals(2, removeApplications.get());
+        assertEquals(2, triggerApplications.get());
+    }
+
+    @Test
+    void workerBoundaryViolationFallsBackEntityClassToServerThreadWithoutCrashing() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Thread serverThread = Thread.currentThread();
+        final net.minecraft.world.entity.monster.Zombie storageMob = this.entity(
+                net.minecraft.world.entity.monster.Zombie.class, level, new AtomicReference<>(new BlockPos(1, 64, 1)));
+        final net.minecraft.world.entity.monster.Skeleton playerStateMob = this.entity(
+                net.minecraft.world.entity.monster.Skeleton.class, level, new AtomicReference<>(new BlockPos(2, 64, 1)));
+        final List<Thread> storageMobThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> playerStateMobThreads = new CopyOnWriteArrayList<>();
+
+        doAnswer(call -> {
+            storageMobThreads.add(Thread.currentThread());
+            RegionThreadingHooks.assertServerEntityStorageAccess("ServerGamePacketListenerImpl.teleport");
+            return null;
+        }).when(storageMob).tick();
+        doAnswer(call -> {
+            playerStateMobThreads.add(Thread.currentThread());
+            net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("respawn");
+            return null;
+        }).when(playerStateMob).tick();
+
+        this.tickList.add(storageMob);
+        this.tickList.add(playerStateMob);
+
+        // Tick 1: both cross worker boundary guards, get truncated safely, and demote their classes.
+        this.plan(level).executeAndAwait();
+        assertEquals(1, storageMobThreads.size());
+        assertEquals(1, playerStateMobThreads.size());
+        assertTrue(storageMobThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertTrue(playerStateMobThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(2L, this.engine.boundaryFallbackEntityTickCount());
+
+        // Tick 2: both classes now execute cleanly on the server thread with no further boundary violations.
+        this.plan(level).executeAndAwait();
+        assertEquals(2, storageMobThreads.size());
+        assertEquals(2, playerStateMobThreads.size());
+        assertEquals(serverThread, storageMobThreads.get(1));
+        assertEquals(serverThread, playerStateMobThreads.get(1));
+        assertEquals(2L, this.engine.boundaryFallbackEntityTickCount());
+    }
+
+    @Test
     void failedQueuedAttackIsReportedAfterTheOtherAcceptedAttackRuns() {
         this.installEngine();
         final ServerLevel level = this.mockLevel();

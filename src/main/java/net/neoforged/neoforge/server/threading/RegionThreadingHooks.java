@@ -7,6 +7,7 @@ package net.neoforged.neoforge.server.threading;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -425,6 +426,29 @@ public final class RegionThreadingHooks {
                     (liveVehicle, livePlayer) -> livePlayer.startRiding(liveVehicle, force));
         }
         return true;
+    }
+
+    /**
+     * Zero-allocation fast-path guard for worker-initiated player-state side effects (criterion triggers,
+     * mob effect additions/removals, etc.). Returns {@code true} only on a native region worker that is
+     * outside a bounded {@link net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope}.
+     */
+    public static boolean shouldRouteWorkerPlayerAction() {
+        return RegionWorkerScope.isNativeWorkerThread()
+                && net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.current() == null;
+    }
+
+    /**
+     * Routes a worker-initiated player-state mutation to the server thread via the active engine's
+     * post-batch queue. Callers should guard lambda creation with {@link #shouldRouteWorkerPlayerAction()}
+     * so the server-thread and bounded-player-tick fast paths allocate nothing.
+     */
+    public static boolean routeWorkerPlayerAction(ServerPlayer player, Consumer<ServerPlayer> action) {
+        if (!shouldRouteWorkerPlayerAction()) {
+            return false;
+        }
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine && engine.queuePlayerAction(player, action);
     }
 
     /**

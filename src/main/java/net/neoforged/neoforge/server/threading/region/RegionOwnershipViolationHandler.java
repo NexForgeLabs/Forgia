@@ -53,7 +53,7 @@ public final class RegionOwnershipViolationHandler {
         if (REPORTED_STORAGE_ACCESSES.add(operation)) {
             LOGGER.error(message);
         }
-        throw new IllegalStateException(message);
+        throw RegionWorkerBoundaryException.storageAccess(operation, message);
     }
 
     static long violationCount() {

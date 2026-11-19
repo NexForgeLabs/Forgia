@@ -113,10 +113,16 @@
                  iterator.remove();
              }
  
-@@ -929,11 +_,12 @@
+@@ -929,11 +_,18 @@
      }
  
      public boolean addEffect(MobEffectInstance p_147208_, @Nullable Entity p_147209_) {
++        if (this instanceof net.minecraft.server.level.ServerPlayer serverPlayer
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldRouteWorkerPlayerAction()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerAction(
++                        serverPlayer, livePlayer -> livePlayer.addEffect(p_147208_, p_147209_))) {
++            return false;
++        }
 -        if (!this.canBeAffected(p_147208_)) {
 +        if (!net.neoforged.neoforge.common.CommonHooks.canMobEffectBeApplied(this, p_147208_, p_147209_)) {
              return false;
@@ -142,19 +148,31 @@
      public boolean canBeAffected(MobEffectInstance p_21197_) {
          if (this.getType().is(EntityTypeTags.IMMUNE_TO_INFESTED)) {
              return !p_21197_.is(MobEffects.INFESTED);
-@@ -962,7 +_,7 @@
+@@ -962,7 +_,13 @@
      }
  
      public void forceAddEffect(MobEffectInstance p_147216_, @Nullable Entity p_147217_) {
++        if (this instanceof net.minecraft.server.level.ServerPlayer serverPlayer
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldRouteWorkerPlayerAction()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerAction(
++                        serverPlayer, livePlayer -> livePlayer.forceAddEffect(p_147216_, p_147217_))) {
++            return;
++        }
 -        if (this.canBeAffected(p_147216_)) {
 +        if (net.neoforged.neoforge.common.CommonHooks.canMobEffectBeApplied(this, p_147216_, p_147217_)) {
              MobEffectInstance mobeffectinstance = this.activeEffects.put(p_147216_.getEffect(), p_147216_);
              if (mobeffectinstance == null) {
                  this.onEffectAdded(p_147216_, p_147217_);
-@@ -983,6 +_,7 @@
+@@ -983,6 +_,13 @@
      }
  
      public boolean removeEffect(Holder<MobEffect> p_316570_) {
++        if (this instanceof net.minecraft.server.level.ServerPlayer serverPlayer
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldRouteWorkerPlayerAction()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerAction(
++                        serverPlayer, livePlayer -> livePlayer.removeEffect(p_316570_))) {
++            return false;
++        }
 +        if (net.neoforged.neoforge.event.EventHooks.onEffectRemoved(this, p_316570_, null)) return false;
          MobEffectInstance mobeffectinstance = this.removeEffectNoUpdate(p_316570_);
          if (mobeffectinstance != null) {
