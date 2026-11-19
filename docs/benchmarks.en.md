@@ -1,0 +1,127 @@
+# Performance Benchmarks: Stock / Serial vs. Forgia
+
+<div class="lang-pill-bar">
+  <a class="active" href="../benchmarks.en/">English</a>
+  <a href="../benchmarks.zh/">中文</a>
+</div>
+
+Forgia separates **where region threading already wins** (entity-heavy worlds, multiplayer player dispatch, chunk random ticks, natural spawning) from **where single-thread execution remains faster** (light stationary block entities). All benchmarks below preserve exact world state or NBT equivalence and keep every threading switch **off by default**.
+
+---
+
+## 1. Visual Summary Across Workloads
+
+<div class="perf-grid">
+  <div class="perf-card">
+    <div class="perf-card-top">
+      <h3>1024 Cows / Entity Slice</h3>
+      <span class="perf-delta">3.4× – 4.5× faster</span>
+    </div>
+    <p class="perf-sub">4-core/8-thread, JDK 21, ZGC, fixed 3×3 regions, 4 workers (lower MSPT is better).</p>
+    <div class="bar-group">
+      <div class="bar-row"><span class="bar-label">Forgia Off (Serial)</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:100%"></div></div><span class="bar-val">27.3 mspt</span></div>
+      <div class="bar-row"><span class="bar-label">Forgia Regionized</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:22%"></div></div><span class="bar-val">6.0 mspt</span></div>
+      <div class="bar-row"><span class="bar-label">1024 Villagers Off</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:100%"></div></div><span class="bar-val">54.5 mspt</span></div>
+      <div class="bar-row"><span class="bar-label">1024 Villagers On</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:47%"></div></div><span class="bar-val">25.7 mspt</span></div>
+    </div>
+    <p class="perf-note">Measured with 200 warmup + 600 ticks across two repeats. Villagers include bed + workstation POI queries.</p>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-top">
+      <h3>32 Real TCP Players (n32-spread)</h3>
+      <span class="perf-delta">14.7× vs .154 · -6.4% vs Serial</span>
+    </div>
+    <p class="perf-sub">32 connected players spread across regions, 10s warmup + 30s window, persistent workers (lower MSPT is better).</p>
+    <div class="bar-group">
+      <div class="bar-row"><span class="bar-label">.154 Persistent On</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">58.30 ms</span></div>
+      <div class="bar-row"><span class="bar-label">.221 Serial (Off)</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:14%"></div></div><span class="bar-val">4.24 ms</span></div>
+      <div class="bar-row"><span class="bar-label">.221 2 Workers On</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:14%"></div></div><span class="bar-val">4.22 ms</span></div>
+      <div class="bar-row"><span class="bar-label">.221 4 Workers On</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:12%"></div></div><span class="bar-val">3.97 ms</span></div>
+    </div>
+    <p class="perf-note">Two-phase dispatch overhead fell 2.450 → 0.918 ms/tick; ping p99 fell 314.11 → 6.35 ms.</p>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-top">
+      <h3>64 Burning Furnaces (Resources ON)</h3>
+      <span class="perf-delta">1.67× faster · -72% alloc</span>
+    </div>
+    <p class="perf-sub">Seed 813584 flat, 400 warmup + 2×400 measured ticks, 4 workers, 2 GiB G1. Exact NBT verified.</p>
+    <div class="bar-group">
+      <div class="bar-row"><span class="bar-label">.98 Before Reuse</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">10.36 ms</span></div>
+      <div class="bar-row"><span class="bar-label">Pre-7efd88d Base</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:22%"></div></div><span class="bar-val">2.24 ms</span></div>
+      <div class="bar-row"><span class="bar-label">Forgia 7efd88d Opt</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:13%"></div></div><span class="bar-val">1.34 ms</span></div>
+      <div class="bar-row"><span class="bar-label">Forgia Serial / Stock</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:4%"></div></div><span class="bar-val">0.35 / 0.22 ms</span></div>
+    </div>
+    <p class="perf-note">Allocation dropped 253 → 18.68 → 5.18 MiB/s (3.61× reduction vs baseline). Serial stays faster on tiny stationary BEs.</p>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-top">
+      <h3>6000-Tick Mixed Production Soak</h3>
+      <span class="perf-delta perf-delta--neutral">0.976× mean vs Off</span>
+    </div>
+    <p class="perf-sub">Generated terrain with villagers, mobs, hopper/furnace lines, farm, border redstone clock &amp; fake player.</p>
+    <div class="bar-group">
+      <div class="bar-row"><span class="bar-label">Pre-deferral On</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">7.35–8.28 ms</span></div>
+      <div class="bar-row"><span class="bar-label">Same-build Off</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:82%"></div></div><span class="bar-val">6.25–6.70 ms</span></div>
+      <div class="bar-row"><span class="bar-label">Deferred + Lift On</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:80%"></div></div><span class="bar-val">6.13–6.72 ms</span></div>
+      <div class="bar-row"><span class="bar-label">Persistent + Packed</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:84%"></div></div><span class="bar-val">6.69 ms</span></div>
+    </div>
+    <p class="perf-note">0 ownership violations, 0 tick failures, 6200/6200 redstone consistency, 100% dispatched chunks on workers.</p>
+  </div>
+</div>
+
+---
+
+## 2. Subsystem Slice Table (Historical 4-Core/8-Thread ZGC Suite)
+
+| Workload | Off (Server Thread) | Regionized (4 Workers) | Speedup / Ratio |
+|---|---:|---:|---:|
+| 1024 cows | 27.3 / 19.3 mspt | 6.0 / 5.8 mspt | **4.5× / 3.4×** |
+| 1024 zombies | 22.8 / 22.2 mspt | 6.6 / 8.8 mspt | **3.4× / 2.5×** |
+| 1024 villagers (bed + workstation) | 54.5 / 52.0 mspt | 25.7 / 22.0 mspt | **2.1× / 2.4×** |
+| 1024 chunks random ticks (9×9) | 5.59 / 5.87 ms slice | 4.80 / 4.64 ms | **1.15×–1.27×** |
+| 1024 chunks random ticks (3×3, interior lift) | 6.88–6.92 ms slice | 5.54 ms | **1.24×–1.25×** |
+| 289 chunks natural spawning | 4.13–4.62 ms slice | 2.79–3.93 ms | **1.15×–1.65×** |
+| 2048 hoppers | 3.27 mspt | 3.74–3.97 mspt | 0.82×–0.87× (slower) |
+| 4096 furnaces (historical before `7efd88d`) | 2.60 mspt | 2.70–3.34 mspt | 0.78×–0.96× (slower) |
+
+---
+
+## 3. Block Entity Hot-Path Optimization (`main @ 7efd88d`)
+
+Measured using `tools/performance/controlled_server.py` (64 continuously burning vanilla furnaces across 8 regions, full 3×3 loaded neighborhoods, 400 warmup + 2×400 measured ticks, 4 persistent workers, `enableRegionThreadingBlockEntityResources = true`, 2 GiB G1 heap). Every run verified 128 output items/window, inventory conservation, `furnace.nativeCompleted == 25600`, `resource.refusedWaves == 0`, and identical before/after NBT SHA256 (`bc74013f2c5b`, `2ca340b85b64`).
+
+| Build / Condition (Window 0 / Window 1) | Mean (ms) | P50 (ms) | P95 (ms) | P99 (ms) | Main CPU (s) | Worker CPU (s) | Alloc (MiB/s) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `.98` before catalog lookahead reuse | 10.38 / 10.43 | 10.13 / 10.11 | 10.87 / 11.49 | 25.05 / 24.18 | 4.42 / 4.69 | 0.79 / 0.82 | 252.82 / 253.40 |
+| Local baseline before `7efd88d` | 2.264 / 2.215 | 2.227 / 2.167 | 2.468 / 2.453 | 3.343 / 3.338 | 1.852 / 1.944 | 0.864 / 0.921 | 18.72 / 18.64 |
+| Optimized `7efd88d` (first pass) | 1.202 / 1.098 | 1.173 / 1.083 | 1.364 / 1.213 | 1.818 / 1.607 | 1.425 / 1.465 | 1.056 / 1.067 | 5.25 / 5.22 |
+| Optimized `7efd88d` (final commit) | **1.354 / 1.330** | **1.233 / 1.259** | **1.671 / 1.724** | **2.175 / 2.509** | 1.517 / 1.613 | 1.128 / 1.239 | **5.20 / 5.16** |
+| Same-tree Forgia serial (`--bridge` off) | 0.354 / 0.342 | 0.297 / 0.305 | 0.555 / 0.517 | 0.989 / 0.821 | 1.483 / 1.840 | 0.000 / 0.000 | 0.46 / 0.44 |
+| Stock NeoForge `21.1.249` (historical ref) | 0.193–0.260 | 0.182–0.240 | 0.239–0.313 | 0.528–0.615 | 1.056–1.097 | 0.000 | 0.37–0.40 |
+
+**Takeaway**: `7efd88d` cuts MSPT mean by **40.1% (1.67× faster)**, P99 tail latency by **1.43×**, and server+worker allocation rate by **72.3% (3.61× reduction)** compared to the pre-optimization `BlockEntityResources` baseline. Even so, for 64 stationary vanilla furnaces, coordinating proof/lease/join across 4 worker threads still costs ~3.86× more than Forgia's serial path (`0.348 ms`), so block-entity switches remain opt-in (`false` by default).
+
+---
+
+## 4. 32-Player Dispatch Optimization (`.221` P5)
+
+Measured with 32 real TCP clients (`verify_player_scale.py`, `n32-spread`, 10s warmup + 30s measurement, cross-region combat `20→19` verified):
+
+| Version & Pool Config | Tick Mean (ms) | Tick P50 (ms) | Tick P99 (ms) | Ping P99 (ms) | Comparison |
+|---|---:|---:|---:|---:|---|
+| `.154` Persistent ON | 58.297 | 55.900 | 90.793 | 314.110 | Pre-optimization baseline |
+| `.221` Persistent OFF (Serial, 2-round avg) | 4.237 | 4.073 | 6.134 | 6.027 | Same-version serial baseline |
+| `.221` Persistent ON (2 Workers, r2 / 2-round avg) | 4.223 / 4.332 | 4.082 / 4.182 | 5.670 / 6.114 | 6.179 / 6.290 | Parity with serial (~13.5× faster than `.154`) |
+| `.221` Persistent ON (4 Workers) | **3.965** | **3.800** | 6.517 | 6.346 | **-6.4% MSPT (-6.7% P50) vs serial; 14.7× vs `.154`** |
+
+---
+
+## 5. Evidence & Limits
+
+- All benchmark tools live under [`tools/performance/`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/performance) and [`tools/player-region-tick/`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/player-region-tick).
+- Raw session reports and limitations are preserved in [`region-threading/PERFORMANCE-BENCHMARKS.md`](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md), [`region-threading/PLAYER-REGION-TICK-P5.zh.md`](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PLAYER-REGION-TICK-P5.zh.md), and [Status](status.en.md).
+- Forgia does **not** claim universal "faster-than-vanilla on every modpack" performance. Always benchmark with your own workload before enabling experimental switches.

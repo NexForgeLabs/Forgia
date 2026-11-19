@@ -49,6 +49,12 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Architecture:
+      - Stock vs. Forgia (EN): architecture.en.md
+      - 架构对比 (中文): architecture.zh.md
+  - Benchmarks:
+      - Performance (EN): benchmarks.en.md
+      - 性能对比 (中文): benchmarks.zh.md
   - Project:
       - Overview: README.en.md
       - Engineering status: status.en.md
