@@ -5,9 +5,8 @@
 
 package net.neoforged.neoforge.server.threading.region;
 
-import java.util.HashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.List;
-import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
@@ -38,15 +37,15 @@ final class RegionScheduledTickAdmission {
     static SerialReason refusal(ServerLevel level, RegionLayout layout, ScheduledTickPhase phase,
             List<? extends ScheduledTick<?>> ticks, int budget) {
         if (phase != ScheduledTickPhase.BLOCK) return SerialReason.FLUID_CALLBACK;
-        for (final ScheduledTick<?> tick : ticks) {
-            if (tick.type() != Blocks.REDSTONE_LAMP) return SerialReason.UNCLASSIFIED_CALLBACK;
+        for (int i = 0, size = ticks.size(); i < size; ++i) {
+            if (ticks.get(i).type() != Blocks.REDSTONE_LAMP) return SerialReason.UNCLASSIFIED_CALLBACK;
         }
         if (!layout.supportsSectionPartitions()) return SerialReason.NON_FIXED_LAYOUT;
         if (ticks.size() > budget) return SerialReason.DEFERRED_UPDATE_BUDGET;
-        final Map<Long, LevelChunk> loaded = new HashMap<>();
+        final Long2ObjectOpenHashMap<LevelChunk> loaded = new Long2ObjectOpenHashMap<>();
         final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
-        for (final ScheduledTick<?> tick : ticks) {
-            final BlockPos position = tick.pos();
+        for (int i = 0, size = ticks.size(); i < size; ++i) {
+            final BlockPos position = ticks.get(i).pos();
             final RegionCoordinate owner = layout.regionAt(level, position);
             for (int dx = -2; dx <= 2; ++dx) {
                 for (int dz = -2; dz <= 2; ++dz) {

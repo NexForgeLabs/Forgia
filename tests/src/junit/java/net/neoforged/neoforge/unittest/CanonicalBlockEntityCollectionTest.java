@@ -209,4 +209,26 @@ class CanonicalBlockEntityCollectionTest {
             f.clean();
         }
     }
+
+    @Test
+    void largeChunkCacheReusesIndexedTemplateAdmissionAcrossSerialFallbackTickers() {
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            final List<String> expected = new ArrayList<>();
+            for (int i = 0; i < 8; ++i) {
+                final String id = "T" + i;
+                expected.add(id);
+                f.script(id, FIRST.offset(i, 0, 0), "test:unknown", () -> {});
+            }
+            f.enable(false);
+            f.levelPhase();
+            assertEquals(expected, f.bodyOrder());
+            assertEquals(8L, f.engine.diagnostics().fallbackBlockEntityTicks());
+            final var cache = f.chunk(FIRST).blockEntityTickAdmissionCache();
+            assertEquals(8, cache.admissions().size());
+            f.levelPhase();
+            assertEquals(16L, f.engine.diagnostics().fallbackBlockEntityTicks());
+            assertSame(cache, f.chunk(FIRST).blockEntityTickAdmissionCache());
+            f.clean();
+        }
+    }
 }

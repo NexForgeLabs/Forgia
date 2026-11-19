@@ -65,6 +65,8 @@ public final class RegionBlockEntityTickChunkCache {
     private final boolean interiorChunk;
     private final boolean borderUpdatesEnabled;
     private final List<RegionBlockEntityTickAdmission> admissions;
+    @Nullable
+    private final java.util.IdentityHashMap<TickingBlockEntity, RegionBlockEntityTickAdmission> byTicker;
     private final boolean allAdmitted;
     private boolean released;
 
@@ -75,13 +77,22 @@ public final class RegionBlockEntityTickChunkCache {
         this.interiorChunk = interiorChunk;
         this.borderUpdatesEnabled = borderUpdatesEnabled;
         this.admissions = admissions;
+        final int size = admissions.size();
+        final java.util.IdentityHashMap<TickingBlockEntity, RegionBlockEntityTickAdmission> index = size > 4
+                ? new java.util.IdentityHashMap<>(size)
+                : null;
         boolean admitted = true;
-        for (final RegionBlockEntityTickAdmission admission : admissions) {
+        for (int i = 0; i < size; ++i) {
+            final RegionBlockEntityTickAdmission admission = admissions.get(i);
+            if (index != null) {
+                index.put(admission.ticker(), admission);
+            }
             // A capture that is already stale, or a declaration that does not admit the type or the chunk,
             // keeps the whole chunk on the server thread, exactly like a collected ticker the
             // declaration does not admit.
             admitted &= admission.isAdmitted() && admission.isCurrent();
         }
+        this.byTicker = index;
         this.allAdmitted = admitted;
         LIVE_SNAPSHOTS.incrementAndGet();
     }
@@ -150,7 +161,11 @@ public final class RegionBlockEntityTickChunkCache {
      */
     @Nullable
     RegionBlockEntityTickAdmission admission(TickingBlockEntity ticker) {
-        for (final RegionBlockEntityTickAdmission admission : this.admissions) {
+        if (this.byTicker != null) {
+            return this.byTicker.get(ticker);
+        }
+        for (int i = 0, size = this.admissions.size(); i < size; ++i) {
+            final RegionBlockEntityTickAdmission admission = this.admissions.get(i);
             if (admission.ticker() == ticker) {
                 return admission;
             }

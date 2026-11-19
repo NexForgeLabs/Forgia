@@ -54,6 +54,7 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
     private volatile Map<ResourceLocation, Entry<?>> entries = new TreeMap<>();
     private volatile Map<ResourceLocation, TickEntry> tickEntries = new TreeMap<>();
     private volatile Map<ResourceLocation, TickEntry> tickTypes = new TreeMap<>();
+    private volatile Map<String, TickEntry> tickTypesByName = Map.of();
     private volatile boolean open = true;
     private volatile boolean frozen;
     private boolean invalid;
@@ -81,6 +82,13 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             runtime.entries = Collections.unmodifiableMap(new TreeMap<>(runtime.entries));
             runtime.tickEntries = Collections.unmodifiableMap(new TreeMap<>(runtime.tickEntries));
             runtime.tickTypes = Collections.unmodifiableMap(new TreeMap<>(runtime.tickTypes));
+            if (runtime.tickTypes.isEmpty()) {
+                runtime.tickTypesByName = Map.of();
+            } else {
+                final Map<String, TickEntry> byName = new java.util.HashMap<>(runtime.tickTypes.size() * 2);
+                runtime.tickTypes.forEach((key, entry) -> byName.put(key.toString(), entry));
+                runtime.tickTypesByName = Collections.unmodifiableMap(byName);
+            }
             runtime.blockEntityAdapters.freeze();
             runtime.frozen = true;
         } catch (RuntimeException | Error failure) {
@@ -105,6 +113,7 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 runtime.entries = Map.of();
                 runtime.tickEntries = Map.of();
                 runtime.tickTypes = Map.of();
+                runtime.tickTypesByName = Map.of();
             }
         }
     }
@@ -306,11 +315,10 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
 
     @Nullable
     private static TickEntry tickEntry(ServerLevel level, @Nullable String type) {
-        final ResourceLocation key = type == null ? null : ResourceLocation.tryParse(type);
-        if (key == null) return null;
+        if (type == null) return null;
         synchronized (SERVERS) {
             final ParallelAdapterRuntime runtime = SERVERS.get(level.getServer());
-            return runtime == null || !runtime.open || !runtime.frozen ? null : runtime.tickTypes.get(key);
+            return runtime == null || !runtime.open || !runtime.frozen ? null : runtime.tickTypesByName.get(type);
         }
     }
 
