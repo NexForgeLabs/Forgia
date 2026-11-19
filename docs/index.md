@@ -66,6 +66,13 @@
       </div>
     </div>
   </div>
+  <figure class="diagram-frame">
+    <img src="assets/arch-region-hierarchy.en.svg" alt="Execution hierarchy comparing Stock Forge single-thread flat queue against Forgia's independent leased Regions running in parallel on separate Workers." />
+    <figcaption class="diagram-caption">
+      <span>EXECUTION HIERARCHY // INDEPENDENT REGION PARALLELISM</span>
+      <span>PER-REGION LEASE · MULTI-CORE WORKERS · BARRIER JOIN</span>
+    </figcaption>
+  </figure>
   <a class="text-link" href="architecture.en/">Explore full Stock vs. Forgia architecture &amp; subsystem matrix <span>↗</span></a>
 </section>
 

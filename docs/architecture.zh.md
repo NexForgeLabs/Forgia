@@ -15,6 +15,14 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
   </figcaption>
 </figure>
 
+<figure class="diagram-frame">
+  <img src="../assets/arch-region-hierarchy.zh.svg" alt="执行层级对比：原版 Forge 全局单队列串行 vs Forgia 按 Region 独立持有租约并行执行" />
+  <figcaption class="diagram-caption">
+    <span>BLUEPRINT 02 // 执行层级与 REGION 独立并行</span>
+    <span>独立区域租约 · 多核 WORKER 并行 · 延迟跨区与串行围栏</span>
+  </figcaption>
+</figure>
+
 ---
 
 ## 1. 执行模型左右对比

@@ -15,6 +15,14 @@ Forgia is built on NeoForge 1.21.1. Instead of replacing mod compatibility assum
   </figcaption>
 </figure>
 
+<figure class="diagram-frame">
+  <img src="../assets/arch-region-hierarchy.en.svg" alt="Execution hierarchy comparing Stock Forge single-thread flat queue against Forgia's independent leased Regions running in parallel on separate Workers." />
+  <figcaption class="diagram-caption">
+    <span>BLUEPRINT 02 // EXECUTION HIERARCHY &amp; REGION PARALLELISM</span>
+    <span>INDEPENDENT LEASED REGIONS · MULTI-CORE WORKERS</span>
+  </figcaption>
+</figure>
+
 ---
 
 ## 1. Side-by-Side Execution Model
