@@ -10,6 +10,7 @@ import net.neoforged.neoforge.common.ModConfigSpec.IntValue;
 import net.neoforged.neoforge.common.ModConfigSpec.LongValue;
 import net.neoforged.neoforge.common.NeoForgeConfig.RegionThreadingOwnershipViolationMode;
 import net.neoforged.neoforge.server.threading.RegionThreadingSupport;
+import net.neoforged.neoforge.server.threading.region.DynamicRegionTopology;
 import net.neoforged.neoforge.server.threading.region.RegionLayout;
 import net.neoforged.neoforge.server.threading.region.RegionPolicy;
 import org.apache.commons.lang3.tuple.Pair;
@@ -87,6 +88,10 @@ public final class ForgiaConfig {
         public final ModConfigSpec.EnumValue<RegionPolicy> regionThreadingMode;
 
         public final IntValue regionThreadingFixedRegionChunks;
+
+        public final IntValue regionThreadingDynamicSectionShift;
+
+        public final LongValue regionThreadingDynamicSplitDelayTicks;
 
         public final ModConfigSpec.EnumValue<RegionThreadingOwnershipViolationMode> regionThreadingOwnershipViolationMode;
 
@@ -231,7 +236,7 @@ public final class ForgiaConfig {
                     .defineInRange("regionThreadingWorkerThreads", 0, 0, 512);
 
             regionThreadingMode = builder
-                    .comment("EXPERIMENTAL: Region coordinate policy. FIXED_3X3 uses a non-overlapping global fixed-chunk grid whose edge length is regionThreadingFixedRegionChunks (3 chunks unless configured otherwise); regions never merge, split, or change coordinates. DYNAMIC keeps the legacy 16x16-chunk grid with merge and split recalculation for compatibility.")
+                    .comment("EXPERIMENTAL: Region coordinate policy. FIXED_3X3 uses a non-overlapping global fixed-chunk grid whose edge length is regionThreadingFixedRegionChunks (3 chunks unless configured otherwise); regions never merge, split, or change coordinates. DYNAMIC_CLUSTER uses Folia-style dynamic merging and splitting over fixed (1 << regionThreadingDynamicSectionShift)-chunk sections with a 1-section empty buffer zone between independent regions. DYNAMIC keeps the legacy 16x16-chunk grid for compatibility.")
                     .translation("neoforge.configgui.regionThreadingMode")
                     .worldRestart()
                     .defineEnum("regionThreadingMode", RegionPolicy.FIXED_3X3);
@@ -241,6 +246,18 @@ public final class ForgiaConfig {
                     .translation("neoforge.configgui.regionThreadingFixedRegionChunks")
                     .worldRestart()
                     .defineInRange("regionThreadingFixedRegionChunks", RegionLayout.FIXED_3X3_REGION_CHUNK_SIZE, RegionLayout.MIN_FIXED_REGION_CHUNK_SIZE, RegionLayout.MAX_FIXED_REGION_CHUNK_SIZE);
+
+            regionThreadingDynamicSectionShift = builder
+                    .comment("EXPERIMENTAL: Bit shift of one static section edge in chunks when regionThreadingMode is DYNAMIC_CLUSTER. 2 = 4x4 chunks (64 blocks), 3 = 8x8 chunks (128 blocks, default), 4 = 16x16 chunks (256 blocks, Folia default).")
+                    .translation("neoforge.configgui.regionThreadingDynamicSectionShift")
+                    .worldRestart()
+                    .defineInRange("regionThreadingDynamicSectionShift", DynamicRegionTopology.DEFAULT_SECTION_SHIFT, DynamicRegionTopology.MIN_SECTION_SHIFT, DynamicRegionTopology.MAX_SECTION_SHIFT);
+
+            regionThreadingDynamicSplitDelayTicks = builder
+                    .comment("EXPERIMENTAL: Hysteresis delay in ticks before an emptied section is detached from its dynamic region and checked for connected-component splitting when regionThreadingMode is DYNAMIC_CLUSTER.")
+                    .translation("neoforge.configgui.regionThreadingDynamicSplitDelayTicks")
+                    .worldRestart()
+                    .defineInRange("regionThreadingDynamicSplitDelayTicks", DynamicRegionTopology.DEFAULT_SPLIT_DELAY_TICKS, 0L, 1200L);
 
             regionThreadingOwnershipViolationMode = builder
                     .comment("EXPERIMENTAL: Controls how region threading ownership assertion failures are handled.")

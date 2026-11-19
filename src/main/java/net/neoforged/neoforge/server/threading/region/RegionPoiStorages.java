@@ -19,7 +19,7 @@ import org.jetbrains.annotations.Nullable;
  * Registry of the region-partitioned POI storages of the running levels.
  * <p>
  * The storage of a level is created by the level's {@code PoiManager} when the POI switch is on and the
- * installed engine uses a fixed region layout, and it is removed when the manager closes. The engine publishes
+ * installed engine uses stable section coordinates, and it is removed when the manager closes. The engine publishes
  * the dirty regions of a level at the end of its region phase through this registry, so the POI storage does
  * not need a reference from the engine and a level without the switch costs one map lookup per region phase.
  */
@@ -32,16 +32,14 @@ public final class RegionPoiStorages {
     /**
      * {@return true when a level created now gets a region-partitioned POI storage}
      * <p>
-     * The switch is off by default. It requires an installed native engine with a fixed region layout, because
-     * the storage maps a chunk to exactly one region coordinate and a fixed layout is the one where that
-     * mapping never merges or splits. With the switch off, or with a dynamic layout, the vanilla
-     * {@code PoiManager} storage is used unchanged.
+     * The switch requires an installed engine with stable section coordinates. Loaded-island dispatch
+     * keeps its POI buckets and POI ownership checks on those same coordinates.
      */
     public static boolean isEnabled() {
         if (!RegionThreadingConfig.poiStorageEnabled()) {
             return false;
         }
-        return RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine && engine.regionLayout().isFixed();
+        return RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine && engine.regionLayout().supportsSectionPartitions();
     }
 
     /**

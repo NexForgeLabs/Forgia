@@ -20,5 +20,13 @@ public enum RegionPolicy {
      * {@code regionThreadingFixedRegionChunks} server config value, which defaults to 3. Keeping this
      * value means an existing config file keeps the fixed policy and only the size changes.
      */
-    FIXED_3X3
+    FIXED_3X3,
+    /**
+     * Folia-style dynamic region merging and splitting over fixed {@code (1 << shift) x (1 << shift)}-chunk
+     * sections, maintaining a 1-section empty buffer zone between any two independent regions.
+     * <p>
+     * Physical entity section storage remains partitioned by static section coordinates so merges and splits
+     * migrate zero entity sections; ownership queries check the lock-free published section-to-region map.
+     */
+    DYNAMIC_CLUSTER
 }

@@ -5,7 +5,7 @@ Source: [`RegionThreadingEngine`](../../src/main/java/net/neoforged/neoforge/ser
 Evidence: [FOLIA-REFERENCE](../../region-threading/FOLIA-REFERENCE.md), [PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md), [STATUS](../../region-threading/STATUS.md)
 
 Status: **Certified within C6 scope** for the fixed layout, four workers, documented switches. All switches
-default to `false`; the native service is absent on ordinary startup.
+default to `false`. `DYNAMIC_CLUSTER` is experimental and falls outside the C6 certification scope.
 
 ---
 
@@ -24,7 +24,8 @@ default to `false`; the native service is absent on ordinary startup.
 | Class | Responsibility |
 |---|---|
 | `RegionThreadingEngine` | Installation, config capture, per-tick orchestration, slice dispatch, join, shutdown |
-| `RegionLayout` / `RegionPolicy` / `RegionCoordinate` | Fixed N×N grid (3..32) or legacy dynamic 16-chunk merge/split |
+| `RegionLayout` / `RegionPolicy` / `RegionCoordinate` | Static coordinates for fixed regions, loaded-island sections, and the legacy 16-chunk grid |
+| `DynamicRegionTopology` | Loaded chunk tracking, merges and delayed splits, and published section-to-island lookup |
 | `RegionState` / `RegionSchedule` / `RegionLifecycleState` | Per-region ownership, queue and lifecycle |
 | `RegionOwnershipLeaseGroup` / `RegionLeasePack` | Leases; packed acquisition of up to 16 regions per task |
 | `RegionWorkerPool` / `RegionWorkerExecutor` / `RegionWorkStealingDispatcher` | Fixed executor or persistent deques with segment stealing |
@@ -73,7 +74,7 @@ as server-only.
 | Gate | Detail |
 |---|---|
 | Bridge installed | `enableRegionThreadingBridge`; known-conflict policy may refuse installation |
-| Fixed layout | `FIXED_3X3` with `regionThreadingFixedRegionChunks` (3..32) for all modern slices |
+| Layout | `FIXED_3X3` is the C6 baseline. `DYNAMIC_CLUSTER` uses stable section coordinates and retains per-slice admission checks. |
 | Profiler inactive | An active vanilla profiler keeps slices inline |
 | Loaded neighbourhood | Required by chunk/BE/spawn slices; a FULL ticket alone does not prove load |
 | Ownership/storage mode | Region-owned entity storage for entity ticks; per-slice guards |
@@ -87,7 +88,9 @@ as server-only.
 | `enableRegionThreadingBridge` | `false` | bool | yes | Installs the engine; all slices depend on it |
 | `enableRegionThreadingWorkers` | `false` | bool | yes | Region queue drains on the pool; not a master gate for other slices |
 | `enableGlobalRegionThreadingWorker` | `false` | bool | yes | Moves global-region drains to the pool (outside C6) |
-| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC` | yes | DYNAMIC is legacy; most slices require fixed |
+| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC`/`DYNAMIC_CLUSTER` | yes | `DYNAMIC_CLUSTER` enables experimental loaded-island dispatch |
+| `regionThreadingDynamicSectionShift` | `3` | 2..4 | yes | Section edge length is `1 << shift` chunks |
+| `regionThreadingDynamicSplitDelayTicks` | `40` | 0..1200 | yes | Ticks to retain an emptied section before checking for a split |
 | `regionThreadingFixedRegionChunks` | `3` | 3..32 | yes | N×N chunks, 16N×16N blocks, full height |
 | `regionThreadingWorkerThreads` | `0` | 0..512 | yes | `0` → `max(1, cpus-1)`; pin explicitly for reproducibility |
 | `enableRegionThreadingPersistentWorkers` | `false` | bool | yes | Persistent deques + work stealing instead of fixed executor |
@@ -124,6 +127,18 @@ Detection is by mod id; unknown transformations are not exhaustively discovered.
 
 ## 9. Comparison
 
+`DYNAMIC_CLUSTER` builds connected islands from loaded chunks. Adjacent sections, including diagonals, merge at a global phase boundary. Empty sections trigger a split check when their delay expires. Ordinary batches can coalesce work from the same island when the number of tasks exceeds the worker count. Coalescing leaves at least one task per worker available in that case. Recent section timings are tracked per slice, and a pack is capped at the greater of the largest task and average work per worker. Each section retains its own ownership lease. Ordered spawning keeps separate submissions so its participants can advance concurrently. `/forgia regions` reports island sizes, merges, splits, and submissions saved for the current dimension. Tick timings are recorded per section.
+
+The [random-tick GameTest fixture](../../tests/src/main/java/net/neoforged/neoforge/debug/level/ServerLoadBenchmarkGameTests.java) compares the original task-count policy with weighted packing. Both runs used the same source baseline, world seed and workload coordinates, 144 workload chunks, and four workers. Each JVM warmed up for 200 ticks and measured 600 ticks.
+
+| Metric | Task-count packing | Weighted packing |
+|---|---:|---:|
+| Mean MSPT | 4.050 | 2.464 |
+| P99 MSPT | 10.619 | 3.961 |
+| Mean chunk batch wait (ms) | 1.999 | 1.061 |
+
+Both runs completed 115,344 worker chunk ticks with zero fallbacks and ownership violations. The final random-tick state fingerprints differed. Each policy was measured once in a single connected workload. Multi-island scaling and whole-island ownership still need validation.
+
 | Choice | Fixed N×N | Legacy DYNAMIC |
 |---|---|---|
 | Region boundaries | Never merge/split | Merge/split 16-chunk grid |
@@ -142,7 +157,7 @@ Detection is by mod id; unknown transformations are not exhaustively discovered.
 
 | Limit | Detail |
 |---|---|
-| Static layout | No load-adaptive region sizing |
+| Ownership granularity | Loaded-island dispatch keeps individual section leases and cross-section checks |
 | One batch per level | Region slices do not overlap within a level |
 | Players | Ticked by the server thread; bounded handoff tests only |
 | Structures/contraptions | Not region-aware; still server thread |

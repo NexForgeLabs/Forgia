@@ -126,6 +126,42 @@ class RegionChunkTickTest {
     }
 
     @Test
+    void chunkTickDispatchFollowsLoadedIslandMergeAndSplit() {
+        this.installEngine(1, RegionLayout.dynamicCluster(3, 0));
+        final ServerLevel level = mockLevel();
+        doReturn(8).when(level).entitySectionRegionChunkSize();
+        final ChunkPos left = new ChunkPos(1, 1);
+        final ChunkPos right = new ChunkPos(17, 1);
+        this.engine.addRegionSection(level, left.x, left.z);
+        this.engine.addRegionSection(level, right.x, right.z);
+        this.engine.beginLevelTick(level);
+        try {
+            for (int expectedSaved : List.of(0, 1, 1)) {
+                final TickRecorder leftTicks = new TickRecorder();
+                final TickRecorder rightTicks = new TickRecorder();
+                final RegionChunkTickPlan plan = this.beginPlan(level);
+                plan.accept(chunk(left, leftTicks));
+                plan.accept(chunk(right, rightTicks));
+                plan.executeAndAwait(PARKING_BARRIER);
+                assertEquals(RANDOM_TICK_SPEED, leftTicks.ticks.size());
+                assertEquals(RANDOM_TICK_SPEED, rightTicks.ticks.size());
+                assertTrue(leftTicks.ticks.stream().allMatch(tick -> tick.thread().startsWith("NeoForge Region Worker")));
+                assertTrue(rightTicks.ticks.stream().allMatch(tick -> tick.thread().startsWith("NeoForge Region Worker")));
+                assertTrue(this.engine.loadedIslandDiagnostics(level, 2).getFirst().endsWith("submissionsSaved=" + expectedSaved));
+                if (expectedSaved == 0) {
+                    this.engine.addRegionSection(level, 8, 1);
+                } else {
+                    this.engine.removeRegionSection(level, 8, 1);
+                }
+            }
+            assertEquals(6L, this.engine.diagnostics().chunkTicksOnWorkers());
+            assertEquals(0, this.engine.diagnostics().runningRegionCount());
+        } finally {
+            this.engine.endLevelTick(level);
+        }
+    }
+
+    @Test
     void boundaryChunkRunsOnARegionWorkerAndIsCounted() {
         this.installEngine(true);
         final TickRecorder recorder = new TickRecorder();

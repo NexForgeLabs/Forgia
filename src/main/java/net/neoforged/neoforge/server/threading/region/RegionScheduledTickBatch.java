@@ -71,7 +71,7 @@ final class RegionScheduledTickBatch<T> extends RegionTickBatch {
         this.leasedRegions.add(region);
         final Group<T> group = new Group<>(this, region, ticks, randomSeed);
         this.groups.add(group);
-        this.addTask(this.phase.description() + " tick " + region.coordinate(), this.groupWork(workFactory.apply(group)));
+        this.addTask(region, this.phase.description() + " tick " + region.coordinate(), this.groupWork(workFactory.apply(group)));
         return group;
     }
 

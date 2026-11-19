@@ -49,12 +49,12 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
     private volatile BucketAccessObserver bucketAccessObserver;
 
     /**
-     * @param layout the fixed layout whose region edge length indexes the buckets
-     * @throws IllegalArgumentException when {@code layout} is not a fixed layout
+     * @param layout a fixed or dynamic-cluster layout whose static grid/section edge length indexes the buckets
+     * @throws IllegalArgumentException when {@code layout} does not support static section partitioning
      */
     public FixedEntitySectionPartitions(RegionLayout layout) {
-        if (!layout.isFixed()) {
-            throw new IllegalArgumentException("FixedEntitySectionPartitions requires a fixed region layout: " + layout.policy());
+        if (!layout.supportsSectionPartitions()) {
+            throw new IllegalArgumentException("FixedEntitySectionPartitions requires a fixed or dynamic-cluster region layout: " + layout.policy());
         }
         this.layout = layout;
     }
@@ -242,6 +242,60 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
         if (bucket == null) {
             return;
         }
+        this.scanBucket(bucket, regionX, regionZ, box, consumer);
+    }
+
+    /**
+     * Iterates accessible, non-empty sections across all static section buckets belonging to
+     * {@code dynamicRegionId} in {@code topology} that intersect {@code box}.
+     * <p>
+     * Sections owned by other dynamic regions (or unassigned) are never consulted, preserving strict region
+     * isolation while allowing zero-truncation queries across merged section borders inside the same dynamic
+     * region. Runs lock-free with zero heap allocations.
+     */
+    public void forEachAccessibleNonEmptySectionInDynamicRegion(
+            DynamicRegionTopology topology,
+            int dynamicRegionId,
+            AABB box,
+            AbortableIterationConsumer<EntitySection<T>> consumer) {
+        if (dynamicRegionId == DynamicRegionTopology.NO_REGION) {
+            return;
+        }
+        final int minChunkX = SectionPos.posToSectionCoord(box.minX - 2.0);
+        final int maxChunkX = SectionPos.posToSectionCoord(box.maxX + 2.0);
+        final int minChunkZ = SectionPos.posToSectionCoord(box.minZ - 2.0);
+        final int maxChunkZ = SectionPos.posToSectionCoord(box.maxZ + 2.0);
+        final int minSecX = topology.sectionX(minChunkX);
+        final int maxSecX = topology.sectionX(maxChunkX);
+        final int minSecZ = topology.sectionZ(minChunkZ);
+        final int maxSecZ = topology.sectionZ(maxChunkZ);
+        if (minSecX == maxSecX && minSecZ == maxSecZ) {
+            if (topology.regionIdAtSection(minSecX, minSecZ) != dynamicRegionId) {
+                return;
+            }
+            final Bucket<T> bucket = this.bucket(minSecX, minSecZ);
+            if (bucket != null) {
+                this.scanBucket(bucket, minSecX, minSecZ, box, consumer);
+            }
+            return;
+        }
+        for (int secX = minSecX; secX <= maxSecX; ++secX) {
+            for (int secZ = minSecZ; secZ <= maxSecZ; ++secZ) {
+                if (topology.regionIdAtSection(secX, secZ) != dynamicRegionId) {
+                    continue;
+                }
+                final Bucket<T> bucket = this.bucket(secX, secZ);
+                if (bucket != null && this.scanBucket(bucket, secX, secZ, box, consumer)) {
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * @return {@code true} if the consumer aborted iteration
+     */
+    private boolean scanBucket(Bucket<T> bucket, int regionX, int regionZ, AABB box, AbortableIterationConsumer<EntitySection<T>> consumer) {
         final int regionChunkSize = this.layout.regionChunkSize();
         final int minChunkX = regionX * regionChunkSize;
         final int minChunkZ = regionZ * regionChunkSize;
@@ -254,7 +308,7 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
         final int maxSectionY = SectionPos.posToSectionCoord(box.maxY + 0.0);
         final int maxSectionZ = Math.min(SectionPos.posToSectionCoord(box.maxZ + 2.0), maxChunkZ);
         if (minSectionX > maxSectionX || minSectionZ > maxSectionZ || minSectionY > maxSectionY) {
-            return;
+            return false;
         }
         if (bucket.sections.size() == 1) {
             final long sectionId = bucket.sectionIds.firstLong();
@@ -265,10 +319,10 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
                     && sz >= minSectionZ && sz <= maxSectionZ) {
                 final EntitySection<T> section = bucket.sections.get(sectionId);
                 if (section != null && !section.isEmpty() && section.getStatus().isAccessible()) {
-                    consumer.accept(section);
+                    return consumer.accept(section).shouldAbort();
                 }
             }
-            return;
+            return false;
         }
         // Small boxes can read the section map directly. Within one X, packed order places
         // nonnegative Z and Y before negative values. Fall back to the ID tree at those seams.
@@ -281,11 +335,13 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
                     for (int y = minSectionY; y <= maxSectionY; y++) {
                         EntitySection<T> section = bucket.sections.get(SectionPos.asLong(x, y, z));
                         if (section != null && !section.isEmpty() && section.getStatus().isAccessible()
-                                && consumer.accept(section).shouldAbort()) return;
+                                && consumer.accept(section).shouldAbort()) {
+                            return true;
+                        }
                     }
                 }
             }
-            return;
+            return false;
         }
         for (int sectionX = minSectionX; sectionX <= maxSectionX; sectionX++) {
             final long from = SectionPos.asLong(sectionX, 0, 0);
@@ -303,10 +359,11 @@ public final class FixedEntitySectionPartitions<T extends EntityAccess> {
                         && !section.isEmpty()
                         && section.getStatus().isAccessible()
                         && consumer.accept(section).shouldAbort()) {
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     /** Complete-set scan in ORIGINAL signed packed section order, never region-group order. */

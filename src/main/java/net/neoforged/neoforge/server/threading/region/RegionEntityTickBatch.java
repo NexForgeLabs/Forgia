@@ -210,7 +210,7 @@ final class RegionEntityTickBatch extends RegionTickBatch {
      */
     Group addGroup(RegionState region, List<Entity> entities, Function<Group, Runnable> workFactory) {
         final Group group = this.registerGroup(region, entities);
-        this.addTask("entity tick " + region.coordinate(), this.groupWork(workFactory.apply(group)));
+        this.addTask(region, "entity tick " + region.coordinate(), this.groupWork(workFactory.apply(group)));
         return group;
     }
 

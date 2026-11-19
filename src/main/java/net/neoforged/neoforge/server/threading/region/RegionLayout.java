@@ -39,37 +39,67 @@ public final class RegionLayout {
     public static final int FIXED_3X3_REGION_CHUNK_SIZE = 3;
     /** Edge length in blocks of one chunk, the unit the chunk coordinates of a position are taken in. */
     private static final int CHUNK_BLOCK_SIZE = 16;
-    public static final RegionLayout DYNAMIC = new RegionLayout(RegionPolicy.DYNAMIC, DYNAMIC_REGION_CHUNK_SIZE);
-    public static final RegionLayout FIXED_3X3 = new RegionLayout(RegionPolicy.FIXED_3X3, FIXED_3X3_REGION_CHUNK_SIZE);
+    public static final RegionLayout DYNAMIC = new RegionLayout(
+            RegionPolicy.DYNAMIC,
+            DYNAMIC_REGION_CHUNK_SIZE,
+            DYNAMIC_REGION_CHUNK_SHIFT,
+            0L);
+    public static final RegionLayout FIXED_3X3 = new RegionLayout(
+            RegionPolicy.FIXED_3X3,
+            FIXED_3X3_REGION_CHUNK_SIZE,
+            -1,
+            0L);
+    public static final RegionLayout DYNAMIC_CLUSTER_8X8 = new RegionLayout(
+            RegionPolicy.DYNAMIC_CLUSTER,
+            1 << DynamicRegionTopology.DEFAULT_SECTION_SHIFT,
+            DynamicRegionTopology.DEFAULT_SECTION_SHIFT,
+            DynamicRegionTopology.DEFAULT_SPLIT_DELAY_TICKS);
 
     private final RegionPolicy policy;
     private final int regionChunkSize;
+    private final int dynamicSectionShift;
+    private final long dynamicSplitDelayTicks;
 
-    private RegionLayout(RegionPolicy policy, int regionChunkSize) {
+    private RegionLayout(RegionPolicy policy, int regionChunkSize, int dynamicSectionShift, long dynamicSplitDelayTicks) {
         this.policy = policy;
         this.regionChunkSize = regionChunkSize;
+        this.dynamicSectionShift = dynamicSectionShift;
+        this.dynamicSplitDelayTicks = dynamicSplitDelayTicks;
     }
 
     /**
-     * {@return the layout of {@code policy} with the default fixed edge length}
+     * {@return the layout of {@code policy} with the default edge length}
      */
     public static RegionLayout of(RegionPolicy policy) {
         return switch (policy) {
             case DYNAMIC -> DYNAMIC;
             case FIXED_3X3 -> FIXED_3X3;
+            case DYNAMIC_CLUSTER -> DYNAMIC_CLUSTER_8X8;
         };
     }
 
     /**
      * {@return the layout of {@code policy} with the configured fixed edge length}
      * <p>
-     * {@code fixedRegionChunkSize} is ignored by {@link RegionPolicy#DYNAMIC}, whose grid edge is fixed by
-     * the legacy regionizer.
+     * {@code fixedRegionChunkSize} is ignored by {@link RegionPolicy#DYNAMIC} and
+     * {@link RegionPolicy#DYNAMIC_CLUSTER}.
      */
     public static RegionLayout of(RegionPolicy policy, int fixedRegionChunkSize) {
         return switch (policy) {
             case DYNAMIC -> DYNAMIC;
             case FIXED_3X3 -> fixed(fixedRegionChunkSize);
+            case DYNAMIC_CLUSTER -> DYNAMIC_CLUSTER_8X8;
+        };
+    }
+
+    /**
+     * {@return the layout of {@code policy} with all configured grid parameters}
+     */
+    public static RegionLayout of(RegionPolicy policy, int fixedRegionChunkSize, int dynamicSectionShift, long dynamicSplitDelayTicks) {
+        return switch (policy) {
+            case DYNAMIC -> DYNAMIC;
+            case FIXED_3X3 -> fixed(fixedRegionChunkSize);
+            case DYNAMIC_CLUSTER -> dynamicCluster(dynamicSectionShift, dynamicSplitDelayTicks);
         };
     }
 
@@ -84,7 +114,28 @@ public final class RegionLayout {
             throw new IllegalArgumentException("Fixed region chunk size must be in "
                     + MIN_FIXED_REGION_CHUNK_SIZE + ".." + MAX_FIXED_REGION_CHUNK_SIZE + ": " + regionChunkSize);
         }
-        return regionChunkSize == FIXED_3X3_REGION_CHUNK_SIZE ? FIXED_3X3 : new RegionLayout(RegionPolicy.FIXED_3X3, regionChunkSize);
+        return regionChunkSize == FIXED_3X3_REGION_CHUNK_SIZE
+                ? FIXED_3X3
+                : new RegionLayout(RegionPolicy.FIXED_3X3, regionChunkSize, -1, 0L);
+    }
+
+    /**
+     * {@return a Folia-style dynamic cluster layout whose underlying static section edge length is
+     * {@code 1 << sectionShift} chunks}
+     */
+    public static RegionLayout dynamicCluster(int sectionShift, long splitDelayTicks) {
+        if (sectionShift < DynamicRegionTopology.MIN_SECTION_SHIFT || sectionShift > DynamicRegionTopology.MAX_SECTION_SHIFT) {
+            throw new IllegalArgumentException("Dynamic section shift must be in "
+                    + DynamicRegionTopology.MIN_SECTION_SHIFT + ".." + DynamicRegionTopology.MAX_SECTION_SHIFT + ": " + sectionShift);
+        }
+        if (splitDelayTicks < 0L) {
+            throw new IllegalArgumentException("Dynamic split delay ticks must be >= 0: " + splitDelayTicks);
+        }
+        if (sectionShift == DynamicRegionTopology.DEFAULT_SECTION_SHIFT
+                && splitDelayTicks == DynamicRegionTopology.DEFAULT_SPLIT_DELAY_TICKS) {
+            return DYNAMIC_CLUSTER_8X8;
+        }
+        return new RegionLayout(RegionPolicy.DYNAMIC_CLUSTER, 1 << sectionShift, sectionShift, splitDelayTicks);
     }
 
     public RegionPolicy policy() {
@@ -95,22 +146,47 @@ public final class RegionLayout {
         return this.policy == RegionPolicy.FIXED_3X3;
     }
 
+    public boolean isDynamicCluster() {
+        return this.policy == RegionPolicy.DYNAMIC_CLUSTER;
+    }
+
     /**
-     * {@return the edge length in chunks of one region coordinate}
-     * <p>
-     * For a fixed layout this is the configured fixed region size. {@link RegionPolicy#DYNAMIC} answers the
-     * edge of the legacy 16x16-chunk grid, whose regions may still merge into larger shapes.
+     * {@return {@code true} when entity sections can be statically partitioned into buckets indexed by
+     * {@link #regionX(int)}/{@link #regionZ(int)}}
+     */
+    public boolean supportsSectionPartitions() {
+        return this.policy == RegionPolicy.FIXED_3X3 || this.policy == RegionPolicy.DYNAMIC_CLUSTER;
+    }
+
+    public int dynamicSectionShift() {
+        return this.dynamicSectionShift;
+    }
+
+    public long dynamicSplitDelayTicks() {
+        return this.dynamicSplitDelayTicks;
+    }
+
+    /**
+     * {@return the edge length in chunks of one region/section coordinate}
      */
     public int regionChunkSize() {
         return this.regionChunkSize;
     }
 
     public int regionX(int chunkX) {
-        return this.isFixed() ? Math.floorDiv(chunkX, this.regionChunkSize) : chunkX >> DYNAMIC_REGION_CHUNK_SHIFT;
+        return switch (this.policy) {
+            case FIXED_3X3 -> Math.floorDiv(chunkX, this.regionChunkSize);
+            case DYNAMIC_CLUSTER -> chunkX >> this.dynamicSectionShift;
+            case DYNAMIC -> chunkX >> DYNAMIC_REGION_CHUNK_SHIFT;
+        };
     }
 
     public int regionZ(int chunkZ) {
-        return this.isFixed() ? Math.floorDiv(chunkZ, this.regionChunkSize) : chunkZ >> DYNAMIC_REGION_CHUNK_SHIFT;
+        return switch (this.policy) {
+            case FIXED_3X3 -> Math.floorDiv(chunkZ, this.regionChunkSize);
+            case DYNAMIC_CLUSTER -> chunkZ >> this.dynamicSectionShift;
+            case DYNAMIC -> chunkZ >> DYNAMIC_REGION_CHUNK_SHIFT;
+        };
     }
 
     public RegionCoordinate regionAt(ServerLevel level, int chunkX, int chunkZ) {

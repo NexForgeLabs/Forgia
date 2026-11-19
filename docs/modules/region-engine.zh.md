@@ -4,7 +4,7 @@
 源码：[`RegionThreadingEngine`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java)、[`RegionLayout`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java)、[`LevelTickPhase`](../../src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java)、[`RegionWorkerPool`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
 证据：[FOLIA-REFERENCE](../../region-threading/FOLIA-REFERENCE.md)、[PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md)、[STATUS](../../region-threading/STATUS.md)
 
-状态：在 C6 范围内（固定布局、4 worker、文档化开关）**已认证**。所有开关默认 `false`；普通启动时不安装原生服务。
+C6 认证覆盖固定布局、4 个 worker 和文档列出的开关。所有开关默认 `false`。`DYNAMIC_CLUSTER` 为实验模式，属于 C6 认证范围之外。
 
 ---
 
@@ -23,7 +23,8 @@
 | 类 | 职责 |
 |---|---|
 | `RegionThreadingEngine` | 安装、配置捕获、每 tick 编排、切片派发、join、停机 |
-| `RegionLayout` / `RegionPolicy` / `RegionCoordinate` | 固定 N×N 网格（3..32）或遗留 dynamic 16-chunk merge/split |
+| `RegionLayout` / `RegionPolicy` / `RegionCoordinate` | 固定区域、加载岛 Section 和遗留 16-chunk 网格的静态坐标 |
+| `DynamicRegionTopology` | 跟踪加载区块，合并或延迟拆分加载岛，发布 Section 到加载岛的映射 |
 | `RegionState` / `RegionSchedule` / `RegionLifecycleState` | 每区域所有权、队列与生命周期 |
 | `RegionOwnershipLeaseGroup` / `RegionLeasePack` | lease；每任务最多 16 个区域的全有或全无获取 |
 | `RegionWorkerPool` / `RegionWorkerExecutor` / `RegionWorkStealingDispatcher` | 固定 executor，或持久 deque + 区段窃取 |
@@ -71,7 +72,7 @@ ServerLevel.tick（服务器线程）
 | 门 | 说明 |
 |---|---|
 | bridge 已安装 | `enableRegionThreadingBridge`；已知冲突策略可能拒绝安装 |
-| 固定布局 | 现代切片要求 `FIXED_3X3` + `regionThreadingFixedRegionChunks`（3..32） |
+| 布局 | `FIXED_3X3` 是 C6 基线。`DYNAMIC_CLUSTER` 使用固定 Section 坐标，并保留各切片的准入检查。 |
 | profiler 未激活 | 激活的原版 profiler 会让切片保持 inline |
 | 邻域已加载 | chunk/BE/刷怪切片要求；FULL ticket 本身不能证明加载完成 |
 | 所有权/存储模式 | 实体 tick 需要 region-owned 实体存储；各切片有各自 guard |
@@ -85,7 +86,9 @@ ServerLevel.tick（服务器线程）
 | `enableRegionThreadingBridge` | `false` | bool | 是 | 安装引擎；所有切片依赖它 |
 | `enableRegionThreadingWorkers` | `false` | bool | 是 | region 队列 drain 上池；不是其他切片的总开关 |
 | `enableGlobalRegionThreadingWorker` | `false` | bool | 是 | 把 global region drain 移到池（C6 之外） |
-| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC` | 是 | DYNAMIC 为遗留；多数切片要求固定 |
+| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC`/`DYNAMIC_CLUSTER` | 是 | `DYNAMIC_CLUSTER` 为实验性加载岛派发，`DYNAMIC` 为遗留策略 |
+| `regionThreadingDynamicSectionShift` | `3` | 2..4 | 是 | `DYNAMIC_CLUSTER` 的 Section 边长为 `1 << shift` 个 chunk |
+| `regionThreadingDynamicSplitDelayTicks` | `40` | 0..1200 | 是 | Section 卸空后等待多少 tick 才参与拆分 |
 | `regionThreadingFixedRegionChunks` | `3` | 3..32 | 是 | N×N chunk，16N×16N 方块，全高度 |
 | `regionThreadingWorkerThreads` | `0` | 0..512 | 是 | `0` → `max(1, cpus-1)`；可复现性要求显式固定 |
 | `enableRegionThreadingPersistentWorkers` | `false` | bool | 是 | 持久 deque + work stealing 取代固定 executor |
@@ -122,6 +125,12 @@ ServerLevel.tick（服务器线程）
 
 ## 9. 对比
 
+`DYNAMIC_CLUSTER` 按实际加载的 chunk 建立 Section 连通分量。相邻 Section（含对角）在全局阶段合并，卸空的 Section 到期后触发拆分。普通批次可合并同一加载岛内的 worker 提交。待派发任务多于 worker 时才合并，并保留至少与 worker 数相同的任务。每个 Section 按切片记录近期耗时。合包成本上限取最重单项和平均每个 worker 成本的较大值。每个 Section 各自持有租约并应用现有所有权检查。有序刷怪依赖多个参与者并行推进，因此沿用独立提交。`/forgia regions` 在当前维度显示加载岛数量、大小、合并拆分计数及 `submissionsSaved`。区域耗时仍按 Section 记录。
+
+49 个负载区块的随机刻 GameTest 使用 4 个 worker，每种布局单次 JVM 运行，预热 200 tick，测量 600 tick。固定 3×3、固定 8×8 和动态 8×8 的平均 MSPT 分别为 2.110、1.770 和 1.948。三组的 worker 区块 tick 计数均为 39,249，所有权违规及回退为零。动态 8×8 的平均 chunk 批次等待为 0.861 ms，固定 8×8 为 0.558 ms。这些是加入并行度下限之前的结果。加入下限后的单次复测得到平均 2.871 MSPT、P99 9.812 MSPT，worker 区块 tick 数、所有权违规和回退计数相同。各次运行的随机状态指纹各异，需要独立 JVM 重复测量来评估下限对耗时的影响。
+
+加权合包在同一份源码的独立目录中与按任务数合包对照。两组使用相同世界种子、固定负载坐标、144 个负载区块和 4 个 worker，各预热 200 tick，测量 600 tick。平均 MSPT 从 4.050 降至 2.464，P99 从 10.619 降至 3.961，平均 chunk 批次等待从 1.999 ms 降至 1.061 ms。两组的 worker 区块 tick 数均为 115,344，回退与所有权违规均为零。每组运行一次，结束时随机状态指纹不同。多岛扩展性和整岛所有权仍待验证。
+
 | 选择 | 固定 N×N | 遗留 DYNAMIC |
 |---|---|---|
 | 区域边界 | 从不合并/拆分 | 16-chunk 网格合并/拆分 |
@@ -140,7 +149,7 @@ ServerLevel.tick（服务器线程）
 
 | 限制 | 说明 |
 |---|---|
-| 静态布局 | 没有负载自适应区域尺寸 |
+| 所有权粒度 | 加载岛派发保留独立的 Section 租约和跨 Section 检查 |
 | 每 level 一个批次 | 同一 level 内 region 切片不重叠 |
 | 玩家 | 由服务器线程 tick；仅有有界交接测试 |
 | 结构/移动装置 | 不感知区域；仍在服务器线程 |

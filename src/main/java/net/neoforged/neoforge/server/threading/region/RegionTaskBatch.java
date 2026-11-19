@@ -5,6 +5,7 @@
 
 package net.neoforged.neoforge.server.threading.region;
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -65,7 +66,63 @@ public final class RegionTaskBatch {
         if (groupWorks.isEmpty()) {
             throw new IllegalArgumentException("A packed task must hold at least one group");
         }
-        this.groups.add(new Group(description, List.copyOf(groupWorks)));
+        this.groups.add(new Group(description, List.copyOf(groupWorks), null, 0L));
+    }
+
+    void add(RegionCoordinate coordinate, String description, long estimatedNanos, Runnable work) {
+        this.groups.add(new Group(description, List.of(work), coordinate, estimatedNanos));
+    }
+
+    /** Coalesces light tasks while keeping spare work available and bounding the cost of each pack. */
+    void groupByLoadedIsland(DynamicRegionTopology topology, int workerCount) {
+        int mergeBudget = this.groups.size() - workerCount;
+        if (mergeBudget <= 0) return;
+        long knownTotal = 0L;
+        long largest = 0L;
+        int knownCount = 0;
+        for (final Group group : this.groups) {
+            if (group.estimatedNanos() > 0L) {
+                knownTotal += group.estimatedNanos();
+                largest = Math.max(largest, group.estimatedNanos());
+                ++knownCount;
+            }
+        }
+        final long coldEstimate = knownCount == 0 ? 1L : knownTotal / knownCount;
+        final long total = knownTotal + (this.groups.size() - knownCount) * coldEstimate;
+        final long packLimit = Math.max(largest, Math.ceilDiv(total, workerCount));
+        final List<Group> grouped = new ArrayList<>(this.groups.size());
+        final Int2IntOpenHashMap islandSlots = new Int2IntOpenHashMap();
+        islandSlots.defaultReturnValue(-1);
+        for (final Group group : this.groups) {
+            final RegionCoordinate cell = group.coordinate();
+            final int island = cell == null ? DynamicRegionTopology.NO_REGION : topology.regionIdAtSection(cell.regionX(), cell.regionZ());
+            if (island == DynamicRegionTopology.NO_REGION || mergeBudget == 0) {
+                grouped.add(group);
+                continue;
+            }
+            final int slot = islandSlots.putIfAbsent(island, grouped.size());
+            if (slot == -1) {
+                grouped.add(group);
+                continue;
+            }
+            final Group pack = grouped.get(slot);
+            final long packCost = pack.estimatedNanos() == 0L ? coldEstimate : pack.estimatedNanos();
+            final long cost = group.estimatedNanos() == 0L ? coldEstimate : group.estimatedNanos();
+            if (packCost + cost > packLimit) {
+                if (cost < packCost) {
+                    islandSlots.put(island, grouped.size());
+                }
+                grouped.add(group);
+                continue;
+            }
+            final List<Runnable> works = pack.coordinate() == null ? pack.works() : new ArrayList<>(pack.works());
+            works.addAll(group.works());
+            grouped.set(slot, new Group("loaded island " + island, works, null, packCost + cost));
+            --mergeBudget;
+        }
+        topology.recordCoalescedSubmissions(this.groups.size() - grouped.size());
+        this.groups.clear();
+        this.groups.addAll(grouped);
     }
 
     public boolean isEmpty() {
@@ -218,7 +275,7 @@ public final class RegionTaskBatch {
         }
     }
 
-    private record Group(String description, List<Runnable> works) {}
+    private record Group(String description, List<Runnable> works, @Nullable RegionCoordinate coordinate, long estimatedNanos) {}
 
     /**
      * Completion barrier of one submitted batch.

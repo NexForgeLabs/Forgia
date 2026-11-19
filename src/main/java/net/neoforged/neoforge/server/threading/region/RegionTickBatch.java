@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * group, and the server-thread post-processing. A concurrent shutdown or level unload that observes the
  * batch therefore cannot retire a region that the batch still holds or is about to lease.
  * <p>
- * Subclasses add their region groups through {@link #addTask(String, Runnable)}; the work is wrapped by
+ * Subclasses add their region groups through {@link #addTask(RegionState, String, Runnable)}; the work is wrapped by
  * {@link #groupWork(Runnable)} so a group the executor rejected and that therefore runs inline on the
  * publishing thread still marks that thread as executing this batch.
  * <p>
@@ -74,6 +74,8 @@ abstract class RegionTickBatch {
      */
     private final List<RegionTickFailure> tickFailures = new ArrayList<>();
     private final RegionTaskBatch tasks = new RegionTaskBatch();
+    @Nullable
+    private DynamicRegionTopology dispatchTopology;
     private final RegionTaskBatch.Barrier groupBarrier = RegionTaskBatch.Barrier.open();
     /**
      * First start and last end of the groups of this batch, for {@link RegionBarrierAttribution}. Both are
@@ -237,8 +239,30 @@ abstract class RegionTickBatch {
      * Adds one worker group. The caller keeps ownership of the group's region lease until its work
      * released it.
      */
-    final void addTask(String description, Runnable work) {
-        this.tasks.add(description, work);
+    final void useLoadedIslandDispatch(@Nullable DynamicRegionTopology topology) {
+        // Ordered spawn participants may wait for other participants in the same wave.
+        if (this.spawnAdmissions == null) {
+            this.dispatchTopology = topology;
+        }
+    }
+
+    final void addTask(RegionState region, String description, Runnable work) {
+        if (this.dispatchTopology == null) {
+            this.tasks.add(description, work);
+        } else {
+            final var costs = region.dispatchCosts();
+            final int sliceIndex = this.slice.ordinal();
+            final long previous = costs.get(sliceIndex);
+            this.tasks.add(region.coordinate(), description, previous, () -> {
+                final long start = System.nanoTime();
+                try {
+                    work.run();
+                } finally {
+                    final long elapsed = Math.clamp(System.nanoTime() - start, 1L, 1_000_000_000L);
+                    costs.updateAndGet(sliceIndex, estimate -> estimate == 0L ? elapsed : (3L * estimate + elapsed + 2L) / 4L);
+                }
+            });
+        }
     }
 
     /**
@@ -568,6 +592,9 @@ abstract class RegionTickBatch {
             this.submitted = true;
         }
         final long submitStart = System.nanoTime();
+        if (this.dispatchTopology != null && executor instanceof RegionWorkerPool pool) {
+            this.tasks.groupByLoadedIsland(this.dispatchTopology, pool.threadCount());
+        }
         this.tasks.submitOpen(executor, this.groupBarrier);
         this.groupBarrier.setupComplete();
         this.submitNanos = System.nanoTime() - submitStart;

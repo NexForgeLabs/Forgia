@@ -92,7 +92,7 @@ final class RegionChunkTickBatch extends RegionTickBatch {
         this.leasedRegions.add(region);
         final Group group = new Group(this, region, chunks);
         this.groups.add(group);
-        this.addTask("chunk tick " + region.coordinate(), this.groupWork(workFactory.apply(group)));
+        this.addTask(region, "chunk tick " + region.coordinate(), this.groupWork(workFactory.apply(group)));
         return group;
     }
 

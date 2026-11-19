@@ -13,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.world.entity.Entity;
 import org.jetbrains.annotations.Nullable;
@@ -42,6 +43,7 @@ final class RegionState {
     private final RegionTaskQueue taskQueue = new RegionTaskQueue();
     private final RegionTickTimer tickTimer = new RegionTickTimer(System.nanoTime());
     private final RegionTickMetrics tickMetrics = new RegionTickMetrics();
+    private volatile AtomicLongArray dispatchCosts;
     long cachedPlayerChunksGeneration = Long.MIN_VALUE;
     @Nullable
     it.unimi.dsi.fastutil.longs.Long2ObjectMap<net.minecraft.world.level.chunk.LevelChunk> cachedPlayerChunks;
@@ -470,6 +472,17 @@ final class RegionState {
 
     void makeDueForTesting() {
         this.tickTimer.advanceBy(1);
+    }
+
+    AtomicLongArray dispatchCosts() {
+        AtomicLongArray costs = this.dispatchCosts;
+        if (costs != null) return costs;
+        synchronized (this) {
+            if (this.dispatchCosts == null) {
+                this.dispatchCosts = new AtomicLongArray(RegionTickSlice.values().length);
+            }
+            return this.dispatchCosts;
+        }
     }
 
     RegionTickMetrics tickMetrics() {

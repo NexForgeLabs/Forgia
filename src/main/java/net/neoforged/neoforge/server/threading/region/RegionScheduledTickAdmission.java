@@ -41,7 +41,7 @@ final class RegionScheduledTickAdmission {
         for (final ScheduledTick<?> tick : ticks) {
             if (tick.type() != Blocks.REDSTONE_LAMP) return SerialReason.UNCLASSIFIED_CALLBACK;
         }
-        if (!layout.isFixed()) return SerialReason.NON_FIXED_LAYOUT;
+        if (!layout.supportsSectionPartitions()) return SerialReason.NON_FIXED_LAYOUT;
         if (ticks.size() > budget) return SerialReason.DEFERRED_UPDATE_BUDGET;
         final Map<Long, LevelChunk> loaded = new HashMap<>();
         final BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();

@@ -568,9 +568,9 @@ final class ThreadedRegionizer {
                 additions.add(move);
             }
             final List<Entity> published = new ArrayList<>(additions.size());
-            // A non-fixed layout recalculates merges per destination section, so the batch requests one merge
-            // check per destination region instead of one per entity it publishes into it.
-            final Set<RegionCoordinate> mergeChecks = this.layout.isFixed() ? null : new LinkedHashSet<>();
+            // Fixed and dynamic-cluster layouts keep static section buckets; only legacy DYNAMIC triggers
+            // regionizer-level merges per destination section.
+            final Set<RegionCoordinate> mergeChecks = this.layout.supportsSectionPartitions() ? null : new LinkedHashSet<>();
             for (final OwnerMove move : additions) {
                 final RegionState destination = this.getOrCreateLocked(move.destination());
                 this.entities.put(move.entity(), destination);
@@ -931,7 +931,7 @@ final class ThreadedRegionizer {
     }
 
     void requestSplitCheck(RegionState region) {
-        if (this.layout.isFixed()) {
+        if (this.layout.supportsSectionPartitions()) {
             return;
         }
         this.splitCheckRequestCount.incrementAndGet();
@@ -943,7 +943,7 @@ final class ThreadedRegionizer {
     }
 
     private void requestMergeCheckIfNeeded(RegionSectionCoordinate coordinate, RegionState region) {
-        if (this.layout.isFixed()) {
+        if (this.layout.supportsSectionPartitions()) {
             return;
         }
         final Set<RegionState> neighbourRegions = new HashSet<>();
@@ -993,7 +993,7 @@ final class ThreadedRegionizer {
     }
 
     private void splitRegionIfNeeded(RegionState region) {
-        if (this.layout.isFixed()) {
+        if (this.layout.supportsSectionPartitions()) {
             return;
         }
         if (region.isRunning() || region.isWorkerSubmitted() || region.hasQueuedTasks()) {

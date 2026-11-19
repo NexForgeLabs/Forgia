@@ -167,6 +167,12 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final GlobalRegionState globalRegion = new GlobalRegionState(this.regionWorkAdmission);
     private final ThreadedRegionizer regionizer;
     /**
+     * Per-level Folia-style dynamic region topology, populated only when {@link #layout} uses
+     * {@link RegionPolicy#DYNAMIC_CLUSTER}. Cleared on level unload and engine shutdown.
+     */
+    private final Map<ServerLevel, DynamicRegionTopology> dynamicTopologies = new ConcurrentHashMap<>();
+    private final Map<ServerLevel, AtomicLong> dynamicTopologyTicks = new ConcurrentHashMap<>();
+    /**
      * Registered entity scheduled tasks, grouped by the entity they belong to.
      * <p>
      * A move notification only reaches the wrappers of its own entity, so the ownership handoff of a barrier
@@ -1786,11 +1792,57 @@ public final class RegionThreadingEngine implements RegionThreading {
     @ApiStatus.Internal
     public void beginLevelTick(ServerLevel level) {
         this.levelTickPhaseState(level).beginGlobalPhase();
+        // Reconcile Folia-style dynamic region topology at the GLOBAL safe point (no workers in flight).
+        if (this.layout.isDynamicCluster()) {
+            synchronized (this.admissionLock) {
+                if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                    final DynamicRegionTopology topology = this.dynamicTopology(level);
+                    final long tick = this.dynamicTopologyTicks.computeIfAbsent(level, ignored -> new AtomicLong()).incrementAndGet();
+                    topology.reconcile(tick);
+                }
+            }
+        }
         // The player list of the level is published once per tick, at the head of the tick and before any region
         // batch of it runs, so a worker answers a player lookup from an immutable view instead of walking the
         // level's live list. See RegionPlayerSnapshots for the one-tick staleness this buys.
         RegionPlayerSnapshots.publish(level);
         this.drainGlobalMessages(level);
+    }
+
+    /**
+     * {@return the dynamic region topology of {@code level}, or {@code null} when this engine is not using
+     * {@link RegionPolicy#DYNAMIC_CLUSTER}}
+     */
+    @ApiStatus.Internal
+    @Nullable
+    public DynamicRegionTopology dynamicTopologyOrNull(ServerLevel level) {
+        return this.layout.isDynamicCluster() ? this.dynamicTopologies.get(level) : null;
+    }
+
+    @ApiStatus.Internal
+    public List<String> loadedIslandDiagnostics(ServerLevel level, int limit) {
+        synchronized (this.admissionLock) {
+            final DynamicRegionTopology topology = this.dynamicTopologies.get(level);
+            if (topology == null) return List.of();
+            final List<String> lines = new ArrayList<>();
+            lines.add("Loaded islands in " + level.dimension().location() + ": " + topology.regionCount()
+                    + ", merges=" + topology.mergeCount() + ", splits=" + topology.splitCount()
+                    + ", submissionsSaved=" + topology.coalescedSubmissions());
+            final var islands = topology.snapshotRegions();
+            for (int i = 0; i < Math.min(limit, islands.size()); i++) {
+                final var island = islands.get(i);
+                lines.add("  Island " + island.regionId() + " at section " + island.anchorSectionX() + "," + island.anchorSectionZ()
+                        + ": sections=" + island.sectionCount() + ", loadedChunks=" + island.loadedChunkCount());
+            }
+            return List.copyOf(lines);
+        }
+    }
+
+    private DynamicRegionTopology dynamicTopology(ServerLevel level) {
+        return this.dynamicTopologies.computeIfAbsent(level, ignored -> new DynamicRegionTopology(
+                this.layout.dynamicSectionShift(),
+                DynamicRegionTopology.DEFAULT_MERGE_RADIUS,
+                this.layout.dynamicSplitDelayTicks()));
     }
 
     /**
@@ -1885,7 +1937,17 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void beginRegionPhase(ServerLevel level) {
-        this.levelTickPhaseState(level).beginRegionPhase();
+        final LevelTickPhaseState state = this.levelTickPhaseState(level);
+        if (this.layout.isDynamicCluster() && !state.isRegionPhase()) {
+            synchronized (this.admissionLock) {
+                final DynamicRegionTopology topology = this.dynamicTopologies.get(level);
+                final AtomicLong tick = this.dynamicTopologyTicks.get(level);
+                if (!this.shutdown && topology != null && tick != null) {
+                    topology.reconcile(tick.get());
+                }
+            }
+        }
+        state.beginRegionPhase();
     }
 
     /**
@@ -2885,6 +2947,22 @@ public final class RegionThreadingEngine implements RegionThreading {
         return true;
     }
 
+    /** Queues direct damage from an entity tick, using a participant owned by the issuing group. */
+    @ApiStatus.Internal
+    public void queuePlayerDamage(ServerPlayer player, net.minecraft.world.damagesource.DamageSource damage, float amount) {
+        final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
+        if (!RegionWorkerScope.isNativeWorkerThread() || group == null) {
+            return;
+        }
+        Entity source = damage.getDirectEntity();
+        if (source == null || source.level() != group.level() || !group.owns(source)) {
+            source = damage.getEntity();
+        }
+        if (source != null && source.level() == group.level() && group.owns(source)) {
+            this.submitEntityInteraction(source, player, (attacker, target) -> target.hurt(damage, amount));
+        }
+    }
+
     private EntityInteractionTask submitEntityInteraction(Entity source, Entity target, BiConsumer<Entity, Entity> action) {
         return this.submitEntityInteraction(source, target, action, false);
     }
@@ -3826,7 +3904,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public boolean isScheduledTickWorkerDispatchEffective() {
-        return this.scheduledTickWorkerExecutionEnabled && (this.layout.isFixed() || this.unclassifiedWorkerCallbacksForTesting);
+        return this.scheduledTickWorkerExecutionEnabled && (this.layout.supportsSectionPartitions() || this.unclassifiedWorkerCallbacksForTesting);
     }
 
     /**
@@ -5618,6 +5696,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                             if (active.holdsServerAdmissionFence()) throw new IllegalStateException("Nested parallel batch inside a canonical server boundary");
                         }
                     }
+                    if (this.layout.isDynamicCluster()) {
+                        batch.useLoadedIslandDispatch(this.dynamicTopologies.get(level));
+                    }
                     this.activeTickBatches.add(batch);
                     return TickBatchPublication.PUBLISHED;
                 }
@@ -6061,7 +6142,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * @see RegionLeasePack#split(List, int)
      */
     private List<List<RegionState>> regionPacks(Collection<RegionState> regions) {
-        if (!this.packedRegionLeasesEnabled) {
+        if (!this.packedRegionLeasesEnabled || this.layout.isDynamicCluster()) {
             // The unpacked path keeps the order in which the regions were first seen, exactly like before
             // packing existed: a pack is the only thing that needs a canonical order.
             final List<List<RegionState>> single = new ArrayList<>(regions.size());
@@ -10502,6 +10583,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.playerRegions.clearLevel(level);
                     RegionPlayerSnapshots.detach(level);
                     this.regionizer.clearLevel(level);
+                    final DynamicRegionTopology topology = this.dynamicTopologies.remove(level);
+                    if (topology != null) {
+                        topology.clear();
+                    }
+                    this.dynamicTopologyTicks.remove(level);
                     // The mailbox and the phase state of the level die with its region state: the queued
                     // messages are dropped and counted, and a later post is refused instead of waiting for a
                     // tick of a level that no longer exists. No batch of the level is in flight here, so no
@@ -10546,7 +10632,13 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void addRegionSection(ServerLevel level, int chunkX, int chunkZ) {
-        this.callAdmitted(() -> this.regionizer.addChunk(level, chunkX, chunkZ));
+        this.callAdmitted(() -> {
+            final RegionState region = this.regionizer.addChunk(level, chunkX, chunkZ);
+            if (region != null && this.layout.isDynamicCluster()) {
+                this.dynamicTopology(level).addChunk(chunkX, chunkZ);
+            }
+            return region;
+        });
     }
 
     /**
@@ -10554,7 +10646,15 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void removeRegionSection(ServerLevel level, int chunkX, int chunkZ) {
-        this.runAdmitted(() -> this.regionizer.removeChunk(level, chunkX, chunkZ));
+        this.runAdmitted(() -> {
+            if (this.layout.isDynamicCluster()) {
+                final DynamicRegionTopology topology = this.dynamicTopologies.get(level);
+                if (topology != null) {
+                    topology.removeChunk(chunkX, chunkZ);
+                }
+            }
+            this.regionizer.removeChunk(level, chunkX, chunkZ);
+        });
     }
 
     /**
@@ -12055,6 +12155,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.releaseBlockEventPhase(openPhase);
                 }
                 this.regionizer.clear();
+                for (final DynamicRegionTopology topology : this.dynamicTopologies.values()) {
+                    topology.clear();
+                }
+                this.dynamicTopologies.clear();
+                this.dynamicTopologyTicks.clear();
                 // Every mailbox is closed before the pool goes away: its queued messages are dropped and
                 // counted, and a post from a worker that is still unwinding is refused instead of queued for a
                 // tick that never comes. The phase state of the levels is meaningless after this point.

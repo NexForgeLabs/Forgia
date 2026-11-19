@@ -169,7 +169,11 @@ public class ServerLifecycleHooks {
         } else if (RegionThreadingCompatibility.canInstallBridge()) {
             // The layout carries the fixed region edge length, so the engine, its regionizer and the
             // physical section partitions of every level created afterwards share one region size.
-            final RegionLayout layout = RegionLayout.of(ForgiaConfig.SERVER.regionThreadingMode.get(), ForgiaConfig.SERVER.regionThreadingFixedRegionChunks.get());
+            final RegionLayout layout = RegionLayout.of(
+                    ForgiaConfig.SERVER.regionThreadingMode.get(),
+                    ForgiaConfig.SERVER.regionThreadingFixedRegionChunks.get(),
+                    ForgiaConfig.SERVER.regionThreadingDynamicSectionShift.get(),
+                    ForgiaConfig.SERVER.regionThreadingDynamicSplitDelayTicks.get());
             // Entity worker ticks need region-owned entity storage: the ticks of the leased entities mutate
             // the level's entity storage, and only the region-owned guards let a worker run them while the
             // server thread keeps the shared vanilla maps. A dynamic layout cannot partition the storage, so

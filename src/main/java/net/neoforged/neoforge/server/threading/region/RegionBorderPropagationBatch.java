@@ -34,7 +34,7 @@ final class RegionBorderPropagationBatch extends RegionTickBatch {
      * @param work   the propagation body, run on the worker that leases {@code region}
      */
     void addGroup(RegionState region, Runnable work) {
-        this.addTask("border propagation " + region.coordinate(), this.groupWork(work));
+        this.addTask(region, "border propagation " + region.coordinate(), this.groupWork(work));
     }
 
     /** {@return the scheduled-tick mutations the cascade of the group recorded} */

@@ -16,7 +16,7 @@
 +    }
 +
 +    public EntitySectionStorage(Class<T> p_156855_, Long2ObjectFunction<Visibility> p_156856_, net.neoforged.neoforge.server.threading.region.RegionLayout layout) {
-+        this.partitions = layout.isFixed()
++        this.partitions = layout.supportsSectionPartitions()
 +                ? new net.neoforged.neoforge.server.threading.region.FixedEntitySectionPartitions<>(layout) : null;
 +        this.sections = this.partitions == null ? new Long2ObjectOpenHashMap<>() : null;
 +        this.sectionIds = this.partitions == null ? new LongAVLTreeSet() : null;

@@ -676,7 +676,8 @@ public class ServerLoadBenchmarkGameTests {
                 return;
             }
             final ServerLevel level = helper.getLevel();
-            final BlockPos origin = helper.absolutePos(BlockPos.ZERO);
+            // A random GameTest placement changes how the grid crosses region boundaries.
+            final BlockPos origin = new BlockPos(4160, 0, 4160);
             final List<ChunkPos> grid = randomTickGrid(origin, intProperty(RANDOM_TICK_CHUNKS_PROPERTY, RANDOM_TICK_CHUNKS));
             final TickSampler sampler = new TickSampler(WARMUP_TICKS, MEASURED_TICKS, null);
             // The chunk tick attribution is reported per measured tick, so it is reset when the warmup ends. The
@@ -3967,7 +3968,14 @@ public class ServerLoadBenchmarkGameTests {
     }
 
     private static String profileName(Optional<RegionThreadingDiagnostics> diagnostics) {
-        return diagnostics.map(value -> "fixed" + value.regionChunkSize() + "-" + value.workerThreadCount() + "w").orElse("off");
+        return diagnostics.map(value -> {
+            final String layout = switch (value.regionPolicy()) {
+                case FIXED_3X3 -> "fixed";
+                case DYNAMIC -> "legacyDynamic";
+                case DYNAMIC_CLUSTER -> "dynamicCluster";
+            };
+            return layout + value.regionChunkSize() + "-" + value.workerThreadCount() + "w";
+        }).orElse("off");
     }
 
     /**

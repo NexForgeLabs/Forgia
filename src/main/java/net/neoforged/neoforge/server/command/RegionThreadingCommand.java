@@ -194,6 +194,10 @@ final class RegionThreadingCommand {
                 diagnostics -> RegionMetricsReport.listingLines(diagnostics.regionTicks(), count)
                         .forEach(line -> source.sendSuccess(() -> Component.literal(line), false)),
                 () -> source.sendSuccess(() -> Component.literal(RegionMetricsReport.notInstalledLine()), false));
+        if (RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) {
+            engine.loadedIslandDiagnostics(source.getLevel(), count)
+                    .forEach(line -> source.sendSuccess(() -> Component.literal(line), false));
+        }
         return 1;
     }
 

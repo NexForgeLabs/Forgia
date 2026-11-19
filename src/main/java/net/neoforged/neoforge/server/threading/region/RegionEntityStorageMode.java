@@ -57,8 +57,8 @@ public enum RegionEntityStorageMode {
         return forConfiguration(entityTickWorkers || spawningRequested, layout);
     }
 
-    /** Existing entity-only configuration entry point. Fixed partitions are required for owned storage. */
+    /** Existing entity-only configuration entry point. Static section partitions are required for owned storage. */
     public static RegionEntityStorageMode forConfiguration(boolean entityTickWorkers, RegionLayout layout) {
-        return entityTickWorkers && layout.isFixed() ? REGION_OWNED : MAIN_THREAD_ONLY;
+        return entityTickWorkers && layout.supportsSectionPartitions() ? REGION_OWNED : MAIN_THREAD_ONLY;
     }
 }
