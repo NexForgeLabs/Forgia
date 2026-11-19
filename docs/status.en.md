@@ -35,6 +35,14 @@ A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](https://git
   - Standalone server smoke with a real third-party mod + mod-owned Mixin (`tools/player-region-tick/run_clean_mod_smoke.py`, `clean_mod_probe`): `status = passed`, `admittedWithMods = 2,176`, `ENTITY.worker = 1,088`, `CONNECTION.worker = 1,088`, `failed = 0`, `independent` window `242/242` worker calls with `121/121` overlapping ticks across two region workers, `same-region` window `242/242` worker calls with `0` overlaps, zero `UNKNOWN_MOD`/`UNKNOWN_TRANSFORM`/`UNKNOWN_LISTENER` refusals.
   - Vanilla standalone server smoke + independent verifier (`run_worker_smoke.py` + `verify_worker_smoke.py`): `status = passed`, `ENTITY.worker = 1,089`, `CONNECTION.worker = 1,087`, `failed = 0`.
   - `:tests:runFullParallelSoakGameTestServer` (`15s`): `UNKNOWN_MOD` eliminated; player ticks now refuse precisely on `UNKNOWN_TRANSFORM:neotests.mixins.json` because the test mixin targets `net.neoforged.neoforge.debug.mixin.*`.
+- **Scale & 120s Soak Benchmarks**:
+  - **Clean-Mod Multi-Player Scale (`tools/player-region-tick/run_player_scale.py`, 4 workers, `clean_mod_probe`, 1/8/32 players × `same`/`spread`/`boundary`, 5s warmup + 15s measure)**: all 9 windows `passed` (`admittedWithMods = 108,694`, zero `UNKNOWN_MOD`/`UNKNOWN_TRANSFORM`/`UNKNOWN_LISTENER` refusals):
+    - `n1`: `same = 1.93 ms` (ENTITY 314/314, CONN 313/314 worker), `spread = 1.38 ms` (313/313, 313/314), `boundary = 1.46 ms` (313/313, 312/313).
+    - `n8`: `same = 2.85 ms` (2,504/2,512, 2,504/2,512), `spread = 1.65 ms` (2,520/2,520, 2,512/2,520), `boundary = 2.13 ms` (2,504/2,512, 2,504/2,512).
+    - `n32`: `same = 7.57 ms` (9,702/10,048, 9,701/10,048), **`spread = 3.93 ms`** (9,734/10,048 ENTITY & 9,703/10,048 CONN on workers, `serverCpu = 14.5%`, `workersCpu = 14.9%`), `boundary = 6.03 ms` (9,703/10,048, `workersCpu = 22.4%`).
+  - **120s `FullParallelSoakGameTests` A/B (`:tests` with 180+ test mods; player ticks stay on server thread due to `neotests.mixins.json`)**:
+    - Forgia Full Parallel: `1,235` ticks, `10.29 TPS`, P50 `43.08 ms`, Mean `60.87 ms`, P95 `105.23 ms`, P99 `239.17 ms`, Max `5,737.73 ms`, GC `178 / 4,154 ms`, end heap `1,635 MiB`, `entityTicksOnWorkers = 818,135`, `ownershipViolationCount = 0`.
+    - Vanilla Serial (`Bridge = false`): `1,295` ticks, `10.79 TPS`, P50 `35.28 ms`, Mean `43.79 ms`, P95 `89.65 ms`, P99 `133.11 ms`, Max `908.49 ms`, GC `131 / 2,602 ms`, end heap `2,191 MiB`.
 
 ## Measured performance work and runtime commands — bounded implementation
 

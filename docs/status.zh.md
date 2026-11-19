@@ -34,6 +34,14 @@
   - 独立服务端加载真实第三方模组 + 自有类 Mixin 双玩家验证（`tools/player-region-tick/run_clean_mod_smoke.py`，`clean_mod_probe`）：`status = passed`，`admittedWithMods = 2,176`，`ENTITY.worker = 1,088`、`CONNECTION.worker = 1,088`、`failed = 0`；独立窗口 `ENTITY`/`CONNECTION` 均为 `242/242` worker 执行且 `121/121` tick 在两个 region worker 间真正并行重叠；同区窗口 `242/242` worker 执行且 `0` 重叠；无 `UNKNOWN_MOD`/`UNKNOWN_TRANSFORM`/`UNKNOWN_LISTENER` 拒绝。
   - 原版独立服务端双玩家对照与独立校验器（`run_worker_smoke.py` + `verify_worker_smoke.py`）：`status = passed`，`ENTITY.worker = 1,089`、`CONNECTION.worker = 1,087`、`failed = 0`。
   - `:tests:runFullParallelSoakGameTestServer`（`15s`）：不再出现 `UNKNOWN_MOD`，拒绝原因精确落在 `UNKNOWN_TRANSFORM:neotests.mixins.json`（因其测试 mixin 目标类位于 `net.neoforged.neoforge.debug.mixin.*`）。
+- **完整跑分与 120 秒对照**：
+  - **干净模组多玩家扩展性跑分（`tools/player-region-tick/run_player_scale.py`，4 workers，`clean_mod_probe`，1/8/32 玩家 × `same`/`spread`/`boundary`，每窗口 5s 预热 + 15s 采样）**：9 个窗口全部 `passed`（累计 `admittedWithMods = 108,694`，零 `UNKNOWN_MOD`/`UNKNOWN_TRANSFORM`/`UNKNOWN_LISTENER` 拒绝）：
+    - `n1`：`same = 1.93 ms`（ENTITY 314/314、CONN 313/314 worker）、`spread = 1.38 ms`（313/313、313/314）、`boundary = 1.46 ms`（313/313、312/313）。
+    - `n8`：`same = 2.85 ms`（2,504/2,512、2,504/2,512）、`spread = 1.65 ms`（2,520/2,520、2,512/2,520）、`boundary = 2.13 ms`（2,504/2,512、2,504/2,512）。
+    - `n32`：`same = 7.57 ms`（9,702/10,048、9,701/10,048）、**`spread = 3.93 ms`**（ENTITY 9,734/10,048 与 CONN 9,703/10,048 跑在 worker 上，`serverCpu = 14.5%`、`workersCpu = 14.9%`）、`boundary = 6.03 ms`（9,703/10,048、`workersCpu = 22.4%`）。
+  - **120 秒 `FullParallelSoakGameTests` A/B 对照（`:tests` 含 180+ 测试模组，玩家 tick 因 `neotests.mixins.json` 留在主线程）**：
+    - Forgia 全并行：`1,235` ticks、`10.29 TPS`、P50 `43.08 ms`、Mean `60.87 ms`、P95 `105.23 ms`、P99 `239.17 ms`、Max `5,737.73 ms`、GC `178 次 / 4,154 ms`、结束堆 `1,635 MiB`、`entityTicksOnWorkers = 818,135`、`ownershipViolationCount = 0`。
+    - 原版串行（`Bridge = false`）：`1,295` ticks、`10.79 TPS`、P50 `35.28 ms`、Mean `43.79 ms`、P95 `89.65 ms`、P99 `133.11 ms`、Max `908.49 ms`、GC `131 次 / 2,602 ms`、结束堆 `2,191 MiB`。
 
 ## 测量过的性能工作与运行时命令 —— 有界实现
 
