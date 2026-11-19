@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.example.cleanprobe.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CleanModTargetMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

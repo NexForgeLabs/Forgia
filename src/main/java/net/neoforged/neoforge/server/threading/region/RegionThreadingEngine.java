@@ -287,6 +287,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final RegionPlayerPacketRouter playerPackets = new RegionPlayerPacketRouter();
     private final Map<String, AtomicLong> playerAdmissionRefusals = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<String, String> playerAdmissionLastRefusal = new java.util.concurrent.ConcurrentHashMap<>();
+    private final AtomicLong playerTicksAdmittedWithMods = new AtomicLong();
     // Publisher-only, weak keys: an AttributeMap's supplier is final and its instance table only grows.
     private final Map<net.minecraft.world.entity.ai.attributes.AttributeMap, Boolean> warmedPlayerAttributes = new java.util.WeakHashMap<>();
     // Mutable local-object aliases are resource conflicts, never a second entity identity ledger.
@@ -5047,6 +5048,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         values.put("packets", this.playerPackets.snapshot());
         values.put("refusals", this.playerAdmissionRefusals());
         values.put("lastRefusal", Map.copyOf(this.playerAdmissionLastRefusal));
+        values.put("admittedWithMods", this.playerTicksAdmittedWithMods.get());
         values.put("activeBatches", this.activeTickBatches.size());
         values.put("stateClaims", this.playerStateClaimCount());
         if (this.playerPrefixTiming != null) {
@@ -5425,6 +5427,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             if (!networkReady) return 0;
             frozen = true;
             if (!this.playerTicks.admitWorkerPrefix(calls)) return 0;
+            if (environment.hasExtraMods()) this.playerTicksAdmittedWithMods.addAndGet(calls.size());
             parent.externalWaveActive(true);
             this.beginRegionPhase(parent.level());
             regionPhase = true;

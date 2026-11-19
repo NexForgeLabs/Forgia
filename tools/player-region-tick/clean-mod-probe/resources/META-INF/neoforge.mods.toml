@@ -1,0 +1,14 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "LGPL-2.1-only"
+[[mods]]
+modId = "clean_mod_probe"
+version = "1.0"
+displayName = "Clean Third-Party Mod Probe (isolated tests only)"
+[[dependencies.clean_mod_probe]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,)"
+side = "SERVER"
+[[mixins]]
+config = "clean_mod_probe.mixins.json"

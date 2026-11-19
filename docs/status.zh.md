@@ -22,8 +22,18 @@
 - **不如原版串行 / 待优化**：
   1. 轻负载下 Mean（`+6.7%`）、P95（`+10.9%`）、P99（`+21.1%`）MSPT 偏高（屏障与协调固定开销大于单核未饱和收益）；
   2. 方块实体与计划刻回退占比高（`fallbackBlockEntityTicks = 2,166,896`、`fallbackScheduledTicks = 13,565`）；
-  3. 玩家 Tick 因存在未声明模组（`UNKNOWN_MOD:add_pack_finders_test`）全部回退主线程；
+  3. 玩家 Tick 因存在未声明模组（`UNKNOWN_MOD:add_pack_finders_test`）全部回退主线程（后续已改为下方基于实际影响面的准入）；
   4. 实体主线程占比仍偏高（`serverThreadOnlyEntityTicks = 379,968`），且本轮测试脚本的攻击判定（`attacks = 0`）与岛合并/拆分触发（`merges = 0`）有待加强。
+
+### 玩家 Tick 第三方模组准入（基于实际影响面，阶段 A + B）
+
+- 移除 `RegionPlayerExtensionSnapshot` 中按 mod id 一刀切拒绝的 `UNKNOWN_MOD` 门，改为基于实际影响面判定：存在第三方模组时，只要无未知 transformer/coremod 提供者、非白名单 Mixin 配置无 `plugin`/`parent` 且所有目标类均为模组自有类（排除 `net.minecraft.`、`com.mojang.`、`net.neoforged.`、`java.`、`javax.`、`sun.`、`jdk.`、`org.spongepowered.`、`cpw.mods.`）、且玩家 tick 相关事件无第三方监听器（补充纳入 `ChunkWatchEvent.Sent`，仅放行内置 `AttachmentSync`），即允许进入 region worker。
+- 在 `RegionPlayerStatePlan.knownPlayerAttributes` 补充自定义 `Attribute`/`AttributeInstance` 子类拒绝，新增 `playerTick.admittedWithMods` 诊断计数，并修复了 `RegionPlayerAdmissionPlan.intrinsic` 在 worker 复检时调用 `ServerLevel.hasAttachments()` 误触玩法层 level 附件守卫的回归（改为内部只读的 `AttachmentHolder.forgiaHasAttachmentsForAdmission`）。
+- **实测验证**：
+  - `:tests:junitTest --tests '*RegionPlayer*'`：`416/416` 全部通过。
+  - 独立服务端加载真实第三方模组 + 自有类 Mixin 双玩家验证（`tools/player-region-tick/run_clean_mod_smoke.py`，`clean_mod_probe`）：`status = passed`，`admittedWithMods = 2,176`，`ENTITY.worker = 1,088`、`CONNECTION.worker = 1,088`、`failed = 0`；独立窗口 `ENTITY`/`CONNECTION` 均为 `242/242` worker 执行且 `121/121` tick 在两个 region worker 间真正并行重叠；同区窗口 `242/242` worker 执行且 `0` 重叠；无 `UNKNOWN_MOD`/`UNKNOWN_TRANSFORM`/`UNKNOWN_LISTENER` 拒绝。
+  - 原版独立服务端双玩家对照与独立校验器（`run_worker_smoke.py` + `verify_worker_smoke.py`）：`status = passed`，`ENTITY.worker = 1,089`、`CONNECTION.worker = 1,087`、`failed = 0`。
+  - `:tests:runFullParallelSoakGameTestServer`（`15s`）：不再出现 `UNKNOWN_MOD`，拒绝原因精确落在 `UNKNOWN_TRANSFORM:neotests.mixins.json`（因其测试 mixin 目标类位于 `net.neoforged.neoforge.debug.mixin.*`）。
 
 ## 测量过的性能工作与运行时命令 —— 有界实现
 

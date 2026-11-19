@@ -583,7 +583,7 @@ class RegionPlayerSpatialLeaseTest {
     @org.junit.jupiter.api.io.TempDir
     java.nio.file.Path stateDirectory;
 
-    private AutoCloseable installedBaseEnvironment() {
+    private AutoCloseable installedBaseEnvironment(String... extraMods) {
         ModuleLayer observedLayer = net.neoforged.fml.loading.FMLLoader.getGameLayer();
         assertNotNull(observedLayer, "real loader layer is a prerequisite; no fake service-provider permission");
         var mods = org.mockito.Mockito.mockStatic(net.neoforged.fml.ModList.class);
@@ -597,11 +597,13 @@ class RegionPlayerSpatialLeaseTest {
         }
         mixins.when(org.spongepowered.asm.mixin.Mixins::getConfigs).thenReturn(java.util.Set.of());
         var list = mock(net.neoforged.fml.ModList.class);
-        var minecraft = mock(net.neoforged.neoforgespi.language.IModInfo.class);
-        var neoforge = mock(net.neoforged.neoforgespi.language.IModInfo.class);
-        when(minecraft.getModId()).thenReturn("minecraft");
-        when(neoforge.getModId()).thenReturn("neoforge");
-        when(list.getMods()).thenReturn(List.of(minecraft, neoforge));
+        var modInfos = new java.util.ArrayList<net.neoforged.neoforgespi.language.IModInfo>();
+        for (String id : java.util.stream.Stream.concat(java.util.stream.Stream.of("minecraft", "neoforge"), java.util.Arrays.stream(extraMods)).toList()) {
+            var info = mock(net.neoforged.neoforgespi.language.IModInfo.class);
+            when(info.getModId()).thenReturn(id);
+            modInfos.add(info);
+        }
+        when(list.getMods()).thenReturn(modInfos);
         mods.when(net.neoforged.fml.ModList::get).thenReturn(list);
         loader.when(net.neoforged.fml.loading.FMLLoader::getGameLayer).thenReturn(observedLayer);
         return () -> {
@@ -712,7 +714,8 @@ class RegionPlayerSpatialLeaseTest {
         productionLocalState();
         var refused = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION);
         assertNull(refused.plan());
-        assertTrue(refused.refusal() == net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_MOD
+        assertTrue(refused.refusal() == net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM
+                || refused.refusal() == net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER
                 || refused.refusal() == net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.EXTENSION_INSPECTION_UNAVAILABLE, refused.toString());
         var original = new java.util.concurrent.atomic.AtomicInteger();
         this.engine.tickPlayerSerial(this.player, this.player.connection.getConnection(), RegionPlayerTickCoordinator.Phase.CONNECTION, original::incrementAndGet);
@@ -720,6 +723,23 @@ class RegionPlayerSpatialLeaseTest {
         this.engine.configurePlayerTickPlanningForTesting(false);
         assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.DEPENDENCIES,
                 this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION).refusal());
+    }
+
+    @Test
+    void extraModIdsWithCleanSurfaceAdmitWorkerPrefixAndRecordDiagnostic() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        try (var installed = installedBaseEnvironment("example_mod", "another_clean_mod")) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.ENTITY);
+            assertNotNull(capture.plan(), capture.toString());
+            var ranOnWorker = new java.util.concurrent.atomic.AtomicBoolean();
+            Object call = construct("RegionPlayerTickDispatch$Call", new Class<?>[] { ServerPlayer.class, RegionPlayerTickCoordinator.Phase.class, Runnable.class },
+                    this.player, RegionPlayerTickCoordinator.Phase.ENTITY, (Runnable) () -> ranOnWorker.set(RegionWorkerScope.isNativeWorkerThread()));
+            assertEquals(1, invoke(this.engine, "dispatchPlayerPrefix", new Class<?>[] { List.class }, List.of(call)));
+            assertTrue(ranOnWorker.get(), "Player tick should execute on a native region worker with clean extra mods");
+            assertEquals(1L, this.engine.playerTicks().snapshot().phases().get(RegionPlayerTickCoordinator.Phase.ENTITY).worker());
+            assertEquals(1L, this.engine.playerTickDiagnostics(this.server).get("admittedWithMods"));
+        }
     }
 
     @Test
@@ -1892,8 +1912,10 @@ class RegionPlayerSpatialLeaseTest {
     @org.junit.jupiter.params.provider.EnumSource(RegionPlayerTickCoordinator.Phase.class)
     void unknownExtensionRefusesBeforeFreezingOriginalNetworkThreadCallbacks(RegionPlayerTickCoordinator.Phase phase) throws Exception {
         productionLocalState();
-        assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_MOD,
-                this.engine.capturePlayerAdmissionPlan(this.player, phase).refusal());
+        var initialRefusal = this.engine.capturePlayerAdmissionPlan(this.player, phase).refusal();
+        assertTrue(initialRefusal == net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM
+                || initialRefusal == net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER,
+                "Expected transform or listener refusal, got " + initialRefusal);
         var freezes = new java.util.concurrent.atomic.AtomicInteger();
         var boundary = mock(net.neoforged.neoforge.server.threading.region.RegionPlayerNetworkGate.class, invocation -> {
             if (invocation.getMethod().getName().equals("freeze")) {
@@ -1906,9 +1928,10 @@ class RegionPlayerSpatialLeaseTest {
         var effects = new java.util.concurrent.atomic.AtomicInteger();
         Object call = construct("RegionPlayerTickDispatch$Call", new Class<?>[] { ServerPlayer.class, RegionPlayerTickCoordinator.Phase.class, Runnable.class },
                 this.player, phase, (Runnable) effects::incrementAndGet);
-        long before = this.engine.playerAdmissionRefusals().get(phase.name() + ":UNKNOWN_MOD");
+        String key = phase.name() + ":" + initialRefusal.name();
+        long before = this.engine.playerAdmissionRefusals().get(key);
         assertEquals(0, invoke(this.engine, "dispatchPlayerPrefix", new Class<?>[] { List.class }, List.of(call)));
-        assertEquals(before + 1, this.engine.playerAdmissionRefusals().get(phase.name() + ":UNKNOWN_MOD"), "The actual prefix reached extension refusal before any freeze");
+        assertEquals(before + 1, this.engine.playerAdmissionRefusals().get(key), "The actual prefix reached extension refusal before any freeze");
         assertEquals(0, freezes.get());
         assertEquals(0, effects.get());
         assertEquals(0, this.engine.playerTicks().snapshot().phases().get(phase).worker());

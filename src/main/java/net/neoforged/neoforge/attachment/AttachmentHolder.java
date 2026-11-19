@@ -64,6 +64,12 @@ public abstract class AttachmentHolder implements IAttachmentHolder {
     @Override
     public final boolean hasAttachments() {
         net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(getExposedHolder(), "AttachmentHolder.hasAttachments");
+        return forgiaHasAttachmentsForAdmission();
+    }
+
+    /** Internal read-only admission check; does not relax gameplay worker attachment guards. */
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public final boolean forgiaHasAttachmentsForAdmission() {
         final Map<AttachmentType<?>, Object> map = attachments;
         if (map == null) {
             return false;

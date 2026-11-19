@@ -23,8 +23,18 @@ A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](https://git
 - **Trailing Vanilla Serial / Pending Optimization**:
   1. Mean (`+6.7%`), P95 (`+10.9%`), and P99 (`+21.1%`) MSPT under light load (~11–13 ms/tick) due to barrier/coordination fixed overhead;
   2. High fallback rate on block-entity and scheduled ticks (`fallbackBlockEntityTicks = 2,166,896`, `fallbackScheduledTicks = 13,565`);
-  3. Player ticks fell back to serial due to undeclared test mods (`UNKNOWN_MOD:add_pack_finders_test`);
+  3. Player ticks fell back to serial due to undeclared test mods (`UNKNOWN_MOD:add_pack_finders_test` — later replaced by surface-based admission below);
   4. High server-thread-pinned entity ratio (`serverThreadOnlyEntityTicks = 379,968`), and soak harness coverage for attacks (`attacks = 0`) and island merges (`merges = 0`).
+
+### Player Tick Third-Party Mod Admission (Surface-Based, Stage A + B)
+
+- Replaced the blanket `UNKNOWN_MOD` refusal in `RegionPlayerExtensionSnapshot` with surface-based checks: extra mod IDs are admitted when no third-party transformer/coremod provider is present, non-whitelisted Mixin configs have no `plugin`/`parent` and target only mod-owned classes (excluding `net.minecraft.`, `com.mojang.`, `net.neoforged.`, `java.`, `javax.`, `sun.`, `jdk.`, `org.spongepowered.`, `cpw.mods.`), and no third-party listeners are registered on player-tick events (including `ChunkWatchEvent.Sent`, which only permits built-in `AttachmentSync`).
+- Added custom `Attribute` / `AttributeInstance` subclass rejection in `RegionPlayerStatePlan.knownPlayerAttributes`, `playerTick.admittedWithMods` diagnostic counter, and fixed a worker-side `RegionPlayerAdmissionPlan.intrinsic` regression where `ServerLevel.hasAttachments()` tripped the gameplay worker level-attachment guard (`AttachmentHolder.forgiaHasAttachmentsForAdmission`).
+- **Verification**:
+  - `:tests:junitTest --tests '*RegionPlayer*'`: `416/416` passed.
+  - Standalone server smoke with a real third-party mod + mod-owned Mixin (`tools/player-region-tick/run_clean_mod_smoke.py`, `clean_mod_probe`): `status = passed`, `admittedWithMods = 2,176`, `ENTITY.worker = 1,088`, `CONNECTION.worker = 1,088`, `failed = 0`, `independent` window `242/242` worker calls with `121/121` overlapping ticks across two region workers, `same-region` window `242/242` worker calls with `0` overlaps, zero `UNKNOWN_MOD`/`UNKNOWN_TRANSFORM`/`UNKNOWN_LISTENER` refusals.
+  - Vanilla standalone server smoke + independent verifier (`run_worker_smoke.py` + `verify_worker_smoke.py`): `status = passed`, `ENTITY.worker = 1,089`, `CONNECTION.worker = 1,087`, `failed = 0`.
+  - `:tests:runFullParallelSoakGameTestServer` (`15s`): `UNKNOWN_MOD` eliminated; player ticks now refuse precisely on `UNKNOWN_TRANSFORM:neotests.mixins.json` because the test mixin targets `net.neoforged.neoforge.debug.mixin.*`.
 
 ## Measured performance work and runtime commands — bounded implementation
 

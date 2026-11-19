@@ -292,7 +292,10 @@ public final class RegionPlayerAdmissionPlan {
                     || player.getRandom() == player.serverLevel().random
                     || !(player.serverLevel().random instanceof RegionAwareRandomSource))
                 return check(Refusal.UNKNOWN_LOCAL_CALLBACK, "synced data/random/combat tracker");
-            if (player.hasAttachments() || player.serverLevel().hasAttachments()) return check(Refusal.ATTACHMENTS, "player/level attachments");
+            boolean levelHasAttachments = RegionWorkerScope.isNativeWorkerThread()
+                    ? player.serverLevel().forgiaHasAttachmentsForAdmission()
+                    : player.serverLevel().hasAttachments();
+            if (player.hasAttachments() || levelHasAttachments) return check(Refusal.ATTACHMENTS, "player/level attachments");
             if (player.server.getProfiler() != InactiveProfiler.INSTANCE || player.serverLevel().getProfiler() != InactiveProfiler.INSTANCE)
                 return check(Refusal.ACTIVE_PROFILER, "shared profiler");
             // The local ENTITY specialization only runs ServerPlayer.tick. Motion, breathing,

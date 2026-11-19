@@ -713,6 +713,25 @@ public final class RegionPlayerStatePlan {
         // Materialize all per-player instances once; dirty values subsequently recompute against
         // the same owned instances. The resource claim still observes all current instances.
         engine.warmPlayerAttributes(player.getAttributes());
+        if (!knownPlayerAttributes(player.getAttributes())) return reject(Refusal.OPTIONAL_PLAYER_STATE);
         return new Capture(new RegionPlayerStatePlan(engine, spatial, localResources(player), stats, awards, orbs, inventory, container, scorePlan, maps, damage), Refusal.NONE);
+    }
+
+    static boolean knownPlayerAttributes(net.minecraft.world.entity.ai.attributes.AttributeMap attributes) {
+        for (Object obj : attributes.forgiaPlayerLocalObjects()) {
+            if (obj == attributes) continue;
+            if (!(obj instanceof net.minecraft.world.entity.ai.attributes.AttributeInstance instance)
+                    || instance.getClass() != net.minecraft.world.entity.ai.attributes.AttributeInstance.class) {
+                return false;
+            }
+            var attribute = instance.getAttribute().value();
+            Class<?> type = attribute.getClass();
+            if (type != net.minecraft.world.entity.ai.attributes.RangedAttribute.class
+                    && type != net.neoforged.neoforge.common.PercentageAttribute.class
+                    && type != net.neoforged.neoforge.common.BooleanAttribute.class) {
+                return false;
+            }
+        }
+        return true;
     }
 }
