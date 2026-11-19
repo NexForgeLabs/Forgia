@@ -8,7 +8,7 @@
 Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态回调，Forgia 没有用一把全局大锁掩盖并发，也没有假定任意模组天生线程安全，而是保留原版 Tick 阶段因果顺序，通过 **显式空间租约（Lease）**、**`GLOBAL` / `REGION` 交替阶段** 以及 **Fail-Closed 串行围栏（Serial Fence）** 实现受控并行。
 
 <figure class="diagram-frame">
-  <img src="../assets/arch-stock-vs-forgia.svg" alt="原版 Forge/NeoForge 与 Forgia 架构对比蓝图" />
+  <img src="../assets/arch-stock-vs-forgia.zh.svg" alt="原版 Forge/NeoForge 与 Forgia 架构对比蓝图" />
   <figcaption class="diagram-caption">
     <span>BLUEPRINT 01 // 原版 NEOFORGE VS FORGIA 架构对比</span>
     <span>GLOBAL ↔ REGION 阶段交替 · 显式所有权边界</span>
@@ -89,7 +89,7 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
 模组方块实体不能简单按坐标拆到多线程，否则会破坏原版执行顺序或引发跨容器竞争。Forgia 通过 `CanonicalBlockEntityCoordinator` 与 `BlockEntityResourceOwnership` 解决这一问题：
 
 <figure class="diagram-frame">
-  <img src="../assets/arch-be-pipeline.svg" alt="Forgia Canonical 方块实体执行流水线" />
+  <img src="../assets/arch-be-pipeline.zh.svg" alt="Forgia Canonical 方块实体执行流水线" />
   <figcaption class="diagram-caption">
     <span>BLUEPRINT 02 // CANONICAL 方块实体协调器</span>
     <span>O(1) 增量前缀证明 · 直访线程 Scope · 串行围栏</span>

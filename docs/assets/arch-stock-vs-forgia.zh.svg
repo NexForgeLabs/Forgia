@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 500" role="img" aria-labelledby="arch-zh-title arch-zh-desc">
+<title id="arch-zh-title">原版 Forge/NeoForge 与 Forgia 架构对比</title>
+<desc id="arch-zh-desc">左侧展示原版 Forge/NeoForge 在单个服务器线程上顺序执行全部 Tick 切片；右侧展示 Forgia 通过 GLOBAL 与 REGION 阶段交替，在多个 RegionWorkerThread 上按独立租约并行执行，并对未知模组回调保留 Fail-Closed 串行围栏。</desc>
+<defs>
+  <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+    <path d="M20 0H0V20" fill="none" stroke="#aeb4ad" stroke-width=".6" opacity=".35"/>
+  </pattern>
+  <marker id="arr-dark" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto">
+    <path d="M0 0L6 3L0 6" fill="none" stroke="#495356" stroke-width="1.2"/>
+  </marker>
+  <marker id="arr-orange" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto">
+    <path d="M0 0L6 3L0 6" fill="none" stroke="#b94b2c" stroke-width="1.3"/>
+  </marker>
+  <marker id="arr-green" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto">
+    <path d="M0 0L6 3L0 6" fill="none" stroke="#4d6d43" stroke-width="1.2"/>
+  </marker>
+</defs>
+
+<!-- Background -->
+<rect width="920" height="500" fill="#e9e8e1"/>
+<rect width="920" height="500" fill="url(#grid)"/>
+
+<!-- Header Bar -->
+<g font-family="SFMono-Regular,Consolas,monospace" font-size="10.5" fill="#626d70">
+  <text x="24" y="26">架构对比蓝图 // 01</text>
+  <text x="896" y="26" text-anchor="end">NEOFORGE 1.21.1 生态</text>
+</g>
+<line x1="24" y1="36" x2="896" y2="36" stroke="#c5c8bf" stroke-width="1"/>
+
+<!-- LEFT PANEL: STOCK FORGE / NEOFORGE -->
+<rect x="24" y="50" width="328" height="426" rx="4" fill="#f3f2ed" stroke="#b8bdb5" stroke-width="1.2"/>
+<rect x="24" y="50" width="328" height="42" rx="4" fill="#2b3336"/>
+<rect x="24" y="76" width="328" height="16" fill="#2b3336"/>
+<text x="40" y="69" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#a4adaa">原版基线模型</text>
+<text x="40" y="85" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="14" font-weight="600" fill="#f3f2ed">原版 Forge / NeoForge</text>
+<rect x="252" y="61" width="86" height="20" rx="2" fill="#414b4f"/>
+<text x="295" y="75" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#e8e8e1">单线程执行</text>
+
+<!-- Single Server Thread Spine -->
+<text x="188" y="114" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="10" fill="#495356">SERVER THREAD（串行主循环）</text>
+
+<g font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="11.5" font-weight="550" fill="#202628">
+  <rect x="52" y="124" width="272" height="34" rx="3" fill="#e9e8e1" stroke="#aeb4ad"/>
+  <text x="188" y="145" text-anchor="middle">1. 时间 · 天气 · 世界边界</text>
+
+  <line x1="188" y1="158" x2="188" y2="170" stroke="#495356" stroke-width="1.2" marker-end="url(#arr-dark)"/>
+
+  <rect x="52" y="172" width="272" height="34" rx="3" fill="#e9e8e1" stroke="#aeb4ad"/>
+  <text x="188" y="193" text-anchor="middle">2. 区块随机刻与自然刷怪</text>
+
+  <line x1="188" y1="206" x2="188" y2="218" stroke="#495356" stroke-width="1.2" marker-end="url(#arr-dark)"/>
+
+  <rect x="52" y="220" width="272" height="34" rx="3" fill="#e9e8e1" stroke="#aeb4ad"/>
+  <text x="188" y="241" text-anchor="middle">3. 全部实体 Tick（顺序执行）</text>
+
+  <line x1="188" y1="254" x2="188" y2="266" stroke="#495356" stroke-width="1.2" marker-end="url(#arr-dark)"/>
+
+  <rect x="52" y="268" width="272" height="34" rx="3" fill="#e9e8e1" stroke="#aeb4ad"/>
+  <text x="188" y="289" text-anchor="middle">4. 全部方块实体（顺序执行）</text>
+
+  <line x1="188" y1="302" x2="188" y2="314" stroke="#495356" stroke-width="1.2" marker-end="url(#arr-dark)"/>
+
+  <rect x="52" y="316" width="272" height="34" rx="3" fill="#e9e8e1" stroke="#aeb4ad"/>
+  <text x="188" y="337" text-anchor="middle">5. 计划刻 · 玩家 · 网络收发</text>
+</g>
+
+<!-- Stock Bottleneck Box -->
+<rect x="44" y="368" width="288" height="92" rx="3" fill="#e5e1d8" stroke="#c7b9a5" stroke-dasharray="4 3"/>
+<text x="60" y="388" font-family="SFMono-Regular,Consolas,monospace" font-size="10" fill="#8f3923" font-weight="600">并发特征与瓶颈</text>
+<g font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="11" fill="#495356">
+  <text x="60" y="408">• 隐式共享可变世界内存状态</text>
+  <text x="60" y="426">• 默认 100% 兼容任意模组回调</text>
+  <text x="60" y="444">• 单核瓶颈：所有子系统共用 50 ms</text>
+</g>
+
+<!-- CENTER DIVIDER -->
+<line x1="370" y1="54" x2="370" y2="472" stroke="#c5c8bf" stroke-width="1" stroke-dasharray="5 5"/>
+<rect x="353" y="246" width="34" height="24" rx="12" fill="#202628"/>
+<text x="370" y="262" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="10" font-weight="700" fill="#ed7950">VS</text>
+
+<!-- RIGHT PANEL: FORGIA REGIONIZED CORE -->
+<rect x="388" y="50" width="508" height="426" rx="4" fill="#f3f2ed" stroke="#b94b2c" stroke-width="1.4"/>
+<rect x="388" y="50" width="508" height="42" rx="4" fill="#202628"/>
+<rect x="388" y="76" width="508" height="16" fill="#202628"/>
+<text x="404" y="69" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#ed7950">区域化并发运行时</text>
+<text x="404" y="85" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="14" font-weight="600" fill="#f3f2ed">Forgia 核心（NeoForge 1.21.1）</text>
+<rect x="752" y="61" width="128" height="20" rx="2" fill="#a84227"/>
+<text x="816" y="75" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#fff">GLOBAL ↔ REGION</text>
+
+<!-- Server Coordinator Top -->
+<rect x="408" y="106" width="468" height="58" rx="3" fill="#e9e8e1" stroke="#929b96"/>
+<text x="422" y="124" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#a84227" font-weight="600">GLOBAL 阶段 // 服务器协调器</text>
+<text x="422" y="142" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="12" font-weight="600" fill="#202628">RegionThreadingEngine + CanonicalBlockEntityCoordinator</text>
+<text x="422" y="156" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10.5" fill="#626d70">区域租约（固定 N×N / 动态岛）· preWake · 新鲜复核与资源证明</text>
+
+<!-- Fan-out arrows to workers + Serial Fence -->
+<path d="M510 164V180H474V194" fill="none" stroke="#b94b2c" stroke-width="1.4" marker-end="url(#arr-orange)"/>
+<path d="M642 164V194" fill="none" stroke="#b94b2c" stroke-width="1.4" marker-end="url(#arr-orange)"/>
+<path d="M774 164V180H808V194" fill="none" stroke="#4d6d43" stroke-width="1.4" marker-end="url(#arr-green)"/>
+
+<!-- Worker Columns -->
+<g>
+  <!-- Worker 1 -->
+  <rect x="408" y="196" width="142" height="148" rx="3" fill="#fff" stroke="#929b96"/>
+  <rect x="408" y="196" width="142" height="24" rx="3" fill="#202628"/>
+  <text x="479" y="212" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#ed7950">RegionWorkerThread 1</text>
+  <text x="418" y="236" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="11.5" font-weight="600" fill="#202628">Region A 租约</text>
+  <text x="418" y="254" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#626d70">• 实体与自然刷怪</text>
+  <text x="418" y="270" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#626d70">• 区块随机刻</text>
+  <text x="418" y="286" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#626d70">• 已证明 BE 前缀</text>
+  <rect x="418" y="298" width="122" height="36" rx="2" fill="#f3f2ed" stroke="#d2d2c9"/>
+  <text x="479" y="313" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="8.5" fill="#495356">直访线程字段</text>
+  <text x="479" y="326" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="8.5" fill="#a84227">Lease + Scope 护栏</text>
+
+  <!-- Worker 2 -->
+  <rect x="562" y="196" width="154" height="148" rx="3" fill="#fff" stroke="#929b96"/>
+  <rect x="562" y="196" width="154" height="24" rx="3" fill="#202628"/>
+  <text x="639" y="212" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#ed7950">RegionWorkerThread 2..N</text>
+  <text x="572" y="236" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="11.5" font-weight="600" fill="#202628">Region B..K 租约</text>
+  <text x="572" y="254" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#626d70">• 工作窃取双端队列</text>
+  <text x="572" y="270" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#626d70">• 打包租约（≤16 区）</text>
+  <text x="572" y="286" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#626d70">• Seqlock / 快照读</text>
+  <rect x="572" y="298" width="134" height="36" rx="2" fill="#f3f2ed" stroke="#d2d2c9"/>
+  <text x="639" y="313" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="8.5" fill="#495356">至多执行一次</text>
+  <text x="639" y="326" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="8.5" fill="#a84227">失败不重放</text>
+
+  <!-- Serial Fence Column -->
+  <rect x="728" y="196" width="148" height="148" rx="3" fill="#f7f8f4" stroke="#718d62" stroke-width="1.2"/>
+  <rect x="728" y="196" width="148" height="24" rx="3" fill="#4d6d43"/>
+  <text x="802" y="212" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#fff">FAIL-CLOSED 围栏</text>
+  <text x="738" y="236" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="11.5" font-weight="600" fill="#202628">主线程串行路径</text>
+  <text x="738" y="254" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#495356">• 未知模组回调</text>
+  <text x="738" y="270" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#495356">• Create / 动态结构</text>
+  <text x="738" y="286" font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="10" fill="#495356">• 玩家与全局状态</text>
+  <rect x="738" y="298" width="128" height="36" rx="2" fill="#ebf0e7" stroke="#9db292"/>
+  <text x="802" y="313" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="8.5" fill="#3a5232">先物理 JOIN</text>
+  <text x="802" y="326" text-anchor="middle" font-family="SFMono-Regular,Consolas,monospace" font-size="8.5" fill="#3a5232">围栏后重审后缀</text>
+</g>
+
+<!-- Join arrows to Commit -->
+<path d="M479 344V362H642V374" fill="none" stroke="#b94b2c" stroke-width="1.3" marker-end="url(#arr-orange)"/>
+<path d="M639 344V374" fill="none" stroke="#b94b2c" stroke-width="1.3" marker-end="url(#arr-orange)"/>
+<path d="M802 344V362H642" fill="none" stroke="#4d6d43" stroke-width="1.3"/>
+
+<!-- Commit & Coordination Footer -->
+<rect x="408" y="376" width="468" height="84" rx="3" fill="#202628"/>
+<text x="424" y="396" font-family="SFMono-Regular,Consolas,monospace" font-size="9.5" fill="#ed7950">屏障 JOIN 与规范提交 // GLOBAL 安全边界</text>
+<g font-family="Inter,PingFang SC,Microsoft YaHei,sans-serif" font-size="11" fill="#e8e8e1">
+  <text x="424" y="416">• 延迟跨区写入与跨边界红石同 Tick 不动点收敛</text>
+  <text x="424" y="434">• 实体迁移日志 · 方块实体双所有者操作 · 区域邮箱排空</text>
+  <text x="424" y="452" fill="#a4adaa">所有开关默认关闭 · 停服物理 join 线程 · 真实 Level GC 已认证</text>
+</g>
+</svg>
