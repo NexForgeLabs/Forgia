@@ -13,6 +13,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
@@ -385,6 +386,45 @@ public final class RegionThreadingHooks {
         }
         RegionOwnershipViolationHandler.rejectNativeWorkerStorageAccess("melee attack without an entity batch");
         return false;
+    }
+
+    /**
+     * Routes damage before the legacy hurt body mutates the player. The caller returns false on a
+     * worker because a queued request has no synchronous damage result. The bounded player tick
+     * keeps its own damage path after checkDamage has verified the captured operation.
+     */
+    public static boolean routePlayerDamage(ServerPlayer player, DamageSource source, float amount) {
+        if (!RegionWorkerScope.isNativeWorkerThread()
+                || net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.current() != null) {
+            return false;
+        }
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            engine.queuePlayerDamage(player, source, amount);
+        }
+        return true;
+    }
+
+    /**
+     * Routes legacy synchronous player mounts from native workers through the entity interaction queue.
+     * The queue runs the entire mount on the server thread after the batch and revalidates both entities.
+     * A worker must return false from startRiding: the riding relationship has not changed at return time.
+     * Callers that need the eventual result can submit the complete operation and its follow-up together
+     * via {@link EntityInteractionScheduler#submit}.
+     *
+     * @return true when the caller must exit before touching the riding graph, even if the request was
+     *         rejected because the worker could not prove source ownership or the queue was unavailable
+     */
+    public static boolean routePlayerMount(ServerPlayer player, Entity vehicle, boolean force) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return false;
+        }
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading != null) {
+            threading.entityInteractions().submit(vehicle, player,
+                    (liveVehicle, livePlayer) -> livePlayer.startRiding(liveVehicle, force));
+        }
+        return true;
     }
 
     /**

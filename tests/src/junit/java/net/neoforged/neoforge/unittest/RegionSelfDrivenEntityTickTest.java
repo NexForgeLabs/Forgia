@@ -8,6 +8,7 @@ package net.neoforged.neoforge.unittest;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,6 +39,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.profiling.InactiveProfiler;
 import net.minecraft.world.TickRateManager;
 import net.minecraft.world.entity.Entity;
@@ -610,6 +612,89 @@ class RegionSelfDrivenEntityTickTest {
         this.plan(level).executeAndAwait();
         assertEquals(List.of(Thread.currentThread()), threads);
         assertEquals(1L, this.engine.meleeAttackCounters().applied());
+    }
+
+    @Test
+    void playerMountsRequestedByAWorkerRunAfterTheEntityBatch() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final ServerLevel otherLevel = this.mockLevel();
+        final Entity vehicle = this.entity(level, new BlockPos(1, 64, 1));
+        final ServerPlayer nearbyPlayer = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(2, 64, 1)));
+        final ServerPlayer distantPlayer = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(49, 64, 1)));
+        final ServerPlayer departingPlayer = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(3, 64, 1)));
+        final Thread serverThread = Thread.currentThread();
+        final AtomicInteger applied = new AtomicInteger();
+        final AtomicReference<ServerLevel> departingLevel = new AtomicReference<>(level);
+        when(departingPlayer.level()).thenAnswer(call -> departingLevel.get());
+        for (final ServerPlayer player : List.of(nearbyPlayer, distantPlayer, departingPlayer)) {
+            final AtomicReference<Entity> mountedVehicle = new AtomicReference<>();
+            when(player.getVehicle()).thenAnswer(call -> mountedVehicle.get());
+            doAnswer(call -> {
+                if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+                    return call.callRealMethod();
+                }
+                assertEquals(serverThread, Thread.currentThread());
+                RegionThreadingHooks.assertServerEntityStorageAccess("ServerGamePacketListenerImpl.teleport");
+                mountedVehicle.set(call.getArgument(0));
+                applied.incrementAndGet();
+                return true;
+            }).when(player).startRiding(vehicle, true);
+        }
+        doAnswer(call -> {
+            assertTrue(RegionThreadingHooks.isNativeRegionWorkerThread());
+            for (final ServerPlayer player : List.of(nearbyPlayer, distantPlayer, departingPlayer)) {
+                assertFalse(player.startRiding(vehicle, true), "the mount has not completed when the worker returns");
+                assertNull(player.getVehicle());
+            }
+            assertEquals(0, applied.get());
+            departingLevel.set(otherLevel);
+            return null;
+        }).when(vehicle).tick();
+        this.tickList.add(vehicle);
+        this.plan(level).executeAndAwait();
+
+        verify(vehicle, times(1)).tick();
+        assertEquals(vehicle, nearbyPlayer.getVehicle());
+        assertEquals(vehicle, distantPlayer.getVehicle());
+        assertNull(departingPlayer.getVehicle(), "the queue must skip a player who changed levels");
+        assertEquals(2, applied.get());
+    }
+
+    @Test
+    void directPlayerDamageFromAnEntityTickRunsOnTheServerThread() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Mob attacker = this.entity(Mob.class, level, new AtomicReference<>(new BlockPos(1, 64, 1)));
+        final ServerPlayer player = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(49, 64, 1)));
+        final var damage = mock(net.minecraft.world.damagesource.DamageSource.class);
+        when(damage.getDirectEntity()).thenReturn(attacker);
+        final var unattributed = mock(net.minecraft.world.damagesource.DamageSource.class);
+        final Thread serverThread = Thread.currentThread();
+        final AtomicInteger applications = new AtomicInteger();
+        doAnswer(call -> {
+            if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+                return call.callRealMethod();
+            }
+            assertEquals(serverThread, Thread.currentThread());
+            applications.incrementAndGet();
+            return true;
+        }).when(player).hurt(damage, 4.0F);
+        doCallRealMethod().when(player).hurt(unattributed, 4.0F);
+        doAnswer(call -> {
+            assertTrue(RegionThreadingHooks.isNativeRegionWorkerThread());
+            assertFalse(player.hurt(damage, 4.0F));
+            assertFalse(player.hurt(unattributed, 4.0F));
+            assertEquals(0, applications.get());
+            verify(player, never()).isInvulnerableTo(any());
+            return null;
+        }).when(attacker).tick();
+        this.tickList.add(attacker);
+        this.plan(level).executeAndAwait();
+
+        verify(player, times(2)).hurt(damage, 4.0F);
+        verify(player, times(1)).hurt(unattributed, 4.0F);
+        assertEquals(1, applications.get());
     }
 
     @Test
