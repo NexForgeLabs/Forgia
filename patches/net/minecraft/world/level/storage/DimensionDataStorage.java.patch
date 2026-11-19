@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/storage/DimensionDataStorage.java
 +++ b/net/minecraft/world/level/storage/DimensionDataStorage.java
-@@ -40,6 +_,7 @@
+@@ -41,6 +_,7 @@
      }
  
      public <T extends SavedData> T computeIfAbsent(SavedData.Factory<T> p_294124_, String p_164864_) {
@@ -8,7 +8,7 @@
          T t = this.get(p_294124_, p_164864_);
          if (t != null) {
              return t;
-@@ -52,6 +_,7 @@
+@@ -53,6 +_,7 @@
  
      @Nullable
      public <T extends SavedData> T get(SavedData.Factory<T> p_295091_, String p_164860_) {
@@ -25,7 +25,7 @@
          try {
              File file1 = this.getDataFile(p_164870_);
              if (file1.exists()) {
-@@ -78,9 +_,10 @@
+@@ -78,10 +_,11 @@
      }
  
      public void set(String p_164856_, SavedData p_164857_) {

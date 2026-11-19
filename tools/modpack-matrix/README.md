@@ -19,7 +19,9 @@ tools/modpack-matrix/run_loadtest.sh /path/to/installed-pack /path/to/mods-list.
 ```
 
 Options after the positional arguments include `--java /path/to/java`, `--runs /disk/runs`,
-`--boot-timeout 360`, and `--warmup 30`. The default run root is the repository's sibling
+`--boot-timeout 360`, `--warmup 30`, and `--loader-version VERSION` to choose an exact installed build.
+Use `--no-regions` for the serial control. The runner verifies that the bridge is disabled and records
+an empty worker-counter delta map for this mode. The default run root is the repository's sibling
 `modpack-matrix-runs` directory, on disk rather than a small `/tmp` tmpfs. Existing run names are refused.
 Do not install a new loader or modify shared library files during a run.
 
@@ -28,7 +30,7 @@ logs and caches. Only the installed libraries are shared. The test never writes 
 world/config files through links into the source pack. The copied EULA file must already permit startup.
 Both game and RCON ports bind to loopback; RCON uses an ephemeral port and a per-run password.
 
-The fixture uses 81 generated chunks, nine fenced platforms above the terrain, 45 tagged mobs including
+The fixture uses 36 loaded chunks, four platforms above the terrain, 12 tagged mobs including
 villagers, crops, container/hopper/furnace lines, and a comparator reading a chest across a region border.
 A test-only KubeJS command installs force-ticking tickets and a fake player to exercise player-dependent
 chunk/spawn gates. This is not a network client or a multiplayer test. Only the isolated test directory

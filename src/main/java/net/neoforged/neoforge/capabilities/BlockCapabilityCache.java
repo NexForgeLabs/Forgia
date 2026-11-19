@@ -10,6 +10,7 @@ import java.util.function.BooleanSupplier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.neoforged.neoforge.server.threading.RegionThreadingHooks;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,12 +73,12 @@ public final class BlockCapabilityCache<T, C extends @Nullable Object> {
     private final BlockPos pos;
     private final C context;
 
-    /**
-     * {@code true} if notifications received by the cache will be forwarded to {@link #listener}.
-     * By default and after each invalidation, this is set to {@code false}.
-     * Calling {@link #getCapability()} sets it to {@code true}.
-     */
-    private boolean cacheValid = false;
+    // Protect cache state only. Providers and mod callbacks execute outside this lock.
+    private final Object stateLock = new Object();
+    private long invalidationVersion;
+
+    /** A completed query arms the invalidation listener, including when it returned null. */
+    private boolean cacheValid;
     @Nullable
     private T cachedCap = null;
 
@@ -91,27 +92,26 @@ public final class BlockCapabilityCache<T, C extends @Nullable Object> {
         this.context = context;
 
         this.listener = () -> {
-            if (!cacheValid) {
-                // already invalidated, just check if the cache should be removed
-                return isValid.getAsBoolean();
+            final boolean notify;
+            synchronized (this.stateLock) {
+                ++this.invalidationVersion;
+                notify = this.cacheValid;
+                this.canQuery = false;
+                this.cacheValid = false;
+                this.cachedCap = null;
             }
 
-            // disable queries for now
-            canQuery = false;
-            // mark cached cap as invalid
-            cacheValid = false;
-            // clear cached cap
-            cachedCap = null;
-
-            if (isValid.getAsBoolean()) {
-                // notify
-                invalidationListener.run();
-                // re-enable queries
-                canQuery = true;
-                return true;
-            } else {
-                // not valid anymore: keep queries disabled and return false
-                return false;
+            boolean keep = true;
+            try {
+                keep = isValid.getAsBoolean();
+                if (keep && notify) {
+                    invalidationListener.run();
+                }
+                return keep;
+            } finally {
+                synchronized (this.stateLock) {
+                    this.canQuery = keep;
+                }
             }
         };
     }
@@ -135,20 +135,28 @@ public final class BlockCapabilityCache<T, C extends @Nullable Object> {
      */
     @Nullable
     public T getCapability() {
-        if (!canQuery)
-            throw new IllegalStateException("Do not call getCapability on an invalid cache or from the invalidation listener!");
-
-        if (!cacheValid) {
-            if (!level.isLoaded(pos)) {
-                // If the position is not loaded, return no capability for now.
-                // The cache will be invalidated when the chunk is loaded.
-                cachedCap = null;
-            } else {
-                cachedCap = level.getCapability(capability, pos, context);
+        if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+            RegionThreadingHooks.assertBlockCapabilityAccess(this.level, this.pos, this.capability.name().toString());
+        }
+        final long version;
+        synchronized (this.stateLock) {
+            if (!this.canQuery) {
+                throw new IllegalStateException("Do not call getCapability on an invalid cache or from the invalidation listener!");
             }
-            cacheValid = true;
+            if (this.cacheValid) {
+                return this.cachedCap;
+            }
+            version = this.invalidationVersion;
         }
 
-        return cachedCap;
+        // Preserve the lookup's result, but never publish it as cached if an invalidation overlapped it.
+        final T result = this.level.isLoaded(this.pos) ? this.level.getCapability(this.capability, this.pos, this.context) : null;
+        synchronized (this.stateLock) {
+            if (version == this.invalidationVersion) {
+                this.cachedCap = result;
+                this.cacheValid = true;
+            }
+        }
+        return result;
     }
 }

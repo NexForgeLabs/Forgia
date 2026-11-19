@@ -1701,6 +1701,23 @@ public final class RegionThreadingHooks {
                 "Native region worker attempted network broadcast (" + operation + ") without an active batch or server");
     }
 
+    /** Routes a complete particle send through the entity batch's serviced wait and returns its real result. */
+    public static <T> T sendParticlesFromWorker(ServerLevel level, java.util.function.Supplier<T> send) {
+        BlockEntityResourceOwnership.Scope.rejectEffect("particle send");
+        FurnaceWorkScope.rejectEffect("particle send");
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            return engine.sendParticlesFromWorker(level, send);
+        }
+        throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.networkBroadcast(
+                "ServerLevel.sendParticles", "Particle send requires a serviced entity tick batch");
+    }
+
+    /** Publishes a visual notification through the current region tick queues. */
+    public static boolean deferWorkerVisualBroadcast(String operation, Runnable broadcast) {
+        return deferWorkerNetworkBroadcast(null, null, operation, broadcast);
+    }
+
     /**
      * Guards {@link net.minecraft.server.level.ChunkMap#getPlayersWatching(Entity)} on a native region worker.
      * <p>

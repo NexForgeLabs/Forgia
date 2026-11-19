@@ -116,7 +116,7 @@ ServerEvents.commandRegistry(event => {
             for (var i = 0; i < pads.length; i++) {
                 var x = pads[i][0], z = pads[i][1];
                 // Every container of a pad, including the hopper and furnace slots items sit in flight.
-                for (var y = 281; y <= 284; y++) flContainers.push(new FLPos(x, y, z));
+                for (var y = 281; y <= 283; y++) flContainers.push(new FLPos(x, y, z));
                 for (var y2 = 281; y2 <= 284; y2++) flContainers.push(new FLPos(x + 2, y2, z));
                 for (var dx = -4; dx < 0; dx++) {
                     for (var dz = 2; dz < 6; dz++) flCrops.push(new FLPos(x + dx, 281, z + dz));

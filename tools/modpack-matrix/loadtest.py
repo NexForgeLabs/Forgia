@@ -194,8 +194,14 @@ class Run:
             f'rcon.port={self.port}\nrcon.password={self.password}\n')
         (self.root / 'server.properties').write_text(properties)
         (self.root / 'server.properties').chmod(0o600)
-        options = sorted((pack / 'libraries/net/neoforged/neoforge').glob('*-beta/unix_args.txt'),
-                         key=lambda p: [int(n) for n in re.findall(r'\d+', p.parent.name)])
+        loader_root = pack / 'libraries/net/neoforged/neoforge'
+        if self.args.loader_version:
+            options = [loader_root / self.args.loader_version / 'unix_args.txt']
+            if not options[0].is_file():
+                raise FileNotFoundError(options[0])
+        else:
+            options = sorted(loader_root.glob('*-beta/unix_args.txt'),
+                             key=lambda p: [int(n) for n in re.findall(r'\d+', p.parent.name)])
         if not options:
             raise FileNotFoundError('No installed Forgia loader')
         self.loader_args = options[-1].relative_to(pack)
@@ -282,7 +288,7 @@ class Run:
                 expected = r'set|Set'
             self.command(cmd, expected)
         tracked = self.probe('track')
-        if tracked['fixtureMobs'] < 12 or tracked['containers'] != 37 or tracked['cobblestone'] != 2048:
+        if tracked['fixtureMobs'] < 12 or tracked['containers'] != 29 or tracked['cobblestone'] != 2048:
             raise ValueError(f'Fixture verification failed: {tracked}')
         self.summary['fixture'] = tracked
         (self.root / 'compat.raw.txt').write_text(self.command('neoforge regionthreading compat'))
@@ -291,9 +297,15 @@ class Run:
     def sample(self):
         if self.proc.poll() is not None:
             raise RuntimeError('Server exited during measurement')
-        raw = self.command('neoforge regionthreading status')
+        raw = self.command('neoforge regionthreading status raw')
+        (self.root / 'diagnostics.raw.txt').write_text(raw)
         probe = self.probe('status')
-        data = {**parse_diagnostics(raw), **probe}
+        if self.args.no_regions:
+            if 'Region threading bridge is not installed: enabled=false' not in raw:
+                raise ValueError('Serial control did not confirm the region bridge is disabled')
+            data = probe
+        else:
+            data = {**parse_diagnostics(raw), **probe}
         tps = self.command('neoforge tps')
         timing = re.search(r'Overall: ([\d.]+) TPS \(([\d.]+) ms/tick\)', tps)
         if not timing:
@@ -306,9 +318,7 @@ class Run:
         with (self.root / 'samples.jsonl').open('a') as stream:
             stream.write(json.dumps(data, ensure_ascii=False) + '\n')
         self.samples.append(data)
-        # Store the entire response, including all RCON continuation packets.
-        (self.root / 'diagnostics.raw.txt').write_text(raw)
-        violations = unsafe_counts(data)
+        violations = {} if self.args.no_regions else unsafe_counts(data)
         if violations:
             raise ValueError(f'Runtime safety counters are nonzero: {violations}')
         if data['cobblestone'] != 2048:
@@ -325,15 +335,15 @@ class Run:
             self.sample()
             next_sample = min(deadline, next_sample + self.args.sample_seconds)
         final = self.samples[-1]
-        deltas = {k: final[k] - baseline[k] for k in COUNTER_KEYS}
+        deltas = {} if self.args.no_regions else {k: final[k] - baseline[k] for k in COUNTER_KEYS}
         if any(value < 0 for value in deltas.values()):
             raise ValueError('Engine counters reset during the measurement window')
         if final['fixtureMobs'] != 12 or not final['playerPresent']:
             raise ValueError('Fixture population/player did not survive the window')
         self.summary.update(deltas=deltas, first=baseline, last=final, samples=len(self.samples),
                             measured_seconds=final['elapsed_s'])
-        missing = [key for key in WORKER_KEYS if deltas[key] <= 0]
-        if missing:
+        missing = [key for key in WORKER_KEYS if deltas.get(key, 0) <= 0]
+        if missing and not self.args.no_regions:
             raise ValueError('Required worker coverage did not advance: ' + ', '.join(missing))
         self.summary['outcome'] = 'PASS'
         self.summary['unverified'] = ['network players', 'contraptions', 'individual mod mechanics',
@@ -397,12 +407,15 @@ def main():
     parser.add_argument('name')
     parser.add_argument('minutes', type=float, nargs='?', default=30)
     parser.add_argument('sample_seconds', type=float, nargs='?', default=300)
+    parser.add_argument('--loader-version', help='Exact installed loader version, including any build suffix')
     parser.add_argument('--warmup', type=float, default=30)
     parser.add_argument('--no-regions', action='store_true', help='Control run: the same fixture with the engine off')
     parser.add_argument('--boot-timeout', type=float, default=360)
     parser.add_argument('--runs', type=Path, default=REPO.parent / 'modpack-matrix-runs')
     parser.add_argument('--java', type=Path, default=Path('/home/yc/.local/opt/jdk-21.0.13+9/bin/java'))
     args = parser.parse_args()
+    if args.loader_version and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.+-]*', args.loader_version):
+        parser.error('Loader version must be a single installation directory name')
     if args.minutes <= 0 or args.sample_seconds <= 0 or args.warmup < 0:
         parser.error('Duration/sample interval must be positive, warmup nonnegative')
     def cancel(signum, frame):

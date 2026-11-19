@@ -10,6 +10,8 @@ import it.unimi.dsi.fastutil.longs.Long2ReferenceOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
@@ -57,14 +59,17 @@ public class CapabilityListenerHolder {
      * Invalidates listeners at a specific block position.
      */
     public void invalidatePos(BlockPos pos) {
+        final ListenerReference[] snapshot;
         synchronized (this.lock) {
-            var chunkHolder = byChunkThenBlock.get(ChunkPos.asLong(pos));
-            if (chunkHolder != null) {
-                var caches = chunkHolder.get(pos.asLong());
-                if (caches != null) {
-                    invalidateList(caches);
-                }
+            var chunkHolder = this.byChunkThenBlock.get(ChunkPos.asLong(pos));
+            var listeners = chunkHolder == null ? null : chunkHolder.get(pos.asLong());
+            if (listeners == null) {
+                return;
             }
+            snapshot = listeners.toArray(ListenerReference[]::new);
+        }
+        for (var ref : snapshot) {
+            this.invalidate(ref);
         }
     }
 
@@ -72,21 +77,77 @@ public class CapabilityListenerHolder {
      * Invalidates listeners at a specific chunk position.
      */
     public void invalidateChunk(ChunkPos chunkPos) {
+        final List<ListenerReference> snapshot = new ArrayList<>();
         synchronized (this.lock) {
-            var chunkHolder = byChunkThenBlock.get(chunkPos.toLong());
-            if (chunkHolder != null) {
-                for (var caches : chunkHolder.values()) {
-                    invalidateList(caches);
-                }
+            var chunkHolder = this.byChunkThenBlock.get(chunkPos.toLong());
+            if (chunkHolder == null) {
+                return;
             }
+            for (var listeners : chunkHolder.values()) {
+                snapshot.addAll(listeners);
+            }
+        }
+        for (var ref : snapshot) {
+            this.invalidate(ref);
         }
     }
 
-    private void invalidateList(Set<ListenerReference> caches) {
-        for (var ref : caches.toArray(ListenerReference[]::new)) {
-            var listener = ref.get();
-            if (listener == null || !listener.onInvalidate()) {
-                caches.remove(ref);
+    private void invalidate(ListenerReference ref) {
+        final ICapabilityInvalidationListener listener;
+        synchronized (this.lock) {
+            listener = ref.get();
+            if (listener == null) {
+                this.remove(ref);
+                return;
+            }
+            if (ref.notifyingThread != null) {
+                // A reentrant invalidation is already covered. A concurrent one requests a follow-up
+                // without waiting, so callbacks that invalidate each other's targets cannot deadlock.
+                ref.pending |= ref.notifyingThread != Thread.currentThread();
+                return;
+            }
+            ref.notifyingThread = Thread.currentThread();
+        }
+
+        try {
+            while (true) {
+                final boolean keep = listener.onInvalidate();
+                synchronized (this.lock) {
+                    if (!keep) {
+                        this.remove(ref);
+                    } else if (ref.pending) {
+                        ref.pending = false;
+                        continue;
+                    }
+                    ref.notifyingThread = null;
+                    ref.pending = false;
+                    return;
+                }
+            }
+        } catch (RuntimeException | Error failure) {
+            synchronized (this.lock) {
+                ref.notifyingThread = null;
+                ref.pending = false;
+            }
+            throw failure;
+        }
+    }
+
+    /** Removes this exact registration under the holder lock, including from stale snapshots. */
+    private void remove(ListenerReference ref) {
+        // Cleared references compare by reference identity only.
+        ref.clear();
+        long chunkKey = ChunkPos.asLong(ref.pos);
+        var chunkHolder = this.byChunkThenBlock.get(chunkKey);
+        if (chunkHolder == null) {
+            return;
+        }
+        long blockKey = ref.pos.asLong();
+        var listeners = chunkHolder.get(blockKey);
+        if (listeners != null && listeners.remove(ref) && listeners.isEmpty()) {
+            chunkHolder.remove(blockKey);
+            if (chunkHolder.isEmpty()) {
+                this.byChunkThenBlock.remove(chunkKey);
             }
         }
     }
@@ -96,29 +157,9 @@ public class CapabilityListenerHolder {
      */
     public void clean() {
         synchronized (this.lock) {
-            while (true) {
-                ListenerReference ref = (ListenerReference) queue.poll();
-                if (ref == null)
-                    return;
-
-                var chunkHolder = byChunkThenBlock.get(ChunkPos.asLong(ref.pos));
-                if (chunkHolder == null)
-                    continue;
-
-                var set = chunkHolder.get(ref.pos.asLong());
-                if (set == null)
-                    continue;
-                // We might remove a different garbage-collected reference,
-                // or we might remove nothing if the reference was already removed.
-                // Because the hash codes will match, that is fine.
-                boolean removed = set.remove(ref);
-
-                if (removed && set.isEmpty()) {
-                    chunkHolder.remove(ref.pos.asLong());
-                    if (chunkHolder.isEmpty()) {
-                        byChunkThenBlock.remove(ChunkPos.asLong(ref.pos));
-                    }
-                }
+            ListenerReference ref;
+            while ((ref = (ListenerReference) this.queue.poll()) != null) {
+                this.remove(ref);
             }
         }
     }
@@ -126,6 +167,9 @@ public class CapabilityListenerHolder {
     private static class ListenerReference extends WeakReference<ICapabilityInvalidationListener> {
         private final BlockPos pos;
         private final int listenerHashCode;
+        @org.jetbrains.annotations.Nullable
+        private Thread notifyingThread;
+        private boolean pending;
 
         private ListenerReference(ReferenceQueue<ICapabilityInvalidationListener> queue, BlockPos pos, ICapabilityInvalidationListener listener) {
             super(listener, queue);
@@ -135,13 +179,13 @@ public class CapabilityListenerHolder {
 
         @Override
         public boolean equals(Object obj) {
-            if (obj instanceof ListenerReference otherRef) {
-                // Equivalent if the hash codes and the listeners match.
-                // Use identity comparisons.
-                return otherRef.listenerHashCode == listenerHashCode && otherRef.get() == get();
-            } else {
-                return false;
-            }
+            return this == obj || obj instanceof ListenerReference otherRef
+                    && this.listenerHashCode == otherRef.listenerHashCode && this.refersToLiveListener(otherRef);
+        }
+
+        private boolean refersToLiveListener(ListenerReference other) {
+            var listener = this.get();
+            return listener != null && other.refersTo(listener);
         }
 
         @Override

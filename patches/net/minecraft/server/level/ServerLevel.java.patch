@@ -423,32 +423,112 @@
          p_8713_.clearAllBlockEntities();
          p_8713_.unregisterTickContainerFromLevel(this);
      }
-@@ -959,6 +_,12 @@
-         float p_263390_,
+@@ -936,4 +_,16 @@
+     @Override
+     public void destroyBlockProgress(int p_8612_, BlockPos p_8613_, int p_8614_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++            final BlockPos immutablePos = p_8613_.immutable();
++            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                    "ServerLevel.destroyBlockProgress",
++                    () -> this.sendBlockProgress(p_8612_, immutablePos, p_8614_))) {
++                return;
++            }
++        }
++        this.sendBlockProgress(p_8612_, p_8613_, p_8614_);
++    }
++
++    private void sendBlockProgress(int p_8612_, BlockPos p_8613_, int p_8614_) {
+         for (ServerPlayer serverplayer : this.server.getPlayerList().getPlayers()) {
+             if (serverplayer != null && serverplayer.level() == this && serverplayer.getId() != p_8612_) {
+@@ -960,7 +_,11 @@
          long p_263403_
      ) {
+-        this.server
+-            .getPlayerList()
+-            .broadcast(
 +        net.neoforged.neoforge.event.PlayLevelSoundEvent.AtPosition event = net.neoforged.neoforge.event.EventHooks.onPlaySoundAtPosition(this, p_263393_, p_263369_, p_263354_, p_263412_, p_263338_, p_263352_, p_263390_);
 +        if (event.isCanceled() || event.getSound() == null) return;
 +        p_263412_ = event.getSound();
 +        p_263338_ = event.getSource();
 +        p_263352_ = event.getNewVolume();
 +        p_263390_ = event.getNewPitch();
-         this.server
-             .getPlayerList()
-             .broadcast(
-@@ -976,6 +_,12 @@
-     public void playSeededSound(
++        this.broadcastVisualSound(
+                 p_263330_,
+                 p_263393_,
+@@ -968,5 +_,4 @@
+                 p_263354_,
+                 (double)p_263412_.value().getRange(p_263352_),
+-                this.dimension(),
+                 new ClientboundSoundPacket(p_263412_, p_263338_, p_263393_, p_263369_, p_263354_, p_263352_, p_263390_, p_263403_)
+             );
+@@ -977,7 +_,11 @@
          @Nullable Player p_263545_, Entity p_263544_, Holder<SoundEvent> p_263491_, SoundSource p_263542_, float p_263530_, float p_263520_, long p_263490_
      ) {
+-        this.server
+-            .getPlayerList()
+-            .broadcast(
 +        net.neoforged.neoforge.event.PlayLevelSoundEvent.AtEntity event = net.neoforged.neoforge.event.EventHooks.onPlaySoundAtEntity(p_263544_, p_263491_, p_263542_, p_263530_, p_263520_);
 +        if (event.isCanceled() || event.getSound() == null) return;
 +        p_263491_ = event.getSound();
 +        p_263542_ = event.getSource();
 +        p_263530_ = event.getNewVolume();
 +        p_263520_ = event.getNewPitch();
++        this.broadcastVisualSound(
+                 p_263545_,
+                 p_263544_.getX(),
+@@ -985,11 +_,33 @@
+                 p_263544_.getZ(),
+                 (double)p_263491_.value().getRange(p_263530_),
+-                this.dimension(),
+                 new ClientboundSoundEntityPacket(p_263491_, p_263542_, p_263544_, p_263530_, p_263520_, p_263490_)
+             );
+     }
+ 
++    private void broadcastVisualSound(@Nullable Player excluded, double x, double y, double z, double radius, Packet<?> packet) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
++                && !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                        "ServerLevel.playSeededSound",
++                        () -> this.server.getPlayerList().broadcast(excluded, x, y, z, radius, this.dimension(), packet))) {
++            return;
++        }
++        this.server.getPlayerList().broadcast(excluded, x, y, z, radius, this.dimension(), packet);
++    }
++
+     @Override
+     public void globalLevelEvent(int p_8811_, BlockPos p_8812_, int p_8813_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++            final BlockPos immutablePos = p_8812_.immutable();
++            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                    "ServerLevel.globalLevelEvent",
++                    () -> this.sendGlobalLevelEvent(p_8811_, immutablePos, p_8813_))) {
++                return;
++            }
++        }
++        this.sendGlobalLevelEvent(p_8811_, p_8812_, p_8813_);
++    }
++
++    private void sendGlobalLevelEvent(int p_8811_, BlockPos p_8812_, int p_8813_) {
+         if (this.getGameRules().getBoolean(GameRules.RULE_GLOBAL_SOUND_EVENTS)) {
+             this.server.getPlayerList().broadcastAll(new ClientboundLevelEventPacket(p_8811_, p_8812_, p_8813_, true));
+@@ -1001,4 +_,17 @@
+     @Override
+     public void levelEvent(@Nullable Player p_8684_, int p_8685_, BlockPos p_8686_, int p_8687_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
++                && !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding()) {
++            final BlockPos immutablePos = p_8686_.immutable();
++            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                    "ServerLevel.levelEvent",
++                    () -> this.sendLocalLevelEvent(p_8684_, p_8685_, immutablePos, p_8687_))) {
++                return;
++            }
++        }
++        this.sendLocalLevelEvent(p_8684_, p_8685_, p_8686_, p_8687_);
++    }
++
++    private void sendLocalLevelEvent(@Nullable Player p_8684_, int p_8685_, BlockPos p_8686_, int p_8687_) {
          this.server
              .getPlayerList()
-             .broadcast(
 @@ -1019,11 +_,20 @@
  
      @Override
@@ -487,6 +567,38 @@
          this.neighborUpdater.updateNeighborsAtExceptFromFacing(p_215052_, p_215053_, p_215054_);
      }
  
+@@ -1078,4 +_,15 @@
+     @Override
+     public void broadcastEntityEvent(Entity p_8650_, byte p_8651_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
++                && !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                        "ServerLevel.broadcastEntityEvent",
++                        () -> {
++                            if (p_8650_.level() == this) {
++                                this.getChunkSource().broadcastAndSend(p_8650_, new ClientboundEntityEventPacket(p_8650_, p_8651_));
++                            }
++                        })) {
++            return;
++        }
+         this.getChunkSource().broadcastAndSend(p_8650_, new ClientboundEntityEventPacket(p_8650_, p_8651_));
+     }
+@@ -1083,4 +_,15 @@
+     @Override
+     public void broadcastDamageEvent(Entity p_270420_, DamageSource p_270311_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
++                && !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                        "ServerLevel.broadcastDamageEvent",
++                        () -> {
++                            if (p_270420_.level() == this) {
++                                this.getChunkSource().broadcastAndSend(p_270420_, new ClientboundDamageEventPacket(p_270420_, p_270311_));
++                            }
++                        })) {
++            return;
++        }
+         this.getChunkSource().broadcastAndSend(p_270420_, new ClientboundDamageEventPacket(p_270420_, p_270311_));
+     }
 @@ -1136,34 +_,62 @@
  
      @Override
@@ -569,6 +681,34 @@
      }
  
      private boolean doBlockEvent(BlockEventData p_8699_) {
+@@ -1200,9 +_,17 @@
+             p_8768_, false, p_8769_, p_8770_, p_8771_, (float)p_8773_, (float)p_8774_, (float)p_8775_, (float)p_8776_, p_8772_
+         );
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++            return net.neoforged.neoforge.server.threading.RegionThreadingHooks.sendParticlesFromWorker(this,
++                    () -> this.sendParticlesToNearbyPlayers(p_8769_, p_8770_, p_8771_, clientboundlevelparticlespacket));
++        }
++        return this.sendParticlesToNearbyPlayers(p_8769_, p_8770_, p_8771_, clientboundlevelparticlespacket);
++    }
++
++    private int sendParticlesToNearbyPlayers(double x, double y, double z, Packet<?> packet) {
+         int i = 0;
+ 
+         for (int j = 0; j < this.players.size(); j++) {
+             ServerPlayer serverplayer = this.players.get(j);
+-            if (this.sendParticles(serverplayer, false, p_8769_, p_8770_, p_8771_, clientboundlevelparticlespacket)) {
++            if (this.sendParticles(serverplayer, false, x, y, z, packet)) {
+                 i++;
+             }
+@@ -1228,4 +_,8 @@
+             p_8626_, p_8627_, p_8628_, p_8629_, p_8630_, (float)p_8632_, (float)p_8633_, (float)p_8634_, (float)p_8635_, p_8631_
+         );
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++            return net.neoforged.neoforge.server.threading.RegionThreadingHooks.sendParticlesFromWorker(this,
++                    () -> this.sendParticles(p_8625_, p_8627_, p_8628_, p_8629_, p_8630_, packet));
++        }
+         return this.sendParticles(p_8625_, p_8627_, p_8628_, p_8629_, p_8630_, packet);
+     }
 @@ -1309,16 +_,31 @@
      @Nullable
      @Override

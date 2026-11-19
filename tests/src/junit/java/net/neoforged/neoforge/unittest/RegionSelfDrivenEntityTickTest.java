@@ -1004,6 +1004,95 @@ class RegionSelfDrivenEntityTickTest {
     }
 
     @Test
+    void visualBroadcastRunsAfterWorkerAndParticleSendReturnsActualRecipients() throws Exception {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Thread publisher = Thread.currentThread();
+        final MinecraftServer server = level.getServer();
+        final var playerList = mock(net.minecraft.server.players.PlayerList.class);
+        when(server.getPlayerList()).thenReturn(playerList);
+        final Field serverField = ServerLevel.class.getDeclaredField("server");
+        serverField.setAccessible(true);
+        serverField.set(level, server);
+
+        final var player = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(1, 64, 1)));
+        final var connection = mock(net.minecraft.server.network.ServerGamePacketListenerImpl.class);
+        player.connection = connection;
+        final Field playersField = ServerLevel.class.getDeclaredField("players");
+        playersField.setAccessible(true);
+        playersField.set(level, List.of(player));
+
+        final var events = new CopyOnWriteArrayList<String>();
+        doAnswer(call -> {
+            assertEquals(publisher, Thread.currentThread());
+            events.add("particles");
+            return null;
+        }).when(connection).send(any(net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket.class));
+        doAnswer(call -> {
+            assertEquals(publisher, Thread.currentThread());
+            final net.minecraft.network.protocol.game.ClientboundLevelEventPacket packet = call.getArgument(6);
+            assertEquals(new BlockPos(1, 64, 1), packet.getPos());
+            events.add("level event");
+            return null;
+        }).when(playerList).broadcast(any(), anyDouble(), anyDouble(), anyDouble(), anyDouble(), any(),
+                any(net.minecraft.network.protocol.game.ClientboundLevelEventPacket.class));
+
+        final Entity entity = this.entity(level, new BlockPos(1, 64, 1));
+        doAnswer(call -> {
+            assertTrue(RegionThreadingHooks.isNativeRegionWorkerThread());
+            assertEquals(1, level.sendParticles(net.minecraft.core.particles.ParticleTypes.SMOKE, 1, 64, 1, 1, 0, 0, 0, 0));
+            assertTrue(level.sendParticles(player, net.minecraft.core.particles.ParticleTypes.SMOKE, false, 1, 64, 1, 1, 0, 0, 0, 0));
+            final var position = new BlockPos.MutableBlockPos(1, 64, 1);
+            level.levelEvent(null, 2001, position, 0);
+            position.set(2, 64, 2);
+            assertEquals(List.of("particles", "particles"), events);
+            return null;
+        }).when(entity).tick();
+        this.tickList.add(entity);
+
+        this.plan(level).executeAndAwait();
+        assertEquals(List.of("particles", "particles", "level event"), events);
+        assertEquals(0L, this.engine.boundaryFallbackEntityTickCount());
+    }
+
+    @Test
+    void warmedCapabilityCacheChecksOwnershipBeforeReturningItsValue() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final BlockPos local = new BlockPos(1, 64, 1);
+        final BlockPos foreign = new BlockPos(49, 64, 1);
+        final var capability = net.neoforged.neoforge.capabilities.BlockCapability.createVoid(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("forgia", "test_cached_ownership"), Object.class);
+        final Object value = new Object();
+        org.mockito.Mockito.doNothing().when(level).registerCapabilityListener(any(), any());
+        doReturn(true).when(level).isLoaded(any(BlockPos.class));
+        doReturn(value).when(level).getCapability(capability, local, (Void) null);
+        doReturn(value).when(level).getCapability(capability, foreign, (Void) null);
+        final var localCache = net.neoforged.neoforge.capabilities.BlockCapabilityCache.create(capability, level, local, null);
+        final var foreignCache = net.neoforged.neoforge.capabilities.BlockCapabilityCache.create(capability, level, foreign, null);
+        assertEquals(value, localCache.getCapability());
+        assertEquals(value, foreignCache.getCapability());
+
+        final Entity entity = this.entity(level, local);
+        final var calls = new AtomicInteger();
+        doAnswer(call -> {
+            assertTrue(RegionThreadingHooks.isNativeRegionWorkerThread());
+            assertEquals(value, localCache.getCapability());
+            final var refusal = assertThrows(net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.class,
+                    foreignCache::getCapability);
+            assertEquals("capability_access", refusal.category());
+            calls.incrementAndGet();
+            return null;
+        }).when(entity).tick();
+        this.tickList.add(entity);
+        this.plan(level).executeAndAwait();
+
+        assertEquals(1, calls.get());
+        verify(level, times(1)).getCapability(capability, local, (Void) null);
+        verify(level, times(1)).getCapability(capability, foreign, (Void) null);
+    }
+
+    @Test
     void failedQueuedAttackIsReportedAfterTheOtherAcceptedAttackRuns() {
         this.installEngine();
         final ServerLevel level = this.mockLevel();

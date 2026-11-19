@@ -253,6 +253,83 @@ class RegionBlockEntityTickTest {
     }
 
     @Test
+    void capabilityInvalidationAllowsReentrantAndIndependentCallbacks() throws Exception {
+        final var holder = new net.neoforged.neoforge.capabilities.CapabilityListenerHolder();
+        final BlockPos first = new BlockPos(1, 64, 1);
+        final BlockPos other = first.east();
+        final var started = new java.util.concurrent.CountDownLatch(1);
+        final var release = new java.util.concurrent.CountDownLatch(1);
+        final var calls = new AtomicInteger();
+        final var otherCalls = new AtomicInteger();
+        final net.neoforged.neoforge.capabilities.ICapabilityInvalidationListener listener = () -> {
+            if (calls.incrementAndGet() == 1) {
+                holder.invalidatePos(first);
+                started.countDown();
+                awaitOrFail(release, "independent invalidation did not complete");
+            }
+            return true;
+        };
+        final net.neoforged.neoforge.capabilities.ICapabilityInvalidationListener otherListener = () -> {
+            otherCalls.incrementAndGet();
+            return false;
+        };
+        holder.addListener(first, listener);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var original = executor.submit(() -> holder.invalidateChunk(new net.minecraft.world.level.ChunkPos(first)));
+            try {
+                assertTrue(started.await(5, TimeUnit.SECONDS));
+                executor.submit(() -> {
+                    holder.addListener(other, otherListener);
+                    holder.invalidatePos(other);
+                    holder.invalidatePos(first);
+                }).get(5, TimeUnit.SECONDS);
+                assertEquals(1, otherCalls.get());
+                assertEquals(1, calls.get());
+            } finally {
+                release.countDown();
+            }
+            original.get(5, TimeUnit.SECONDS);
+            assertEquals(2, calls.get(), "the concurrent invalidation requests one follow-up");
+            holder.invalidatePos(other);
+            assertEquals(1, otherCalls.get(), "a listener returning false is removed");
+        } finally {
+            java.lang.ref.Reference.reachabilityFence(listener);
+            java.lang.ref.Reference.reachabilityFence(otherListener);
+        }
+    }
+
+    @Test
+    void invalidationDuringCapabilityLookupDoesNotCacheTheOldResult() {
+        final var holder = new net.neoforged.neoforge.capabilities.CapabilityListenerHolder();
+        final BlockPos pos = new BlockPos(1, 64, 1);
+        final ServerLevel level = mock(ServerLevel.class);
+        final var capability = net.neoforged.neoforge.capabilities.BlockCapability.createVoid(
+                net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("forgia", "test_cache_invalidation_during_lookup"), Object.class);
+        final Object stale = new Object();
+        final Object current = new Object();
+        doAnswer(call -> {
+            holder.addListener(call.getArgument(0), call.getArgument(1));
+            return null;
+        }).when(level).registerCapabilityListener(any(), any());
+        when(level.isLoaded(pos)).thenReturn(true);
+        when(level.getCapability(capability, pos, (Void) null)).thenAnswer(call -> {
+            holder.invalidatePos(pos);
+            return stale;
+        }).thenReturn(current);
+        final var invalidations = new AtomicInteger();
+        final var cache = net.neoforged.neoforge.capabilities.BlockCapabilityCache.create(
+                capability, level, pos, null, () -> true, invalidations::incrementAndGet);
+
+        assertSame(stale, cache.getCapability());
+        assertSame(current, cache.getCapability());
+        assertSame(current, cache.getCapability());
+        assertEquals(0, invalidations.get(), "the interrupted lookup did not arm the listener");
+        holder.invalidatePos(pos);
+        assertEquals(1, invalidations.get());
+        verify(level, times(2)).getCapability(capability, pos, (Void) null);
+    }
+
+    @Test
     void missingChunkAfterMachineInventoryAndOutputEffectsDoesNotRerunTheMachine() {
         this.installEngine(true);
         final ServerLevel level = mockLevel();

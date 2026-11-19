@@ -128,7 +128,7 @@
      }
  
      class DistanceManager extends net.minecraft.server.level.DistanceManager {
-@@ -1314,4 +1367,19 @@
+@@ -1314,4 +1368,19 @@
              }
          }
      }
