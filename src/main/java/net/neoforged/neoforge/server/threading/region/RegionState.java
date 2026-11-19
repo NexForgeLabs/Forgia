@@ -217,6 +217,18 @@ final class RegionState {
     }
 
     /**
+     * Visits every loaded chunk key of this region without allocating a snapshot set.
+     * Must be called on the server thread while this region's section set is stable.
+     */
+    void forEachLoadedChunkKey(java.util.function.LongConsumer action) {
+        for (final RegionSectionState section : this.sections.values()) {
+            for (final long chunkKey : section.chunkKeys()) {
+                action.accept(chunkKey);
+            }
+        }
+    }
+
+    /**
      * Indexes {@code entity} as a member of this region, behind the entities it already holds.
      * <p>
      * Called by the regionizer under its write lock when it publishes the entity's region mapping. The entry

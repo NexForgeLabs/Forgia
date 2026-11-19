@@ -81,6 +81,10 @@ public final class RegionSpawnPlan {
      */
     private final LevelSpawnCapCounter capCounter;
     private final ParallelAdapterRuntime.PreparedSpawnPlan preparedPlan;
+    /** Tick-scoped caches avoiding repeated chunk-map and player-distance scans across regions. */
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
+    private final it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap spawnAllowedCache = new it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap(256);
+    private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<List<net.minecraft.server.level.ServerPlayer>> playersNearCache = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(256);
     private boolean executed;
 
     RegionSpawnPlan(RegionThreadingEngine engine, ServerLevel level, RegionSpawnSource source, boolean spawnFriendlies,
@@ -122,7 +126,7 @@ public final class RegionSpawnPlan {
             return;
         }
         final ChunkPos chunkPos = chunk.getPos();
-        if (!this.engine.isLoadedChunkNeighborhood(this.level, chunkPos)) {
+        if (!this.isLoadedChunkNeighborhoodCached(chunkPos)) {
             // The spawn body reads the chunks around the spawning chunk - the candidate positions, the block
             // below a candidate, the biome, the spawn rules - and a worker may not load a chunk, so the chunk
             // keeps the server-thread body.
@@ -229,15 +233,61 @@ public final class RegionSpawnPlan {
      * @param regionChunks the chunks this tick hands to the region's worker
      */
     RegionSpawnState.Built buildRegionState(RegionState region, List<RegionSpawnChunk> regionChunks) {
-        final List<Entity> entities = new ArrayList<>(region.entityTickEntryCount());
-        for (final RegionEntityTickEntry entry : region.entityTickEntries()) {
-            entities.add(entry.entity());
+        final Iterable<Entity> entities = () -> {
+            final java.util.Iterator<RegionEntityTickEntry> it = region.entityTickEntries().iterator();
+            return new java.util.Iterator<>() {
+                @Override
+                public boolean hasNext() {
+                    return it.hasNext();
+                }
+
+                @Override
+                public Entity next() {
+                    return it.next().entity();
+                }
+            };
+        };
+        return RegionSpawnState.buildForPlan(this.source, region, entities, regionChunks, this.capCounter,
+                this::cachedSpawnAllowed, this::cachedPlayersNear);
+    }
+
+    private boolean isLoadedChunkNeighborhoodCached(ChunkPos chunkPos) {
+        final net.minecraft.server.level.ServerChunkCache chunkSource = this.level.getChunkSource();
+        for (int offsetX = -1; offsetX <= 1; offsetX++) {
+            for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                if (offsetX == 0 && offsetZ == 0) {
+                    continue;
+                }
+                final int x = chunkPos.x + offsetX;
+                final int z = chunkPos.z + offsetZ;
+                final long key = ChunkPos.asLong(x, z);
+                if (!this.loadedChunkCache.contains(key)) {
+                    if (!chunkSource.hasChunk(x, z)) {
+                        return false;
+                    }
+                    this.loadedChunkCache.add(key);
+                }
+            }
         }
-        final List<Long> handed = new ArrayList<>(regionChunks.size());
-        for (final RegionSpawnChunk chunk : regionChunks) {
-            handed.add(chunk.chunkKey());
+        return true;
+    }
+
+    private boolean cachedSpawnAllowed(long chunkKey) {
+        if (this.spawnAllowedCache.containsKey(chunkKey)) {
+            return this.spawnAllowedCache.get(chunkKey);
         }
-        return RegionSpawnState.build(this.level, this.source, region.loadedChunkKeys(), entities, handed, this.capCounter);
+        final boolean allowed = this.level.isNaturalSpawningAllowed(new ChunkPos(chunkKey));
+        this.spawnAllowedCache.put(chunkKey, allowed);
+        return allowed;
+    }
+
+    private List<net.minecraft.server.level.ServerPlayer> cachedPlayersNear(long chunkKey) {
+        List<net.minecraft.server.level.ServerPlayer> players = this.playersNearCache.get(chunkKey);
+        if (players == null && !this.playersNearCache.containsKey(chunkKey)) {
+            players = this.source.playersNearForSpawning().apply(chunkKey);
+            this.playersNearCache.put(chunkKey, players);
+        }
+        return players;
     }
 
     /**

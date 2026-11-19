@@ -2653,10 +2653,18 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
             passes++;
             this.gameEventDeliveryPasses.incrementAndGet();
+            boolean ranAnyWorkerDelivery = false;
             for (final Map.Entry<RegionState, List<RegionBorderGameEvents.SectionColumn>> entry : this
                     .groupGameEventsByRegion(level, pending).entrySet()) {
                 final RegionState region = entry.getKey();
                 final List<RegionBorderGameEvents.SectionColumn> columns = entry.getValue();
+                if (!this.hasActiveGameEventListeners(level, columns)) {
+                    // No worker holds a lease here and none of the target columns have any registered listeners:
+                    // replaying on a worker would visit zero listeners and produce zero mutations.
+                    this.completeEmptyGameEventColumns(level, columns);
+                    continue;
+                }
+                ranAnyWorkerDelivery = true;
                 if (!this.runGameEventDeliveryPass(level, region, columns, barrier)) {
                     // The region retired or the level closed before its lease: the columns have no owner to
                     // replay them, and replaying them anywhere else would write another region's state.
@@ -2665,11 +2673,52 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
             // The listener bodies of the pass wrote blocks and posted further events: their cross-region
             // neighbor updates are the next thing the inline run would have applied.
-            this.runBorderUpdateFixpoint(level);
+            if (ranAnyWorkerDelivery) {
+                this.runBorderUpdateFixpoint(level);
+            }
         }
         final int leftover = queue.drain().size();
         if (leftover > 0) {
             this.gameEventSectionsDropped.addAndGet(leftover);
+        }
+    }
+
+    /**
+     * Checks whether any captured cross-region column in {@code columns} targets a loaded chunk with at least
+     * one registered game event listener in its section range. Runs on the server thread outside the worker phase.
+     */
+    private boolean hasActiveGameEventListeners(ServerLevel level, List<RegionBorderGameEvents.SectionColumn> columns) {
+        final ServerChunkCache chunkSource = level.getChunkSource();
+        if (chunkSource == null) {
+            return true;
+        }
+        for (final RegionBorderGameEvents.SectionColumn column : columns) {
+            final net.minecraft.world.level.chunk.ChunkAccess chunk = chunkSource.getChunkNow(column.chunkX(), column.chunkZ());
+            if (chunk == null) {
+                continue;
+            }
+            for (int sectionY = column.minSectionY(); sectionY <= column.maxSectionY(); sectionY++) {
+                if (!chunk.getListenerRegistry(sectionY).isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Accounts for cross-region game event columns known to have no active listeners (or whose chunk unloaded),
+     * preserving the exact delivered/dropped diagnostics of {@link #gameEventDeliveryGroup}.
+     */
+    private void completeEmptyGameEventColumns(ServerLevel level, List<RegionBorderGameEvents.SectionColumn> columns) {
+        final ServerChunkCache chunkSource = level.getChunkSource();
+        for (final RegionBorderGameEvents.SectionColumn column : columns) {
+            if (chunkSource != null && chunkSource.getChunkNow(column.chunkX(), column.chunkZ()) != null) {
+                this.gameEventSectionsDelivered.incrementAndGet();
+            } else {
+                this.gameEventSectionsDropped.incrementAndGet();
+                this.gameEventSectionsDroppedNoChunk.incrementAndGet();
+            }
         }
     }
 

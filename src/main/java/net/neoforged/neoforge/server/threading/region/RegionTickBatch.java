@@ -484,6 +484,7 @@ abstract class RegionTickBatch {
             }
             this.pendingMainThreadWork.add(work);
         }
+        this.groupBarrier.wakeWaiter();
         return work.await();
     }
 
@@ -607,18 +608,21 @@ abstract class RegionTickBatch {
         this.groupBarrier.setupComplete();
         this.submitNanos = System.nanoTime() - submitStart;
         Throwable barrierFailure = null;
+        this.groupBarrier.setWaiter(Thread.currentThread());
         try {
             // The batch-aware barrier services the main-thread handoffs of the workers in addition to the
             // chunk source tasks the level barrier already pumps. The MinecraftServer task queue is not
             // part of that wait, so a handoff enqueued there would only run after the workers finished.
-            barrier.await(() -> {
-                if (this.groupBarrier.isComplete()) {
-                    return true;
-                }
-                this.runPendingMainThreadWork();
-                this.pumpSpawnAdmissions();
-                return this.groupBarrier.isComplete();
-            });
+            if (!this.groupBarrier.isComplete()) {
+                barrier.await(() -> {
+                    if (this.groupBarrier.isComplete()) {
+                        return true;
+                    }
+                    this.runPendingMainThreadWork();
+                    this.pumpSpawnAdmissions();
+                    return this.groupBarrier.isComplete();
+                });
+            }
         } catch (Throwable throwable) {
             // The workers still hold region leases and mutate region state. Wait for them before the
             // failure is reported so the caller's cleanup never races a running group. A worker that is
@@ -628,6 +632,7 @@ abstract class RegionTickBatch {
             this.closeSpawnAdmissions();
             this.closeMainThreadWork(throwable);
         } finally {
+            this.groupBarrier.setWaiter(null);
             this.groupBarrier.awaitCompletion();
             final long awaitEnd = System.nanoTime();
             this.awaitEndNanos = awaitEnd;

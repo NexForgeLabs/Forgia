@@ -54,6 +54,7 @@ public final class RegionChunkTickPlan {
     private final int randomTickSpeed;
     /** The chunks this plan hands to the batch, in the order {@code tickChunks} collected them. */
     private final List<RegionChunkTickEntry> chunks = new ArrayList<>(CHUNK_CAPACITY_HINT);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
     private boolean executed;
 
     RegionChunkTickPlan(RegionThreadingEngine engine, ServerLevel level, int randomTickSpeed, RegionTickBarrier barrier) {
@@ -80,7 +81,7 @@ public final class RegionChunkTickPlan {
             return;
         }
         final ChunkPos chunkPos = chunk.getPos();
-        if (!this.engine.isLoadedChunkNeighborhood(this.level, chunkPos)) {
+        if (!this.isLoadedChunkNeighborhoodCached(chunkPos)) {
             // A random tick that reaches a neighboring chunk would have to load it, and a worker may not load
             // a chunk. The chunk therefore keeps the server-thread body.
             this.engine.countUnloadedNeighborhoodChunkTick();
@@ -131,5 +132,26 @@ public final class RegionChunkTickPlan {
             this.executed = true;
             this.chunks.clear();
         }
+    }
+
+    private boolean isLoadedChunkNeighborhoodCached(ChunkPos chunkPos) {
+        final net.minecraft.server.level.ServerChunkCache chunkSource = this.level.getChunkSource();
+        for (int offsetX = -1; offsetX <= 1; offsetX++) {
+            for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
+                if (offsetX == 0 && offsetZ == 0) {
+                    continue;
+                }
+                final int x = chunkPos.x + offsetX;
+                final int z = chunkPos.z + offsetZ;
+                final long key = ChunkPos.asLong(x, z);
+                if (!this.loadedChunkCache.contains(key)) {
+                    if (!chunkSource.hasChunk(x, z)) {
+                        return false;
+                    }
+                    this.loadedChunkCache.add(key);
+                }
+            }
+        }
+        return true;
     }
 }

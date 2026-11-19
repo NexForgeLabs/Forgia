@@ -123,10 +123,15 @@ public class FullParallelSoakGameTests {
     public static final class Probe {
         private static final Gson JSON = new Gson();
         private static final long TICK_NANOS = 50_000_000L;
-        private static final int BOT_COUNT = 32;
+        private static final int DEFAULT_BOT_COUNT = 32;
+        private static final int CLUSTERED_REGION_COUNT = 5;
+        private static final int CLUSTERED_BOTS_PER_REGION = 5;
         private final ServerLevel level;
         private final @Nullable RegionThreadingEngine engine;
-        private final List<Bot> bots = new ArrayList<>(BOT_COUNT);
+        private final String scenario = System.getProperty("forgia.fullSoakScenario", "default");
+        private final boolean clustered5x5 = "clustered5x5".equalsIgnoreCase(scenario);
+        private final int botCount = clustered5x5 ? CLUSTERED_REGION_COUNT * CLUSTERED_BOTS_PER_REGION : DEFAULT_BOT_COUNT;
+        private final List<Bot> bots = new ArrayList<>(botCount);
         private final SplittableRandom random = new SplittableRandom(4242424242L);
         private final long[] allTickNanos = new long[32_000];
         private int totalTicks;
@@ -138,8 +143,11 @@ public class FullParallelSoakGameTests {
         private long startGcMillis;
         private long actions;
         private long attacks;
+        private long pvpAttacks;
         private long breaks;
         private long places;
+        private long tntIgnites;
+        private long interacts;
         private long moves;
         private boolean closed;
 
@@ -154,34 +162,63 @@ public class FullParallelSoakGameTests {
             server.getPlayerList().setSimulationDistance(3);
             level.getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(true, server);
             server.setDifficulty(Difficulty.NORMAL, true);
-            for (int i = 0; i < BOT_COUNT; i++) {
-                final int pair = i / 2;
-                final int side = i % 2;
-                final int pairCenterX = 4200 + (pair % 4) * 512;
-                final int pairCenterZ = 4200 + (pair / 4) * 512;
-                // Separate pair members by >256 blocks initially so they start in distinct 8x8-chunk sections
-                // with an empty buffer section between them, then converge to trigger island merges and diverge to split.
-                final int x = pairCenterX + (side == 0 ? -144 : 144);
-                final int z = pairCenterZ;
+            for (int i = 0; i < botCount; i++) {
+                final int anchorX;
+                final int anchorZ;
+                final int x;
+                final int z;
+                if (clustered5x5) {
+                    final int region = i / CLUSTERED_BOTS_PER_REGION;
+                    final int role = i % CLUSTERED_BOTS_PER_REGION;
+                    anchorX = 4200 + (region % 3) * 512;
+                    anchorZ = 4200 + (region / 3) * 512;
+                    final double angle = role * (Math.PI * 2.0 / CLUSTERED_BOTS_PER_REGION);
+                    x = anchorX + (int) Math.round(Math.cos(angle) * 4.0);
+                    z = anchorZ + (int) Math.round(Math.sin(angle) * 4.0);
+                } else {
+                    final int pair = i / 2;
+                    final int side = i % 2;
+                    anchorX = 4200 + (pair % 4) * 512;
+                    anchorZ = 4200 + (pair / 4) * 512;
+                    // Separate pair members by >256 blocks initially so they start in distinct 8x8-chunk sections
+                    // with an empty buffer section between them, then converge to trigger island merges and diverge to split.
+                    x = anchorX + (side == 0 ? -144 : 144);
+                    z = anchorZ;
+                }
+                level.getChunk(x >> 4, z >> 4);
                 final int y = Math.max(level.getMinBuildHeight() + 4, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z));
                 final var profile = new GameProfile(new UUID(0xF0471BL, i), "soak_bot_" + i);
                 final var cookie = CommonListenerCookie.createInitial(profile, false);
                 final var player = new ServerPlayer(server, level, profile, cookie.clientInformation());
                 final var connection = new Connection(PacketFlow.SERVERBOUND);
                 final var channel = new EmbeddedChannel(connection);
-                final var bot = new Bot(player, connection, channel, i, pairCenterX, pairCenterZ);
+                final var bot = new Bot(player, connection, channel, i, anchorX, anchorZ);
                 bots.add(bot);
                 server.getPlayerList().placeNewPlayer(connection, player, cookie);
                 server.getConnection().getConnections().add(connection);
-                player.setGameMode(GameType.CREATIVE);
-                equipBot(player);
+                if (clustered5x5) {
+                    final int role = i % CLUSTERED_BOTS_PER_REGION;
+                    player.setGameMode(role == 0 || role == 4 ? GameType.SURVIVAL : GameType.CREATIVE);
+                    equipClusteredBot(player, role);
+                } else {
+                    player.setGameMode(GameType.CREATIVE);
+                    equipBot(player);
+                }
                 player.teleportTo(x + 0.5, y, z + 0.5);
+            }
+            if (engine != null && Boolean.getBoolean("forgia.fullSoakAttribution")) {
+                net.neoforged.neoforge.server.threading.region.RegionEntityTickAttribution.setEnabled(true);
+                net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAttribution.setEnabled(true);
+                net.neoforged.neoforge.server.threading.region.RegionSpawnAttribution.setEnabled(true);
+                net.neoforged.neoforge.server.threading.region.RegionChunkTickAttribution.setEnabled(true);
+                net.neoforged.neoforge.server.threading.region.RegionBarrierAttribution.setEnabled(true);
             }
             started = lastSample = System.nanoTime();
             sampleTick = server.getTickCount();
             startGcCount = gcCount();
             startGcMillis = gcMillis();
             System.out.println("FULL_SOAK_STARTED mode=" + (engine != null ? "parallel" : "serial")
+                    + " scenario=" + scenario
                     + " pid=" + ProcessHandle.current().pid()
                     + " bots=" + bots.size());
         }
@@ -195,6 +232,25 @@ public class FullParallelSoakGameTests {
             inv.setItem(4, new ItemStack(Items.FURNACE, 64));
             inv.setItem(5, new ItemStack(Items.HOPPER, 64));
             inv.setItem(6, new ItemStack(Items.REDSTONE_LAMP, 64));
+        }
+
+        private static void equipClusteredBot(ServerPlayer player, int role) {
+            final var inv = player.getInventory();
+            inv.setItem(0, new ItemStack(Items.DIAMOND_SWORD));
+            inv.setItem(1, new ItemStack(Items.DIAMOND_PICKAXE));
+            inv.setItem(2, new ItemStack(Items.COBBLESTONE, 64));
+            inv.setItem(3, new ItemStack(Items.OAK_PLANKS, 64));
+            inv.setItem(4, new ItemStack(Items.FURNACE, 64));
+            inv.setItem(5, new ItemStack(Items.HOPPER, 64));
+            inv.setItem(6, new ItemStack(Items.REDSTONE_LAMP, 64));
+            inv.setItem(7, new ItemStack(Items.TNT, 64));
+            inv.setItem(8, new ItemStack(Items.FLINT_AND_STEEL));
+            if (role == 0 || role == 4) {
+                player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+                player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
+                player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS));
+                player.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+            }
         }
 
         long elapsed() {
@@ -251,6 +307,12 @@ public class FullParallelSoakGameTests {
             final var server = level.getServer();
             final var row = buildMetricsRow(server, server.getTickCount(), now, true);
             System.out.println("FULL_SOAK_SUMMARY " + JSON.toJson(row));
+            if (engine != null && Boolean.getBoolean("forgia.fullSoakAttribution")) {
+                for (final String line : net.neoforged.neoforge.server.threading.region.RegionBarrierAttribution.formatRows(
+                        net.neoforged.neoforge.server.threading.region.RegionBarrierAttribution.snapshot(), "FULL_SOAK_BARRIER ", Math.max(1, totalTicks))) {
+                    System.out.println(line);
+                }
+            }
         }
 
         private LinkedHashMap<String, Object> buildMetricsRow(net.minecraft.server.MinecraftServer server, int tick, long now, boolean summary) {
@@ -277,10 +339,14 @@ public class FullParallelSoakGameTests {
             row.put("p99Mspt", percentile(times, 0.99));
             row.put("maxMspt", percentile(times, 1.0));
             row.put("players", bots.stream().filter(bot -> bot.connection().isConnected()).count());
+            row.put("scenario", scenario);
             row.put("actions", actions);
             row.put("attacks", attacks);
+            row.put("pvpAttacks", pvpAttacks);
             row.put("breaks", breaks);
             row.put("places", places);
+            row.put("tntIgnites", tntIgnites);
+            row.put("interacts", interacts);
             row.put("moves", moves);
             row.put("loadedChunks", level.getChunkSource().getLoadedChunksCount());
             row.put("pendingChunkTasks", level.getChunkSource().getPendingTasksCount());
@@ -291,6 +357,14 @@ public class FullParallelSoakGameTests {
                 row.put("islands", engine.loadedIslandDiagnostics(level, 32));
                 row.put("regions", engine.diagnostics());
                 row.put("playerTick", engine.playerTickDiagnostics(server));
+                if (summary && Boolean.getBoolean("forgia.fullSoakAttribution")) {
+                    final var attr = new LinkedHashMap<String, Object>();
+                    attr.put("entity", net.neoforged.neoforge.server.threading.region.RegionEntityTickAttribution.snapshot());
+                    attr.put("blockEntity", net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAttribution.snapshot());
+                    attr.put("spawn", net.neoforged.neoforge.server.threading.region.RegionSpawnAttribution.snapshot());
+                    attr.put("chunkTick", net.neoforged.neoforge.server.threading.region.RegionChunkTickAttribution.snapshot());
+                    row.put("attribution", attr);
+                }
             }
             return row;
         }
@@ -300,9 +374,13 @@ public class FullParallelSoakGameTests {
             for (int i = 0; i < bots.size(); i++) {
                 final Bot bot = bots.get(i);
                 final var player = bot.player;
+                if (clustered5x5 && player.getHealth() < 12.0f) {
+                    player.setHealth(player.getMaxHealth());
+                }
                 final AABB box = player.getBoundingBox().inflate(5.0);
                 final List<Mob> nearby = level.getEntitiesOfClass(Mob.class, box);
-                if (nearby.size() < 2) {
+                final int minNearby = clustered5x5 ? (i % CLUSTERED_BOTS_PER_REGION == 0 ? 3 : 0) : 2;
+                if (nearby.size() < minNearby) {
                     final double sx = player.getX() + random.nextDouble(-2.0, 2.0);
                     final double sz = player.getZ() + random.nextDouble(-2.0, 2.0);
                     final int sy = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(sx), (int) Math.floor(sz));
@@ -319,6 +397,10 @@ public class FullParallelSoakGameTests {
         }
 
         private void act(Bot bot, int tick) {
+            if (clustered5x5) {
+                actClustered(bot, tick);
+                return;
+            }
             final var player = bot.player;
             final var listener = player.connection;
             // 1) Continuous movement & world exploration + periodic convergence/divergence for island merge/split.
@@ -381,6 +463,162 @@ public class FullParallelSoakGameTests {
                 }
             }
             actions++;
+        }
+
+        private void actClustered(Bot bot, int tick) {
+            final var player = bot.player;
+            final var listener = player.connection;
+            final int role = bot.index % CLUSTERED_BOTS_PER_REGION;
+            final int region = bot.index / CLUSTERED_BOTS_PER_REGION;
+            moveClustered(bot, tick, role);
+
+            switch (role) {
+                case 0 -> {
+                    // Role 0: PvP & mob fighter (attacks other bots in same region + mobs)
+                    if (player.getHealth() < 12.0f) {
+                        player.setHealth(player.getMaxHealth());
+                    }
+                    final int targetIdx = region * CLUSTERED_BOTS_PER_REGION + 4;
+                    final Bot targetBot = bots.get(targetIdx);
+                    final var targetPlayer = targetBot.player;
+                    if (targetPlayer.isAlive() && targetPlayer.distanceToSqr(player) <= 36.0) {
+                        listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(0));
+                        listener.handleInteract(ServerboundInteractPacket.createAttackPacket(targetPlayer, false));
+                        listener.handleAnimate(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                        attacks++;
+                        pvpAttacks++;
+                    } else {
+                        final List<Mob> mobs = level.getEntitiesOfClass(Mob.class, player.getBoundingBox().inflate(5.0));
+                        if (!mobs.isEmpty()) {
+                            listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(0));
+                            listener.handleInteract(ServerboundInteractPacket.createAttackPacket(mobs.get(0), false));
+                            listener.handleAnimate(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                            attacks++;
+                        }
+                    }
+                }
+                case 1 -> {
+                    // Role 1: Miner (breaks blocks around arena)
+                    final int bx = bot.anchorX + random.nextInt(-5, 6);
+                    final int bz = bot.anchorZ + random.nextInt(-5, 6);
+                    final int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                    final int by = Math.max(level.getMinBuildHeight() + 4, surface - random.nextInt(0, 2));
+                    final BlockPos pos = new BlockPos(bx, by, bz);
+                    if (level.isLoaded(pos)) {
+                        final BlockState state = level.getBlockState(pos);
+                        if (!state.isAir() && !state.is(Blocks.BEDROCK) && !state.is(Blocks.TNT)) {
+                            listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(1));
+                            listener.handlePlayerAction(new ServerboundPlayerActionPacket(
+                                    ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK, pos, Direction.UP, ++bot.sequence));
+                            listener.handleAnimate(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                            breaks++;
+                        }
+                    }
+                }
+                case 2 -> {
+                    // Role 2: Builder (places cobblestone, planks, furnaces, hoppers, redstone lamps)
+                    final int bx = bot.anchorX + random.nextInt(-5, 6);
+                    final int bz = bot.anchorZ + random.nextInt(-5, 6);
+                    final int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                    final int by = Math.max(level.getMinBuildHeight() + 4, surface - 1);
+                    final BlockPos support = new BlockPos(bx, by, bz);
+                    final BlockPos above = support.above();
+                    if (level.isLoaded(support) && !level.getBlockState(support).isAir() && level.getBlockState(above).isAir()) {
+                        final int slot = 2 + random.nextInt(5);
+                        listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(slot));
+                        listener.handleUseItemOn(new ServerboundUseItemOnPacket(
+                                InteractionHand.MAIN_HAND,
+                                new BlockHitResult(Vec3.atCenterOf(support), Direction.UP, support, false),
+                                ++bot.sequence));
+                        listener.handleAnimate(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                        places++;
+                    }
+                }
+                case 3 -> {
+                    // Role 3: TNT bomber (places TNT and ignites it with flint and steel)
+                    if (bot.sequence % 4 == 0) {
+                        final int bx = bot.anchorX + random.nextInt(-4, 5);
+                        final int bz = bot.anchorZ + random.nextInt(-4, 5);
+                        final int surface = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                        final int by = Math.max(level.getMinBuildHeight() + 4, surface - 1);
+                        final BlockPos support = new BlockPos(bx, by, bz);
+                        final BlockPos tntPos = support.above();
+                        if (level.isLoaded(support) && !level.getBlockState(support).isAir() && level.getBlockState(tntPos).isAir()) {
+                            listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(7));
+                            listener.handleUseItemOn(new ServerboundUseItemOnPacket(
+                                    InteractionHand.MAIN_HAND,
+                                    new BlockHitResult(Vec3.atCenterOf(support), Direction.UP, support, false),
+                                    ++bot.sequence));
+                            if (level.getBlockState(tntPos).is(Blocks.TNT)) {
+                                listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(8));
+                                listener.handleUseItemOn(new ServerboundUseItemOnPacket(
+                                        InteractionHand.MAIN_HAND,
+                                        new BlockHitResult(Vec3.atCenterOf(tntPos), Direction.UP, tntPos, false),
+                                        ++bot.sequence));
+                                listener.handleAnimate(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                                tntIgnites++;
+                            }
+                            places++;
+                        }
+                    } else {
+                        ++bot.sequence;
+                    }
+                }
+                default -> {
+                    // Role 4: Dueler & interactor (fights back against Role 0, jumps, and interacts with blocks)
+                    if (player.getHealth() < 12.0f) {
+                        player.setHealth(player.getMaxHealth());
+                    }
+                    final Bot opponent = bots.get(region * CLUSTERED_BOTS_PER_REGION);
+                    if (opponent.player.isAlive() && opponent.player.distanceToSqr(player) <= 36.0) {
+                        listener.handleSetCarriedItem(new ServerboundSetCarriedItemPacket(0));
+                        listener.handleInteract(ServerboundInteractPacket.createAttackPacket(opponent.player, false));
+                        listener.handleAnimate(new ServerboundSwingPacket(InteractionHand.MAIN_HAND));
+                        attacks++;
+                        pvpAttacks++;
+                    }
+                    final int bx = bot.anchorX + random.nextInt(-4, 5);
+                    final int bz = bot.anchorZ + random.nextInt(-4, 5);
+                    final int by = Math.max(level.getMinBuildHeight() + 4,
+                            level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz) - 1);
+                    final BlockPos targetPos = new BlockPos(bx, by, bz);
+                    if (level.isLoaded(targetPos) && !level.getBlockState(targetPos).isAir()) {
+                        listener.handleUseItemOn(new ServerboundUseItemOnPacket(
+                                InteractionHand.OFF_HAND,
+                                new BlockHitResult(Vec3.atCenterOf(targetPos), Direction.UP, targetPos, false),
+                                ++bot.sequence));
+                        interacts++;
+                    }
+                    if (player.onGround() && random.nextInt(3) == 0) {
+                        player.jumpFromGround();
+                    }
+                }
+            }
+            actions++;
+        }
+
+        private void moveClustered(Bot bot, int tick, int role) {
+            final var player = bot.player;
+            final var listener = player.connection;
+            // Keep all 5 bots within a compact 6-block radius around the region arena center, orbiting smoothly.
+            final double angle = role * (Math.PI * 2.0 / CLUSTERED_BOTS_PER_REGION) + (tick * 0.08);
+            final double radius = (role == 0 || role == 4) ? 2.0 : 4.5;
+            final double targetX = bot.anchorX + Math.cos(angle) * radius;
+            final double targetZ = bot.anchorZ + Math.sin(angle) * radius;
+            final double dx = Math.max(-1.0, Math.min(1.0, targetX - player.getX()));
+            final double dz = Math.max(-1.0, Math.min(1.0, targetZ - player.getZ()));
+            final double nx = player.getX() + dx;
+            final double nz = player.getZ() + dz;
+            final int ny = Math.max(level.getMinBuildHeight() + 4,
+                    level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(nx), (int) Math.floor(nz)));
+            if (Math.abs(ny - player.getY()) > 8.0) {
+                player.teleportTo(nx, ny, nz);
+            } else {
+                listener.handleMovePlayer(new ServerboundMovePlayerPacket.PosRot(
+                        nx, ny, nz,
+                        random.nextFloat() * 360.0f, random.nextFloat() * 60.0f - 30.0f, true));
+            }
+            moves++;
         }
 
         private void moveAndExplore(Bot bot, int tick) {
@@ -450,6 +688,13 @@ public class FullParallelSoakGameTests {
         void close() {
             if (closed) return;
             closed = true;
+            if (engine != null && Boolean.getBoolean("forgia.fullSoakAttribution")) {
+                net.neoforged.neoforge.server.threading.region.RegionEntityTickAttribution.setEnabled(false);
+                net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAttribution.setEnabled(false);
+                net.neoforged.neoforge.server.threading.region.RegionSpawnAttribution.setEnabled(false);
+                net.neoforged.neoforge.server.threading.region.RegionChunkTickAttribution.setEnabled(false);
+                net.neoforged.neoforge.server.threading.region.RegionBarrierAttribution.setEnabled(false);
+            }
             NeoForge.EVENT_BUS.unregister(this);
             for (final Bot bot : bots) {
                 level.getServer().getConnection().getConnections().remove(bot.connection());

@@ -81,6 +81,20 @@ public final class RegionSpawnNeighborhood {
     }
 
     /**
+     * Records the answers of the chunks a spawn body of {@code chunkKey} can reach, using tick-scoped caches.
+     */
+    void recordReach(long chunkKey, java.util.function.LongPredicate spawnAllowedLookup,
+            java.util.function.LongFunction<List<ServerPlayer>> playersNearLookup) {
+        final int chunkX = ChunkPos.getX(chunkKey);
+        final int chunkZ = ChunkPos.getZ(chunkKey);
+        for (int offsetX = -REACH_CHUNKS; offsetX <= REACH_CHUNKS; offsetX++) {
+            for (int offsetZ = -REACH_CHUNKS; offsetZ <= REACH_CHUNKS; offsetZ++) {
+                this.recordChunk(ChunkPos.asLong(chunkX + offsetX, chunkZ + offsetZ), spawnAllowedLookup, playersNearLookup);
+            }
+        }
+    }
+
+    /**
      * Records the answers of one chunk unless they were read already.
      */
     public void recordChunk(ServerLevel level, RegionSpawnSource source, long chunkKey) {
@@ -89,6 +103,18 @@ public final class RegionSpawnNeighborhood {
         }
         this.spawnAllowed.put(chunkKey, level.isNaturalSpawningAllowed(new ChunkPos(chunkKey)));
         this.playersNear.put(chunkKey, source.playersNearForSpawning().apply(chunkKey));
+    }
+
+    /**
+     * Records the answers of one chunk using tick-scoped cached lookups unless already present.
+     */
+    void recordChunk(long chunkKey, java.util.function.LongPredicate spawnAllowedLookup,
+            java.util.function.LongFunction<List<ServerPlayer>> playersNearLookup) {
+        if (this.spawnAllowed.containsKey(chunkKey)) {
+            return;
+        }
+        this.spawnAllowed.put(chunkKey, spawnAllowedLookup.test(chunkKey));
+        this.playersNear.put(chunkKey, playersNearLookup.apply(chunkKey));
     }
 
     /** {@return the vanilla spawn-gate answer of {@code chunkKey}; an unrecorded chunk answers {@code false}} */

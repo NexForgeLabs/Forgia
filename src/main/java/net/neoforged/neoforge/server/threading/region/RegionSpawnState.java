@@ -73,6 +73,31 @@ public final class RegionSpawnState {
     }
 
     /**
+     * Builds the spawn state of one region using tick-scoped caches and without allocating intermediate
+     * chunk/entity snapshot collections.
+     */
+    static Built buildForPlan(RegionSpawnSource source, RegionState region, Iterable<Entity> regionEntities,
+            java.util.List<RegionSpawnChunk> handedChunks, LevelSpawnCapCounter capCounter,
+            java.util.function.LongPredicate spawnAllowedLookup,
+            java.util.function.LongFunction<java.util.List<net.minecraft.server.level.ServerPlayer>> playersNearLookup) {
+        final RegionSpawnNeighborhood neighborhood = new RegionSpawnNeighborhood(region.chunkCount() + handedChunks.size() * 4);
+        final int[] spawnableChunks = { 0 };
+        final var spawnablePredicate = source.spawnableChunk();
+        region.forEachLoadedChunkKey(chunkKey -> {
+            neighborhood.recordChunk(chunkKey, spawnAllowedLookup, playersNearLookup);
+            if (spawnablePredicate.test(chunkKey)) {
+                ++spawnableChunks[0];
+            }
+        });
+        for (int i = 0, size = handedChunks.size(); i < size; i++) {
+            neighborhood.recordReach(handedChunks.get(i).chunkKey(), spawnAllowedLookup, playersNearLookup);
+        }
+        final NaturalSpawner.SpawnState state = NaturalSpawner.createState(spawnableChunks[0], regionEntities,
+                source.chunkGetter(), new RegionLocalMobCapCalculator(neighborhood::playersNear), capCounter);
+        return new Built(neighborhood, state, spawnableChunks[0]);
+    }
+
+    /**
      * One built region state.
      *
      * @param neighborhood    the per-chunk answers the region's spawn bodies read

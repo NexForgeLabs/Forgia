@@ -287,6 +287,7 @@ public final class RegionTaskBatch {
         private final int groupCount;
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
         private final AtomicInteger rejectedGroups = new AtomicInteger();
+        private volatile @Nullable Thread waiter;
         private boolean open;
 
         private Barrier(int groupCount) {
@@ -444,9 +445,21 @@ public final class RegionTaskBatch {
             this.rejectedGroups.incrementAndGet();
         }
 
+        void setWaiter(@Nullable Thread waiter) {
+            this.waiter = waiter;
+        }
+
+        void wakeWaiter() {
+            final Thread waiting = this.waiter;
+            if (waiting != null) {
+                java.util.concurrent.locks.LockSupport.unpark(waiting);
+            }
+        }
+
         private void groupFinished() {
             if (this.pendingGroups.decrementAndGet() == 0) {
                 this.completed.countDown();
+                this.wakeWaiter();
             }
         }
     }
