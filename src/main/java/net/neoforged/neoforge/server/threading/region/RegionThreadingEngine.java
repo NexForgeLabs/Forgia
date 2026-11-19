@@ -2965,6 +2965,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (entity instanceof ServerPlayer) {
             return this.regionizer.regionFor(entity);
         }
+        final RegionState existing = this.regionizer.regionFor(entity);
+        if (existing != null && !existing.isDead() && existing.coordinate().equals(coordinate)) {
+            return existing;
+        }
         return this.regionizer.moveEntity(entity, coordinate);
     }
 
@@ -7183,6 +7187,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                     // Every execution/Serial Fence below discards it; the existing held-region fresh
                     // preparation, whole-phase alias check and reservation still run before any body.
                     private boolean lookaheadDirty;
+                    private int lastPreparedIndex = -1;
+                    private boolean lastPreparedEligible;
                     private FurnaceWorkPreparation furnaceLookahead;
                     private Set<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceAliases;
                     private java.util.IdentityHashMap<Object, Access> executionRoots;
@@ -7193,6 +7199,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     private List<AuditedBlockEntityPreparation.Candidate> auditedNativeCandidates;
 
                     private void discardLookahead() {
+                        this.lastPreparedIndex = -1;
                         if (!this.lookaheadDirty) return;
                         this.lookaheadDirty = false;
                         this.furnaceLookahead = null;
@@ -7208,7 +7215,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                     @Override
                     public CanonicalBlockEntityCoordinator.Unit prepare(int index) {
                         final var admission = ordered.get(index);
-                        if (!phase.eligibleNow(admission)) return null;
+                        final boolean eligible = phase.eligibleNow(admission);
+                        this.lastPreparedIndex = index;
+                        this.lastPreparedEligible = eligible;
+                        if (!eligible) return null;
                         // Unknown C5 closure proofs refuse through this same phase's kernel. Do not
                         // invoke adapters during lookahead: inspect and body belong to this Serial Fence.
                         if (general != null && general.handles(admission)) return null;
@@ -7394,12 +7404,13 @@ public final class RegionThreadingEngine implements RegionThreading {
 
                     @Override
                     public void serial(int index) {
+                        final Boolean knownEligible = this.lastPreparedIndex == index ? Boolean.valueOf(this.lastPreparedEligible) : null;
                         this.discardLookahead();
                         final var admission = ordered.get(index);
                         phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
                         if (furnaces) furnaceWorkMetrics.serial();
                         fallbackBlockEntityTicks.incrementAndGet();
-                        tickBlockEntitySerial(phase, admission, sample, general);
+                        tickBlockEntitySerial(phase, admission, sample, general, knownEligible);
                     }
                 });
             }
@@ -9025,20 +9036,32 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
             @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        this.tickBlockEntitySerial(batch, admission, graph, null);
+        this.tickBlockEntitySerial(batch, admission, graph, null, null);
     }
 
     private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
             @Nullable RegionBlockEntityWorkGraph.Phase graph, @Nullable BlockEntityAdapterPhase adapters) {
-        if (!batch.eligibleNow(admission)) return;
+        this.tickBlockEntitySerial(batch, admission, graph, adapters, null);
+    }
+
+    private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
+            @Nullable RegionBlockEntityWorkGraph.Phase graph, @Nullable BlockEntityAdapterPhase adapters,
+            @Nullable Boolean knownEligible) {
+        final boolean eligible = knownEligible != null ? knownEligible.booleanValue() : batch.eligibleNow(admission);
+        if (!eligible) return;
         try (final var permit = batch.execution().beginSerial(admission)) {
             if (adapters != null) adapters.inspect(admission);
-            this.tickBlockEntityInline(batch.level(), admission.ticker(), graph);
+            this.tickBlockEntityInline(batch.level(), admission.ticker(), graph, batch.canonicalSequence());
             permit.succeeded();
         }
     }
 
     private void tickBlockEntityInline(ServerLevel level, TickingBlockEntity ticker, @Nullable RegionBlockEntityWorkGraph.Phase graph) {
+        this.tickBlockEntityInline(level, ticker, graph, false);
+    }
+
+    private void tickBlockEntityInline(ServerLevel level, TickingBlockEntity ticker, @Nullable RegionBlockEntityWorkGraph.Phase graph,
+            boolean preverifiedEntitiesLoaded) {
         if (ticker.isRemoved()) {
             return;
         }
@@ -9048,7 +9071,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.skippedBlockEntityTicks.incrementAndGet();
             return;
         }
-        if (level.areEntitiesLoaded(ChunkPos.asLong(ticker.getPos()))) {
+        if (preverifiedEntitiesLoaded || level.areEntitiesLoaded(ChunkPos.asLong(ticker.getPos()))) {
             this.runBlockEntityBody(ticker, graph, false);
         }
     }
@@ -10935,6 +10958,13 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (group != null) {
             group.batch().deferEntityUpdate(entity, this.deferredEntityDestination(entity));
             return;
+        }
+        if (!this.shutdown && this.entityTasksByEntity.isEmpty() && entity.level() instanceof ServerLevel level) {
+            final RegionState existing = this.regionizer.regionFor(entity);
+            if (existing != null && !existing.isDead()
+                    && existing.coordinate().equals(this.layout.regionAt(level, entity.blockPosition()))) {
+                return;
+            }
         }
         synchronized (this.admissionLock) {
             if (this.shutdown) {

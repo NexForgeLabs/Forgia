@@ -55,18 +55,17 @@ public final class RegionSpawnState {
      */
     public static Built build(ServerLevel level, RegionSpawnSource source, Collection<Long> regionChunks,
             Collection<Entity> regionEntities, Collection<Long> handedChunkKeys, LevelSpawnCapCounter capCounter) {
-        final RegionSpawnNeighborhood neighborhood = new RegionSpawnNeighborhood();
+        final RegionSpawnNeighborhood neighborhood = new RegionSpawnNeighborhood(regionChunks.size() + handedChunkKeys.size() * 4);
+        int spawnableChunks = 0;
+        final var spawnablePredicate = source.spawnableChunk();
         for (final long chunkKey : regionChunks) {
             neighborhood.recordChunk(level, source, chunkKey);
+            if (spawnablePredicate.test(chunkKey)) {
+                ++spawnableChunks;
+            }
         }
         for (final long chunkKey : handedChunkKeys) {
             neighborhood.recordReach(level, source, chunkKey);
-        }
-        int spawnableChunks = 0;
-        for (final long chunkKey : regionChunks) {
-            if (source.spawnableChunk().test(chunkKey)) {
-                ++spawnableChunks;
-            }
         }
         final NaturalSpawner.SpawnState state = NaturalSpawner.createState(spawnableChunks, regionEntities,
                 source.chunkGetter(), new RegionLocalMobCapCalculator(neighborhood::playersNear), capCounter);

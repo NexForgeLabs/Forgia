@@ -2796,6 +2796,37 @@ class RegionSelfDrivenEntityTickTest {
                 "a steady non-empty player region must not acquire the regionizer write lock during tick cleanup");
     }
 
+    @Test
+    void primedTntTicksOnWorkerUntilExplodingTick() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final net.minecraft.world.entity.item.PrimedTnt tnt = this.entity(
+                net.minecraft.world.entity.item.PrimedTnt.class, level, new AtomicReference<>(new BlockPos(1, 64, 1)));
+        final AtomicInteger fuse = new AtomicInteger(2);
+        when(tnt.getFuse()).thenAnswer(invocation -> fuse.get());
+        when(tnt.getY()).thenReturn(64.0);
+        final List<String> tickThreads = new CopyOnWriteArrayList<>();
+        doAnswer(invocation -> {
+            tickThreads.add(Thread.currentThread().getName());
+            fuse.decrementAndGet();
+            return null;
+        }).when(tnt).tick();
+        this.tickList.add(tnt);
+
+        this.plan(level).executeAndAwait();
+        this.plan(level).executeAndAwait();
+
+        verify(tnt, times(2)).tick();
+        assertEquals(2, tickThreads.size());
+        assertTrue(tickThreads.get(0).startsWith("NeoForge Region Worker"),
+                "a PrimedTnt with fuse > 1 must tick on a region worker: " + tickThreads.get(0));
+        assertEquals(Thread.currentThread().getName(), tickThreads.get(1),
+                "a PrimedTnt with fuse <= 1 must route its exploding tick to the server thread");
+        assertEquals(1L, this.engine.diagnostics().entityTicksOnWorkers());
+        assertEquals(1L, this.engine.diagnostics().fallbackEntityTicks());
+        assertEquals(1L, this.engine.diagnostics().serverThreadOnlyEntityTicksByReason().getOrDefault("primed_tnt_explode_fence", 0L));
+    }
+
     private RegionEntityTickPlan plan(ServerLevel level) {
         final RegionEntityTickPlan plan = this.engine.beginEntityTickPlan(level, entity -> true, PARKING_BARRIER);
         assertNotNull(plan, "the entity tick worker slice must be enabled");

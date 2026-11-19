@@ -140,14 +140,17 @@ public final class RegionBlockEntityTickPlan {
                     continue;
                 }
                 if (!runsNormally) continue;
-                final BlockPos position = ticker.getPos().immutable();
-                final long key = ChunkPos.asLong(position);
+                final BlockPos rawPos = ticker.getPos();
+                final long key = ChunkPos.asLong(rawPos);
                 ExplicitUnit unit = this.explicitUnits.get(key);
                 if (unit == null) {
                     final ServerChunkCache source = this.level.getChunkSource();
-                    final LevelChunk chunk = source == null ? null : source.getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+                    final LevelChunk chunk = source == null ? null : source.getChunkNow(rawPos.getX() >> 4, rawPos.getZ() >> 4);
                     final var cache = chunk == null ? null : this.snapshot(chunk, this.engine.regionLayout());
-                    unit = new ExplicitUnit(key, chunk, cache);
+                    final boolean chunkEligible = (cache == null || cache.allAdmitted())
+                            && (chunk == null || chunk.isLoaded() && chunk.getFullStatus().isOrAfter(FullChunkStatus.BLOCK_TICKING))
+                            && this.level.shouldTickBlocksAt(rawPos) && this.level.areEntitiesLoaded(key);
+                    unit = new ExplicitUnit(key, chunk, cache, chunkEligible);
                     this.explicitUnits.put(key, unit);
                 }
                 final var template = unit.cache == null ? null : unit.cache.admission(ticker);
@@ -155,6 +158,7 @@ public final class RegionBlockEntityTickPlan {
                 if (template != null && template.isCurrentForCollection()) {
                     admission = template.withSequence(ordinal);
                 } else {
+                    final BlockPos position = rawPos.immutable();
                     final String type = ticker.getType();
                     admission = new RegionBlockEntityTickAdmission(this.level, ticker, position, type,
                             LevelChunk.captureBlockEntityTickBinding(ticker, this.level),
@@ -166,10 +170,7 @@ public final class RegionBlockEntityTickPlan {
                 // may activate this entry or invalidate a previously safe branch/source.
                 // Ineligible entries stay in the phase. They cannot go to a worker using the initial
                 // decision; the complete server call rechecks eligibility at its actual list position.
-                unit.add(admission, (!LevelChunk.isChunkOwnedTicker(ticker) || template != null)
-                        && (unit.cache == null || unit.cache.allAdmitted())
-                        && (unit.chunk == null || unit.chunk.isLoaded() && unit.chunk.getFullStatus().isOrAfter(FullChunkStatus.BLOCK_TICKING))
-                        && this.level.shouldTickBlocksAt(position) && this.level.areEntitiesLoaded(key));
+                unit.add(admission, (!LevelChunk.isChunkOwnedTicker(ticker) || template != null) && unit.chunkEligible);
             }
         } finally {
             if (removed != null) {
@@ -351,13 +352,19 @@ public final class RegionBlockEntityTickPlan {
         private final long chunkKey;
         private final LevelChunk chunk;
         private final RegionBlockEntityTickChunkCache cache;
+        private final boolean chunkEligible;
         private final List<RegionBlockEntityTickAdmission> admissions = new ArrayList<>();
         private boolean allAdmitted = true;
 
         ExplicitUnit(long chunkKey, @Nullable LevelChunk chunk, @Nullable RegionBlockEntityTickChunkCache cache) {
+            this(chunkKey, chunk, cache, true);
+        }
+
+        ExplicitUnit(long chunkKey, @Nullable LevelChunk chunk, @Nullable RegionBlockEntityTickChunkCache cache, boolean chunkEligible) {
             this.chunkKey = chunkKey;
             this.chunk = chunk;
             this.cache = cache;
+            this.chunkEligible = chunkEligible;
         }
 
         void add(RegionBlockEntityTickAdmission admission) {

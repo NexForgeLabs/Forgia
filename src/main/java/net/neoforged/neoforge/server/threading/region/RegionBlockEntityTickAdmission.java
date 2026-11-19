@@ -38,7 +38,7 @@ public record RegionBlockEntityTickAdmission(
 
     /** Copies a binding template without inheriting its legacy creation sequence. */
     RegionBlockEntityTickAdmission withSequence(long ordinal) {
-        return new RegionBlockEntityTickAdmission(this.level, this.ticker, this.position, this.type, this.binding, this.decision, ordinal);
+        return this.sequence == ordinal ? this : new RegionBlockEntityTickAdmission(this.level, this.ticker, this.position, this.type, this.binding, this.decision, ordinal);
     }
 
     /** Checks before invocation; a changed binding or position must use server-thread fallback. */

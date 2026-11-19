@@ -49,9 +49,19 @@ public final class RegionSpawnNeighborhood {
     public static final int REACH_CHUNKS = 2;
 
     /** The vanilla answer of {@code ServerLevel.isNaturalSpawningAllowed(ChunkPos)} per chunk. */
-    private final Long2BooleanMap spawnAllowed = new Long2BooleanOpenHashMap();
+    private final Long2BooleanMap spawnAllowed;
     /** The vanilla answer of {@code ChunkMap.getPlayersCloseForSpawning} per chunk. */
-    private final Long2ObjectMap<List<ServerPlayer>> playersNear = new Long2ObjectOpenHashMap<>();
+    private final Long2ObjectMap<List<ServerPlayer>> playersNear;
+
+    public RegionSpawnNeighborhood() {
+        this(32);
+    }
+
+    public RegionSpawnNeighborhood(int expectedChunks) {
+        final int capacity = Math.max(16, expectedChunks);
+        this.spawnAllowed = new Long2BooleanOpenHashMap(capacity);
+        this.playersNear = new Long2ObjectOpenHashMap<>(capacity);
+    }
 
     /**
      * Records the answers of the chunks a spawn body of {@code chunkKey} can reach.

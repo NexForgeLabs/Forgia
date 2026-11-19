@@ -161,8 +161,10 @@ final class RegionEntityTickPolicy {
         // a stored non-ticking item absent from this batch's mutation membership. Keep every
         // potentially merging invocation on the publisher BEFORE either stack is modified;
         // do not clamp the query, skip the merge, widen discard permission, or replay a tick.
-        if (entity instanceof net.minecraft.world.entity.item.ItemEntity && (entity.tickCount + 1) % 2 == 0)
+        if (entity instanceof net.minecraft.world.entity.item.ItemEntity item && requiresItemMergeFence(item))
             return "item_merge_sync_fence";
+        if (entity instanceof net.minecraft.world.entity.item.PrimedTnt tnt && requiresPrimedTntExplosionFence(tnt))
+            return "primed_tnt_explode_fence";
         for (final Entity passenger : entity.getPassengers()) {
             final String passengerReason = this.reasonFor(passenger);
             if (passengerReason != null) {
@@ -170,6 +172,55 @@ final class RegionEntityTickPolicy {
             }
         }
         return null;
+    }
+
+    private static boolean requiresItemMergeFence(net.minecraft.world.entity.item.ItemEntity item) {
+        final int nextTick = item.tickCount + 1;
+        final net.minecraft.world.item.ItemStack stack = item.getItem();
+        if (stack == null) {
+            return nextTick % 2 == 0;
+        }
+        if (stack.isEmpty()
+                || (item.lifespan > 0 && item.getAge() + 1 >= item.lifespan)
+                || isBelowVoidFence(item)) {
+            return true;
+        }
+        if (nextTick % 2 != 0) {
+            return false;
+        }
+        if (stack.getCount() >= stack.getMaxStackSize()
+                || item.getAge() == -32768
+                || item.getAge() >= 6000) {
+            return false;
+        }
+        if (nextTick % 40 == 0) {
+            return true;
+        }
+        final net.minecraft.world.phys.Vec3 delta = item.getDeltaMovement();
+        final net.minecraft.world.phys.AABB box = item.getBoundingBox();
+        if ((nextTick + item.getId()) % 4 != 0
+                && item.onGround()
+                && !item.noPhysics
+                && !item.isInWater()
+                && !item.isInLava()
+                && delta != null
+                && delta.horizontalDistanceSqr() <= 1.0E-5F
+                && item.level() != null
+                && box != null
+                && item.level().noCollision(item, box.deflate(1.0E-7))) {
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean requiresPrimedTntExplosionFence(net.minecraft.world.entity.item.PrimedTnt tnt) {
+        return tnt.getFuse() <= 1 || isBelowVoidFence(tnt);
+    }
+
+    private static boolean isBelowVoidFence(Entity entity) {
+        final net.minecraft.world.level.Level level = entity.level();
+        return level != null && level.dimensionTypeRegistration() != null
+                && entity.getY() < (double) (level.getMinBuildHeight() - 60);
     }
 
     /**

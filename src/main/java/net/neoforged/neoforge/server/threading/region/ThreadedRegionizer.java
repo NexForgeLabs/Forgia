@@ -182,6 +182,20 @@ final class ThreadedRegionizer {
         if (this.writeLockOwner == Thread.currentThread()) {
             return this.getOrCreateForLevelLocked(coordinate);
         }
+        final long readStamp = this.regionLock.readLock();
+        try {
+            if (!this.closed) {
+                if (this.isLevelClosedLocked(coordinate.level())) {
+                    return null;
+                }
+                final RegionState existing = this.regions.get(coordinate);
+                if (existing != null) {
+                    return existing;
+                }
+            }
+        } finally {
+            this.regionLock.unlockRead(readStamp);
+        }
 
         final long stamp = this.acquireWriteLock();
         try {
