@@ -748,6 +748,12 @@ final class ThreadedRegionizer {
             this.removeIfEmptyLocked(region);
             return;
         }
+        // Fast path: every finishing worker group calls removeIfEmpty. When the region has no pending
+        // recalculation and still owns loaded sections, tracked entities, or queued tasks, it cannot
+        // be retired, so skip taking the global regionizer write lock.
+        if (!region.hasPendingRecalculation() && (!region.isEmpty() || this.hasTrackedEntities(region))) {
+            return;
+        }
 
         final long stamp = this.acquireWriteLock();
         try {

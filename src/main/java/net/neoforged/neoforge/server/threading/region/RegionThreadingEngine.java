@@ -3450,8 +3450,12 @@ public final class RegionThreadingEngine implements RegionThreading {
         final ChunkLoadAnswers chunkAnswers = this.chunkLoadAnswers(level);
         final Long2ByteMap chunkLoaded = chunkAnswers.answers;
         final Long2ByteMap neighborhoodLoaded = chunkAnswers.neighborhoodAnswers;
+        final boolean hasMailbox = this.mailboxes.containsKey(level);
         final List<RegionEntityTickActivation> activations = new ArrayList<>(regions.size());
         for (final RegionState region : regions) {
+            if (!hasMailbox && this.collectServerThreadOnlyRegion(batch, region)) {
+                continue;
+            }
             final RegionEntityTickActivation activation = RegionEntityTickActivation.activate(level, region, this.layout, chunkLoaded, neighborhoodLoaded);
             if (activation == null) {
                 // The region's chunk rectangle cannot be decided on the server thread: a region without a
@@ -3599,6 +3603,37 @@ public final class RegionThreadingEngine implements RegionThreading {
             batch.finish();
             this.activeTickBatches.remove(batch);
             batch.clearExecutingOnCurrentThread();
+        }
+        return true;
+    }
+
+    /**
+     * Collects a region whose ticking entities are all {@code serverThreadOnly} (such as players) directly
+     * into the server-thread fallback of {@code batch} without activating a chunk rectangle, leasing the
+     * region, or waking a worker thread only to hand the same entities back.
+     */
+    private boolean collectServerThreadOnlyRegion(RegionEntityTickBatch batch, RegionState region) {
+        final int ticking = region.tickingEntityCount();
+        if (ticking <= 0 || region.serverThreadOnlyEntityCount() != ticking) {
+            return false;
+        }
+        final List<RegionEntityTickEntry> entries = region.entityTickEntries();
+        for (int i = 0, size = entries.size(); i < size; ++i) {
+            final RegionEntityTickEntry entry = entries.get(i);
+            if (entry.ticking() && !entry.serverThreadOnly()) {
+                return false;
+            }
+        }
+        int added = 0;
+        for (int i = 0, size = entries.size(); i < size; ++i) {
+            final RegionEntityTickEntry entry = entries.get(i);
+            if (entry.ticking()) {
+                batch.addSelfDrivenFallback(entry.entity());
+                ++added;
+            }
+        }
+        if (added > 0) {
+            this.serverThreadOnlyEntityTicks.addAndGet(added);
         }
         return true;
     }
