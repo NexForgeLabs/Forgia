@@ -1791,16 +1791,11 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void beginLevelTick(ServerLevel level) {
-        this.levelTickPhaseState(level).beginGlobalPhase();
+        final LevelTickPhaseState state = this.levelTickPhaseState(level);
+        state.beginGlobalPhase();
         // Reconcile Folia-style dynamic region topology at the GLOBAL safe point (no workers in flight).
         if (this.layout.isDynamicCluster()) {
-            synchronized (this.admissionLock) {
-                if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                    final DynamicRegionTopology topology = this.dynamicTopology(level);
-                    final long tick = this.dynamicTopologyTicks.computeIfAbsent(level, ignored -> new AtomicLong()).incrementAndGet();
-                    topology.reconcile(tick);
-                }
-            }
+            this.reconcileDynamicTopologyAtSafePoint(level, state, true);
         }
         // The player list of the level is published once per tick, at the head of the tick and before any region
         // batch of it runs, so a worker answers a player lookup from an immutable view instead of walking the
@@ -1843,6 +1838,79 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.layout.dynamicSectionShift(),
                 DynamicRegionTopology.DEFAULT_MERGE_RADIUS,
                 this.layout.dynamicSplitDelayTicks()));
+    }
+
+    /**
+     * Reconciles the {@link DynamicRegionTopology} of {@code level} only at a quiescent global boundary.
+     * <p>
+     * Taking {@link #admissionLock} and {@link #regionWorkAdmission} prevents concurrent chunk-topology
+     * updates and prevents any concurrent batch publication or region-worker admission from observing a
+     * mid-transition topology. If a region phase, an already-submitted batch, or any running/owned/submitted
+     * worker for {@code level} is still in flight, reconciliation is deferred until the next quiescent
+     * safe point so no live worker can ever observe a mutated topology snapshot.
+     */
+    private void reconcileDynamicTopologyAtSafePoint(ServerLevel level, LevelTickPhaseState state, boolean advanceTick) {
+        synchronized (this.admissionLock) {
+            if (this.shutdown || this.regionizer.isLevelClosed(level)) {
+                return;
+            }
+            final DynamicRegionTopology topology = advanceTick
+                    ? this.dynamicTopology(level)
+                    : this.dynamicTopologies.get(level);
+            if (topology == null) {
+                return;
+            }
+            if (!advanceTick && !topology.hasPendingChanges()) {
+                return;
+            }
+            final AtomicLong tickCounter = advanceTick
+                    ? this.dynamicTopologyTicks.computeIfAbsent(level, ignored -> new AtomicLong())
+                    : this.dynamicTopologyTicks.get(level);
+            if (tickCounter == null) {
+                return;
+            }
+            synchronized (this.regionWorkAdmission) {
+                if (state.isRegionPhase() || this.hasInFlightDynamicTopologyObservers(level, !advanceTick)) {
+                    return;
+                }
+                final long tick = advanceTick ? tickCounter.incrementAndGet() : tickCounter.get();
+                topology.reconcile(tick);
+            }
+        }
+    }
+
+    /**
+     * {@return true when any batch or region worker of {@code level} can still observe the published dynamic
+     * topology snapshot}
+     * <p>
+     * Callers must hold {@link #regionWorkAdmission}.
+     */
+    private boolean hasInFlightDynamicTopologyObservers(ServerLevel level, boolean allowCurrentThreadUnstartedBatch) {
+        if (this.regionWorkAdmission.hasNoActiveClaims() && this.activeTickBatches.isEmpty()) {
+            return false;
+        }
+        boolean currentThreadHasUnstartedBatch = false;
+        for (final RegionTickBatch batch : this.activeTickBatches) {
+            if (batch.level() != level) {
+                continue;
+            }
+            if (!allowCurrentThreadUnstartedBatch || !batch.isExecutingOnCurrentThread() || batch.isSubmitted()) {
+                return true;
+            }
+            currentThreadHasUnstartedBatch = true;
+        }
+        for (final RegionState region : this.regionizer.regions()) {
+            if (region.coordinate().level() != level) {
+                continue;
+            }
+            if (region.hasOwner() || region.isWorkerSubmitted()) {
+                return true;
+            }
+            if (!currentThreadHasUnstartedBatch && region.isRunning()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -1939,13 +2007,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     public void beginRegionPhase(ServerLevel level) {
         final LevelTickPhaseState state = this.levelTickPhaseState(level);
         if (this.layout.isDynamicCluster() && !state.isRegionPhase()) {
-            synchronized (this.admissionLock) {
-                final DynamicRegionTopology topology = this.dynamicTopologies.get(level);
-                final AtomicLong tick = this.dynamicTopologyTicks.get(level);
-                if (!this.shutdown && topology != null && tick != null) {
-                    topology.reconcile(tick.get());
-                }
-            }
+            this.reconcileDynamicTopologyAtSafePoint(level, state, false);
         }
         state.beginRegionPhase();
     }

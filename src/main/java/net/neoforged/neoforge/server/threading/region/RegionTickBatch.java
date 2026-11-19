@@ -536,6 +536,13 @@ abstract class RegionTickBatch {
         return !this.externalWaveActive && (this.groupBarrier.isComplete() || this.externalWaves);
     }
 
+    /**
+     * {@return true once this batch has submitted its worker groups}
+     */
+    final synchronized boolean isSubmitted() {
+        return this.submitted;
+    }
+
     final void enableExternalWaves() {
         this.externalWaves = true;
     }

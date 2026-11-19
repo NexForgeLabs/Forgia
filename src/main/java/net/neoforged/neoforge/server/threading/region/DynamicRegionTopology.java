@@ -92,7 +92,7 @@ public final class DynamicRegionTopology {
     private final LongOpenHashSet bfsVisitedScratch = new LongOpenHashSet();
 
     private int nextRegionId = 1;
-    private long topologyVersion;
+    private volatile long topologyVersion;
     private long mergeCount;
     private long splitCount;
     private final LongAdder coalescedSubmissions = new LongAdder();
@@ -215,6 +215,12 @@ public final class DynamicRegionTopology {
         return true;
     }
 
+    boolean hasPendingChanges() {
+        return !this.pendingActivations.isEmpty()
+                || !this.newlyEmptiedSections.isEmpty()
+                || !this.pendingEmptySinceTick.isEmpty();
+    }
+
     /**
      * Applies pending section expirations/splits and activations/merges at the server-thread {@code GLOBAL}
      * safe point.
@@ -226,9 +232,7 @@ public final class DynamicRegionTopology {
      * @return summary of structural changes applied in this safe point
      */
     public ReconcileResult reconcile(long currentTick) {
-        if (this.pendingActivations.isEmpty()
-                && this.newlyEmptiedSections.isEmpty()
-                && this.pendingEmptySinceTick.isEmpty()) {
+        if (!this.hasPendingChanges()) {
             return ReconcileResult.UNCHANGED;
         }
 
