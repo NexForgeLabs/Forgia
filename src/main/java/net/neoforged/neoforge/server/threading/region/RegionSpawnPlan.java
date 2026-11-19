@@ -83,8 +83,8 @@ public final class RegionSpawnPlan {
     private final ParallelAdapterRuntime.PreparedSpawnPlan preparedPlan;
     /** Tick-scoped caches avoiding repeated chunk-map and player-distance scans across regions. */
     private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
-    private final it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap spawnAllowedCache = new it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap(256);
-    private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<List<net.minecraft.server.level.ServerPlayer>> playersNearCache = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(256);
+    /** Shared read-only neighborhood populated on the server thread before workers start. */
+    private final RegionSpawnNeighborhood sharedNeighborhood = new RegionSpawnNeighborhood(256);
     private boolean executed;
 
     RegionSpawnPlan(RegionThreadingEngine engine, ServerLevel level, RegionSpawnSource source, boolean spawnFriendlies,
@@ -247,8 +247,8 @@ public final class RegionSpawnPlan {
                 }
             };
         };
-        return RegionSpawnState.buildForPlan(this.source, region, entities, regionChunks, this.capCounter,
-                this::cachedSpawnAllowed, this::cachedPlayersNear);
+        return RegionSpawnState.buildForPlan(this.level, this.source, region, entities, regionChunks, this.capCounter,
+                this.sharedNeighborhood);
     }
 
     private boolean isLoadedChunkNeighborhoodCached(ChunkPos chunkPos) {
@@ -270,24 +270,6 @@ public final class RegionSpawnPlan {
             }
         }
         return true;
-    }
-
-    private boolean cachedSpawnAllowed(long chunkKey) {
-        if (this.spawnAllowedCache.containsKey(chunkKey)) {
-            return this.spawnAllowedCache.get(chunkKey);
-        }
-        final boolean allowed = this.level.isNaturalSpawningAllowed(new ChunkPos(chunkKey));
-        this.spawnAllowedCache.put(chunkKey, allowed);
-        return allowed;
-    }
-
-    private List<net.minecraft.server.level.ServerPlayer> cachedPlayersNear(long chunkKey) {
-        List<net.minecraft.server.level.ServerPlayer> players = this.playersNearCache.get(chunkKey);
-        if (players == null && !this.playersNearCache.containsKey(chunkKey)) {
-            players = this.source.playersNearForSpawning().apply(chunkKey);
-            this.playersNearCache.put(chunkKey, players);
-        }
-        return players;
     }
 
     /**

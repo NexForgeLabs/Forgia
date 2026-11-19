@@ -4796,6 +4796,18 @@ public final class RegionThreadingEngine implements RegionThreading {
         return RegionTickBatch.current() != null && this.workerPool.isWorkerThread(Thread.currentThread());
     }
 
+    /** Only ordinary entity batches service this result-bearing visual call. */
+    public <T> T sendParticlesFromWorker(ServerLevel level, Supplier<T> send) {
+        final var group = this.currentEntityTickGroup();
+        if (!RegionWorkerScope.isNativeWorkerThread() || group == null || group.level() != level
+                || RegionTickBatch.current() != group.batch() || level.getServer() == null
+                || RegionPlayerStateScope.hasThreadBinding()) {
+            throw RegionWorkerBoundaryException.networkBroadcast("ServerLevel.sendParticles",
+                    "Particle send requires a serviced entity tick batch");
+        }
+        return this.runOnServerThread(level, send);
+    }
+
     public long orderedSpawnTransactions() {
         return this.orderedSpawnTransactions.get();
     }
@@ -11319,6 +11331,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             return;
         }
         Throwable failure = null;
+        long lastChunkKey = Long.MIN_VALUE;
         for (final RegionDeferredEntitySectionUpdates.DeferredSectionUpdate update : updates) {
             final Entity entity = update.entity();
             if (entity.isRemoved() || entity.level() != level
@@ -11332,7 +11345,15 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // The callback itself proves installed storage, even if a mod cleared the lifecycle marker.
                 // Revalidate identity so an old callback cannot publish after detachment/replacement.
                 update.callback().onMove();
-                if (entity.isAddedToLevel()) level.getChunk(SectionPos.x(update.targetSection()), SectionPos.z(update.targetSection()));
+                if (entity.isAddedToLevel()) {
+                    final int chunkX = SectionPos.x(update.targetSection());
+                    final int chunkZ = SectionPos.z(update.targetSection());
+                    final long chunkKey = ChunkPos.asLong(chunkX, chunkZ);
+                    if (chunkKey != lastChunkKey) {
+                        level.getChunk(chunkX, chunkZ);
+                        lastChunkKey = chunkKey;
+                    }
+                }
                 this.appliedDeferredSectionUpdateCount.incrementAndGet();
             } catch (Throwable throwable) {
                 // The entry did not complete, so it is dropped and counted; the remaining entries still run
