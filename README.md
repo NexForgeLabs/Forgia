@@ -65,12 +65,15 @@ Forgia is not a finished Folia replacement. The honest list:
   contraptions, still run on the server thread.
 - **Cross-region game-event capture (sculk) is implemented and off by default.** The inline baseline with
   worker callbacks can reach foreign listeners; validate the target configuration explicitly.
-- **Players tick on the server thread.** Region membership, riding, teleport and dimension handoffs have
-  bounded tests; this does not establish multiplayer load certification.
-- **Long-run and multiplayer acceptance remain open.** Historical installed-server soaks and pack smoke tests
-  cover bounded workloads and older configurations; they do not certify an arbitrary C6 canary pack.
-- **Region size is static in the accepted fixed layout.** Load-adaptive splitting is unimplemented; continuous
-  region ticking was investigated and rejected under the current ordering contract.
+- **Players tick on the server thread by default; experimental player region ticks exist.** Region membership,
+  riding, teleport and dimension handoffs have bounded tests. Opt-in `enableRegionThreadingPlayerTicks` (P2–P5)
+  and the declared region worker payload API (`IRegionPayloadHandler`) dispatch admitted players on workers
+  (`3.97 ms` vs `4.24 ms` serial in the 32-player `n32-spread` benchmark), while undeclared mods fail closed to serial.
+- **Long-run and multiplayer acceptance remain open.** A 10-minute 32-fake-player soak (`FullParallelSoakGameTests`,
+  `DYNAMIC_CLUSTER`, 7 workers) achieved `0` ownership violations and lower P50 (`-7.1%`) and GC pause (`-48.8%`),
+  while mean/P95/P99 trailed serial due to coordination overhead and fallback rates; arbitrary C6 canary packs still require their own validation.
+- **Region size is static in the accepted fixed layout.** `DYNAMIC_CLUSTER` loaded-island coalescing is
+  available experimentally outside C6 scope; continuous region ticking was investigated and rejected under the current ordering contract.
 
 The full remaining plan is in [region-threading/STATUS.md](region-threading/STATUS.md#roadmap).
 The complete Forgia API inventory, including public types, method signatures, schedulers, operation handles,
@@ -93,21 +96,26 @@ whole-server performance or installed-modpack compatibility claim follows from t
 
 ## Documentation
 
-The curated documentation set lives in `docs/` and is maintained in **English and Chinese** pairs
+The curated documentation set lives in `docs/` (published on [GitHub Pages](https://nexforgelabs.github.io/Forgia/)) and is maintained in **English and Chinese** pairs
 (`*.en.md` / `*.zh.md`). The `region-threading/` directory remains the evidence archive (audits,
 acceptance runs, profiler records).
 
 | Start here | English | 中文 |
 |---|---|---|
+| Project site home / 站点首页 | [Home](docs/index.md) | [首页](docs/index.zh.md) |
+| Architecture: Stock vs. Forgia | [Architecture](docs/architecture.en.md) | [架构对比](docs/architecture.zh.md) |
+| Performance benchmarks | [Benchmarks](docs/benchmarks.en.md) | [性能基准](docs/benchmarks.zh.md) |
+| Engineering status & receipts | [Status](docs/status.en.md) | [工程状态](docs/status.zh.md) |
 | Documentation index / 文档索引 | [docs/README](docs/README.en.md) | [docs/README](docs/README.zh.md) |
 | Mod-facing API entry matrix | [API overview](docs/api/README.en.md) | [API 总览](docs/api/README.zh.md) |
 | `ParallelApi` service and preparation results | [ParallelApi](docs/api/parallel-api.en.md) | [ParallelApi](docs/api/parallel-api.zh.md) |
 | Natural-spawn preparation and claims | [Spawning](docs/api/natural-spawn-preparation.en.md) | [刷怪准备](docs/api/natural-spawn-preparation.zh.md) |
 | Block-entity tick admission (v1 + audited) | [BE ticks](docs/api/block-entity-ticks.en.md) | [BE tick](docs/api/block-entity-ticks.zh.md) |
+| Resource-scoped BE execution contract | [BE execution](docs/api/block-entity-execution.en.md) | [BE 执行契约](docs/api/block-entity-execution.zh.md) |
 | Cross-region two-owner operations | [BE operations](docs/api/block-entity-operations.en.md) | [BE 操作](docs/api/block-entity-operations.zh.md) |
 | Schedulers and entity interactions | [Schedulers](docs/api/schedulers-and-entity-interactions.en.md) | [调度器](docs/api/schedulers-and-entity-interactions.zh.md) |
 | Writing an adapter mod | [Adapter guide](docs/adapters/README.en.md) | [适配器指南](docs/adapters/README.zh.md) |
-| Create adapter 0.2.0 | [Create](docs/adapters/create-adapter.en.md) | [Create](docs/adapters/create-adapter.zh.md) |
+| Create adapter 0.3.0 | [Create](docs/adapters/create-adapter.en.md) | [Create](docs/adapters/create-adapter.zh.md) |
 | MobSpawnController adapter 0.3.0 | [MSC](docs/adapters/mobspawncontroller-adapter.en.md) | [MSC](docs/adapters/mobspawncontroller-adapter.zh.md) |
 | Module implementation notes | [Modules](docs/modules/README.en.md) | [模块](docs/modules/README.zh.md) |
 | Commands, metrics, configuration | [Observability](docs/modules/observability.en.md) | [观测与配置](docs/modules/observability.zh.md) |

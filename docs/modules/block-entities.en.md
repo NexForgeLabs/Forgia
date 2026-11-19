@@ -32,6 +32,7 @@ separately gated experimental features.
 | `FurnaceWorkPreparation` / `FurnaceWorkBatch` / `FurnaceWorkScope` | Burning-furnace wave preparation and execution |
 | `BlockEntityResourceOwnership` / `BlockEntityWorkPlanner` | Claims, non-blocking reservations, identity/alias conflicts, budgets |
 | `BlockEntityExecutionEngine` / `...Batch` | Ticket/permit binding, one-shot body start, join, effects |
+| `ExecutionBlockEntityPreparation` | Resource-scoped `BlockEntityExecutionAdapter` preparation, revision checks, and same-region wave grouping |
 | `AuditedBlockEntityPreparation` | Manifest verification, footprint checks, wave splitting |
 | `BlockEntityAdapterRegistry` / `BlockEntityAdapterPhase` | C5 conservative request protocol (serial fences) |
 | `RegionBlockEntityWorkGraph` / `RegionBlockEntityTickAttribution` | Observation graph and timing |
@@ -142,6 +143,8 @@ regionThreadingWorkerThreads = 4
 | Fresh footprint differs | Unstarted prefix refused |
 | Missing neighbour before start | Serial body selected |
 | Missing chunk after start | Reported failure, no retry |
+| Off-region capability / `BlockCapabilityCache` / attachment / `SavedData` access | `RegionWorkerBoundaryException` triggers fail-closed BE fallback to the server thread (`CapabilityListenerHolder` runs invalidation callbacks outside its lock) |
+| Worker visual/particle broadcast | Routed to the server thread via serviced publisher handoff preserving particle send results |
 | Shutdown/unload | Original physical completion boundary; tickets/leases released |
 | Operation callback throws | Completion-stage failure reported; other accepted requests drain |
 

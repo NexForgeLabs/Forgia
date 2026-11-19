@@ -14,7 +14,7 @@ default to `false`. `DYNAMIC_CLUSTER` is experimental and falls outside the C6 c
 | Owns | Does not own |
 |---|---|
 | Mapping chunks to regions, leases per region, batch scheduling and barriers | Chunk generation/IO parallelisation |
-| Handing each vanilla tick slice to region workers | Player tick execution (players stay on the server thread) |
+| Handing each vanilla tick slice to region workers | Default player tick execution (players stay on the server thread unless opt-in experimental `enableRegionThreadingPlayerTicks` is enabled) |
 | Ownership assertions for storage and global state | Structure/piston/contraption regionalisation |
 | Worker pool lifecycle and shutdown join | Module-specific admission (each slice has its own) |
 | Conflict policy, compatibility refusals, config capture | Guaranteeing throughput |

@@ -18,7 +18,8 @@ scope. All switches default off.
 | Entity interactions | Whole entity↔owner interactions with explicit outcomes | Moving the source's remaining tick |
 | Chunk-owner ops | Ticket-backed synchronous FULL-chunk owner operations | Asynchronous chunk loading/continuation |
 | Global state | Explicit global phase, bounded mailbox, fail-closed global writes | Arbitrary global writes from workers |
-| Players | One-region membership, bounded handoffs | Parallel player ticking |
+| Players | One-region membership, bounded handoffs, opt-in `enableRegionThreadingPlayerTicks` & `IRegionPayloadHandler` | Unverified mod player ticks or unapproved payloads (fail closed to MAIN) |
+| Worker boundary fallback | Server-thread routing for worker `PacketDistributor` and visual/particle broadcasts (preserving send results), player effects/triggers, and capability/`BlockCapabilityCache`/attachment/`SavedData` boundary guards (`CapabilityListenerHolder` runs invalidation callbacks outside its registry lock) | Arbitrary cross-region mutable writes on workers |
 
 ## 2. Class map
 

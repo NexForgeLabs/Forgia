@@ -17,7 +17,8 @@
 | 实体交互 | 带明确结果的完整实体↔owner 交互 | 搬移 source 剩余 tick |
 | Chunk owner 操作 | ticket 支持的同步 FULL-chunk owner 操作 | 异步 chunk 加载/续跑 |
 | 全局状态 | 显式全局阶段、有界 mailbox、全局写入 fail-closed | worker 任意全局写入 |
-| 玩家 | 单区域成员、有界交接 | 并行玩家 tick |
+| 玩家 | 单区域成员、有界交接、可选开启的 `enableRegionThreadingPlayerTicks` 与 `IRegionPayloadHandler` | 未声明模组的玩家 tick 或未批准载荷（fail-closed 回退 MAIN） |
+| Worker 边界回退 | Worker 侧 `PacketDistributor` 与视觉/粒子广播（保留发送结果）、玩家效果/触发器以及 capability/`BlockCapabilityCache`/attachment/`SavedData` 边界守卫的主线程路由（`CapabilityListenerHolder` 在注册表锁外执行失效回调） | Worker 上的任意跨区可变写入 |
 
 ## 2. 类地图
 

@@ -13,7 +13,7 @@ C6 认证覆盖固定布局、4 个 worker 和文档列出的开关。所有开�
 | 拥有 | 不拥有 |
 |---|---|
 | chunk→region 映射、每区域 lease、批次调度与屏障 | chunk 生成/IO 并行 |
-| 把每个原版 tick 切片交给 region worker | 玩家 tick 执行（玩家留在服务器线程） |
+| 把每个原版 tick 切片交给 region worker | 默认玩家 tick 执行（除非显式开启实验性 `enableRegionThreadingPlayerTicks`，否则玩家留在服务器线程） |
 | 存储与全局状态的所有权断言 | 结构/活塞/移动装置区域化 |
 | worker 池生命周期与停机 join | 各切片自己的准入 |
 | 冲突策略、兼容拒绝、配置捕获 | 吞吐量保证 |

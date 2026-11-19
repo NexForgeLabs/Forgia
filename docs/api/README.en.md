@@ -18,6 +18,8 @@ per-contract pages linked from the matrix below.
 | Prepare natural-spawn data / claim a spawn restriction | `RegisterParallelAdaptersEvent.registrar()` | `ParallelApi.Registrar` | Event fires; native serial path does not run your preparation |
 | Read your snapshot inside the spawn body | `ParallelApi.prepared(key)` | `DataKey<S>`, `SpawnUnit` | Usually empty |
 | Admit an audited original BE ticker | same registrar | `BlockEntityTickAdapter`, `AuditedBlockEntityTickAdapter` | Native serial; registration never enables a slice |
+| Admit a resource-scoped BE execution adapter | same registrar | `BlockEntityExecutionAdapter` | Native serial; see [BE execution](block-entity-execution.en.md) |
+| Declare a region-safe server PLAY payload handler | `PayloadRegistrar.playToServerRegion(...)` | `IRegionPayloadHandler`, `IRegionPayloadContext` | Runs on MAIN when player region ticks are off or rejected |
 | Whole two-owner BE operation / bounded container transfer | `api.blockEntities()` | `BlockEntityOperations` | Executes immediately when the server is quiescent; other contexts rejected |
 | Scheduled-tick counters and latency | `api.scheduledTicks()` | `ScheduledTickStatus` | Empty list |
 | Run a task on a position's region | `RegionThreadingManager.get()` → `regionScheduler()` | `RegionScheduler` | Manager empty; no replacement executor |

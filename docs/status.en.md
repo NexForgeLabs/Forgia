@@ -7,15 +7,15 @@ fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured tic
 means the same build with region threading disabled. These are not new C6/canary performance results;
 the accepted optional-service profile uses its separately recorded G1/compressed-pointer configuration.
 
-`.107` 通用扩展另提供 [Audited original-tick API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md)：
-显式安装的受审计 adapter 通过同一 registrar 提供实现/分支/资源合同，核心不保存 Mod 类名或专用兼容逻辑。
-[Create 0.2.0](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md) 是首个消费者，范围为稳态传动/离合器/动力转向器；
-原始 C5 request-only 接口仍保持完整 serial fence。结果和未覆盖项见[本轮方案](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)。
-这条新路线是明确的 trusted-adapter 合同，不将类指纹表述为自动语义证明。
+The `.107` generic extension also provides the [Audited original-tick API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md):
+explicitly installed, audited adapters provide implementation, branch, and resource contracts through the same registrar, while core stores no mod class names or mod-specific compatibility logic.
+[Create 0.2.0](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md) is the first consumer, scoped to steady-state transmissions, clutches, and gearshifts;
+the original C5 request-only interface still retains a full serial fence. Results and uncovered items are in [the optimization plan](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md).
+This route is an explicit trusted-adapter contract and does not present class fingerprinting as an automatic semantic proof.
 
 ## 10-Minute 32-Fake-Player Full-Parallel vs. Vanilla Serial Soak (`FullParallelSoakGameTests`)
 
-A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](../tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) under seed `4242424242`:
+A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) under seed `4242424242`:
 
 - **Forgia Full Parallel (`DYNAMIC_CLUSTER`, 7 Workers, all switches ON)**: `11,873` ticks, `19.79 TPS`, P50 `10.78 ms`, Mean `13.20 ms`, P95 `27.75 ms`, P99 `45.75 ms`, Max `1026.41 ms`, GC `52 / 914 ms`, final heap `1,278 MiB`, `entityTicksOnWorkers = 102,920`, **`ownershipViolations = 0`**.
 - **Vanilla Serial (`Bridge = false`)**: `11,859` ticks, `19.76 TPS`, P50 `11.61 ms`, Mean `12.37 ms`, P95 `25.03 ms`, P99 `37.78 ms`, Max `1110.14 ms`, GC `63 / 1,786 ms`, final heap `1,543 MiB`.
@@ -47,7 +47,7 @@ GameTests per profile, and actual stopped-server Level GC certification for both
 GameTest run passes; Persistent attempts retain13/15and14/15results with chunk-load/timeout prerequisites.
 A later unmonitored6000tick soak also fails a live-bat region mapping invariant; its timing is excluded from
 passing comparisons. This leaves the current mixed-world correctness gate open. Complete commands, actual
-exits, source identities, measurements and failed evidence are bound in the [session receipt](PERFORMANCE-SESSION-RECEIPT.json).
+exits, source identities, measurements and failed evidence are bound in the [session receipt](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-SESSION-RECEIPT.json).
 
 [Generation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-GENERATION-PARALLELISM-AUDIT.md), [loading](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-LOADING-PARALLELISM-AUDIT.md) and
 [player execution](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PLAYER-WORKER-EXECUTION-AUDIT.md) have explicit safety matrices/boundaries. No new generation,
@@ -64,7 +64,7 @@ cover the first controlled deployment. A fresh fetch leaves `origin/main` at
 `a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1`. All1955 certified production files match fingerprint
 `f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787`;123 C6 and372 lifecycle evidence
 references verify locally, and both optional runtime artifact pins match. The
-[machine re-audit](PRODUCTION-READINESS-AUDIT.json) records these checks without claiming new runtime tests.
+[machine re-audit](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-READINESS-AUDIT.json) records these checks without claiming new runtime tests.
 
 The matrix covers all24 TOML keys (16 default-false switches), compiled budgets, native-service restrictions,
 proof/fence gates and retirement/recovery. Fixed and Persistent templates preserve the exact C6 values;
@@ -78,7 +78,7 @@ authority and admission are unchanged. No deployment, C7 or new Worker-enabled A
 
 This is a separate result from the frozen C6 acceptance below. The
 [lifecycle report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.md),
-[machine receipt](LIFECYCLE-CERTIFICATION-2026-11-15.json) and
+[machine receipt](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.json) and
 [ownership/transition audit](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-AUDIT.md) record:
 
 - **Real-Level GC: CERTIFIED** with the existing Fixed and Persistent pools. Both use the original Mod
@@ -106,7 +106,7 @@ second Worker Adapter, compatibility expansion or C7 occurred.
 `C6 FINAL ARCHITECTURE ACCEPTANCE: PASS`
 
 The [final acceptance report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) and
-[machine receipt](C6-FINAL-ACCEPTANCE-2026-11-15.json) record both complete profiles on clean `main`
+[machine receipt](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json) record both complete profiles on clean `main`
 at source HEAD `afa7e4bc781257a756a3d0f6040cc64eebc84d62`. Persistent finished before Fixed started;
 both naturally completed saving, reports and server shutdown. Actual Gradle and server exits are0 for each.
 
@@ -149,7 +149,7 @@ foreign-writer paths and failure cleanup followed by fresh Worker execution with
 multi-batch pilot also checks original Ticket/Claims/Lease identity and retirement, but was aborted before
 its final batch completed and is not a full pass. The latest boundary fixes a separately reproduced nested
 callback bypass and freezes exact Core BlockPos storage instead of watching all coordinate reads. Its
-component controls do not substitute for a renewed real-Mod run. See the [machine receipt](MOD-WORKER-RUNTIME-CHECKPOINT.json)
+component controls do not substitute for a renewed real-Mod run. See the [machine receipt](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOD-WORKER-RUNTIME-CHECKPOINT.json)
 for source/result hashes, real exits and earlier-candidate boundaries.
 
 **This is an implementation checkpoint, not completed C6 architecture acceptance.** Remaining work includes
@@ -418,12 +418,12 @@ are separate from the historical measurements in the opening paragraph and table
 36resource-on/off pairs and two independent long-window reverse-order repeats. Resource-on increased
 mean MSPT in35/36short-matrix pairs; both long repeats also regressed, so admission expansion and
 default-on use remain unsupported. Full native tick values, CPU/GC/phase counters and equivalence checks
-are in [the server performance record](BLOCK-ENTITY-RESOURCE-SERVER-AB-PROFILE.json).
+are in [the server performance record](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-SERVER-AB-PROFILE.json).
 The [`.59` allocation and validation-cost follow-up](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-HOT-PATH-REDUCTION.md) retains
 all current-operation validation and reduces proof-table construction with immutable arrays and packed
 identity tables. Two independent build pairs with2/64/256furnaces and4workers lower real allocation
 and mean MSPT relative to resource-on `.58`; defaults and BE admission remain unchanged. See
-[complete cost data](BLOCK-ENTITY-RESOURCE-HOT-PATH-PROFILE.json), including controls and independent repeats.
+[complete cost data](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-HOT-PATH-PROFILE.json), including controls and independent repeats.
 The [mixed-workload validation](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-MIXED-VALIDATION.md) completed16accepted installed
 server processes,94windows and separate30-minute ON/OFF checks on the frozen`.59`binary. Supported
 furnace bodies coexist with conservative serial BE fences, world/entity ticks and legal dynamic changes;
@@ -431,7 +431,7 @@ full state/work checks pass. Resource-on regresses mean/p95 in3/4short independe
 increases mean18.8%,p9534.2% and allocation82.5%. Connected Hopper pipelines remain serial where fenced.
 This bounded validation strengthens correctness evidence within the audited scope; it does not support
 default-on use, arbitrary callback safety or BE admission expansion. Complete records are in the
-[mixed workload profile](BLOCK-ENTITY-RESOURCE-MIXED-PROFILE.json), separate from the historical full-region soak below.
+[mixed workload profile](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-MIXED-PROFILE.json), separate from the historical full-region soak below.
 The [`.60` cost-attribution follow-up](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-COST-ATTRIBUTION.md) first traces fresh catalog,
 Claims/Binding and planning/reservation costs, then shares immutable same-phase local descriptions and
 cleared scratch capacity. It retains current validators, one-shot leases, lifecycle/Region checks, default-off
@@ -440,7 +440,7 @@ increment from3.54–3.61to2.28–2.30MB/s (35.1–36.6%). Mean/p95 improve in o
 fence control regresses in latency. The10-minute ON/OFF check increases mean16.9%,p9551.9%,p99146.3%
 and allocation51.2%, so stable full-tick latency benefit is not established. Core1230,fixed121,persistent121,
 actual unknown-Mixin1 and Python19pass; mixed/dynamic/pipeline regressions are retained, including an
-explicit one-body route difference after asynchronous unload/reload. See [full data](BLOCK-ENTITY-RESOURCE-COST-PROFILE.json).
+explicit one-body route difference after asynchronous unload/reload. See [full data](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-COST-PROFILE.json).
 
 ## Slices
 

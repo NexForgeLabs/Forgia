@@ -62,6 +62,7 @@ nav:
       - Adapters: adapters/README.en.md
       - Engine internals: modules/README.en.md
   - 中文:
+      - 首页: index.zh.md
       - 项目文档: README.zh.md
       - 项目状态: status.zh.md
       - API: api/README.zh.md

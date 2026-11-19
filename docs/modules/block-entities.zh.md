@@ -31,6 +31,7 @@
 | `FurnaceWorkPreparation` / `FurnaceWorkBatch` / `FurnaceWorkScope` | 已燃烧熔炉波次准备与执行 |
 | `BlockEntityResourceOwnership` / `BlockEntityWorkPlanner` | claim、非阻塞预留、身份/别名冲突、预算 |
 | `BlockEntityExecutionEngine` / `...Batch` | ticket/permit 绑定、一次性正文启动、join、效果 |
+| `ExecutionBlockEntityPreparation` | 资源作用域 `BlockEntityExecutionAdapter` 准备、修订号校验与同区域波次分组 |
 | `AuditedBlockEntityPreparation` | 清单校验、足迹检查、波次拆分 |
 | `BlockEntityAdapterRegistry` / `BlockEntityAdapterPhase` | C5 保守申请协议（串行 fence） |
 | `RegionBlockEntityWorkGraph` / `RegionBlockEntityTickAttribution` | 观察图与计时 |
@@ -140,6 +141,8 @@ regionThreadingWorkerThreads = 4
 | 新鲜足迹不同 | 拒绝未开始前缀 |
 | 开始前邻居缺失 | 选择串行正文 |
 | 开始后缺 chunk | 报告失败，不重试 |
+| 跨区域 capability / `BlockCapabilityCache` / attachment / `SavedData` 访问 | `RegionWorkerBoundaryException` 触发 fail-closed BE 回退到主线程（`CapabilityListenerHolder` 在锁外运行失效回调） |
+| Worker 视觉/粒子广播 | 通过服务端发布器交接路由回主线程执行，并保留粒子发送结果 |
 | 停机/卸载 | 原物理完成边界；释放 ticket/lease |
 | 操作回调抛异常 | 完成阶段失败报告；其他已受理请求继续排空 |
 

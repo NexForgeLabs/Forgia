@@ -14,7 +14,7 @@
 
 ## 10 分钟 32 Fake Player 全并行 vs 原版串行耐久测试（`FullParallelSoakGameTests`）
 
-使用 [`FullParallelSoakGameTests.java`](../tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) 在同一种子（`4242424242`）下完成了 600 秒对照：
+使用 [`FullParallelSoakGameTests.java`](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) 在同一种子（`4242424242`）下完成了 600 秒对照：
 
 - **Forgia 全并行（`DYNAMIC_CLUSTER`，7 Workers，全开关开启）**：`11,873` ticks，`19.79 TPS`，P50 `10.78 ms`、Mean `13.20 ms`、P95 `27.75 ms`、P99 `45.75 ms`、Max `1026.41 ms`，GC `52 次 / 914 ms`，结束堆 `1,278 MiB`，`entityTicksOnWorkers = 102,920`，**`ownershipViolations = 0`**。
 - **原版串行（`Bridge = false`）**：`11,859` ticks，`19.76 TPS`，P50 `11.61 ms`、Mean `12.37 ms`、P95 `25.03 ms`、P99 `37.78 ms`、Max `1110.14 ms`，GC `63 次 / 1,786 ms`，结束堆 `1,543 MiB`。
@@ -43,7 +43,7 @@
 以及两者实际停服 Level GC 认证。选定的 15 批次 Fixed GameTest 通过；Persistent 尝试保留 13/15 与 14/15
 结果（chunk 加载/超时前置条件）。稍后一次未监控的 6000 tick soak 也未通过一条 live-bat 区域映射不变量；
 其计时被排除在通过性比较之外。这使当前混合世界正确性门仍处于开启状态。完整命令、真实退出码、源码身份、
-测量与失败证据都绑定在[会话回执](PERFORMANCE-SESSION-RECEIPT.json)中。
+测量与失败证据都绑定在[会话回执](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-SESSION-RECEIPT.json)中。
 
 [生成](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-GENERATION-PARALLELISM-AUDIT.md)、[加载](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-LOADING-PARALLELISM-AUDIT.md) 与
 [玩家执行](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PLAYER-WORKER-EXECUTION-AUDIT.md) 都有明确的安全矩阵/边界。没有声明新的生成、重建或玩家 tick 准入。
@@ -58,7 +58,7 @@ Ticket/资源权限、效果队列或 Mod 热卸载支持。
 覆盖首次受控部署。一次全新 fetch 使 `origin/main` 停在
 `a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1`。全部 1955 个已认证生产文件匹配指纹
 `f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787`；123 个 C6 与 372 个生命周期证据
-引用在本地校验通过，两个可选运行时产物 pin 也匹配。[机器复审](PRODUCTION-READINESS-AUDIT.json)
+引用在本地校验通过，两个可选运行时产物 pin 也匹配。[机器复审](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-READINESS-AUDIT.json)
 记录这些检查，但不声明新的运行时测试。
 
 矩阵覆盖全部 24 个 TOML 键（16 个默认 false 的开关）、编译期预算、原生服务限制、proof/fence 门与
@@ -70,7 +70,7 @@ C6/生命周期证书与生产默认值、权限和准入不变。未发生部�
 ## 生命周期认证 —— 真实 Level GC 已认证；运行时 Mod 热卸载未认证
 
 这是与下方冻结 C6 验收分开的结果。[生命周期报告](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.md)、
-[机器回执](LIFECYCLE-CERTIFICATION-2026-11-15.json) 与 [所有权/转换审计](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-AUDIT.md) 记录：
+[机器回执](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-CERTIFICATION-2026-11-15.json) 与 [所有权/转换审计](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/LIFECYCLE-AUDIT.md) 记录：
 
 - **真实 Level GC：已认证**，使用现有 Fixed 与 Persistent 池。两者都走原始 Mod Worker 路径和正常
   服务器 Level 卸载/关闭/停机。全部 28 个被跟踪引用（包括三个实际 Level）清除并入队；四次实际回收
@@ -92,7 +92,7 @@ profile。原始预启动、编译、完整性拒绝与失败 GC 证据仍保留
 
 `C6 FINAL ARCHITECTURE ACCEPTANCE: PASS`
 
-[最终验收报告](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) 与 [机器回执](C6-FINAL-ACCEPTANCE-2026-11-15.json)
+[最终验收报告](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md) 与 [机器回执](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.json)
 记录了两个完整 profile：干净 `main`、源码 HEAD `afa7e4bc781257a756a3d0f6040cc64eebc84d62`。
 Persistent 在 Fixed 开始前完成；两者都自然完成保存、报告与服务器关闭。各自实际 Gradle 与服务器退出码为 0。
 
@@ -130,7 +130,7 @@ bootstrap/JVMTI 服务与仓库自有的 opt-in 测试工具。实际安装的�
 不重放的新 Worker 执行。后续多批次试点还检查原始 Ticket/Claims/Lease 身份与退役，但在最后批次完成前
 被中止，不构成完整通过。最新边界修复了一个可单独复现的嵌套回调绕过，并冻结精确 Core BlockPos 存储，
 而不是监视所有坐标读取。其组件控制不能替代一次新的真实 Mod 运行。源码/结果哈希、真实退出码与早期候选
-边界见[机器回执](MOD-WORKER-RUNTIME-CHECKPOINT.json)。
+边界见[机器回执](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOD-WORKER-RUNTIME-CHECKPOINT.json)。
 
 **这是实现检查点，不是已完成的 C6 架构验收。** 剩余工作包括最终 revision 的 Mod 重测、排队/释放/卸载/
 重绑/别名用例、弱 owner 生命周期控制、两个完整未过滤 GameTest profile 与最终 Mod 架构验收。现有默认开关、
@@ -351,23 +351,23 @@ READ/WRITE claims、非阻塞波次预留与从属于现有 Region 排除的一�
 2 GiB G1 堆、资源开/关且两者都启用 waves，以及 1/2/4/8 workers；这些定义与开篇段落及下方表格中的历史
 测量分开。它完成 36 对资源开/关与两次独立长窗口反向顺序重复。资源开启在 35/36 短矩阵对中提高平均 MSPT；
 两次长重复也都回归，因此准入扩张与默认开启仍不受支持。完整 native tick 值、CPU/GC/阶段计数与等价检查在
-[服务器性能记录](BLOCK-ENTITY-RESOURCE-SERVER-AB-PROFILE.json)中。
+[服务器性能记录](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-SERVER-AB-PROFILE.json)中。
 [`.59` 分配与验证成本续作](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-HOT-PATH-REDUCTION.md) 保留全部当前操作验证，并用不可变
 数组与打包身份表减少 proof 表构建。两个独立构建对，2/64/256 熔炉与 4 workers，相对 resource-on `.58`
-降低真实分配与平均 MSPT；默认值与 BE 准入不变。见[完整成本数据](BLOCK-ENTITY-RESOURCE-HOT-PATH-PROFILE.json)，
+降低真实分配与平均 MSPT；默认值与 BE 准入不变。见[完整成本数据](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-HOT-PATH-PROFILE.json)，
 包括对照与独立重复。[混合负载验证](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-MIXED-VALIDATION.md) 在冻结 `.59` 二进制上完成
 16 个已验收已安装服务器进程、94 个窗口与独立的 30 分钟开/关检查。受支持熔炉正文与保守串行 BE fence、
 世界/实体 tick 与合法动态变化共存；完整状态/工作检查通过。资源开启在 3/4 短独立对中使 mean/p95 回归；
 长对使 mean 增加 18.8%、p95 增加 34.2%、分配增加 82.5%。被 fence 的连通 Hopper 管线仍串行。
 这个有界验证在已审计范围内加强正确性证据；它不支持默认开启、任意回调安全或 BE 准入扩张。完整记录在
-[混合负载 profile](BLOCK-ENTITY-RESOURCE-MIXED-PROFILE.json)，与下方历史整区 soak 分开。
+[混合负载 profile](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-MIXED-PROFILE.json)，与下方历史整区 soak 分开。
 [`.60` 成本归因续作](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-COST-ATTRIBUTION.md) 先追踪新鲜 catalog、Claims/Binding 与
 规划/预留成本，再共享同阶段不可变本地描述并复用已清空的 scratch 容量。它保留当前 validator、一次性 lease、
 生命周期/Region 检查、默认关闭与相同 BE 准入。四个反向独立构建/条件对把资源分配增量从 3.54–3.61 降到
 2.28–2.30 MB/s（35.1–36.6%）。mean/p95 只在 1/4 构建对中改善；八波 fence 控制的延迟回归。10 分钟开/关
 检查使 mean 增加 16.9%、p95 增加 51.9%、p99 增加 146.3%、分配增加 51.2%，因此没有建立稳定的整 tick
 延迟收益。Core 1230、fixed 121、persistent 121、实际 unknown-Mixin 1 与 Python 19 通过；混合/动态/管线
-回归保留，包括异步卸载/重载后一个明确的单正文路由差异。见[完整数据](BLOCK-ENTITY-RESOURCE-COST-PROFILE.json)。
+回归保留，包括异步卸载/重载后一个明确的单正文路由差异。见[完整数据](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-RESOURCE-COST-PROFILE.json)。
 
 ## 切片
 

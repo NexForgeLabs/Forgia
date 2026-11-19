@@ -6,7 +6,7 @@
     <div class="hero-actions">
       <a class="action-primary" href="architecture.en/">Architecture vs. Stock <span>↗</span></a>
       <a class="action-secondary" href="benchmarks.en/">Performance Data <span>↗</span></a>
-      <a class="action-secondary" href="architecture.zh/">中文对比 <span>↗</span></a>
+      <a class="action-secondary" href="index.zh/">中文首页 <span>↗</span></a>
     </div>
     <p class="hero-footnote"><span class="status-dot"></span> C6 Certified Scope (Fixed Layout) <span class="hero-footnote-divider">·</span> Default-OFF Experimental Switches</p>
   </div>

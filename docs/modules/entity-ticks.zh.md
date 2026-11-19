@@ -12,7 +12,7 @@
 
 | 拥有 | 不拥有 |
 |---|---|
-| 按区域分区的实体存储与 tick 批次 | 玩家 tick（服务器线程） |
+| 按区域分区的实体存储与 tick 批次 | 默认玩家 tick（除非开启实验性 `enableRegionThreadingPlayerTicks`，否则留在服务器线程） |
 | identity ledger、transfer journal、延迟加/删/section 更新 | 实体 AI 实现或模组回调 |
 | region 作用域实体查询回答（index、bucket、玩家快照） | chunk 加载 |
 | 每实体归因与查询计数 | 保证模组 tick 正文安全 |

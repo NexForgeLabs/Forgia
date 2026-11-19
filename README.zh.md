@@ -57,10 +57,14 @@ Forgia 不是完成态的 Folia 替代品。诚实的清单：
 - **结构不感知区域。** 跨边界移动方块的活塞与 Create 式移动装置仍在服务器线程运行。
 - **跨区 game-event 捕获（sculk）已实现且默认关闭。** 带 worker 回调的 inline 基线可能触达外部监听器；
   请显式验证目标配置。
-- **玩家在服务器线程 tick。** 区域成员、骑乘、传送与维度交接有有界测试；这不构成多人负载认证。
-- **长跑与多人验收仍未完成。** 历史已安装服务器 soak 与整合包 smoke 覆盖有界负载与较旧配置；
-  它们不认证任意 C6 canary 整合包。
-- **已验收固定布局中区域尺寸是静态的。** 负载自适应拆分未实现；连续区域 tick 在现有顺序合同下已被调查并否定。
+- **玩家默认在服务器线程 tick；实验性玩家区域 tick 已实现。** 区域成员、骑乘、传送与维度交接已有有界测试；
+  可通过 `enableRegionThreadingPlayerTicks`（P2–P5）与声明式区域 Worker 载荷 API（`IRegionPayloadHandler`）
+  在 Worker 上执行已准入玩家（32 玩家 `n32-spread` 实测 `3.97 ms` 对串行 `4.24 ms`），未声明模组 fail-closed 回退主线程。
+- **长跑与多人验收仍未完成。** 10 分钟 32 假人全并行耐久测试（`FullParallelSoakGameTests`，`DYNAMIC_CLUSTER`，7 Workers）
+  实现 `0` 次所有权违规，且 P50（`-7.1%`）与 GC 耗时（`-48.8%`）优于原版串行，但轻载均值与长尾仍受协调与回退开销影响；
+  任意 C6 canary 整合包仍需独立验证。
+- **已验收固定布局中区域尺寸是静态的。** 实验性 `DYNAMIC_CLUSTER` 加载岛屿聚合调度已可在 C6 范围外启用；
+  连续区域 tick 在现有顺序合同下已被调查并否定。
 
 完整剩余计划见 [region-threading/STATUS.zh.md](region-threading/STATUS.zh.md#路线图)。
 完整 Forgia API 清单（公开类型、方法签名、调度器、操作句柄、兼容声明与配置字段）见
@@ -79,20 +83,25 @@ Forgia 不是完成态的 Folia 替代品。诚实的清单：
 
 ## 文档
 
-受维护文档集位于 `docs/`，以**中英成对**（`*.en.md` / `*.zh.md`）维护。`region-threading/` 目录保留为
+受维护文档集位于 `docs/`（已发布至 [GitHub Pages](https://nexforgelabs.github.io/Forgia/)），以**中英成对**（`*.en.md` / `*.zh.md`）维护。`region-threading/` 目录保留为
 证据档案（审计、验收运行、profiler 记录）。
 
 | 从这里开始 | English | 中文 |
 |---|---|---|
+| 站点首页 / Home | [Home](docs/index.md) | [首页](docs/index.zh.md) |
+| 架构对比：原版 vs Forgia | [Architecture](docs/architecture.en.md) | [架构对比](docs/architecture.zh.md) |
+| 实测性能基准 | [Benchmarks](docs/benchmarks.en.md) | [性能基准](docs/benchmarks.zh.md) |
+| 工程状态与测试回执 | [Status](docs/status.en.md) | [工程状态](docs/status.zh.md) |
 | 文档索引 | [docs/README](docs/README.en.md) | [docs/README](docs/README.zh.md) |
 | 面向模组的 API 入口矩阵 | [API overview](docs/api/README.en.md) | [API 总览](docs/api/README.zh.md) |
 | `ParallelApi` 服务与准备结果 | [ParallelApi](docs/api/parallel-api.en.md) | [ParallelApi](docs/api/parallel-api.zh.md) |
 | 刷怪准备与 claim | [Spawning](docs/api/natural-spawn-preparation.en.md) | [刷怪准备](docs/api/natural-spawn-preparation.zh.md) |
 | 方块实体 tick 准入（v1 + 受审计） | [BE ticks](docs/api/block-entity-ticks.en.md) | [BE tick](docs/api/block-entity-ticks.zh.md) |
+| 资源作用域 BE 执行契约 | [BE execution](docs/api/block-entity-execution.en.md) | [BE 执行契约](docs/api/block-entity-execution.zh.md) |
 | 跨区双 owner 操作 | [BE operations](docs/api/block-entity-operations.en.md) | [BE 操作](docs/api/block-entity-operations.zh.md) |
 | 调度器与实体交互 | [Schedulers](docs/api/schedulers-and-entity-interactions.en.md) | [调度器](docs/api/schedulers-and-entity-interactions.zh.md) |
 | 编写适配器模组 | [Adapter guide](docs/adapters/README.en.md) | [适配器指南](docs/adapters/README.zh.md) |
-| Create 适配器 0.2.0 | [Create](docs/adapters/create-adapter.en.md) | [Create](docs/adapters/create-adapter.zh.md) |
+| Create 适配器 0.3.0 | [Create](docs/adapters/create-adapter.en.md) | [Create](docs/adapters/create-adapter.zh.md) |
 | MobSpawnController 适配器 0.3.0 | [MSC](docs/adapters/mobspawncontroller-adapter.en.md) | [MSC](docs/adapters/mobspawncontroller-adapter.zh.md) |
 | 模块实现说明 | [Modules](docs/modules/README.en.md) | [模块](docs/modules/README.zh.md) |
 | 命令、指标、配置 | [Observability](docs/modules/observability.en.md) | [观测与配置](docs/modules/observability.zh.md) |

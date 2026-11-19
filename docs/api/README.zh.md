@@ -17,6 +17,8 @@
 | 准备刷怪数据 / 接管某项刷怪限制 | `RegisterParallelAdaptersEvent.registrar()` | `ParallelApi.Registrar` | 事件仍触发；原生串行路径不执行你的准备 |
 | 在刷怪正文内读取快照 | `ParallelApi.prepared(key)` | `DataKey<S>`、`SpawnUnit` | 通常为空 |
 | 让受审计的原 BE ticker 准入 | 同一 registrar | `BlockEntityTickAdapter`、`AuditedBlockEntityTickAdapter` | 原生串行；注册永不启用切片 |
+| 注册资源作用域 BE 执行适配器 | 同一 registrar | `BlockEntityExecutionAdapter` | 原生串行；见 [BE 执行契约](block-entity-execution.zh.md) |
+| 声明区域安全服务端 PLAY 载荷处理器 | `PayloadRegistrar.playToServerRegion(...)` | `IRegionPayloadHandler`、`IRegionPayloadContext` | 玩家区域 tick 关闭或被拒时回退到 MAIN 执行 |
 | 完整双 owner BE 操作 / 有界容器搬运 | `api.blockEntities()` | `BlockEntityOperations` | 静止服务器线程立即执行，其他上下文拒绝 |
 | scheduled tick 计数与延迟 | `api.scheduledTicks()` | `ScheduledTickStatus` | 空列表 |
 | 在位置所属 region 上运行任务 | `RegionThreadingManager.get()` → `regionScheduler()` | `RegionScheduler` | Manager 为空；不提供替代 executor |

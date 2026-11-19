@@ -12,7 +12,7 @@ Status: **Certified within C6 scope** (`enableRegionThreadingEntityTicks`). Off 
 
 | Owns | Does not own |
 |---|---|
-| Region-partitioned entity storage and tick batches | Player ticks (server thread) |
+| Region-partitioned entity storage and tick batches | Default player ticks (server thread unless opt-in experimental `enableRegionThreadingPlayerTicks` is enabled) |
 | Identity ledger, transfer journal, deferred add/remove/section updates | Entity AI implementations or mod callbacks |
 | Region-scoped entity query answers (index, buckets, player snapshot) | Chunk loading |
 | Per-entity attribution and query counters | Guaranteeing mod tick body safety |
