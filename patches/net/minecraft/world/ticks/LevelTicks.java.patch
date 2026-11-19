@@ -100,7 +100,7 @@
          profilerfiller.popPush("cleanup");
          this.cleanupAfterTick();
          profilerfiller.pop();
-@@ -181,22 +_,75 @@
+@@ -181,22 +_,79 @@
      }
  
      private void runCollectedTicks(BiConsumer<BlockPos, T> p_193273_) {
@@ -122,7 +122,7 @@
 +        // the predicate set here, where the inline loop publishes them lazily from its own queue. Every collected
 +        // tick stays in the set until its own callback is about to run, so willTickThisTick answers true for a
 +        // tick of this tick that has not run yet and false for one that already ran, exactly like the inline loop.
-+        final List<ScheduledTick<T>> collected = List.copyOf(this.toRunThisTick);
++        final List<ScheduledTick<T>> collected = this.toRunThisTick.isEmpty() ? List.of() : List.copyOf(this.toRunThisTick);
 +        if (!dispatcher.canDispatch(collected)) {
 +            // Preflight refused the complete phase before any callback. Keep the original live queue:
 +            // clearArea and copyArea invoked by a serial callback must still see the remaining ticks.
@@ -131,6 +131,10 @@
 +                    this.runCollectedTick(inlineCallback);
 +                }
 +            }, fallbackCallback);
++            return;
++        }
++        if (collected.isEmpty()) {
++            dispatcher.runCollected(collected, callback, fallbackCallback, this::beginCollectedTick);
 +            return;
 +        }
 +        this.toRunThisTick.clear();

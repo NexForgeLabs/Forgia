@@ -322,4 +322,28 @@ class RegionScheduledTickAdmissionTest {
         assertEquals(0L, this.engine.scheduledTickStatus().getFirst().serialCompletions());
         assertEquals(0, this.engine.diagnostics().runningRegionCount());
     }
+
+    @Test
+    void emptyPhaseSkipsTickSetAndPreparationTimingAndBatchesSerialFallbackCounts() {
+        final RegionRedstoneWorld world = this.world();
+        this.install();
+        this.run(world, 1L, (pos, block) -> {
+            throw new AssertionError("empty phase must not invoke callback");
+        });
+        final var emptyStatus = this.engine.scheduledTickStatus().getFirst();
+        assertEquals(1L, emptyStatus.phases());
+        assertEquals(0L, emptyStatus.collected());
+        assertEquals(0L, emptyStatus.admitted());
+        assertEquals(0L, emptyStatus.timings().preparationNanos());
+        assertEquals(0L, this.engine.diagnostics().fallbackScheduledTicks());
+
+        world.blockTicks.schedule(new ScheduledTick<>(Blocks.STONE, FIRST, 2L, 0L));
+        world.blockTicks.schedule(new ScheduledTick<>(Blocks.STONE, SECOND, 2L, 1L));
+        this.run(world, 2L, (pos, block) -> assertFalse(RegionThreadingHooks.isNativeRegionWorkerThread()));
+        final var fallbackStatus = this.engine.scheduledTickStatus().getFirst();
+        assertEquals(2L, fallbackStatus.phases());
+        assertEquals(2L, fallbackStatus.collected());
+        assertEquals(2L, fallbackStatus.serialCompletions());
+        assertEquals(2L, this.engine.diagnostics().fallbackScheduledTicks());
+    }
 }

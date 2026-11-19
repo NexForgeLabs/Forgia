@@ -128,11 +128,14 @@ public final class RegionBlockEntityTickPlan {
         this.canonicalSequence = true;
         this.canonicalTickers = List.copyOf(this.level.snapshotBlockEntityTickers());
         final boolean runsNormally = this.level.tickRateManager().runsNormally();
-        final List<TickingBlockEntity> removed = new ArrayList<>();
+        List<TickingBlockEntity> removed = null;
         try {
             for (int ordinal = 0; ordinal < this.canonicalTickers.size(); ++ordinal) {
                 final TickingBlockEntity ticker = this.canonicalTickers.get(ordinal);
                 if (ticker.isRemoved()) {
+                    if (removed == null) {
+                        removed = new ArrayList<>();
+                    }
                     removed.add(ticker);
                     continue;
                 }
@@ -169,7 +172,9 @@ public final class RegionBlockEntityTickPlan {
                         && this.level.shouldTickBlocksAt(position) && this.level.areEntitiesLoaded(key));
             }
         } finally {
-            this.level.removeCollectedBlockEntityTickers(removed);
+            if (removed != null) {
+                this.level.removeCollectedBlockEntityTickers(removed);
+            }
         }
     }
 

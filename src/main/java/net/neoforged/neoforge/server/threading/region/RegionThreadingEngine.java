@@ -3738,46 +3738,52 @@ public final class RegionThreadingEngine implements RegionThreading {
             private int count;
             private int serialStarted;
 
+            private boolean begun;
+
             private void begin(List<ScheduledTick<T>> ticks) {
-                this.start = System.nanoTime();
+                this.begun = true;
                 this.count = ticks.size();
+                this.start = this.count > 0 ? System.nanoTime() : 0L;
                 this.serialStarted = 0;
                 metrics.phases.increment();
-                metrics.collected.add(this.count);
+                if (this.count > 0) metrics.collected.add(this.count);
             }
 
             @Override
             public boolean canDispatch(List<ScheduledTick<T>> ticks) {
                 this.begin(ticks);
+                if (ticks.isEmpty()) return true;
                 final long preparation = System.nanoTime();
                 final ScheduledTickStatus.SerialReason reason;
-                if (ticks.isEmpty()) reason = null;
-                else if (level.getProfiler() != InactiveProfiler.INSTANCE) reason = ScheduledTickStatus.SerialReason.PROFILER_ACTIVE;
+                if (level.getProfiler() != InactiveProfiler.INSTANCE) reason = ScheduledTickStatus.SerialReason.PROFILER_ACTIVE;
                 else if (RegionThreadingEngine.this.unclassifiedWorkerCallbacksForTesting) reason = null;
                 else reason = RegionScheduledTickAdmission.refusal(level, RegionThreadingEngine.this.layout, phase, ticks,
                         RegionThreadingEngine.this.deferredBlockUpdateBudget / RegionTickSlice.SCHEDULED_TICK.reservationPerUnit());
                 metrics.preparationNanos.add(System.nanoTime() - preparation);
                 if (reason != null) metrics.refused(reason);
-                if (reason == null && !ticks.isEmpty()) metrics.admitted.add(ticks.size());
+                else metrics.admitted.add(this.count);
                 return reason == null;
             }
 
             @Override
             public void runInline(Consumer<BiConsumer<BlockPos, T>> runner, BiConsumer<BlockPos, T> callback) {
+                final int[] completed = { 0 };
                 try {
                     runner.accept((position, type) -> {
                         ++this.serialStarted;
-                        RegionThreadingEngine.this.fallbackScheduledTicks.incrementAndGet();
                         try {
                             callback.accept(position, type);
-                            metrics.serial.increment();
+                            ++completed[0];
                         } catch (Throwable failure) {
                             metrics.failures.increment();
                             throw failure;
                         }
                     });
                 } finally {
-                    metrics.skipped.add(Math.max(0, this.count - this.serialStarted));
+                    if (this.serialStarted > 0) RegionThreadingEngine.this.fallbackScheduledTicks.addAndGet(this.serialStarted);
+                    if (completed[0] > 0) metrics.serial.add(completed[0]);
+                    final int skipped = Math.max(0, this.count - this.serialStarted);
+                    if (skipped > 0) metrics.skipped.add(skipped);
                     if (this.count > 0) metrics.recordPhase(System.nanoTime() - this.start);
                 }
             }
@@ -3785,10 +3791,11 @@ public final class RegionThreadingEngine implements RegionThreading {
             @Override
             public void runCollected(List<ScheduledTick<T>> ticks, BiConsumer<BlockPos, T> callback,
                     BiConsumer<BlockPos, T> fallbackCallback, Consumer<ScheduledTick<T>> beginTick) {
-                if (this.start == 0L) {
+                if (!this.begun) {
                     this.begin(ticks);
-                    metrics.admitted.add(ticks.size());
+                    if (this.count > 0) metrics.admitted.add(this.count);
                 }
+                if (ticks.isEmpty()) return;
                 try {
                     RegionThreadingEngine.this.tickScheduledTicks(level, phase, ticks, callback, fallbackCallback, beginTick, barrier);
                 } finally {
@@ -7012,6 +7019,8 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
+    private static final Inspection SERIAL_FENCE_INSPECTION = Inspection.serialFence();
+
     private void tickCanonicalBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier) {
         this.enterCanonicalBoundary(level, barrier);
         RegionBlockEntityTickBatch batch = null;
@@ -7023,7 +7032,8 @@ public final class RegionThreadingEngine implements RegionThreading {
         final long resourcePhaseStart = furnaces && this.blockEntityResourcesEnabled ? System.nanoTime() : 0L;
         final int[] furnaceCandidates = { 0 };
         final long[] furnacePreparationNanos = { 0L };
-        final Set<RegionBlockEntityTickAdmission> counted = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        final Set<RegionBlockEntityTickAdmission> counted = furnaces ? java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()) : null;
+        final boolean[] hadWorkerPrefix = { false };
         Throwable failure = null;
         try {
             batch = new RegionBlockEntityTickBatch(level, this.deferredBlockUpdateBudget, chunks,
@@ -7049,8 +7059,21 @@ public final class RegionThreadingEngine implements RegionThreading {
                 graph = this.blockEntityWorkGraph.begin(level, chunks);
                 batch.setWorkGraph(graph);
                 final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
-                for (final var chunk : chunks) ordered.addAll(chunk.admissions());
-                ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
+                boolean orderedMonotonic = true;
+                long lastSeq = -1L;
+                for (int c = 0; c < chunks.size(); ++c) {
+                    final List<RegionBlockEntityTickAdmission> admissions = chunks.get(c).admissions();
+                    for (int a = 0; a < admissions.size(); ++a) {
+                        final RegionBlockEntityTickAdmission adm = admissions.get(a);
+                        final long seq = adm.sequence();
+                        if (seq <= lastSeq) orderedMonotonic = false;
+                        lastSeq = seq;
+                        ordered.add(adm);
+                    }
+                }
+                if (!orderedMonotonic) {
+                    ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
+                }
                 final var phase = batch;
                 final var sample = graph;
                 final var general = adapters;
@@ -7071,6 +7094,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     // Only share the read-only lookahead of one still-unexecuted contiguous prefix.
                     // Every execution/Serial Fence below discards it; the existing held-region fresh
                     // preparation, whole-phase alias check and reservation still run before any body.
+                    private boolean lookaheadDirty;
                     private FurnaceWorkPreparation furnaceLookahead;
                     private Set<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceAliases;
                     private java.util.IdentityHashMap<Object, Access> executionRoots;
@@ -7081,6 +7105,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                     private List<AuditedBlockEntityPreparation.Candidate> auditedNativeCandidates;
 
                     private void discardLookahead() {
+                        if (!this.lookaheadDirty) return;
+                        this.lookaheadDirty = false;
                         this.furnaceLookahead = null;
                         this.furnaceAliases = null;
                         this.executionRoots = null;
@@ -7098,7 +7124,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                         // Unknown C5 closure proofs refuse through this same phase's kernel. Do not
                         // invoke adapters during lookahead: inspect and body belong to this Serial Fence.
                         if (general != null && general.handles(admission)) return null;
-                        final var executionBinding = ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission);
+                        final var executionBinding = admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
+                                ? ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission)
+                                : null;
                         if (executionBinding != null && executionBinding.adapter() instanceof BlockEntityExecutionAdapter) {
                             final var manifest = executionAdapters.prepare(admission);
                             if (manifest == null) return null;
@@ -7110,6 +7138,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                             final var ticket = phase.execution().reinspectUnstarted(admission, inspection);
                             phase.execution().proveExecution(admission, manifest, claims);
                             if (descriptor.mode() == Mode.REGION_OWNER) phase.execution().enableInvocationEffects(ticket);
+                            this.lookaheadDirty = true;
                             return new ExecutionInvocation(admission, inspection, manifest, claims);
                         }
                         if (modRuntime) {
@@ -7125,11 +7154,13 @@ public final class RegionThreadingEngine implements RegionThreading {
                                 final var inspection = new Inspection(descriptor, Resources.MOD_CLAIMS, Outcome.CANDIDATE);
                                 phase.execution().reinspectUnstarted(admission, inspection);
                                 phase.execution().proveMod(admission, manifest, claims);
+                                this.lookaheadDirty = true;
                                 return new ModInvocation(admission, inspection, manifest, claims);
                             }
                         }
                         if (furnaces && LevelChunk.furnaceWorkSource(admission.ticker()) != null) {
                             final long started = System.nanoTime();
+                            this.lookaheadDirty = true;
                             if (this.furnaceLookahead == null) {
                                 this.furnaceLookahead = new FurnaceWorkPreparation(level, layout, resources != null);
                             }
@@ -7166,6 +7197,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         if (region == null || region.isDead()) return null;
                         final var ticket = phase.execution().reinspectUnstarted(admission, inspection);
                         phase.execution().enableInvocationEffects(ticket);
+                        this.lookaheadDirty = true;
                         return new NativeInvocation(admission, inspection, proof, region);
                     }
 
@@ -7179,6 +7211,7 @@ public final class RegionThreadingEngine implements RegionThreading {
 
                     @Override
                     public boolean mayAppend(List<CanonicalBlockEntityCoordinator.Unit> prefix, CanonicalBlockEntityCoordinator.Unit next) {
+                        this.lookaheadDirty = true;
                         if (prefix.getFirst() instanceof ExecutionInvocation first) {
                             if (!(next instanceof ExecutionInvocation candidate)
                                     || first.inspection().descriptor().mode() != candidate.inspection().descriptor().mode())
@@ -7261,6 +7294,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     @Override
                     public int executePrefix(List<CanonicalBlockEntityCoordinator.Unit> prefix) {
                         this.discardLookahead();
+                        hadWorkerPrefix[0] = true;
                         if (prefix.getFirst() instanceof ExecutionInvocation)
                             return executeCanonicalExecutionPrefix(phase, prefix, sample, barrier);
                         if (prefix.getFirst() instanceof ModInvocation)
@@ -7274,7 +7308,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     public void serial(int index) {
                         this.discardLookahead();
                         final var admission = ordered.get(index);
-                        phase.execution().reinspectUnstarted(admission, Inspection.serialFence());
+                        phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
                         if (furnaces) furnaceWorkMetrics.serial();
                         fallbackBlockEntityTicks.incrementAndGet();
                         tickBlockEntitySerial(phase, admission, sample, general);
@@ -7289,7 +7323,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // All prefix tasks have physically joined before their helpers return or throw.
                 failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(phase, Long.MAX_VALUE));
                 failure = runBatchCompletion(failure, () -> this.releaseCanonicalNativeRegions(phase));
-                if (published) {
+                if (published && hadWorkerPrefix[0]) {
                     failure = runBatchCompletion(failure, () -> this.drainGlobalMessages(level));
                     failure = runBatchCompletion(failure, () -> RegionPoiStorages.publishLevel(level));
                 }

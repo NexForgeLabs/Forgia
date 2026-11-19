@@ -45,6 +45,8 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
     private volatile boolean open = true;
     private boolean orderedEffects;
 
+    private boolean hasEffects;
+
     /** Transport policy only; the original Ticket/Permit remains the sole execution authority. */
     void orderedEffects(boolean enabled) {
         this.requireCoordinator();
@@ -71,10 +73,16 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         if (permit == null || permit.guard == null || !permit.ticket.ownsEffects) return false;
         permit.requireCurrent();
         final var ticket = permit.ticket;
-        if (ticket.effects.size() >= RegionTickSlice.BLOCK_ENTITY_TICK.reservationPerUnit())
+        List<OwnedEffect> effects = ticket.effects;
+        if (effects == null) {
+            effects = new ArrayList<>(2);
+            ticket.effects = effects;
+        }
+        if (effects.size() >= RegionTickSlice.BLOCK_ENTITY_TICK.reservationPerUnit())
             throw new IllegalStateException("Audited invocation exceeded its continuation bound; never replay the body");
-        ticket.effects.add(new OwnedEffect(ticket, ticket.generation, ticket.nextEffect++, EffectKind.INVOCATION_SERVER_TASK,
+        effects.add(new OwnedEffect(ticket, ticket.generation, ticket.nextEffect++, EffectKind.INVOCATION_SERVER_TASK,
                 java.util.Objects.requireNonNull(action)));
+        ticket.phase.hasEffects = true;
         return true;
     }
 
@@ -82,21 +90,29 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
     List<OwnedEffect> takeInvocationEffects(long beforeOrdinal) {
         this.requireCoordinator();
         if (this.active.get() != 0 || !this.guards.isEmpty()) throw new IllegalStateException("Effects extracted before workers returned");
+        if (!this.hasEffects) return List.of();
         final var ordered = new ArrayList<>(this.tickets.values());
         ordered.sort(Comparator.comparingLong(t -> t.admission.sequence()));
         final List<OwnedEffect> ready = new ArrayList<>();
+        boolean remaining = false;
         for (final var ticket : ordered) {
-            if (ticket.admission.sequence() >= beforeOrdinal || ticket.effects.isEmpty()) continue;
+            final List<OwnedEffect> effects = ticket.effects;
+            if (effects == null || effects.isEmpty()) continue;
+            if (ticket.admission.sequence() >= beforeOrdinal) {
+                remaining = true;
+                continue;
+            }
             if (ticket.state != State.SUCCEEDED && ticket.state != State.FAILED)
                 throw new IllegalStateException("Unfinished invocation has effects");
-            for (final var effect : ticket.effects) {
+            for (final var effect : effects) {
                 if (effect.invocation != ticket || effect.generation != ticket.generation)
                     throw new IllegalStateException("Effect inherited a foreign or stale proof");
                 ready.add(effect);
             }
             // Retire before calling any payload. A failed commit cannot replay an already applied effect.
-            ticket.effects.clear();
+            effects.clear();
         }
+        this.hasEffects = remaining;
         return ready;
     }
 
@@ -195,7 +211,8 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         this.requireCoordinator();
         final var ticket = this.ticket(admission);
         synchronized (ticket) {
-            if ((ticket.state != State.CAPTURED && ticket.state != State.INSPECTED) || !ticket.effects.isEmpty())
+            if ((ticket.state != State.CAPTURED && ticket.state != State.INSPECTED)
+                    || (ticket.effects != null && !ticket.effects.isEmpty()))
                 throw new IllegalStateException("Cannot refresh started, terminal or effect-bearing invocation");
             ticket.inspection = inspection;
             ++ticket.generation;
@@ -382,6 +399,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         this.requireCoordinator();
         if (this.active.get() != 0 || !this.guards.isEmpty()) throw new IllegalStateException("Cannot retire active execution authority");
         this.open = false;
+        this.hasEffects = false;
         for (final var ticket : this.tickets.values()) {
             synchronized (ticket) {
                 if (ticket.state == State.CAPTURED || ticket.state == State.INSPECTED) ticket.state = State.CANCELLED;
@@ -389,7 +407,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                 ticket.modManifest = null;
                 ticket.executionManifest = null;
                 ticket.modClaims = null;
-                ticket.effects.clear();
+                if (ticket.effects != null) ticket.effects.clear();
             }
         }
         this.tickets.clear();
@@ -420,7 +438,8 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         private long generation;
         private boolean ownsEffects;
         private int nextEffect;
-        private final List<OwnedEffect> effects = new ArrayList<>();
+        @Nullable
+        private List<OwnedEffect> effects;
         @Nullable
         private Inspection inspection;
 
