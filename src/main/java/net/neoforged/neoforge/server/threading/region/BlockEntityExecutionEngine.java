@@ -39,7 +39,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
     private final Thread coordinator = Thread.currentThread();
     private final BooleanSupplier live;
     private final Function<BlockPos, RegionState> home;
-    private final Map<TickingBlockEntity, InvocationTicket> tickets = new IdentityHashMap<>();
+    private final Map<TickingBlockEntity, InvocationTicket> tickets;
     private final Set<RegionGuard> guards = ConcurrentHashMap.newKeySet();
     private final AtomicInteger active = new AtomicInteger();
     private volatile boolean open = true;
@@ -173,7 +173,9 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         this.level = level;
         this.live = live;
         this.home = home;
-        for (final var admission : admissions) {
+        this.tickets = new IdentityHashMap<>(Math.max(16, admissions.size()));
+        for (int i = 0, size = admissions.size(); i < size; ++i) {
+            final var admission = admissions.get(i);
             if (admission.level() != level || this.tickets.put(admission.ticker(), new InvocationTicket(this, admission)) != null)
                 throw new IllegalArgumentException("Duplicate ticker or foreign level in block-entity phase");
         }
@@ -188,7 +190,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         if (!this.open) throw new IllegalStateException("Block-entity execution phase is closed");
     }
 
-    synchronized InvocationTicket ticket(RegionBlockEntityTickAdmission admission) {
+    InvocationTicket ticket(RegionBlockEntityTickAdmission admission) {
         this.requireOpen();
         final var ticket = this.tickets.get(admission.ticker());
         if (ticket == null || ticket.admission != admission) throw new IllegalStateException("Foreign block-entity invocation");

@@ -2642,6 +2642,35 @@ class RegionSelfDrivenEntityTickTest {
         assertEquals(0, this.engine.diagnostics().runningRegionCount());
     }
 
+    @Test
+    void playerOnlyRegionShortCircuitsOnServerThreadWithoutWorkerDispatch() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final ServerPlayer player = this.entity(ServerPlayer.class, level, new AtomicReference<>(new BlockPos(1, 64, 1)));
+        when(player.isAlwaysTicking()).thenReturn(true);
+        final List<Thread> tickThreads = new CopyOnWriteArrayList<>();
+        doAnswer(invocation -> {
+            tickThreads.add(Thread.currentThread());
+            return null;
+        }).when(player).tick();
+        this.tickList.add(player);
+
+        this.plan(level).executeAndAwait();
+        final long writeLocksAfterSeed = this.engine.diagnostics().regionizerWriteLockAcquisitions();
+        this.plan(level).executeAndAwait();
+
+        verify(player, times(2)).tick();
+        assertEquals(List.of(Thread.currentThread(), Thread.currentThread()), tickThreads,
+                "a player-only region must tick its player on the server thread");
+        assertEquals(0L, this.engine.diagnostics().entityTickRegionsOnWorkers(),
+                "a player-only region without mailbox work must not dispatch an empty worker region task");
+        assertEquals(0L, this.engine.diagnostics().entityTickRegionsWithoutEligibleChunk());
+        assertEquals(2L, this.engine.diagnostics().serverThreadOnlyEntityTicks());
+        assertEquals(2L, this.engine.diagnostics().fallbackEntityTicks());
+        assertEquals(writeLocksAfterSeed, this.engine.diagnostics().regionizerWriteLockAcquisitions(),
+                "a steady non-empty player region must not acquire the regionizer write lock during tick cleanup");
+    }
+
     private RegionEntityTickPlan plan(ServerLevel level) {
         final RegionEntityTickPlan plan = this.engine.beginEntityTickPlan(level, entity -> true, PARKING_BARRIER);
         assertNotNull(plan, "the entity tick worker slice must be enabled");
