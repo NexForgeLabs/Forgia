@@ -1655,6 +1655,69 @@ public final class RegionThreadingHooks {
     }
 
     /**
+     * Routes a worker-initiated network broadcast or packet distribution (such as {@code PacketDistributor}
+     * or {@code ServerChunkCache#broadcast}) onto the server thread.
+     * <p>
+     * Broadcasts read {@code ChunkMap.entityMap}, {@code ChunkMap.getPlayers} or {@code PlayerList.players},
+     * which are server-thread-owned tracking structures. When invoked from a native region worker outside a
+     * restricted resource/furnace scope, the broadcast is queued onto the active batch's post-barrier
+     * server-thread queue (or {@link MinecraftServer#execute(Runnable)}), keeping the mod's entity or
+     * block-entity tick parallel without racing {@code ChunkMap}.
+     *
+     * @return {@code true} when the broadcast was queued for the server thread and the caller must return
+     */
+    public static boolean deferWorkerNetworkBroadcast(@Nullable ServerLevel level, @Nullable MinecraftServer server, String operation, Runnable broadcastAction) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return false;
+        }
+        try {
+            BlockEntityResourceOwnership.Scope.rejectEffect("network broadcast: " + operation);
+            FurnaceWorkScope.rejectEffect("network broadcast: " + operation);
+            if (net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding()) {
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.playerState(
+                        operation, "Player local-state scope cannot perform uncaptured network broadcast: " + operation);
+            }
+        } catch (IllegalStateException ex) {
+            if (ex instanceof net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException boundary) {
+                throw boundary;
+            }
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.networkBroadcast(
+                    operation, ex.getMessage());
+        }
+        RegionBlockEntityWorkGraph.opaqueEffect();
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            if (engine.queueServerTaskInCurrentBatch(broadcastAction)) {
+                return true;
+            }
+        }
+        final MinecraftServer targetServer = server != null ? server : (level != null ? level.getServer() : null);
+        if (targetServer != null) {
+            targetServer.execute(broadcastAction);
+            return true;
+        }
+        throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.networkBroadcast(
+                operation,
+                "Native region worker attempted network broadcast (" + operation + ") without an active batch or server");
+    }
+
+    /**
+     * Guards {@link net.minecraft.server.level.ChunkMap#getPlayersWatching(Entity)} on a native region worker.
+     * <p>
+     * Unlike fire-and-forget broadcasts, {@code getPlayersWatching} synchronously returns a live player list
+     * from {@code ChunkMap.entityMap}, which cannot be deferred. Throwing
+     * {@link net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException} allows the engine
+     * to safely fall the calling entity or block-entity type back to the server thread.
+     */
+    public static void assertChunkMapTrackingRead(String operation) {
+        if (RegionWorkerScope.isNativeWorkerThread()) {
+            throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.networkBroadcast(
+                    operation,
+                    "Native region worker attempted synchronous ChunkMap tracking read (" + operation + ")");
+        }
+    }
+
+    /**
      * {@return true when a region execution context is running on the current thread and that context
      * holds the lease of the region containing {@code pos}}
      * <p>

@@ -80,7 +80,7 @@
              EntityType<?> entitytype = p_140200_.getType();
              int i = entitytype.clientTrackingRange() * 16;
              if (i != 0) {
-@@ -1197,6 +1210,46 @@
+@@ -1197,6 +1210,47 @@
                  chunkholder.addSendDependency(this.lightEngine.waitForPendingTasks(p_300775_.x, p_300775_.z));
              }
          });
@@ -88,6 +88,7 @@
 +
 +    // Neo: Getter for players watching an entity.
 +    public List<ServerPlayer> getPlayersWatching(Entity entity) {
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertChunkMapTrackingRead("ChunkMap.getPlayersWatching");
 +        var trackedEntity = entityMap.get(entity.getId());
 +        if (trackedEntity != null) {
 +            var ret = new java.util.ArrayList<ServerPlayer>(trackedEntity.seenBy.size());

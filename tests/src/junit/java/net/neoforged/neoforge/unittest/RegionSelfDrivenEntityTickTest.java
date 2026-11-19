@@ -938,6 +938,72 @@ class RegionSelfDrivenEntityTickTest {
     }
 
     @Test
+    void packetDistributorFromWorkerEntityTickDefersToServerThreadWhileChunkMapTrackingReadDemotes() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final Thread serverThread = Thread.currentThread();
+        final net.minecraft.world.entity.monster.Witch packetMob = this.entity(
+                net.minecraft.world.entity.monster.Witch.class, level, new AtomicReference<>(new BlockPos(17, 64, 17)));
+        final net.minecraft.world.entity.monster.Pillager watcherReadMob = this.entity(
+                net.minecraft.world.entity.monster.Pillager.class, level, new AtomicReference<>(new BlockPos(100, 64, 17)));
+
+        final net.minecraft.network.protocol.common.custom.CustomPacketPayload dummyPayload =
+                new net.minecraft.network.protocol.common.custom.CustomPacketPayload() {
+                    private static final Type<net.minecraft.network.protocol.common.custom.CustomPacketPayload> TYPE =
+                            new Type<>(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("forgia", "test_packet"));
+
+                    @Override
+                    public Type<? extends net.minecraft.network.protocol.common.custom.CustomPacketPayload> type() {
+                        return TYPE;
+                    }
+                };
+
+        final List<Thread> packetMobThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> broadcastThreads = new CopyOnWriteArrayList<>();
+        final List<Thread> watcherReadThreads = new CopyOnWriteArrayList<>();
+
+        final ServerChunkCache chunkSource = level.getChunkSource();
+        doAnswer(call -> {
+            broadcastThreads.add(Thread.currentThread());
+            return null;
+        }).when(chunkSource).broadcast(org.mockito.ArgumentMatchers.eq(packetMob), any(net.minecraft.network.protocol.Packet.class));
+
+        doAnswer(call -> {
+            packetMobThreads.add(Thread.currentThread());
+            net.neoforged.neoforge.network.PacketDistributor.sendToPlayersTrackingEntity(packetMob, dummyPayload);
+            return null;
+        }).when(packetMob).tick();
+
+        doAnswer(call -> {
+            watcherReadThreads.add(Thread.currentThread());
+            RegionThreadingHooks.assertChunkMapTrackingRead("ChunkMap.getPlayersWatching");
+            return null;
+        }).when(watcherReadMob).tick();
+
+        this.tickList.add(packetMob);
+        this.tickList.add(watcherReadMob);
+
+        // Tick 1: packetMob stays parallel on a worker and its PacketDistributor call executes on the server thread;
+        // watcherReadMob hits the synchronous ChunkMap tracking read boundary and demotes its class.
+        this.plan(level).executeAndAwait();
+        assertEquals(1, packetMobThreads.size());
+        assertTrue(packetMobThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(List.of(serverThread), broadcastThreads);
+        assertEquals(1, watcherReadThreads.size());
+        assertTrue(watcherReadThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(1L, this.engine.boundaryFallbackEntityTickCount());
+
+        // Tick 2: packetMob continues on a worker while watcherReadMob runs on the server thread.
+        this.plan(level).executeAndAwait();
+        assertEquals(2, packetMobThreads.size());
+        assertTrue(packetMobThreads.get(1).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(List.of(serverThread, serverThread), broadcastThreads);
+        assertEquals(2, watcherReadThreads.size());
+        assertEquals(serverThread, watcherReadThreads.get(1));
+        assertEquals(1L, this.engine.boundaryFallbackEntityTickCount());
+    }
+
+    @Test
     void failedQueuedAttackIsReportedAfterTheOtherAcceptedAttackRuns() {
         this.installEngine();
         final ServerLevel level = this.mockLevel();

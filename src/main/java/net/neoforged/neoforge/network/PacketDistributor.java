@@ -48,14 +48,29 @@ public final class PacketDistributor {
      * Send the given payload(s) to the given player
      */
     public static void sendToPlayer(ServerPlayer player, CustomPacketPayload payload, CustomPacketPayload... payloads) {
-        player.connection.send(makeClientboundPacket(payload, payloads));
+        Packet<?> packet = makeClientboundPacket(payload, payloads);
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
+            ServerLevel level = player.level() instanceof ServerLevel sl ? sl : null;
+            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                    level, player.server, "PacketDistributor.sendToPlayer", () -> player.connection.send(packet))) {
+                return;
+            }
+        }
+        player.connection.send(packet);
     }
 
     /**
      * Send the given payload(s) to all players in the given dimension
      */
     public static void sendToPlayersInDimension(ServerLevel level, CustomPacketPayload payload, CustomPacketPayload... payloads) {
-        level.getServer().getPlayerList().broadcastAll(makeClientboundPacket(payload, payloads), level.dimension());
+        Packet<?> packet = makeClientboundPacket(payload, payloads);
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                        level, level.getServer(), "PacketDistributor.sendToPlayersInDimension",
+                        () -> level.getServer().getPlayerList().broadcastAll(packet, level.dimension()))) {
+            return;
+        }
+        level.getServer().getPlayerList().broadcastAll(packet, level.dimension());
     }
 
     /**
@@ -72,6 +87,12 @@ public final class PacketDistributor {
             CustomPacketPayload payload,
             CustomPacketPayload... payloads) {
         Packet<?> packet = makeClientboundPacket(payload, payloads);
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                        level, level.getServer(), "PacketDistributor.sendToPlayersNear",
+                        () -> level.getServer().getPlayerList().broadcast(excluded, x, y, z, radius, level.dimension(), packet))) {
+            return;
+        }
         level.getServer().getPlayerList().broadcast(excluded, x, y, z, radius, level.dimension(), packet);
     }
 
@@ -80,7 +101,14 @@ public final class PacketDistributor {
      */
     public static void sendToAllPlayers(CustomPacketPayload payload, CustomPacketPayload... payloads) {
         MinecraftServer server = Objects.requireNonNull(ServerLifecycleHooks.getCurrentServer(), "Cannot send clientbound payloads on the client");
-        server.getPlayerList().broadcastAll(makeClientboundPacket(payload, payloads));
+        Packet<?> packet = makeClientboundPacket(payload, payloads);
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                        null, server, "PacketDistributor.sendToAllPlayers",
+                        () -> server.getPlayerList().broadcastAll(packet))) {
+            return;
+        }
+        server.getPlayerList().broadcastAll(packet);
     }
 
     /**
@@ -90,7 +118,15 @@ public final class PacketDistributor {
         if (entity.level().isClientSide()) {
             throw new IllegalStateException("Cannot send clientbound payloads on the client");
         } else if (entity.level().getChunkSource() instanceof ServerChunkCache chunkCache) {
-            chunkCache.broadcast(entity, makeClientboundPacket(payload, payloads));
+            Packet<?> packet = makeClientboundPacket(payload, payloads);
+            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                    && entity.level() instanceof ServerLevel serverLevel
+                    && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                            serverLevel, serverLevel.getServer(), "PacketDistributor.sendToPlayersTrackingEntity",
+                            () -> chunkCache.broadcast(entity, packet))) {
+                return;
+            }
+            chunkCache.broadcast(entity, packet);
         }
         // Silently ignore custom Level implementations which may not return ServerChunkCache.
     }
@@ -102,7 +138,15 @@ public final class PacketDistributor {
         if (entity.level().isClientSide()) {
             throw new IllegalStateException("Cannot send clientbound payloads on the client");
         } else if (entity.level().getChunkSource() instanceof ServerChunkCache chunkCache) {
-            chunkCache.broadcastAndSend(entity, makeClientboundPacket(payload, payloads));
+            Packet<?> packet = makeClientboundPacket(payload, payloads);
+            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                    && entity.level() instanceof ServerLevel serverLevel
+                    && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                            serverLevel, serverLevel.getServer(), "PacketDistributor.sendToPlayersTrackingEntityAndSelf",
+                            () -> chunkCache.broadcastAndSend(entity, packet))) {
+                return;
+            }
+            chunkCache.broadcastAndSend(entity, packet);
         }
         // Silently ignore custom Level implementations which may not return ServerChunkCache.
     }
@@ -112,6 +156,16 @@ public final class PacketDistributor {
      */
     public static void sendToPlayersTrackingChunk(ServerLevel level, ChunkPos chunkPos, CustomPacketPayload payload, CustomPacketPayload... payloads) {
         Packet<?> packet = makeClientboundPacket(payload, payloads);
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerNetworkBroadcast(
+                        level, level.getServer(), "PacketDistributor.sendToPlayersTrackingChunk",
+                        () -> {
+                            for (ServerPlayer player : level.getChunkSource().chunkMap.getPlayers(chunkPos, false)) {
+                                player.connection.send(packet);
+                            }
+                        })) {
+            return;
+        }
         for (ServerPlayer player : level.getChunkSource().chunkMap.getPlayers(chunkPos, false)) {
             player.connection.send(packet);
         }

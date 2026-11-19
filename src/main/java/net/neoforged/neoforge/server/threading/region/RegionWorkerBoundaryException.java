@@ -54,6 +54,10 @@ public final class RegionWorkerBoundaryException extends IllegalStateException {
         return new RegionWorkerBoundaryException("attachment_access", operation, message);
     }
 
+    public static RegionWorkerBoundaryException networkBroadcast(String operation, String message) {
+        return new RegionWorkerBoundaryException("network_broadcast", operation, message);
+    }
+
     public String category() {
         return this.category;
     }
