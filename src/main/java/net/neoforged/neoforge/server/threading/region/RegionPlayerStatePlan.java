@@ -257,7 +257,7 @@ public final class RegionPlayerStatePlan {
     }
 
     // Audited movement needs a separate stat handle and scoreboard check for WALK_ONE_CM.
-    static final int MOVEMENT_TEMPLATE = 2;
+    static final int MOVEMENT_TEMPLATE = RegionPlayerTickCoordinator.Phase.values().length;
 
     private static int templateIndex(RegionPlayerSpatialPlan spatial) {
         return RegionPlayerPacketPlan.preparesMovement(spatial.player()) ? MOVEMENT_TEMPLATE : spatial.phase().ordinal();
@@ -271,6 +271,9 @@ public final class RegionPlayerStatePlan {
     @Nullable
     static RegionPlayerStatePlan rebindTick(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, boolean deferValidation) {
         if (!simpleTick(spatial)) return null;
+        if (spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY && !connectionBodyCriteriaSafe(spatial)) {
+            return null;
+        }
         Template template = spatial.player().forgiaPlayerStateTemplate(templateIndex(spatial));
         if (template == null) return null;
         var plan = new RegionPlayerStatePlan(engine, spatial, template);
@@ -280,21 +283,56 @@ public final class RegionPlayerStatePlan {
         return plan.validateTemplate() ? plan : null;
     }
 
+    private static boolean connectionBodyCriteriaSafe(RegionPlayerSpatialPlan spatial) {
+        ServerPlayer player = spatial.player();
+        PlayerCriterionListeners storage = player.getAdvancements().forgiaCriterionListeners();
+        if (player.tickCount % 20 == 0 && !storage.empty(CriteriaTriggers.LOCATION)) return false;
+        if (!safeEnterBlockListeners(storage.get(CriteriaTriggers.ENTER_BLOCK))) return false;
+        if (spatial.members().size() > 1 && !storage.empty(CriteriaTriggers.INVENTORY_CHANGED)) return false;
+        return true;
+    }
+
+    private boolean connectionBodyCriteriaSnapshotSafe() {
+        if (this.spatial.phase() != RegionPlayerTickCoordinator.Phase.CONNECTION_BODY) return true;
+        if (this.player.tickCount % 20 == 0 && !this.listeners.empty(CriteriaTriggers.LOCATION)) return false;
+        if (!safeEnterBlockListeners(this.listeners.get(CriteriaTriggers.ENTER_BLOCK))) return false;
+        if (this.spatial.members().size() > 1 && !this.listeners.empty(CriteriaTriggers.INVENTORY_CHANGED)) return false;
+        return true;
+    }
+
+    private static boolean safeEnterBlockListeners(@Nullable Set<?> listeners) {
+        if (listeners == null || listeners.isEmpty()) return true;
+        for (Object entry : listeners) {
+            if (!(entry instanceof net.minecraft.advancements.CriterionTrigger.Listener<?> listener)) return false;
+            if (!(listener.trigger() instanceof net.minecraft.advancements.critereon.EnterBlockTrigger.TriggerInstance inst)) return false;
+            if (inst.block().isEmpty()) return false;
+            if (RegionPlayerSpatialPlan.isInertBlock(inst.block().get().value().defaultBlockState())) return false;
+        }
+        return true;
+    }
+
     boolean needsTemplateValidation() {
         return this.needsTemplateValidation;
     }
 
     boolean validateTemplate() {
         if (!this.needsTemplateValidation) return true;
-        boolean localOk = ServerPlayer.forgiaMatchesLocalTemplateResources(this.player, this.resourceArray)
-                || (this.player.forgiaHasLocalStateBindings() && this.localResourcesCurrent());
-        if (!this.currentOwner() || !localOk
+        boolean connectionBody = this.spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
+        boolean localOk = ServerPlayer.forgiaMatchesLocalTemplateResources(this.player, this.resourceArray, connectionBody)
+                || (hasPhaseLocalStateBindings(this.player, this.spatial) && this.localResourcesCurrent());
+        if (!this.currentOwner() || !localOk || !this.connectionBodyCriteriaSnapshotSafe()
                 || !this.inventory.current(this.spatial, true) || !this.scorePlan.current()) {
             this.invalidTemplate = true;
             return false;
         }
         this.needsTemplateValidation = false;
         return true;
+    }
+
+    private static boolean hasPhaseLocalStateBindings(ServerPlayer player, RegionPlayerSpatialPlan spatial) {
+        if (spatial.isLocalEntity()) return player.forgiaHasLocalEntityStateBindings();
+        if (spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY) return player.forgiaHasConnectionBodyStateBindings();
+        return player.forgiaHasLocalStateBindings();
     }
 
     boolean validatePrefix(boolean worker) {
@@ -432,9 +470,13 @@ public final class RegionPlayerStatePlan {
         this.publisherLocalStateChecked = true;
     }
 
+    private boolean localBindingsCurrent() {
+        return hasPhaseLocalStateBindings(this.player, this.spatial);
+    }
+
     private boolean stateCurrent(boolean beforeBody) {
-        return (admission == null || admission.current(beforeBody)) && currentOwner() && player.forgiaHasLocalStateBindings() && player.forgiaHasSimpleSharedState()
-                && advancements.forgiaCriterionListeners().matches(listeners) && boundedExperience(player)
+        return (admission == null || admission.current(beforeBody)) && currentOwner() && localBindingsCurrent() && player.forgiaHasSimpleSharedState()
+                && advancements.forgiaCriterionListeners().matches(listeners) && connectionBodyCriteriaSnapshotSafe() && boundedExperience(player)
                 && localResourcesCurrent() && player.getScoreboard() == scoreboard
                 && scoreboard.forgiaObjectiveRevision() == scoreboardRevision
                 && awards.values().stream().allMatch(AwardSnapshot::current)
@@ -467,7 +509,7 @@ public final class RegionPlayerStatePlan {
         if (consumed || this.needsTemplateValidation) return false;
         boolean current = this.publisherLocalStateChecked
                 ? admission != null && admission.current(true, laneExtensionsVerified) && currentOwner() && player.forgiaHasSimpleSharedState()
-                        && advancements.forgiaCriterionListeners().matches(listeners) && boundedExperience(player)
+                        && advancements.forgiaCriterionListeners().matches(listeners) && connectionBodyCriteriaSnapshotSafe() && boundedExperience(player)
                         && (laneExtensionsVerified ? player.containerMenu == player.inventoryMenu : container.current() && scorePlan.current())
                         && damage.current()
                 : stateCurrent(true);
@@ -541,9 +583,12 @@ public final class RegionPlayerStatePlan {
     }
 
     boolean allowsTrigger(SimpleCriterionTrigger<?> trigger) {
-        return trigger == CriteriaTriggers.TICK
-                || ((trigger == CriteriaTriggers.LOCATION || trigger == CriteriaTriggers.ENTER_BLOCK || trigger == CriteriaTriggers.INVENTORY_CHANGED || trigger == CriteriaTriggers.ENTITY_HURT_PLAYER)
-                        && advancements.forgiaCriterionListeners().empty(trigger));
+        if (trigger == CriteriaTriggers.TICK) return true;
+        if (trigger == CriteriaTriggers.ENTER_BLOCK && this.spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY) {
+            return safeEnterBlockListeners(this.listeners.get(CriteriaTriggers.ENTER_BLOCK));
+        }
+        return (trigger == CriteriaTriggers.LOCATION || trigger == CriteriaTriggers.ENTER_BLOCK || trigger == CriteriaTriggers.INVENTORY_CHANGED || trigger == CriteriaTriggers.ENTITY_HURT_PLAYER)
+                && advancements.forgiaCriterionListeners().empty(trigger);
     }
 
     boolean allowsAward(AdvancementHolder holder) {
@@ -645,15 +690,18 @@ public final class RegionPlayerStatePlan {
         if ((!fresh && !spatial.revalidate()) || player.getAdvancements() == null || !player.getAdvancements().forgiaCriterionListeners().enabled()
                 || player.connection == null || player.server.getPlayerList().getPlayer(player.getUUID()) != player)
             return reject(Refusal.STALE_OWNER);
-        if (!player.forgiaHasLocalStateBindings()) return reject(Refusal.SHARED_MENU);
+        if (!hasPhaseLocalStateBindings(player, spatial)) return reject(Refusal.SHARED_MENU);
         RegionPlayerContainerPlan container = RegionPlayerContainerPlan.capture(player);
         if (container == null) return reject(Refusal.SHARED_MENU);
         if (!player.forgiaHasSimpleSharedState()) return reject(Refusal.OPTIONAL_PLAYER_STATE);
         PlayerCriterionListeners storage = player.getAdvancements().forgiaCriterionListeners();
-        // doTick increments tickCount before the LOCATION test. Capture the whole empty branch,
-        // independent of that counter; optional fall/levitation/vehicle state remains absent.
+        // ServerLevel advances the entity tick count, not doTick. In CONNECTION_BODY the
+        // LOCATION branch uses the count captured at the listener call site. Movement calls
+        // ENTER_BLOCK even without displacement, so check its listeners against the inert terrain.
         if (spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION
                 && (!storage.empty(CriteriaTriggers.LOCATION) || !storage.empty(CriteriaTriggers.ENTER_BLOCK)))
+            return reject(Refusal.UNKNOWN_CRITERION);
+        if (spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY && !connectionBodyCriteriaSafe(spatial))
             return reject(Refusal.UNKNOWN_CRITERION);
         Map<AdvancementHolder, AwardSnapshot> awards = new IdentityHashMap<>();
         int experience = 0;
@@ -689,7 +737,10 @@ public final class RegionPlayerStatePlan {
         RegionPlayerDamagePlan damage = RegionPlayerDamagePlan.capture(spatial);
         if (damage == null) return reject(Refusal.OPTIONAL_PLAYER_STATE);
         if (RegionPlayerDamagePlan.starving(player) && !storage.empty(CriteriaTriggers.ENTITY_HURT_PLAYER)) return reject(Refusal.UNKNOWN_CRITERION);
-        if (!storage.empty(CriteriaTriggers.INVENTORY_CHANGED)) return reject(Refusal.UNKNOWN_CRITERION);
+        // A local ENTITY plan proves broadcastChanges will see unchanged slots.
+        // CONNECTION_BODY only touches inventory via ItemEntity pickup when members.size() > 1.
+        if (!spatial.isLocalEntity() && spatial.phase() != RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                && !storage.empty(CriteriaTriggers.INVENTORY_CHANGED)) return reject(Refusal.UNKNOWN_CRITERION);
         if (!boundedExperience(player)) return reject(Refusal.XP_SHARED_SOUND);
         // Initialize only mandatory intrinsic stat handles on the publisher. Workers use immutable
         // identity snapshots, and cannot populate shared StatType/ObjectiveCriteria caches.

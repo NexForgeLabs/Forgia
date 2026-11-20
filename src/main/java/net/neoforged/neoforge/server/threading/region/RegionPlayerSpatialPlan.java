@@ -39,7 +39,11 @@ public final class RegionPlayerSpatialPlan {
         NO_IDENTITY, CAPACITY, FOOTPRINT_TOO_LARGE, MULTIPART_UNBOUNDED
     }
 
-    public record Capture(@Nullable RegionPlayerSpatialPlan plan, Refusal refusal) {
+    public record Capture(@Nullable RegionPlayerSpatialPlan plan, Refusal refusal, String detail) {
+        public Capture(@Nullable RegionPlayerSpatialPlan plan, Refusal refusal) {
+            this(plan, refusal, refusal.name());
+        }
+
         public Capture {
             if ((plan == null) == (refusal == Refusal.NONE)) throw new IllegalArgumentException("Spatial capture result must be explicit");
         }
@@ -86,23 +90,25 @@ public final class RegionPlayerSpatialPlan {
         return this.localEntity;
     }
 
-    @Nullable
-    static RegionPlayerSpatialPlan captureLocalEntity(RegionThreadingEngine engine, ServerPlayer player) {
-        // ServerPlayer.tick has no movement or collision body. This specialization uses the
-        // local state template, which rules out rewards, damage, other entities and shared menus.
+    static Capture captureLocalEntity(RegionThreadingEngine engine, ServerPlayer player) {
+        // ServerPlayer.tick has no movement or collision body in this profile. Only the
+        // player participates in the lease, even when its region contains other entities.
         ServerLevel level = player.serverLevel();
-        if (level.getClass() != ServerLevel.class || player.containerMenu != player.inventoryMenu
-                || !engine.isEntityIndexPublished(level) || engine.isLevelClosed(level)
-                || intrinsicRefusal(player, RegionPlayerTickCoordinator.Phase.ENTITY, false) != Refusal.NONE) return null;
+        if (level.getClass() != ServerLevel.class || !engine.playerCriterionStorageEnabled()
+                || !engine.isEntityIndexPublished(level) || engine.isLevelClosed(level)) return refused(Refusal.DEPENDENCIES);
+        if (!engine.playerCaptureQuiescent()) return refused(Refusal.NOT_QUIESCENT);
+        if (player.containerMenu != player.inventoryMenu) return refused(Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN);
+        var intrinsic = intrinsicRefusal(player, RegionPlayerTickCoordinator.Phase.ENTITY, false);
+        if (intrinsic != Refusal.NONE) return refused(intrinsic);
         RegionState region = engine.regionFor(player);
-        if (region == null || region.isDead() || region.entityTickEntryCount() != 1 || region.entityTickEntry(player) == null
-                || !engine.regionLayout().isInRegion(level, player.blockPosition(), region.coordinate())) return null;
+        if (region == null || region.isDead() || region.entityTickEntry(player) == null) return refused(Refusal.MISSING_REGION);
+        if (!engine.regionLayout().isInRegion(level, player.blockPosition(), region.coordinate())) return refused(Refusal.OWNER_PUBLICATION_PENDING);
         EntityIdentity identity = level.entityIdentityLedger().liveIdentity(player);
-        if (!liveIdentity(identity, player)) return null;
+        if (!liveIdentity(identity, player)) return refused(Refusal.NO_IDENTITY);
         var members = Collections.singletonMap((Entity) player, identity);
         var footprint = RegionPlayerFootprint.localEntity(level, engine.regionLayout().regionChunkSize(), region.coordinate(), player.getBoundingBox());
-        return new RegionPlayerSpatialPlan(engine, player, RegionPlayerTickCoordinator.Phase.ENTITY, footprint, members,
-                Long2ObjectMaps.emptyMap(), true, Long.MIN_VALUE, true, region, identity);
+        return new Capture(new RegionPlayerSpatialPlan(engine, player, RegionPlayerTickCoordinator.Phase.ENTITY, footprint, members,
+                Long2ObjectMaps.emptyMap(), true, Long.MIN_VALUE, true, region, identity), Refusal.NONE);
     }
 
     boolean inspectedVanillaTerrain() {
@@ -148,7 +154,7 @@ public final class RegionPlayerSpatialPlan {
         if (!(sameSealedPrefix ? this.positionCurrent() : this.geometryCurrent(true)) || this.player.server.getPlayerList().getPlayer(this.player.getUUID()) != this.player) return false;
         EntityIdentityLedger ledger = this.footprint.level().entityIdentityLedger();
         if (sameSealedPrefix && this.singleRegionState != null && this.singlePlayerIdentity != null && this.members.size() == 1) {
-            if (this.singleRegionState.isDead() || this.singleRegionState.entityTickEntryCount() != 1
+            if (this.singleRegionState.isDead() || (!this.localEntity && this.singleRegionState.entityTickEntryCount() != 1)
                     || this.singleRegionState.entityTickEntry(this.player) == null) {
                 return false;
             }
@@ -264,7 +270,10 @@ public final class RegionPlayerSpatialPlan {
         if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Spatial capture requires the original server thread");
         if (!engine.playerCriterionStorageEnabled() || !engine.isEntityIndexPublished(player.serverLevel())) return refused(Refusal.DEPENDENCIES);
         if (!engine.playerCaptureQuiescent()) return refused(Refusal.NOT_QUIESCENT);
-        boolean checkInventoryNow = !(allowDeferredTerrain && inspectedVanillaTerrain && phase == RegionPlayerTickCoordinator.Phase.CONNECTION
+        boolean connectionLike = phase == RegionPlayerTickCoordinator.Phase.CONNECTION
+                || phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
+        boolean connectionBody = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
+        boolean checkInventoryNow = !(allowDeferredTerrain && inspectedVanillaTerrain && connectionLike
                 && player.forgiaPlayerStateTemplate(phase.ordinal()) != null);
         Refusal intrinsic = intrinsicRefusal(player, phase, checkInventoryNow, checkInventoryNow);
         if (intrinsic != Refusal.NONE) return refused(intrinsic);
@@ -279,15 +288,21 @@ public final class RegionPlayerSpatialPlan {
         // EntitySectionStorage adds its own -2/+2 horizontal, -4/+0 vertical search padding.
         AABB extent = RegionPlayerPacketPlan.bodyExtent(player, body);
         AABB query = extent.inflate(1, .5, 1);
-        // Base/inside-block, fluid/eyes, poses, collision/support and listener noBlocksAround.
-        // No displacement is possible in this admitted intrinsic profile (verified solid support).
-        AABB blocks = RegionPlayerPacketPlan.blockExtent(player, RegionPlayerContainerPlan.blockBounds(player, extent.inflate(1, 1, 1).expandTowards(0, -1, 0)));
+        // BlockCollisions pads the swept and support queries by one cell plus epsilon.
+        // Include that padding and the downward input of at most half a block.
+        AABB blocks = connectionBody ? extent.inflate(1.000001, 1.000001, 1.000001).expandTowards(0, -0.5, 0)
+                : RegionPlayerPacketPlan.blockExtent(player, RegionPlayerContainerPlan.blockBounds(player, extent.inflate(1, 1, 1).expandTowards(0, -1, 0)));
+        final AABB effectBounds = RegionPlayerDamagePlan.extraLeaseBounds(player, blocks);
         final RegionPlayerFootprint footprint;
         try {
-            footprint = RegionPlayerFootprint.of(level, engine.regionLayout().regionChunkSize(), query, blocks, RegionPlayerDamagePlan.extraLeaseBounds(player, blocks));
+            footprint = RegionPlayerFootprint.of(level, engine.regionLayout().regionChunkSize(), query, blocks, effectBounds);
         } catch (IllegalArgumentException refusal) {
             return refused(Refusal.FOOTPRINT_TOO_LARGE);
         }
+        int minFootprintChunkX = SectionPos.posToSectionCoord(Math.min(Math.min(blocks.minX, effectBounds.minX), query.minX - 2));
+        int maxFootprintChunkX = SectionPos.posToSectionCoord(Math.max(Math.max(blocks.maxX, effectBounds.maxX), query.maxX + 2));
+        int minFootprintChunkZ = SectionPos.posToSectionCoord(Math.min(Math.min(blocks.minZ, effectBounds.minZ), query.minZ - 2));
+        int maxFootprintChunkZ = SectionPos.posToSectionCoord(Math.max(Math.max(blocks.maxZ, effectBounds.maxZ), query.maxZ + 2));
         ServerChunkCache chunkSource = level.getChunkSource();
         long chunkGeneration = inspectedVanillaTerrain && chunkSource.getClass() == ServerChunkCache.class && chunkSource.chunkMap != null
                 ? chunkSource.forgiaPlayerChunkGeneration() : Long.MIN_VALUE;
@@ -313,21 +328,25 @@ public final class RegionPlayerSpatialPlan {
             }
             if (chunks == null) {
                 int size = footprint.regionChunks();
-                Long2ObjectOpenHashMap<LevelChunk> map = new Long2ObjectOpenHashMap<>(size * size);
-                for (int x = coordinate.regionX() * size; x < (coordinate.regionX() + 1) * size; x++) {
-                    for (int z = coordinate.regionZ() * size; z < (coordinate.regionZ() + 1) * size; z++) {
+                int minX = connectionBody ? Math.max(coordinate.regionX() * size, minFootprintChunkX) : coordinate.regionX() * size;
+                int maxX = connectionBody ? Math.min((coordinate.regionX() + 1) * size - 1, maxFootprintChunkX) : (coordinate.regionX() + 1) * size - 1;
+                int minZ = connectionBody ? Math.max(coordinate.regionZ() * size, minFootprintChunkZ) : coordinate.regionZ() * size;
+                int maxZ = connectionBody ? Math.min((coordinate.regionZ() + 1) * size - 1, maxFootprintChunkZ) : (coordinate.regionZ() + 1) * size - 1;
+                Long2ObjectOpenHashMap<LevelChunk> map = new Long2ObjectOpenHashMap<>(Math.max(1, (maxX - minX + 1) * (maxZ - minZ + 1)));
+                for (int x = minX; x <= maxX; x++) {
+                    for (int z = minZ; z <= maxZ; z++) {
                         long position = ChunkPos.asLong(x, z);
                         LevelChunk chunk = chunkGeneration == Long.MIN_VALUE ? null : chunkSource.forgiaObservedPlayerChunk(position);
                         if (chunk == null) {
                             chunkGeneration = Long.MIN_VALUE;
                             chunk = loadedChunk(chunkSource, position, inspectedVanillaTerrain);
                         }
-                        if (chunk == null) return refused(Refusal.UNLOADED_CHUNK);
+                        if (chunk == null || connectionBody && !chunk.isLoaded()) return missingChunk(player, x, z, coordinate, footprint, effectBounds, chunkSource.forgiaPlayerChunkGeneration());
                         map.put(position, chunk);
                     }
                 }
                 chunks = map;
-                if (chunkGeneration != Long.MIN_VALUE) {
+                if (!connectionBody && chunkGeneration != Long.MIN_VALUE) {
                     region.cachedPlayerChunks = chunks;
                     region.cachedPlayerChunksGeneration = chunkGeneration;
                 }
@@ -359,21 +378,27 @@ public final class RegionPlayerSpatialPlan {
                 }
             }
         } else {
-            Long2ObjectOpenHashMap<LevelChunk> map = new Long2ObjectOpenHashMap<>(footprint.regions().size() * footprint.regionChunks() * footprint.regionChunks());
+            Long2ObjectOpenHashMap<LevelChunk> map = new Long2ObjectOpenHashMap<>(connectionBody
+                    ? Math.max(4, (maxFootprintChunkX - minFootprintChunkX + 1) * (maxFootprintChunkZ - minFootprintChunkZ + 1))
+                    : footprint.regions().size() * footprint.regionChunks() * footprint.regionChunks());
             members = new IdentityHashMap<>();
             for (RegionCoordinate coordinate : footprint.regions()) {
                 RegionState region = engine.regionStateFor(coordinate);
                 if (region == null || region.isDead()) return refused(Refusal.MISSING_REGION);
                 int size = footprint.regionChunks();
-                for (int x = coordinate.regionX() * size; x < (coordinate.regionX() + 1) * size; x++) {
-                    for (int z = coordinate.regionZ() * size; z < (coordinate.regionZ() + 1) * size; z++) {
+                int minX = connectionBody ? Math.max(coordinate.regionX() * size, minFootprintChunkX) : coordinate.regionX() * size;
+                int maxX = connectionBody ? Math.min((coordinate.regionX() + 1) * size - 1, maxFootprintChunkX) : (coordinate.regionX() + 1) * size - 1;
+                int minZ = connectionBody ? Math.max(coordinate.regionZ() * size, minFootprintChunkZ) : coordinate.regionZ() * size;
+                int maxZ = connectionBody ? Math.min((coordinate.regionZ() + 1) * size - 1, maxFootprintChunkZ) : (coordinate.regionZ() + 1) * size - 1;
+                for (int x = minX; x <= maxX; x++) {
+                    for (int z = minZ; z <= maxZ; z++) {
                         long position = ChunkPos.asLong(x, z);
                         LevelChunk chunk = chunkGeneration == Long.MIN_VALUE ? null : chunkSource.forgiaObservedPlayerChunk(position);
                         if (chunk == null) {
                             chunkGeneration = Long.MIN_VALUE;
                             chunk = loadedChunk(chunkSource, position, inspectedVanillaTerrain);
                         }
-                        if (chunk == null) return refused(Refusal.UNLOADED_CHUNK);
+                        if (chunk == null || connectionBody && !chunk.isLoaded()) return missingChunk(player, x, z, coordinate, footprint, effectBounds, chunkSource.forgiaPlayerChunkGeneration());
                         map.put(position, chunk);
                     }
                 }
@@ -413,12 +438,15 @@ public final class RegionPlayerSpatialPlan {
                 if (!capturedMembers.containsKey(target)) return refused(Refusal.OWNER_PUBLICATION_PENDING);
             }
         }
-        boolean deferTerrain = allowDeferredTerrain && inspectedVanillaTerrain && phase == RegionPlayerTickCoordinator.Phase.CONNECTION
+        boolean deferTerrain = allowDeferredTerrain && inspectedVanillaTerrain && connectionLike
                 && level.getClass() == ServerLevel.class && !level.isDebug() && footprint.regions().size() == 1 && members.size() == 1
                 && player.containerMenu == player.inventoryMenu && !RegionPlayerDamagePlan.starving(player)
                 && player.forgiaPlayerStateTemplate(phase.ordinal()) != null;
         if (!checkInventoryNow && !deferTerrain
-                && (!RegionPlayerContainerPlan.supportedMenu(player) || !RegionPlayerInventoryPlan.supportedInventory(player))) {
+                && (!RegionPlayerContainerPlan.supportedMenu(player)
+                        || !(connectionBody
+                                ? RegionPlayerInventoryPlan.supportedConnectionBodyInventory(player)
+                                : RegionPlayerInventoryPlan.supportedInventory(player)))) {
             return refused(Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN);
         }
         if (!deferTerrain && !knownBlocks(player, footprint, body, phase, chunks, inspectedVanillaTerrain)) {
@@ -503,6 +531,32 @@ public final class RegionPlayerSpatialPlan {
         return true;
     }
 
+    private static Capture missingChunk(ServerPlayer player, int x, int z, RegionCoordinate coordinate,
+            RegionPlayerFootprint footprint, AABB effectBounds, long chunkGeneration) {
+        AABB query = footprint.queryBounds();
+        AABB blocks = footprint.blockBounds();
+        boolean inQueryMargin = x >= SectionPos.posToSectionCoord(query.minX - 2) && x <= SectionPos.posToSectionCoord(query.maxX + 2)
+                && z >= SectionPos.posToSectionCoord(query.minZ - 2) && z <= SectionPos.posToSectionCoord(query.maxZ + 2);
+        boolean inBlockBounds = x >= SectionPos.posToSectionCoord(blocks.minX) && x <= SectionPos.posToSectionCoord(blocks.maxX)
+                && z >= SectionPos.posToSectionCoord(blocks.minZ) && z <= SectionPos.posToSectionCoord(blocks.maxZ);
+        double minX = Math.min(Math.min(blocks.minX, effectBounds.minX), query.minX - 2);
+        double minZ = Math.min(Math.min(blocks.minZ, effectBounds.minZ), query.minZ - 2);
+        double maxX = Math.max(Math.max(blocks.maxX, effectBounds.maxX), query.maxX + 2);
+        double maxZ = Math.max(Math.max(blocks.maxZ, effectBounds.maxZ), query.maxZ + 2);
+        boolean inside = x >= SectionPos.posToSectionCoord(minX) && x <= SectionPos.posToSectionCoord(maxX)
+                && z >= SectionPos.posToSectionCoord(minZ) && z <= SectionPos.posToSectionCoord(maxZ);
+        return new Capture(null, Refusal.UNLOADED_CHUNK, "UNLOADED_CHUNK"
+                + " player=" + player.getBlockX() + "," + player.getBlockY() + "," + player.getBlockZ()
+                + " chunk=" + x + "," + z
+                + " region=" + coordinate.regionX() + "," + coordinate.regionZ()
+                + " regions=" + footprint.regions().size()
+                + " edgeChunks=" + footprint.regionChunks()
+                + " insideFootprint=" + inside
+                + " inQueryMargin=" + inQueryMargin
+                + " inBlockBounds=" + inBlockBounds
+                + " chunkGeneration=" + chunkGeneration);
+    }
+
     @Nullable
     private static LevelChunk loadedChunk(ServerChunkCache source, long position, boolean inspectedVanillaTerrain) {
         // A positive FULL observation does not evict a gameplay entry from the vanilla cache.
@@ -533,7 +587,8 @@ public final class RegionPlayerSpatialPlan {
         if (RegionPlayerPacketPlan.preparesMovement(player) && !level.noCollision(player, body)) return false;
         // Every column beneath the standing box has a full inert support cube. A zero-input,
         // zero-horizontal-velocity player with nonpositive Y velocity cannot leave this box.
-        if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION) {
+        if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION
+                || phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY) {
             if (Math.abs(body.minY - Math.rint(body.minY)) > 1e-7) return false;
             for (int x = (int) Math.floor(body.minX); x <= Math.floor(body.maxX); x++) for (int z = (int) Math.floor(body.minZ); z <= Math.floor(body.maxZ); z++) {
                 if (level.getBlockState(new BlockPos(x, (int) body.minY - 1, z)).isAir()) return false;
@@ -606,6 +661,10 @@ public final class RegionPlayerSpatialPlan {
         return !inertBlock(state) || !state.getFluidState().isEmpty();
     }
 
+    static boolean isInertBlock(BlockState state) {
+        return inertBlock(state);
+    }
+
     private static boolean inertBlock(BlockState state) {
         return state.is(Blocks.AIR) || state.is(Blocks.STONE) || state.is(Blocks.DIRT) || state.is(Blocks.GRASS_BLOCK) || state.is(Blocks.BEDROCK);
     }
@@ -630,19 +689,26 @@ public final class RegionPlayerSpatialPlan {
             return Refusal.LIFECYCLE;
         if (player.isPassenger() || !player.getPassengers().isEmpty()) return Refusal.RIDING;
         if (player.gameMode.forgiaHasActiveBlockDestruction()) return Refusal.ACTIVE_BLOCK_BREAK;
-        if (checkMenu && !RegionPlayerContainerPlan.supportedMenu(player)) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
+        if (checkMenu && (phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                ? player.containerMenu != player.inventoryMenu
+                : !RegionPlayerContainerPlan.supportedMenu(player))) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
         if (player.getPose() != Pose.STANDING || player.isSleeping() || player.isSpectator() || player.isFallFlying()
                 || player.isAutoSpinAttack() || player.getAbilities().flying || !player.getActiveEffects().isEmpty()
                 || player.isOnFire() || player.getTicksFrozen() != 0 || !player.getShoulderEntityLeft().isEmpty() || !player.getShoulderEntityRight().isEmpty())
             return Refusal.MOVEMENT_UNBOUNDED;
         // The exact matching confirmation only reapplies the already-published destination; it
         // does not run physics. Vanilla teleport may have cleared onGround before the client ack.
-        if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION && !player.forgiaStationarySpatialInputs()
+        if ((phase == RegionPlayerTickCoordinator.Phase.CONNECTION
+                || phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY)
+                && !player.forgiaStationarySpatialInputs()
                 && !RegionPlayerPacketPlan.permitsAwaitingTeleport(player))
             return Refusal.MOVEMENT_UNBOUNDED;
         // Exact default plain materials have a no-op vanilla inventoryTick. Equipment stays empty;
         // candidate capacity, original menu/criteria and callback admission remain separate gates.
-        if (checkInventory && !RegionPlayerInventoryPlan.supportedInventory(player)) return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
+        if (checkInventory && !(phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                ? RegionPlayerInventoryPlan.supportedConnectionBodyInventory(player)
+                : RegionPlayerInventoryPlan.supportedInventory(player)))
+            return Refusal.CALLBACK_SPATIAL_BOUND_UNKNOWN;
         return Refusal.NONE;
     }
 }

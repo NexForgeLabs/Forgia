@@ -5,14 +5,14 @@
 
 package net.neoforged.neoforge.debug.mixin;
 
-import net.neoforged.neoforge.debug.MixinTests;
+import forgia.neotests.mixin.MixinTargets;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-@Mixin(MixinTests.Target.class)
+@Mixin(MixinTargets.Target.class)
 public class TestMixin {
     @Redirect(method = "crash", at = @At(value = "NEW", target = "(Ljava/lang/String;)Ljava/lang/RuntimeException;"))
     private static RuntimeException redirectCrash(String message) {

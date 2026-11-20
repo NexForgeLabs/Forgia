@@ -156,7 +156,11 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
         boolean validated = false;
         try {
             if (!RegionWorkerScope.isNativeWorkerThread()) return false;
-            if (RegionPlayerExtensionSnapshot.capture().refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
+            var phase = groups.getFirst().calls().getFirst().phase;
+            var ext = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                    ? RegionPlayerExtensionSnapshot.captureConnectionBody(false)
+                    : RegionPlayerExtensionSnapshot.capture();
+            if (ext.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
             for (int index = lane; index < groups.size(); index += startup.participants) {
                 if (!groups.get(index).calls().getFirst().admission.state().validatePrefix(true)) return false;
             }

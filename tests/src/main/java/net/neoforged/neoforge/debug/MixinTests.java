@@ -5,6 +5,8 @@
 
 package net.neoforged.neoforge.debug;
 
+import forgia.neotests.mixin.MixinTargets.InterfaceTarget;
+import forgia.neotests.mixin.MixinTargets.Target;
 import net.minecraft.gametest.framework.GameTest;
 import net.neoforged.testframework.annotation.ForEachTest;
 import net.neoforged.testframework.annotation.TestHolder;
@@ -13,25 +15,6 @@ import net.neoforged.testframework.gametest.ExtendedGameTestHelper;
 
 @ForEachTest(groups = "mixin")
 public class MixinTests {
-    public static class Target {
-        public static boolean applied() {
-            // A mixin injects here to return true.
-            return false;
-        }
-
-        public static Throwable crash() {
-            return new RuntimeException("abc");
-        }
-    }
-
-    public interface InterfaceTarget {
-        String MAXINT = "maxint";
-
-        default int getNumber(String argument) {
-            return 12;
-        }
-    }
-
     @GameTest
     @EmptyTemplate
     @TestHolder(description = "Tests if simple mixin injections work")

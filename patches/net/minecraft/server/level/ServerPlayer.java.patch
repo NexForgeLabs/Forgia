@@ -11,7 +11,7 @@
              ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(p_143455_.containerId, p_143456_, p_143457_));
          }
      };
-@@ -490,6 +_,85 @@
+@@ -490,6 +_,105 @@
 +    // Publisher-only reusable observations for the exact original player. Never retains a spatial lease.
 +    private net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template[] forgiaPlayerStateTemplates;
 +
@@ -22,17 +22,33 @@
 +    public void forgiaPlayerStateTemplate(int phase, net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template template) {
 +        if (this.forgiaPlayerStateTemplates == null) {
 +            if (template == null) return;
-+            this.forgiaPlayerStateTemplates = new net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template[3];
++            this.forgiaPlayerStateTemplates = new net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template[net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.values().length + 1];
 +        }
 +        this.forgiaPlayerStateTemplates[phase] = template;
 +    }
 +
 +    /** Original local object and optional-state prerequisites, independent of callback admission. */
 +    public boolean forgiaHasLocalStateBindings() {
++        return this.forgiaCheckLocalStateBindings(0);
++    }
++
++    public boolean forgiaHasLocalEntityStateBindings() {
++        return this.forgiaCheckLocalStateBindings(1);
++    }
++
++    public boolean forgiaHasConnectionBodyStateBindings() {
++        return this.forgiaCheckLocalStateBindings(2);
++    }
++
++    private boolean forgiaCheckLocalStateBindings(int mode) {
 +        return (this.containerMenu == this.inventoryMenu || net.neoforged.neoforge.server.threading.region.RegionPlayerContainerPlan.supportedMenu(this))
 +            && this.inventoryMenu.getClass() == net.minecraft.world.inventory.InventoryMenu.class
 +            && this.inventoryMenu.forgiaIsLocalTo(this)
-+            && this.inventoryMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer)
++            && (mode == 1
++                ? this.inventoryMenu.forgiaHasOriginalSlots() && this.inventoryMenu.forgiaHasLocalEntitySynchronizers(this.containerListener, this.containerSynchronizer)
++                : mode == 2
++                    ? this.inventoryMenu.forgiaHasOriginalSlots() && this.inventoryMenu.forgiaHasConnectionBodySynchronizers(this.containerListener, this.containerSynchronizer)
++                    : this.inventoryMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer))
 +            && (this.containerMenu == this.inventoryMenu || this.containerMenu.forgiaHasLocalSynchronizers(this.containerListener, this.containerSynchronizer))
 +            && this.getFoodData().getClass() == net.minecraft.world.food.FoodData.class
 +            && this.getCooldowns().getClass() == net.minecraft.world.item.ServerItemCooldowns.class
@@ -41,6 +57,10 @@
 +
 +    /** Single-pass zero-allocation template verification for the simple inventoryMenu branch. */
 +    public static boolean forgiaMatchesLocalTemplateResources(ServerPlayer player, Object[] expected) {
++        return forgiaMatchesLocalTemplateResources(player, expected, false);
++    }
++
++    public static boolean forgiaMatchesLocalTemplateResources(ServerPlayer player, Object[] expected, boolean connectionBody) {
 +        if (player.containerListener == null || player.containerSynchronizer == null) return false;
 +        if (player.containerMenu != player.inventoryMenu
 +            || player.inventoryMenu.getClass() != net.minecraft.world.inventory.InventoryMenu.class
@@ -69,7 +89,7 @@
 +        if (warden.isPresent() && (index >= expected.length || expected[index++] != warden.get())) return false;
 +        index = player.getAttributes().forgiaMatchesPlayerLocalAttributes(expected, index);
 +        if (index < 0) return false;
-+        index = player.inventoryMenu.forgiaMatchesPlayerLocalContainers(expected, index, player, player.containerListener, player.containerSynchronizer);
++        index = player.inventoryMenu.forgiaMatchesPlayerLocalContainers(expected, index, player, player.containerListener, player.containerSynchronizer, connectionBody);
 +        return index == expected.length;
 +    }
 +

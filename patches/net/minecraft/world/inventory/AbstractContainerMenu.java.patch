@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/inventory/AbstractContainerMenu.java
 +++ b/net/minecraft/world/inventory/AbstractContainerMenu.java
-@@ -167,2 +_,85 @@
+@@ -167,2 +_,118 @@
 +    /** Mutable menu objects participate in original-identity alias checks and pre-body validation. */
 +    public java.util.List<Object> forgiaPlayerLocalMenuObjects() {
 +        java.util.List<Object> objects = new java.util.ArrayList<>();
@@ -24,6 +24,10 @@
 +    }
 +
 +    protected int forgiaMatchesPlayerLocalMenuObjects(Object[] expected, int index, ContainerListener listener, ContainerSynchronizer sync) {
++        return this.forgiaMatchesPlayerLocalMenuObjects(expected, index, listener, sync, false);
++    }
++
++    protected int forgiaMatchesPlayerLocalMenuObjects(Object[] expected, int index, ContainerListener listener, ContainerSynchronizer sync, boolean connectionBody) {
 +        int size = this.slots.size();
 +        if (this.containerListeners.size() != 1 || this.containerListeners.getFirst() != listener
 +            || this.synchronizer != sync || sync == null || !this.dataSlots.isEmpty() || this.quickcraftStatus != 0 || !this.quickcraftSlots.isEmpty()
@@ -40,15 +44,17 @@
 +            if (expected[index++] != this.slots.get(i)) return -1;
 +        }
 +        if (expected[index++] != listener || expected[index++] != sync) return -1;
-+        index = forgiaMatchesPlayerSlotCopies(expected, index, this.lastSlots);
++        index = forgiaMatchesPlayerSlotCopies(expected, index, this.lastSlots, connectionBody);
 +        if (index < 0) return -1;
-+        return forgiaMatchesPlayerSlotCopies(expected, index, this.remoteSlots);
++        return forgiaMatchesPlayerSlotCopies(expected, index, this.remoteSlots, connectionBody);
 +    }
 +
-+    private static int forgiaMatchesPlayerSlotCopies(Object[] expected, int index, java.util.List<ItemStack> stacks) {
++    private static int forgiaMatchesPlayerSlotCopies(Object[] expected, int index, java.util.List<ItemStack> stacks, boolean connectionBody) {
 +        for (int i = 0, size = stacks.size(); i < size; i++) {
 +            ItemStack stack = stacks.get(i);
-+            if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(stack)) return -1;
++            if (!(connectionBody
++                ? net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedConnectionBodyStack(stack)
++                : net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(stack))) return -1;
 +            if (!stack.isEmpty()) {
 +                if (index + 2 > expected.length || expected[index++] != stack || expected[index++] != stack.getComponents()) return -1;
 +            }
@@ -68,6 +74,18 @@
 +
 +    /** Exact listener/synchronizer identity captured on the server, not inferred from class names. */
 +    public boolean forgiaHasLocalSynchronizers(ContainerListener listener, ContainerSynchronizer sync) {
++        return this.forgiaCheckLocalSynchronizers(listener, sync, 0);
++    }
++
++    public boolean forgiaHasLocalEntitySynchronizers(ContainerListener listener, ContainerSynchronizer sync) {
++        return this.forgiaCheckLocalSynchronizers(listener, sync, 1);
++    }
++
++    public boolean forgiaHasConnectionBodySynchronizers(ContainerListener listener, ContainerSynchronizer sync) {
++        return this.forgiaCheckLocalSynchronizers(listener, sync, 2);
++    }
++
++    private boolean forgiaCheckLocalSynchronizers(ContainerListener listener, ContainerSynchronizer sync, int mode) {
 +        int size = this.slots.size();
 +        if (this.containerListeners.size() != 1 || this.containerListeners.getFirst() != listener
 +            || this.synchronizer != sync || sync == null || !this.dataSlots.isEmpty() || this.quickcraftStatus != 0 || !this.quickcraftSlots.isEmpty()
@@ -75,8 +93,23 @@
 +            return false;
 +        }
 +        for (int i = 0; i < size; i++) {
-+            if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(this.lastSlots.get(i))
-+                || !net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(this.remoteSlots.get(i))) {
++            ItemStack last = this.lastSlots.get(i);
++            ItemStack remote = this.remoteSlots.get(i);
++            if (mode == 1) {
++                ItemStack current = this.slots.get(i).getItem();
++                if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedEntityTickStack(last)
++                    || !net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedEntityTickStack(remote)
++                    || !net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedEntityTickStack(current)
++                    || !ItemStack.matches(last, current)) {
++                    return false;
++                }
++            } else if (mode == 2) {
++                if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedConnectionBodyStack(last)
++                    || !net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedConnectionBodyStack(remote)) {
++                    return false;
++                }
++            } else if (!net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(last)
++                || !net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan.supportedStack(remote)) {
 +                return false;
 +            }
 +        }

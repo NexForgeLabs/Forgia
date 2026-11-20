@@ -127,12 +127,34 @@ final class RegionPlayerExtensionSnapshot {
     // The list's live dispatch array still changes on registration/unregistration, including ancestors.
     private record BusLists(WeakReference<IEventBus> bus, ListenerList[] lists) {}
     private static volatile BusLists busLists;
+    private enum ListenerProfile {
+        FULL,
+        LOCAL_ENTITY,
+        CONNECTION_BODY,
+        CONNECTION_BODY_GAME_EVENT
+    }
+
     private record VerifiedListeners(WeakReference<IEventBus> bus, Object[] arrays, Check result) {}
     private static volatile VerifiedListeners verifiedListeners;
+    private static volatile VerifiedListeners verifiedLocalEntityListeners;
+    private static volatile VerifiedListeners verifiedConnectionBodyListeners;
+    private static volatile VerifiedListeners verifiedConnectionBodyGameEventListeners;
 
     private RegionPlayerExtensionSnapshot() {}
 
     static Check capture() {
+        return captureProfile(ListenerProfile.FULL);
+    }
+
+    static Check capture(boolean localEntity) {
+        return captureProfile(localEntity ? ListenerProfile.LOCAL_ENTITY : ListenerProfile.FULL);
+    }
+
+    static Check captureConnectionBody(boolean mayEmitGameEvent) {
+        return captureProfile(mayEmitGameEvent ? ListenerProfile.CONNECTION_BODY_GAME_EVENT : ListenerProfile.CONNECTION_BODY);
+    }
+
+    private static Check captureProfile(ListenerProfile profile) {
         try {
             ModList mods = ModList.get();
             ModuleLayer layer = FMLLoader.getGameLayer();
@@ -148,7 +170,7 @@ final class RegionPlayerExtensionSnapshot {
             String unknown = firstUnknownMixinConfig(mods);
             if (unknown == null) unknown = firstUnknownProvider(layer);
             if (unknown != null) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM, unknown, hasExtraMods);
-            Check listenerCheck = listeners(NeoForge.EVENT_BUS);
+            Check listenerCheck = listeners(NeoForge.EVENT_BUS, profile);
             if (listenerCheck.refusal() == RegionPlayerAdmissionPlan.Refusal.NONE) return Check.ok(hasExtraMods);
             return new Check(listenerCheck.refusal(), listenerCheck.detail(), hasExtraMods);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
@@ -418,18 +440,35 @@ final class RegionPlayerExtensionSnapshot {
     }
 
     static Check listeners(IEventBus bus) throws ReflectiveOperationException {
+        return listeners(bus, ListenerProfile.FULL);
+    }
+
+    static Check listeners(IEventBus bus, boolean localEntity) throws ReflectiveOperationException {
+        return listeners(bus, localEntity ? ListenerProfile.LOCAL_ENTITY : ListenerProfile.FULL);
+    }
+
+    static Check listenersConnectionBody(IEventBus bus, boolean mayEmitGameEvent) throws ReflectiveOperationException {
+        return listeners(bus, mayEmitGameEvent ? ListenerProfile.CONNECTION_BODY_GAME_EVENT : ListenerProfile.CONNECTION_BODY);
+    }
+
+    private static Check listeners(IEventBus bus, ListenerProfile profile) throws ReflectiveOperationException {
         if (bus.getClass() != EventBus.class) return unavailable("unknown event bus " + bus.getClass().getName());
         // Cache reflection metadata only. Owner registrations and inherited dispatch lists are live.
         // ListenerList.getListeners() returns a fresh array whenever any listener is added or removed,
         // so comparing every live array reference still observes all live registrations.
         BusAccess access = busAccess();
         ListenerList[] lists = lists(bus, access);
-        VerifiedListeners verified = verifiedListeners;
+        VerifiedListeners verified = switch (profile) {
+            case FULL -> verifiedListeners;
+            case LOCAL_ENTITY -> verifiedLocalEntityListeners;
+            case CONNECTION_BODY -> verifiedConnectionBodyListeners;
+            case CONNECTION_BODY_GAME_EVENT -> verifiedConnectionBodyGameEventListeners;
+        };
         if (verified != null && verified.bus().get() == bus) {
             Object[] prev = verified.arrays();
             boolean same = true;
             for (int index = 0; index < lists.length; index++) {
-                if (lists[index].getListeners() != prev[index]) {
+                if (profileIncludesEvent(profile, EVENTS.get(index)) && lists[index].getListeners() != prev[index]) {
                     same = false;
                     break;
                 }
@@ -441,6 +480,7 @@ final class RegionPlayerExtensionSnapshot {
         BuiltInOwner[] builtInOwners = access.builtInOwners();
         List<String> found = null;
         for (int index = 0; index < lists.length; index++) {
+            if (!profileIncludesEvent(profile, EVENTS.get(index))) continue;
             var live = lists[index].getListeners();
             snapshot[index] = live;
             if (live.length == 0) continue;
@@ -454,10 +494,52 @@ final class RegionPlayerExtensionSnapshot {
             }
         }
         Check result = found == null ? Check.ok() : new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, String.join(",", found));
-        verifiedListeners = new VerifiedListeners(new WeakReference<>(bus), snapshot, result);
+        var observed = new VerifiedListeners(new WeakReference<>(bus), snapshot, result);
+        switch (profile) {
+            case FULL -> verifiedListeners = observed;
+            case LOCAL_ENTITY -> verifiedLocalEntityListeners = observed;
+            case CONNECTION_BODY -> verifiedConnectionBodyListeners = observed;
+            case CONNECTION_BODY_GAME_EVENT -> verifiedConnectionBodyGameEventListeners = observed;
+        }
         return result;
     }
 
+    private static boolean profileIncludesEvent(ListenerProfile profile, String event) {
+        return switch (profile) {
+            case FULL -> true;
+            case LOCAL_ENTITY -> localEntityEvent(event);
+            case CONNECTION_BODY -> connectionBodyEvent(event, false);
+            case CONNECTION_BODY_GAME_EVENT -> connectionBodyEvent(event, true);
+        };
+    }
+
+    // The local ENTITY profile has no block break, movement, inventory change, menu click or
+    // network handler. Its synchronous TICK rewards remain guarded by the state plan.
+    private static boolean localEntityEvent(String event) {
+        return switch (event) {
+            case "ServerChatEvent", "ItemStackedOnOtherEvent", "VanillaGameEvent",
+                    "tick.PlayerTickEvent$Pre", "tick.PlayerTickEvent$Post",
+                    "entity.living.LivingBreatheEvent", "entity.living.LivingDrownEvent" -> false;
+            default -> true;
+        };
+    }
+
+    // CONNECTION_BODY executes only ServerPlayer.doTick() -> Player.tick() -> LivingEntity.tick().
+    // EntityTickEvent, ServerChatEvent, ItemStackedOnOtherEvent, ChunkWatchEvent, PlayerEvent tracking,
+    // EnteringSection (stationary), and NeighborNotifyEvent are not reachable from this body.
+    // VanillaGameEvent is included whenever the admitted body may emit a game event (e.g. starvation damage).
+    private static boolean connectionBodyEvent(String event, boolean mayEmitGameEvent) {
+        return switch (event) {
+            case "tick.EntityTickEvent$Pre", "tick.EntityTickEvent$Post",
+                    "ServerChatEvent", "ItemStackedOnOtherEvent",
+                    "level.ChunkWatchEvent$Watch", "level.ChunkWatchEvent$Sent", "level.ChunkWatchEvent$UnWatch",
+                    "level.ChunkTicketLevelUpdatedEvent", "entity.player.PlayerEvent$StartTracking",
+                    "entity.player.PlayerEvent$StopTracking", "entity.EntityEvent$EnteringSection",
+                    "level.BlockEvent$NeighborNotifyEvent" -> false;
+            case "VanillaGameEvent" -> mayEmitGameEvent;
+            default -> true;
+        };
+    }
     private static boolean isBuiltInListener(Map<?, ?> owners, Object listener, BuiltInOwner builtIn) {
         // Bus 8 uses the registered wrapper for cancellable events and its exact unchecked
         // delegate for other dispatch arrays. Check the live owner map in both cases.

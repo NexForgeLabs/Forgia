@@ -1,6 +1,26 @@
 --- a/net/minecraft/server/network/ServerGamePacketListenerImpl.java
 +++ b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
-@@ -439,9 +439,11 @@
+@@ -257,7 +257,11 @@
+         this.player.xo = this.player.getX();
+         this.player.yo = this.player.getY();
+         this.player.zo = this.player.getZ();
+-        this.player.doTick();
++        if (!net.neoforged.neoforge.server.threading.RegionThreadingHooks.tryRunPlayerConnectionBodyTick(this)) {
++            this.player.doTick();
++        }
++        final long forgiaTailStart = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming();
++        try {
+         this.player.absMoveTo(this.firstGoodX, this.firstGoodY, this.firstGoodZ, this.player.getYRot(), this.player.getXRot());
+         this.tickCount++;
+         this.knownMovePacketCount = this.receivedMovePacketCount;
+@@ -311,3 +_,6 @@
+             this.disconnect(Component.translatable("multiplayer.disconnect.idling"));
+         }
++        } finally {
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.endPlayerConnectionTailTiming(forgiaTailStart, true);
++        }
+     }
+@@ -439,9 +_,11 @@
                  }
  
                  entity.absMoveTo(d3, d4, d5, f, f1);
@@ -12,7 +32,7 @@
                      this.send(new ClientboundMoveVehiclePacket(entity));
                      return;
                  }
-@@ -450,6 +452,7 @@
+@@ -450,6 +459,7 @@
                  Vec3 vec3 = new Vec3(entity.getX() - d0, entity.getY() - d1, entity.getZ() - d2);
                  this.player.setKnownMovement(vec3);
                  this.player.checkMovementStatistics(vec3.x, vec3.y, vec3.z);
@@ -20,7 +40,7 @@
                  this.clientVehicleIsFloating = d11 >= -0.03125
                      && !flag1
                      && !this.server.isFlightAllowed()
-@@ -460,6 +463,23 @@
+@@ -460,6 +470,23 @@
                  this.vehicleLastGoodZ = entity.getZ();
              }
          }
@@ -44,7 +64,7 @@
      }
  
      private boolean noBlocksAround(Entity p_9794_) {
-@@ -927,7 +947,7 @@
+@@ -927,7 +954,7 @@
                                      && !flag1
                                      && this.player.gameMode.getGameModeForPlayer() != GameType.SPECTATOR
                                      && !this.server.isFlightAllowed()
@@ -53,7 +73,7 @@
                                      && !this.player.hasEffect(MobEffects.LEVITATION)
                                      && !flag
                                      && !flag3
-@@ -1004,6 +1024,9 @@
+@@ -1004,6 +1031,9 @@
      }
  
      public void teleport(double p_9781_, double p_9782_, double p_9783_, float p_9784_, float p_9785_, Set<RelativeMovement> p_9786_) {
@@ -63,7 +83,7 @@
          double d0 = p_9786_.contains(RelativeMovement.X) ? this.player.getX() : 0.0;
          double d1 = p_9786_.contains(RelativeMovement.Y) ? this.player.getY() : 0.0;
          double d2 = p_9786_.contains(RelativeMovement.Z) ? this.player.getZ() : 0.0;
-@@ -1031,8 +1054,10 @@
+@@ -1031,8 +1061,10 @@
              case SWAP_ITEM_WITH_OFFHAND:
                  if (!this.player.isSpectator()) {
                      ItemStack itemstack = this.player.getItemInHand(InteractionHand.OFF_HAND);
@@ -76,7 +96,7 @@
                      this.player.stopUsingItem();
                  }
  
-@@ -1060,7 +1085,7 @@
+@@ -1060,7 +1092,7 @@
                      .handleBlockBreakAction(
                          blockpos, serverboundplayeractionpacket$action, p_9889_.getDirection(), this.player.level().getMaxBuildHeight(), p_9889_.getSequence()
                      );
@@ -85,7 +105,7 @@
                  return;
              default:
                  throw new IllegalArgumentException("Invalid player action");
-@@ -1079,7 +1104,7 @@
+@@ -1079,7 +1111,7 @@
      @Override
      public void handleUseItemOn(ServerboundUseItemOnPacket p_9930_) {
          PacketUtils.ensureRunningOnSameThread(p_9930_, this, this.player.serverLevel());
@@ -94,7 +114,7 @@
          ServerLevel serverlevel = this.player.serverLevel();
          InteractionHand interactionhand = p_9930_.getHand();
          ItemStack itemstack = this.player.getItemInHand(interactionhand);
-@@ -1219,6 +1244,7 @@
+@@ -1219,6 +1251,7 @@
  
      @Override
      public void handleChat(ServerboundChatPacket p_9841_) {
@@ -102,7 +122,7 @@
          Optional<LastSeenMessages> optional = this.unpackAndApplyLastSeen(p_9841_.lastSeenMessages());
          if (!optional.isEmpty()) {
              this.tryHandleChat(p_9841_.message(), () -> {
-@@ -1231,11 +1257,12 @@
+@@ -1231,11 +1264,12 @@
                  }
  
                  CompletableFuture<FilteredText> completablefuture = this.filterTextPacket(playerchatmessage.signedContent());
@@ -118,7 +138,7 @@
              });
          }
      }
-@@ -1387,6 +1414,7 @@
+@@ -1387,6 +1421,7 @@
      }
  
      private void broadcastChatMessage(PlayerChatMessage p_243277_) {
@@ -126,7 +146,7 @@
          this.server.getPlayerList().broadcastChatMessage(p_243277_, this.player, ChatType.bind(ChatType.CHAT, this.player));
          this.detectRateSpam();
      }
-@@ -1561,7 +1589,11 @@
+@@ -1561,7 +1596,11 @@
  
                          @Override
                          public void onInteraction(InteractionHand p_143682_, Vec3 p_143683_) {
@@ -139,7 +159,7 @@
                          }
  
                          @Override
-@@ -1753,13 +1785,15 @@
+@@ -1753,13 +1792,15 @@
      @Override
      public void handlePlayerAbilities(ServerboundPlayerAbilitiesPacket p_9887_) {
          PacketUtils.ensureRunningOnSameThread(p_9887_, this, this.player.serverLevel());
@@ -156,7 +176,7 @@
      }
  
      @Override
-@@ -1812,7 +1846,7 @@
+@@ -1812,7 +1853,7 @@
              this.connection
                  .setupInboundProtocol(
                      ConfigurationProtocols.SERVERBOUND,
@@ -165,7 +185,7 @@
                  );
          }
      }
-@@ -1847,6 +1881,7 @@
+@@ -1847,6 +1888,7 @@
  
      @Override
      public void handleCustomPayload(ServerboundCustomPayloadPacket p_333887_) {

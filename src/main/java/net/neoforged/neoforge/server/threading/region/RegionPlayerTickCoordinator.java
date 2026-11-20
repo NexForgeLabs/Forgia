@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 @ApiStatus.Internal
 public final class RegionPlayerTickCoordinator {
     public enum Phase {
-        ENTITY, CONNECTION
+        ENTITY, CONNECTION, CONNECTION_BODY
     }
 
     public enum State {
@@ -132,7 +132,7 @@ public final class RegionPlayerTickCoordinator {
 
     private static final class Starts {
         final WeakReference<ServerPlayer> player;
-        final long[] ticks = { -1, -1 };
+        final long[] ticks;
 
         synchronized boolean mark(Phase phase, long tick) {
             int index = phase.ordinal();
@@ -142,11 +142,17 @@ public final class RegionPlayerTickCoordinator {
         }
 
         synchronized boolean expired(long tick) {
-            return this.player.get() == null || this.ticks[0] != tick && this.ticks[1] != tick;
+            if (this.player.get() == null) return true;
+            for (long t : this.ticks) {
+                if (t == tick) return false;
+            }
+            return true;
         }
 
         Starts(ServerPlayer player) {
             this.player = new WeakReference<>(player);
+            this.ticks = new long[Phase.values().length];
+            java.util.Arrays.fill(this.ticks, -1L);
         }
     }
 

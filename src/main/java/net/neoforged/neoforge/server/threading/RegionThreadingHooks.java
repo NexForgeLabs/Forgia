@@ -2118,6 +2118,44 @@ public final class RegionThreadingHooks {
     }
 
     /**
+     * Called at the exact {@code this.player.doTick()} site in {@code ServerGamePacketListenerImpl.tick()}.
+     * Keeps the surrounding {@code Connection.tick()} and packet-listener lifecycle on the server thread
+     * while dispatching only the original {@code ServerPlayer.doTick()} body to a region worker.
+     */
+    public static boolean tryRunPlayerConnectionBodyTick(net.minecraft.server.network.ServerGamePacketListenerImpl listener) {
+        ServerPlayer player = listener.player;
+        if (player.connection != listener) return false;
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (!(threading instanceof RegionThreadingEngine engine) || !engine.playerTickPlanningRequested()) {
+            return false;
+        }
+        if (net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.executingWorker(player,
+                net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.CONNECTION)
+                || net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.executingWorker(player,
+                        net.neoforged.neoforge.server.threading.region.RegionPlayerTickCoordinator.Phase.CONNECTION_BODY)) {
+            return false;
+        }
+        return engine.tryRunPlayerConnectionBodyTick(player, player::doTick);
+    }
+
+    public static long beginPlayerConnectionTailTiming() {
+        return RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine && engine.playerTimingEnabled()
+                ? System.nanoTime() : 0;
+    }
+
+    public static void endPlayerConnectionTailTiming(long began, boolean listenerTail) {
+        if (began != 0 && RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) {
+            engine.recordPlayerConnectionTail(System.nanoTime() - began, listenerTail);
+        }
+    }
+
+    public static void endPlayerChunkSaveTiming(long began, boolean flush) {
+        if (began != 0 && RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) {
+            engine.recordPlayerChunkSave(System.nanoTime() - began, flush);
+        }
+    }
+
+    /**
      * Publishes that the level's entity tick list now contains {@code entity}.
      * <p>
      * This is the membership seam of the self-driven entity tick: the engine indexes the entity in the region

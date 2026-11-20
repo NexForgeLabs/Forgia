@@ -47,6 +47,16 @@ public final class PlayerCriterionListeners {
                 this.members.put(trigger, identities);
             });
         }
+
+        boolean empty(SimpleCriterionTrigger<?> trigger) {
+            Set<?> set = this.sets.get(trigger);
+            return set == null || set.isEmpty();
+        }
+
+        @Nullable
+        Set<?> get(SimpleCriterionTrigger<?> trigger) {
+            return this.sets.get(trigger);
+        }
     }
 
     Snapshot snapshot() {

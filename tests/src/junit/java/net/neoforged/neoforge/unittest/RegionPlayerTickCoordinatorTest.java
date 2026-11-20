@@ -204,7 +204,7 @@ class RegionPlayerTickCoordinatorTest {
             assertFalse(plan.retainsLiveBinding());
             assertThrows(IllegalStateException.class, () -> this.engine.playerTicks().executeSerial(plan, effects::incrementAndGet));
         }
-        assertEquals(2, effects.get());
+        assertEquals(Phase.values().length, effects.get());
         assertEquals(0, this.engine.playerTicks().snapshot().pending());
     }
 

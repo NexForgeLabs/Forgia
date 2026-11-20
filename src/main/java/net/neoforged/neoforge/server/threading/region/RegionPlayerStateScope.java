@@ -191,6 +191,26 @@ public final class RegionPlayerStateScope implements AutoCloseable {
         return currentSlot() != null;
     }
 
+    /** The body may send its original local health, experience and cooldown packets synchronously. */
+    public static boolean sendConnectionBodyPacket(net.minecraft.network.Connection connection,
+            net.minecraft.network.protocol.Packet<?> packet, @Nullable net.minecraft.network.PacketSendListener listener, boolean flush) {
+        var scope = currentSlot();
+        if (scope == null || scope.plan.phase() != RegionPlayerTickCoordinator.Phase.CONNECTION_BODY) return false;
+        var plan = require();
+        if (!RegionPlayerTickCoordinator.executingWorker(plan.player(), RegionPlayerTickCoordinator.Phase.CONNECTION_BODY)
+                || plan.connection() != connection || listener != null
+                || !(packet instanceof net.minecraft.network.protocol.game.ClientboundSetHealthPacket
+                        || packet instanceof net.minecraft.network.protocol.game.ClientboundSetExperiencePacket
+                        || packet instanceof net.minecraft.network.protocol.game.ClientboundCooldownPacket)) {
+            throw RegionWorkerBoundaryException.playerState("sendConnectionBodyPacket", "Uncaptured player outbound packet");
+        }
+        RegionTickBatch.current().runOnServerThread(plan.player().serverLevel(), () -> {
+            connection.send(packet, null, flush);
+            return null;
+        });
+        return true;
+    }
+
     public static void rejectServicePump() {
         if (currentSlot() != null) throw RegionWorkerBoundaryException.playerState("rejectServicePump", "Owner-local player branch cannot pump arbitrary server work");
     }

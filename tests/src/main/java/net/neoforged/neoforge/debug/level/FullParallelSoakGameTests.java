@@ -87,9 +87,15 @@ public class FullParallelSoakGameTests {
             probe.populate();
             NeoForge.EVENT_BUS.register(probe);
             final long duration = TimeUnit.SECONDS.toNanos(Math.clamp(Long.getLong("forgia.fullParallelSoakSeconds", 600L), 1L, 3600L));
+            helper.onEachTick(() -> {
+                for (Bot bot : probe.bots) {
+                    if (!bot.connection().isConnected()) {
+                        helper.fail("Soak bot disconnected: " + bot.player.getGameProfile().getName());
+                    }
+                }
+            });
             helper.startSequence().thenWaitUntil(() -> {
                 helper.assertTrue(probe.elapsed() >= duration, "Measurement window is still running");
-                helper.assertTrue(probe.bots.stream().allMatch(bot -> bot.connection().isConnected()), "A bot disconnected");
             }).thenExecute(() -> {
                 probe.printSummary();
                 probe.close();

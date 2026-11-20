@@ -1,6 +1,16 @@
 --- a/net/minecraft/world/inventory/InventoryMenu.java
 +++ b/net/minecraft/world/inventory/InventoryMenu.java
-@@ -52,2 +_,39 @@
+@@ -52,2 +_,53 @@
++    private final Slot[] forgiaOriginalSlots;
++
++    public boolean forgiaHasOriginalSlots() {
++        if (this.slots.size() != this.forgiaOriginalSlots.length) return false;
++        for (int i = 0; i < this.forgiaOriginalSlots.length; i++) {
++            if (this.slots.get(i) != this.forgiaOriginalSlots[i]) return false;
++        }
++        return true;
++    }
++
 +    public java.util.List<Object> forgiaPlayerLocalContainers() {
 +        java.util.List<Object> objects = new java.util.ArrayList<>();
 +        this.forgiaCollectPlayerLocalContainers(objects);
@@ -14,12 +24,16 @@
 +    }
 +
 +    public int forgiaMatchesPlayerLocalContainers(Object[] expected, int index, Player player, ContainerListener listener, ContainerSynchronizer sync) {
++        return this.forgiaMatchesPlayerLocalContainers(expected, index, player, listener, sync, false);
++    }
++
++    public int forgiaMatchesPlayerLocalContainers(Object[] expected, int index, Player player, ContainerListener listener, ContainerSynchronizer sync, boolean connectionBody) {
 +        if (this.owner != player || player.getInventory().getClass() != Inventory.class || this.slots.size() != 46
 +            || this.craftSlots.getClass() != TransientCraftingContainer.class || this.resultSlots.getClass() != ResultContainer.class
 +            || !this.craftSlots.isEmpty() || !this.resultSlots.isEmpty() || !this.getCarried().isEmpty()) {
 +            return -1;
 +        }
-+        index = this.forgiaMatchesPlayerLocalMenuObjects(expected, index, listener, sync);
++        index = this.forgiaMatchesPlayerLocalMenuObjects(expected, index, listener, sync, connectionBody);
 +        if (index < 0 || index + 2 > expected.length) return -1;
 +        if (expected[index++] != this.craftSlots || expected[index++] != this.resultSlots) return -1;
 +        return index;
@@ -40,3 +54,9 @@
 +    }
      public InventoryMenu(Inventory p_39706_, boolean p_39707_, final Player p_39708_) {
          super(null, 0);
+@@ -89,4 +_,5 @@
+                 return Pair.of(InventoryMenu.BLOCK_ATLAS, InventoryMenu.EMPTY_ARMOR_SLOT_SHIELD);
+             }
+         });
++        this.forgiaOriginalSlots = this.slots.toArray(Slot[]::new);
+     }

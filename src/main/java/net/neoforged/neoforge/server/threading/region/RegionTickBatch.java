@@ -120,6 +120,8 @@ abstract class RegionTickBatch {
 
     private volatile boolean externalWaveActive;
     @Nullable
+    private RegionTaskBatch.Barrier playerConnectionBodyBarrier;
+    @Nullable
     private RegionSpawnAdmissionBarrier spawnAdmissions;
     private final ThreadLocal<RegionSpawnAdmissionBarrier.Worker> admissionWorker = new ThreadLocal<>();
     /**
@@ -484,7 +486,8 @@ abstract class RegionTickBatch {
             }
             this.pendingMainThreadWork.add(work);
         }
-        this.groupBarrier.wakeWaiter();
+        var playerBarrier = this.playerConnectionBodyBarrier;
+        (playerBarrier == null ? this.groupBarrier : playerBarrier).wakeWaiter();
         return work.await();
     }
 
@@ -495,6 +498,27 @@ abstract class RegionTickBatch {
      * publishing server thread. Each handoff is removed from the pending set before it runs, so it executes
      * exactly once and the close path can never run it a second time.
      */
+    /** Waits on the original publisher, servicing only the admitted body’s synchronous outbound sends. */
+    final void submitAndJoinPlayerConnectionBody(RegionTaskBatch tasks, RegionWorkerExecutor executor) {
+        var barrier = tasks.newBarrier();
+        this.playerConnectionBodyBarrier = barrier;
+        barrier.setWaiter(Thread.currentThread());
+        boolean interrupted = false;
+        try {
+            tasks.submit(executor, barrier);
+            while (!barrier.isComplete()) {
+                this.runPendingMainThreadWork();
+                if (!barrier.isComplete()) java.util.concurrent.locks.LockSupport.park(this);
+                interrupted |= Thread.interrupted();
+            }
+            barrier.throwIfFailed();
+        } finally {
+            barrier.setWaiter(null);
+            this.playerConnectionBodyBarrier = null;
+            if (interrupted) Thread.currentThread().interrupt();
+        }
+    }
+
     private void runPendingMainThreadWork() {
         while (true) {
             final MainThreadWork<?> work;

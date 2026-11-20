@@ -337,6 +337,15 @@
              if (p_8644_ != null) {
                  p_8644_.progressStartNoAbort(Component.translatable("menu.savingLevel"));
              }
+@@ -804,3 +_,8 @@
++            final long forgiaSaveStart = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming();
++            try {
+             serverchunkcache.save(p_8645_);
++            } finally {
++                net.neoforged.neoforge.server.threading.RegionThreadingHooks.endPlayerChunkSaveTiming(forgiaSaveStart, p_8645_);
++            }
+             if (p_8645_) {
+                 this.entityManager.saveAll();
 @@ -807,6 +_,14 @@
              } else {
                  this.entityManager.autoSave();

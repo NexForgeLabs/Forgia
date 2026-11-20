@@ -181,6 +181,7 @@ class RegionPlayerSpatialLeaseTest {
                 var chunk = mock(LevelChunk.class);
                 when(chunk.getPos()).thenReturn(new ChunkPos(x, z));
                 when(chunk.getLevel()).thenReturn(this.level);
+                when(chunk.isLoaded()).thenReturn(true);
                 when(chunk.getBlockState(any())).thenAnswer(read -> this.level.getBlockState(read.getArgument(0)));
                 when(chunk.getFluidState(any(BlockPos.class))).thenAnswer(read -> this.level.getFluidState(read.getArgument(0)));
                 when(chunk.getBlockEntity(any(), eq(LevelChunk.EntityCreationType.IMMEDIATE))).thenAnswer(read -> this.level.getBlockEntity(read.getArgument(0)));
@@ -808,11 +809,14 @@ class RegionPlayerSpatialLeaseTest {
             for (var phase : RegionPlayerTickCoordinator.Phase.values()) {
                 var refused = this.engine.capturePlayerAdmissionPlan(this.player, phase);
                 assertNull(refused.plan());
-                assertEquals(expected, refused.refusal(), refused.detail());
+                var phaseExpected = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY && condition.equals("item")
+                        ? net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.OPTIONAL_TICK_STATE
+                        : expected;
+                assertEquals(phaseExpected, refused.refusal(), refused.detail());
                 var calls = new java.util.concurrent.atomic.AtomicInteger();
                 this.engine.tickPlayerSerial(this.player, this.player.connection.getConnection(), phase, calls::incrementAndGet);
                 assertEquals(1, calls.get());
-                assertTrue(this.engine.playerAdmissionRefusals().get(phase.name() + ":" + expected.name()) >= 1);
+                assertTrue(this.engine.playerAdmissionRefusals().get(phase.name() + ":" + phaseExpected.name()) >= 1);
             }
         }
     }
@@ -934,6 +938,7 @@ class RegionPlayerSpatialLeaseTest {
         field(net.minecraft.world.entity.player.Player.class, this.player, "inventoryMenu", menu);
         this.player.containerMenu = menu;
         when(this.player.forgiaHasLocalStateBindings()).thenReturn(true);
+        when(this.player.forgiaHasConnectionBodyStateBindings()).thenReturn(true);
         when(this.player.forgiaHasSimpleSharedState()).thenReturn(true);
         var board = new net.minecraft.world.scores.Scoreboard();
         when(this.player.getScoreboard()).thenReturn(board);
@@ -1269,8 +1274,30 @@ class RegionPlayerSpatialLeaseTest {
         menu.setSynchronizer(sync);
         menu.addSlotListener(listener);
         when(this.player.forgiaHasLocalStateBindings()).thenCallRealMethod();
+        when(this.player.forgiaHasConnectionBodyStateBindings()).thenCallRealMethod();
         assertTrue(this.player.forgiaHasLocalStateBindings());
+        assertTrue(this.player.forgiaHasConnectionBodyStateBindings());
         return menu;
+    }
+
+    @Test
+    void localEntityMenuAcceptsSettledVanillaGearAndRefusesChangesBeforeCallback() throws Exception {
+        localState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var menu = originalLocalMenu();
+        doCallRealMethod().when(this.player).forgiaHasLocalEntityStateBindings();
+        var inventory = this.player.getInventory();
+        inventory.setItem(0, new ItemStack(Items.DIAMOND_SWORD));
+        assertFalse(this.player.forgiaHasLocalEntityStateBindings());
+        menu.broadcastChanges();
+        assertTrue(this.player.forgiaHasLocalEntityStateBindings());
+        inventory.getItem(0).set(net.minecraft.core.component.DataComponents.DAMAGE, 1);
+        menu.broadcastChanges();
+        assertFalse(this.player.forgiaHasLocalEntityStateBindings());
+        inventory.setItem(0, ItemStack.EMPTY);
+        menu.broadcastChanges();
+        assertTrue(this.player.forgiaHasLocalEntityStateBindings());
+        menu.slots.set(9, new net.minecraft.world.inventory.Slot(inventory, 9, 0, 0));
+        assertFalse(this.player.forgiaHasLocalEntityStateBindings());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -1901,6 +1928,12 @@ class RegionPlayerSpatialLeaseTest {
             assertFalse(connection.revalidate());
             for (var phase : RegionPlayerTickCoordinator.Phase.values()) {
                 var refused = this.engine.capturePlayerAdmissionPlan(this.player, phase);
+                if (phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                        && (condition.equals("keepalive") || condition.equals("floating") || condition.equals("vehicleFloating")
+                                || condition.equals("awaitingTeleport") || condition.equals("idle"))) {
+                    assertNotNull(refused.plan(), refused.toString());
+                    continue;
+                }
                 assertNull(refused.plan(), refused.toString());
                 org.junit.jupiter.api.Assertions.assertNotEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.NONE, refused.refusal());
                 assertEquals(0, this.engine.playerTicks().snapshot().phases().get(phase).worker());
@@ -3471,6 +3504,374 @@ class RegionPlayerSpatialLeaseTest {
             }
             assertFalse(capture.plan().revalidate());
             org.mockito.Mockito.verify(this.player, org.mockito.Mockito.never()).hurt(any(), org.mockito.ArgumentMatchers.anyFloat());
+        }
+    }
+
+    @Test
+    void connectionBodyRunsOnWorkerWhileCompleteConnectionTickStaysOnServerThread() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        try (var installed = installedBaseEnvironment()) {
+            Thread serverThread = Thread.currentThread();
+            var order = java.util.Collections.synchronizedList(new ArrayList<String>());
+            var doTickCalls = new java.util.concurrent.atomic.AtomicInteger();
+            var workerObserved = new java.util.concurrent.atomic.AtomicBoolean();
+            var pass = this.engine.beginPlayerConnectionPass(List.of(this.player.connection.getConnection()));
+            assertFalse(pass.tick(this.player.connection.getConnection()), "Complete Connection.tick must stay on server thread");
+            pass.close();
+            this.engine.tickPlayerSerial(this.player, this.player.connection.getConnection(),
+                    RegionPlayerTickCoordinator.Phase.CONNECTION, () -> {
+                        assertSame(serverThread, Thread.currentThread());
+                        order.add("pre");
+                        boolean ran = this.engine.tryRunPlayerConnectionBodyTick(this.player, () -> {
+                            doTickCalls.incrementAndGet();
+                            workerObserved.set(RegionWorkerScope.isNativeWorkerThread());
+                            order.add("Pre");
+                            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(
+                                    new net.neoforged.neoforge.event.tick.PlayerTickEvent.Pre(this.player));
+                            order.add("body");
+                            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(
+                                    new net.neoforged.neoforge.event.tick.PlayerTickEvent.Post(this.player));
+                            order.add("Post");
+                        });
+                        assertTrue(ran, "CONNECTION_BODY must enter Region Worker");
+                        assertSame(serverThread, Thread.currentThread());
+                        order.add("post-keepalive-floating-idle");
+                    });
+            assertEquals(1, doTickCalls.get(), "ServerPlayer.doTick must run exactly once");
+            assertTrue(workerObserved.get(), "CONNECTION_BODY must execute on a native region worker thread");
+            assertEquals(List.of("pre", "Pre", "body", "Post", "post-keepalive-floating-idle"), order);
+            var snap = this.engine.playerTicks().snapshot();
+            assertEquals(1, snap.phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).worker());
+            assertEquals(1, snap.phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION).serial());
+            assertEquals(0, snap.phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION).worker());
+            assertEquals(0, snap.pending());
+            assertEquals(0, snap.running());
+            assertEquals(0, ((Set<?>) field(this.engine, "activeTickBatches")).size());
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+            assertEquals(0, this.engine.playerNetworkGate().snapshot().readers());
+            assertEquals(0, this.engine.playerNetworkGate().snapshot().pending());
+        }
+    }
+
+    @Test
+    void originalConnectionAndListenerJoinBeforeCorrectionKeepaliveAndIdleDisconnect() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        var listener = this.player.connection;
+        var connection = listener.getConnection();
+        var order = new CopyOnWriteArrayList<String>();
+        Thread publisher = Thread.currentThread();
+        var common = net.minecraft.server.network.ServerCommonPacketListenerImpl.class;
+        field(common, listener, "server", this.server);
+        field(ServerGamePacketListenerImpl.class, listener, "ackBlockChangesUpTo", -1);
+        field(ServerGamePacketListenerImpl.class, listener, "clientIsFloating", true);
+        field(common, listener, "keepAliveTime", net.minecraft.Util.getMillis());
+        when(this.server.getPlayerIdleTimeout()).thenReturn(1);
+        when(this.player.getLastActionTime()).thenReturn(net.minecraft.Util.getMillis() - 61_000L);
+        when(this.player.getRootVehicle()).thenReturn(this.player);
+        doCallRealMethod().when(listener).resetPosition();
+        doCallRealMethod().when(listener).tick();
+        doCallRealMethod().when(connection).tick();
+        doCallRealMethod().when(connection).send(any(), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.anyBoolean());
+        var channel = mock(io.netty.channel.Channel.class);
+        var eventLoop = mock(io.netty.channel.EventLoop.class);
+        when(channel.isOpen()).thenReturn(true);
+        when(channel.eventLoop()).thenReturn(eventLoop);
+        when(eventLoop.inEventLoop()).thenReturn(true);
+        when(channel.writeAndFlush(any())).thenAnswer(call -> {
+            assertSame(publisher, Thread.currentThread());
+            assertTrue(this.engine.playerNetworkGate().snapshot().frozen());
+            order.add("outbound");
+            return mock(io.netty.channel.ChannelFuture.class);
+        });
+        when(channel.flush()).thenAnswer(call -> {
+            assertSame(publisher, Thread.currentThread());
+            order.add("flush");
+            return channel;
+        });
+        field(Connection.class, connection, "channel", channel);
+        field(Connection.class, connection, "packetListener", listener);
+        @SuppressWarnings("unchecked")
+        var pending = (Queue<Consumer<Connection>>) field(connection, "pendingActions");
+        pending.add(ignored -> {
+            assertSame(publisher, Thread.currentThread());
+            order.add("flushQueue");
+        });
+        doAnswer(call -> {
+            assertTrue(RegionWorkerScope.isNativeWorkerThread());
+            assertEquals(this.player.getX(), this.player.xo);
+            assertEquals(this.player.getY(), this.player.yo);
+            assertEquals(this.player.getZ(), this.player.zo);
+            order.add("doTick");
+            connection.send(new net.minecraft.network.protocol.game.ClientboundSetHealthPacket(20, 20, 5), null, true);
+            assertEquals("outbound", order.getLast());
+            return null;
+        }).when(this.player).doTick();
+        doAnswer(call -> {
+            assertSame(publisher, Thread.currentThread());
+            assertFalse(this.engine.playerNetworkGate().snapshot().frozen());
+            order.add("correction");
+            return null;
+        }).when(this.player).absMoveTo(org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyFloat(), org.mockito.ArgumentMatchers.anyFloat());
+        doAnswer(call -> {
+            assertSame(publisher, Thread.currentThread());
+            assertEquals(1, field(listener, "aboveGroundTickCount"));
+            order.add("idle disconnect");
+            return null;
+        }).when(listener).disconnect(any(net.minecraft.network.chat.Component.class));
+        try (var installed = installedBaseEnvironment()) {
+            assertTrue(net.neoforged.neoforge.server.threading.RegionThreadingHooks.runPlayerConnectionTick(connection));
+        }
+        assertEquals(List.of("flushQueue", "doTick", "outbound", "correction", "idle disconnect", "flush"), order);
+        assertEquals(1, this.engine.playerTicks().snapshot().phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).worker());
+    }
+
+    @Test
+    void connectionBodyAllowsKeepAliveFloatingIdleAndStillRejectsDisconnectAndPendingActions() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        try (var installed = installedBaseEnvironment()) {
+            field(net.minecraft.server.network.ServerCommonPacketListenerImpl.class, this.player.connection, "keepAlivePending", true);
+            field(ServerGamePacketListenerImpl.class, this.player.connection, "clientIsFloating", true);
+            field(ServerGamePacketListenerImpl.class, this.player.connection, "clientVehicleIsFloating", true);
+            when(this.server.getPlayerIdleTimeout()).thenReturn(5);
+            var workerObserved = new java.util.concurrent.atomic.AtomicBoolean();
+            assertTrue(this.engine.tryRunPlayerConnectionBodyTick(this.player, () -> workerObserved.set(RegionWorkerScope.isNativeWorkerThread())));
+            assertTrue(workerObserved.get());
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+
+            // Disconnect/closed/pendingActions remain refused before body start.
+            field(net.minecraft.server.network.ServerCommonPacketListenerImpl.class, this.player.connection, "closed", true);
+            assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.NETWORK_TRANSITION,
+                    this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).refusal());
+            field(net.minecraft.server.network.ServerCommonPacketListenerImpl.class, this.player.connection, "closed", false);
+            @SuppressWarnings("unchecked")
+            var pending = (java.util.Queue<Object>) field(this.player.connection.getConnection(), "pendingActions");
+            pending.add(new Object());
+            assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.NETWORK_PENDING_ACTIONS,
+                    this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).refusal());
+            pending.clear();
+        }
+    }
+
+    @Test
+    void connectionBodyExceptionDoesNotReplayOnServerThreadAndCleansUp() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        try (var installed = installedBaseEnvironment()) {
+            var calls = new java.util.concurrent.atomic.AtomicInteger();
+            RuntimeException boom = new RuntimeException("connection-body-boom");
+            RuntimeException thrown = assertThrows(RuntimeException.class, () -> this.engine.tryRunPlayerConnectionBodyTick(this.player, () -> {
+                calls.incrementAndGet();
+                assertTrue(RegionWorkerScope.isNativeWorkerThread());
+                throw boom;
+            }));
+            assertSame(boom, thrown);
+            assertEquals(1, calls.get(), "Failed worker body must never replay on Server Thread");
+            var snap = this.engine.playerTicks().snapshot();
+            assertEquals(1, snap.phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).failed());
+            assertEquals(1, snap.phases().get(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).joined());
+            assertEquals(0, snap.pending());
+            assertEquals(0, snap.running());
+            assertEquals(0, ((Set<?>) field(this.engine, "activeTickBatches")).size());
+            assertEquals(0, invoke(this.engine, "playerStateClaimCount", new Class<?>[0]));
+            assertEquals(0, this.engine.playerNetworkGate().snapshot().readers());
+            assertEquals(0, this.engine.playerNetworkGate().snapshot().pending());
+        }
+    }
+
+    @Test
+    void connectionBodyListenerScopingForItemStackedOnOtherAndVanillaGameEvent() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        java.util.function.Consumer<net.neoforged.neoforge.event.ItemStackedOnOtherEvent> stacked = event -> {};
+        java.util.function.Consumer<net.neoforged.neoforge.event.VanillaGameEvent> gameEvent = event -> {};
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.ItemStackedOnOtherEvent.class, stacked);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(net.neoforged.neoforge.event.VanillaGameEvent.class, gameEvent);
+        try (var installed = installedBaseEnvironment()) {
+            // Ordinary non-starving doTick does not emit ItemStackedOnOtherEvent or VanillaGameEvent -> enters Worker.
+            var workerObserved = new java.util.concurrent.atomic.AtomicBoolean();
+            assertTrue(this.engine.tryRunPlayerConnectionBodyTick(this.player, () -> workerObserved.set(RegionWorkerScope.isNativeWorkerThread())));
+            assertTrue(workerObserved.get());
+
+            // Starving doTick CAN emit VanillaGameEvent (ENTITY_DAMAGE) -> refused before body start!
+            this.player.getFoodData().setFoodLevel(0);
+            this.player.getFoodData().setSaturation(0f);
+            field(net.minecraft.world.food.FoodData.class, this.player.getFoodData(), "tickTimer", 79);
+            var refused = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY);
+            assertEquals(net.neoforged.neoforge.server.threading.region.RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, refused.refusal());
+            assertTrue(refused.detail().contains("VanillaGameEvent"));
+        } finally {
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(gameEvent);
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.unregister(stacked);
+        }
+    }
+
+    @Test
+    void connectionBodyRejectsReachableEnterBlockAndPeriodicLocationCriteria() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        var advancements = this.player.getAdvancements();
+        var holder = new net.minecraft.advancements.AdvancementHolder(net.minecraft.resources.ResourceLocation.withDefaultNamespace("criterion_probe"),
+                net.minecraft.advancements.Advancement.Builder.advancement().addCriterion("tick", net.minecraft.advancements.CriteriaTriggers.TICK.createCriterion(
+                        new net.minecraft.advancements.critereon.PlayerTrigger.TriggerInstance(java.util.Optional.empty())))
+                        .build(net.minecraft.resources.ResourceLocation.withDefaultNamespace("criterion_probe")).value());
+        var enter = net.minecraft.advancements.CriteriaTriggers.ENTER_BLOCK;
+        var location = net.minecraft.advancements.CriteriaTriggers.LOCATION;
+        enter.addPlayerListener(advancements, new net.minecraft.advancements.CriterionTrigger.Listener<>(
+                net.minecraft.advancements.critereon.EnterBlockTrigger.TriggerInstance.entersBlock(Blocks.WATER).triggerInstance(), holder, "tick"));
+        location.addPlayerListener(advancements, new net.minecraft.advancements.CriterionTrigger.Listener<>(
+                new net.minecraft.advancements.critereon.PlayerTrigger.TriggerInstance(java.util.Optional.empty()), holder, "tick"));
+        try (var installed = installedBaseEnvironment()) {
+            var phase = RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
+            this.player.tickCount = 19;
+            var offCycle = this.engine.capturePlayerAdmissionPlan(this.player, phase);
+            assertNotNull(offCycle.plan(), offCycle.toString());
+            this.player.tickCount = 20;
+            assertFalse(offCycle.plan().revalidate());
+            assertEquals("UNKNOWN_CRITERION", this.engine.capturePlayerAdmissionPlan(this.player, phase).detail());
+            this.player.tickCount = 21;
+            enter.addPlayerListener(advancements, new net.minecraft.advancements.CriterionTrigger.Listener<>(
+                    net.minecraft.advancements.critereon.EnterBlockTrigger.TriggerInstance.entersBlock(Blocks.AIR).triggerInstance(), holder, "tick"));
+            assertEquals("UNKNOWN_CRITERION", this.engine.capturePlayerAdmissionPlan(this.player, phase).detail());
+        }
+    }
+
+    @Test
+    void connectionBodyUnloadedChunkRefusalIncludesDetailedCoordinates() throws Exception {
+        productionLocalState();
+        int chunkX = this.player.blockPosition().getX() >> 4;
+        int chunkZ = this.player.blockPosition().getZ() >> 4;
+        when(this.level.getChunkSource().getChunkNow(chunkX, chunkZ)).thenReturn(null);
+        var capture = this.engine.capturePlayerSpatialPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY);
+        assertEquals(RegionPlayerSpatialPlan.Refusal.UNLOADED_CHUNK, capture.refusal());
+        assertTrue(capture.detail().contains("player="), capture.detail());
+        assertTrue(capture.detail().contains("chunk=" + chunkX + "," + chunkZ), capture.detail());
+        assertTrue(capture.detail().contains("region="), capture.detail());
+        assertTrue(capture.detail().contains("regions="), capture.detail());
+        assertTrue(capture.detail().contains("inQueryMargin="), capture.detail());
+        assertTrue(capture.detail().contains("inBlockBounds="), capture.detail());
+        assertTrue(capture.detail().contains("chunkGeneration="), capture.detail());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = { "listener", "synchronizer", "slot" })
+    void connectionBodyMenuListenerSynchronizerAndSlotIdentityChangeRefusedBeforeBody(String change) throws Exception {
+        productionLocalState();
+        var menu = originalLocalMenu();
+        field(net.minecraft.world.entity.player.Player.class, this.player, "inventoryMenu", menu);
+        this.player.containerMenu = menu;
+        try (var installed = installedBaseEnvironment()) {
+            var capture = this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY);
+            assertNotNull(capture.plan(), capture.refusal() + ":" + capture.detail());
+            assertTrue(capture.plan().revalidate());
+            switch (change) {
+                case "listener" -> menu.addSlotListener(mock(net.minecraft.world.inventory.ContainerListener.class));
+                case "synchronizer" -> menu.setSynchronizer(mock(net.minecraft.world.inventory.ContainerSynchronizer.class));
+                case "slot" -> menu.slots.set(9, new net.minecraft.world.inventory.Slot(this.player.getInventory(), 9, 0, 0));
+                default -> throw new AssertionError(change);
+            }
+            assertFalse(capture.plan().revalidate());
+            assertNull(this.engine.capturePlayerAdmissionPlan(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY).plan());
+        }
+    }
+
+    @Test
+    void connectionBodyTwoRegionsOverlapAndSameRegionSerializes() throws Exception {
+        productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+        packetWorkerEnvironment(() -> {});
+        ServerPlayer second = secondProductionPlayer(UUID.randomUUID(), 200, 64, 8);
+        try (var installed = installedBaseEnvironment()) {
+            Class<?> callType = Class.forName(PKG + "RegionPlayerTickDispatch$Call");
+            var callCtor = callType.getDeclaredConstructor(ServerPlayer.class, RegionPlayerTickCoordinator.Phase.class, Runnable.class);
+            callCtor.setAccessible(true);
+
+            // 1. Two distinct regions: both CONNECTION_BODY worker bodies overlap concurrently.
+            var arrived = new CountDownLatch(2);
+            var overlapped = new java.util.concurrent.atomic.AtomicBoolean(true);
+            var threads = java.util.Collections.synchronizedSet(new java.util.HashSet<Thread>());
+            Runnable body = () -> {
+                assertTrue(RegionWorkerScope.isNativeWorkerThread());
+                threads.add(Thread.currentThread());
+                arrived.countDown();
+                try {
+                    if (!arrived.await(5, TimeUnit.SECONDS)) overlapped.set(false);
+                } catch (InterruptedException e) {
+                    overlapped.set(false);
+                }
+            };
+            var secondCapture = this.engine.capturePlayerAdmissionPlan(second, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY);
+            assertNotNull(secondCapture.plan(), "second player refused: " + secondCapture.refusal() + ":" + secondCapture.detail());
+            Object c1 = callCtor.newInstance(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, body);
+            Object c2 = callCtor.newInstance(second, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, body);
+            int consumed = (int) invoke(this.engine, "dispatchPlayerConnectionBodyPrefix", new Class<?>[] { List.class }, List.of(c1, c2));
+            assertEquals(2, consumed, "lastRefusal=" + this.engine.playerTickDiagnostics(this.server).get("lastRefusal"));
+            assertTrue(overlapped.get(), "Two regions' CONNECTION_BODY worker bodies must overlap");
+            assertEquals(2, threads.size(), "Two regions must run on two distinct worker threads");
+
+            // 2. Same region: advance tick and place both players in region (0,0) -> must serialize!
+            when(this.server.getTickCount()).thenReturn(2);
+            ServerPlayer sameRegion = secondProductionPlayer(UUID.randomUUID(), 12, 64, 8);
+            var active = new java.util.concurrent.atomic.AtomicInteger();
+            var maxConcurrent = new java.util.concurrent.atomic.AtomicInteger();
+            var seq = java.util.Collections.synchronizedList(new ArrayList<String>());
+            Runnable firstSame = () -> {
+                int cur = active.incrementAndGet();
+                maxConcurrent.accumulateAndGet(cur, Math::max);
+                seq.add("first");
+                try {
+                    Thread.sleep(20);
+                } catch (InterruptedException ignored) {
+                } finally {
+                    active.decrementAndGet();
+                }
+            };
+            Runnable secondSame = () -> {
+                int cur = active.incrementAndGet();
+                maxConcurrent.accumulateAndGet(cur, Math::max);
+                seq.add("second");
+                active.decrementAndGet();
+            };
+            Object s1 = callCtor.newInstance(this.player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, firstSame);
+            Object s2 = callCtor.newInstance(sameRegion, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, secondSame);
+            int sameConsumed = (int) invoke(this.engine, "dispatchPlayerConnectionBodyPrefix", new Class<?>[] { List.class }, List.of(s1, s2));
+            assertEquals(2, sameConsumed);
+            assertEquals(1, maxConcurrent.get(), "Same-region CONNECTION_BODY must never execute concurrently");
+            assertEquals(List.of("first", "second"), seq);
+        }
+    }
+
+    private ServerPlayer secondProductionPlayer(UUID uuid, int x, int y, int z) throws Exception {
+        ServerPlayer saved = this.player;
+        try {
+            ServerPlayer other = mock(ServerPlayer.class, org.mockito.AdditionalAnswers.delegatesTo(saved));
+            field(ServerPlayer.class, other, "server", this.server);
+            field(ServerPlayer.class, other, "gameMode", new ServerPlayerGameMode(other));
+            when(other.serverLevel()).thenReturn(this.level);
+            when(other.getCamera()).thenReturn(other);
+            var connection = mock(Connection.class);
+            var listener = mock(ServerGamePacketListenerImpl.class);
+            listener.player = other;
+            other.connection = listener;
+            when(listener.getConnection()).thenReturn(connection);
+            when(listener.isAcceptingMessages()).thenReturn(true);
+            when(connection.getPacketListener()).thenReturn(listener);
+            when(connection.isConnected()).thenReturn(true);
+            var inv = mock(net.minecraft.world.entity.player.Inventory.class);
+            when(inv.getContainerSize()).thenReturn(41);
+            when(inv.getItem(anyInt())).thenReturn(ItemStack.EMPTY);
+            when(inv.forgiaPlayerLocalObjects()).thenReturn(List.of(inv));
+            when(other.getInventory()).thenReturn(inv);
+            this.player = other;
+            this.add(other, x + 0.5, z + 0.5, new AABB(x + 0.2, y, z + 0.2, x + 0.8, y + 1.8, z + 0.8));
+            var playerList = this.server.getPlayerList();
+            when(playerList.getPlayer(other.getUUID())).thenReturn(other);
+            productionLocalState(net.minecraft.advancements.AdvancementRewards.EMPTY);
+            when(other.position()).thenReturn(new Vec3(x + 0.5, y, z + 0.5));
+            return other;
+        } finally {
+            this.player = saved;
         }
     }
 }

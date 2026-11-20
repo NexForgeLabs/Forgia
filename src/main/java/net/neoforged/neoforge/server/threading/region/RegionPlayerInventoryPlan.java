@@ -29,10 +29,13 @@ public final class RegionPlayerInventoryPlan {
             this(stack, stack.getCount(), stack.getComponents());
         }
 
-        boolean current(ItemStack stack, boolean mustBeEmpty) {
+        boolean current(ItemStack stack, boolean mustBeEmpty, boolean localEntity, boolean connectionBody) {
             if (stack != original) return false;
             if (this == EMPTY) return true;
-            return stack.getCount() == count && stack.getComponents() == components && (mustBeEmpty ? stack.isEmpty() : supportedStack(stack));
+            return stack.getCount() == count && stack.getComponents() == components
+                    && (localEntity ? supportedEntityTickStack(stack)
+                            : connectionBody ? supportedConnectionBodyStack(stack)
+                            : mustBeEmpty ? stack.isEmpty() : supportedStack(stack));
         }
     }
 
@@ -57,6 +60,52 @@ public final class RegionPlayerInventoryPlan {
                 && stack.getCount() > 0 && stack.getCount() <= 64 && stack.getComponentsPatch().isEmpty() && !stack.isFramed();
     }
 
+    public static boolean supportedEntityTickStack(ItemStack stack) {
+        if (stack == null) return false;
+        if (supportedStack(stack) && !stack.is(Items.FILLED_MAP)) return true;
+        if (stack.isEmpty() || stack.isFramed() || !stack.getComponentsPatch().isEmpty()
+                || stack.getCount() > stack.getMaxStackSize()) return false;
+        // The ENTITY call only compares, copies and synchronizes these vanilla stacks.
+        return stack.is(Items.DIAMOND_SWORD) || stack.is(Items.DIAMOND_PICKAXE)
+                || stack.is(Items.COBBLESTONE) || stack.is(Items.OAK_PLANKS)
+                || stack.is(Items.FURNACE) || stack.is(Items.HOPPER) || stack.is(Items.REDSTONE_LAMP);
+    }
+
+    /**
+     * Vanilla stacks whose {@code inventoryTick} is a guaranteed no-op, are not complex items,
+     * carry no custom component patches, and do not trigger special armor tick side effects
+     * (such as {@code TURTLE_HELMET} water breathing).
+     */
+    public static boolean supportedConnectionBodyStack(ItemStack stack) {
+        if (stack == null) return false;
+        if (stack.isEmpty()) return true;
+        if (stack.isFramed() || !stack.getComponentsPatch().isEmpty()
+                || stack.getCount() <= 0 || stack.getCount() > stack.getMaxStackSize()) {
+            return false;
+        }
+        Item item = stack.getItem();
+        if (!net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getNamespace().equals("minecraft")
+                || item.isComplex() || item == Items.TURTLE_HELMET || !stack.getEnchantments().isEmpty()) return false;
+        Class<?> type = item.getClass();
+        return type == Item.class
+                || type == net.minecraft.world.item.BlockItem.class
+                || type == net.minecraft.world.item.SwordItem.class
+                || type == net.minecraft.world.item.PickaxeItem.class
+                || type == net.minecraft.world.item.AxeItem.class
+                || type == net.minecraft.world.item.ShovelItem.class
+                || type == net.minecraft.world.item.HoeItem.class
+                || type == net.minecraft.world.item.ArmorItem.class;
+    }
+
+    public static boolean supportedConnectionBodyInventory(ServerPlayer player) {
+        var inventory = player.getInventory();
+        if (inventory.getContainerSize() != 41 || inventory.selected < 0 || inventory.selected >= 9) return false;
+        for (int i = 0; i < 41; i++) {
+            if (!supportedConnectionBodyStack(inventory.getItem(i))) return false;
+        }
+        return true;
+    }
+
     public static boolean supportedInventory(ServerPlayer player) {
         var inventory = player.getInventory();
         if (inventory.getContainerSize() != 41 || inventory.selected < 0 || inventory.selected >= 9) return false;
@@ -72,10 +121,15 @@ public final class RegionPlayerInventoryPlan {
         var inventory = player.getInventory();
         int selected = inventory.selected;
         if (inventory.getContainerSize() != 41 || selected < 0 || selected >= 9) return null;
+        boolean localEntity = spatial.isLocalEntity();
+        boolean connectionBody = spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
         Stack[] slots = new Stack[41];
         for (int i = 0; i < 41; i++) {
             ItemStack stack = inventory.getItem(i);
-            if ((i == selected || i >= 36) ? !stack.isEmpty() : !supportedStack(stack)) return null;
+            boolean ok = localEntity ? supportedEntityTickStack(stack)
+                    : connectionBody ? supportedConnectionBodyStack(stack)
+                    : (i == selected || i >= 36) ? stack.isEmpty() : supportedStack(stack);
+            if (!ok) return null;
             slots[i] = Stack.capture(stack);
         }
         Map<ItemEntity, Stack> pickups = new IdentityHashMap<>();
@@ -118,8 +172,10 @@ public final class RegionPlayerInventoryPlan {
         Stack[] captured = this.slots;
         if (inventory.getContainerSize() != captured.length || currentSlot < 0 || currentSlot >= 9
                 || (currentSlot != selected && (!rebindLocalTemplate || !this.pickups.isEmpty()))) return false;
+        boolean localEntity = spatial.isLocalEntity();
+        boolean connectionBody = spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
         for (int i = 0; i < captured.length; i++) {
-            if (!captured[i].current(inventory.getItem(i), i == currentSlot || i >= 36)) return false;
+            if (!captured[i].current(inventory.getItem(i), i == currentSlot || i >= 36, localEntity, connectionBody)) return false;
         }
         if (this.pickups.isEmpty() && spatial.members().size() == 1) {
             return true;
@@ -128,7 +184,7 @@ public final class RegionPlayerInventoryPlan {
         for (var entity : spatial.members().keySet()) {
             if (entity instanceof ItemEntity item && entity.getBoundingBox().intersects(spatial.footprint().queryBounds())) {
                 Stack stack = pickups.get(item);
-                if (stack == null || !stack.current(item.getItem(), false)) return false;
+                if (stack == null || !stack.current(item.getItem(), false, false, false)) return false;
                 found++;
             }
         }

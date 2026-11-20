@@ -200,6 +200,47 @@ class RegionPlayerExtensionSnapshotTest {
     }
 
     @Test
+    void localEntityProfileDoesNotAdmitAnEntityTickListener() throws Exception {
+        var bus = BusBuilder.builder().build();
+        Consumer<PlayerTickEvent.Post> playerTick = event -> {};
+        bus.addListener(PlayerTickEvent.Post.class, playerTick);
+        var signature = new Class<?>[] { IEventBus.class, boolean.class };
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, inspect("listeners", signature, bus, true).refusal());
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, inspect("listeners", signature, bus, false).refusal());
+        Consumer<net.neoforged.neoforge.event.tick.EntityTickEvent.Post> entityTick = event -> {};
+        bus.addListener(net.neoforged.neoforge.event.tick.EntityTickEvent.Post.class, entityTick);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, inspect("listeners", signature, bus, true).refusal());
+        bus.unregister(entityTick);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, inspect("listeners", signature, bus, true).refusal());
+    }
+
+    @Test
+    void connectionBodyListenerProfileScopingForVanillaGameEventAndItemStackedOnOther() throws Exception {
+        var bus = BusBuilder.builder().build();
+        var connBodySig = new Class<?>[] { IEventBus.class, boolean.class };
+        Consumer<net.neoforged.neoforge.event.ItemStackedOnOtherEvent> stacked = event -> {};
+        bus.addListener(net.neoforged.neoforge.event.ItemStackedOnOtherEvent.class, stacked);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, RegionPlayerExtensionSnapshot.listeners(bus).refusal());
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, inspect("listenersConnectionBody", connBodySig, bus, false).refusal());
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, inspect("listenersConnectionBody", connBodySig, bus, true).refusal());
+
+        Consumer<net.neoforged.neoforge.event.VanillaGameEvent> gameEvent = event -> {};
+        bus.addListener(net.neoforged.neoforge.event.VanillaGameEvent.class, gameEvent);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, inspect("listenersConnectionBody", connBodySig, bus, false).refusal());
+        var refusedGameEvent = inspect("listenersConnectionBody", connBodySig, bus, true);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, refusedGameEvent.refusal());
+        org.junit.jupiter.api.Assertions.assertTrue(refusedGameEvent.detail().contains("VanillaGameEvent"));
+
+        Consumer<PlayerTickEvent.Pre> playerTick = event -> {};
+        bus.addListener(PlayerTickEvent.Pre.class, playerTick);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_LISTENER, inspect("listenersConnectionBody", connBodySig, bus, false).refusal());
+        bus.unregister(playerTick);
+        bus.unregister(gameEvent);
+        bus.unregister(stacked);
+        assertEquals(RegionPlayerAdmissionPlan.Refusal.NONE, inspect("listenersConnectionBody", connBodySig, bus, true).refusal());
+    }
+
+    @Test
     void onlyExactBuiltInEntityRegistrationIsApprovedAndConsumerOrSubclassStillRejects() throws Exception {
         var bus = BusBuilder.builder().build();
         var builtIn = new net.neoforged.neoforge.common.NeoForgeEventHandler();

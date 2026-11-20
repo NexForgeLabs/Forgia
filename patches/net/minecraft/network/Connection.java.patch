@@ -103,7 +103,28 @@
                  );
              }
  
-@@ -427,7 +463,7 @@
+@@ -319,4 +_,5 @@
+     public void send(Packet<?> p_295839_, @Nullable PacketSendListener p_294866_, boolean p_294265_) {
++        if (net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.sendConnectionBodyPacket(this, p_295839_, p_294866_, p_294265_)) return;
+         if (this.isConnected()) {
+             this.flushQueue();
+             this.sendPacket(p_295839_, p_294866_, p_294265_);
+@@ -398,3 +_,6 @@
++        final long forgiaTailStart = this.packetListener instanceof net.minecraft.server.network.ServerGamePacketListenerImpl
++                ? net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming() : 0;
++        try {
+         if (!this.isConnected() && !this.disconnectionHandled) {
+             this.handleDisconnection();
+         }
+@@ -410,4 +_,7 @@
+         if (this.bandwidthDebugMonitor != null) {
+             this.bandwidthDebugMonitor.tick();
+         }
++        } finally {
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.endPlayerConnectionTailTiming(forgiaTailStart, false);
++        }
+     }
+@@ -427,7 +_,7 @@
          if (this.address == null) {
              return "local";
          } else {
@@ -112,7 +133,7 @@
          }
      }
  
-@@ -436,6 +472,8 @@
+@@ -436,6 +479,8 @@
      }
  
      public void disconnect(DisconnectionDetails p_350867_) {
@@ -121,7 +142,7 @@
          if (this.channel == null) {
              this.delayedDisconnect = p_350867_;
          }
-@@ -444,6 +482,7 @@
+@@ -444,6 +489,7 @@
              this.channel.close().awaitUninterruptibly();
              this.disconnectionDetails = p_350867_;
          }
@@ -129,7 +150,7 @@
      }
  
      public boolean isMemoryConnection() {
-@@ -470,6 +509,7 @@
+@@ -470,6 +516,7 @@
      }
  
      public static ChannelFuture connect(InetSocketAddress p_290034_, boolean p_290035_, final Connection p_290031_) {
@@ -137,7 +158,7 @@
          Class<? extends SocketChannel> oclass;
          EventLoopGroup eventloopgroup;
          if (Epoll.isAvailable() && p_290035_) {
-@@ -611,10 +651,12 @@
+@@ -611,10 +658,12 @@
      }
  
      public void handleDisconnection() {
@@ -150,7 +171,7 @@
                  this.disconnectionHandled = true;
                  PacketListener packetlistener = this.getPacketListener();
                  PacketListener packetlistener1 = packetlistener != null ? packetlistener : this.disconnectListener;
-@@ -639,4 +681,16 @@
+@@ -639,4 +688,16 @@
      public void setBandwidthLogger(LocalSampleLogger p_323799_) {
          this.bandwidthDebugMonitor = new BandwidthDebugMonitor(p_323799_);
      }

@@ -4983,6 +4983,10 @@ public final class RegionThreadingEngine implements RegionThreading {
     private RegionPlayerAdmissionPlan.Capture capturePlayerAdmissionPlan(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase,
             @Nullable RegionPlayerExtensionSnapshot.Check prefixEnvironment, @Nullable RegionPlayerSpatialPlan.Capture geometry) {
         var capture = RegionPlayerAdmissionPlan.capture(this, player, phase, null, prefixEnvironment, geometry);
+        return this.recordPlayerAdmissionCapture(phase, capture);
+    }
+
+    private RegionPlayerAdmissionPlan.Capture recordPlayerAdmissionCapture(RegionPlayerTickCoordinator.Phase phase, RegionPlayerAdmissionPlan.Capture capture) {
         if (capture.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
             this.playerAdmissionRefusals.computeIfAbsent(phase.name() + ":" + capture.refusal().name(), key -> new AtomicLong()).incrementAndGet();
             this.playerAdmissionLastRefusal.put(phase.name(), capture.refusal() + ":" + capture.detail());
@@ -5055,6 +5059,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             Map<String, Object> timing = new java.util.LinkedHashMap<>();
             for (var phase : RegionPlayerTickCoordinator.Phase.values()) timing.put(phase.name(), this.playerPrefixTiming[phase.ordinal()].snapshot());
             values.put("prefixTiming", timing);
+            values.put("saveTiming", Map.of("chunkSaveNanos", this.playerObservedChunkSaveNanos, "chunkFlushNanos", this.playerObservedChunkFlushNanos));
         }
         values.put("players", server.getPlayerList().getPlayers().stream().map(player -> {
             RegionState owner = this.regionFor(player);
@@ -5227,14 +5232,41 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
-    private final @Nullable PlayerPrefixTiming[] playerPrefixTiming = Boolean.getBoolean("forgia.playerPrefixTiming")
-            ? new PlayerPrefixTiming[] { new PlayerPrefixTiming(), new PlayerPrefixTiming() } : null;
+    private final @Nullable PlayerPrefixTiming[] playerPrefixTiming = createPlayerPrefixTiming();
+
+    private long playerObservedChunkSaveNanos, playerObservedChunkFlushNanos;
+
+    public boolean playerTimingEnabled() {
+        return this.playerPrefixTiming != null;
+    }
+
+    public void recordPlayerConnectionTail(long elapsed, boolean listenerTail) {
+        if (this.playerPrefixTiming == null) return;
+        var phase = listenerTail ? RegionPlayerTickCoordinator.Phase.CONNECTION_BODY : RegionPlayerTickCoordinator.Phase.CONNECTION;
+        this.playerPrefixTiming[phase.ordinal()].serverTailNanos += elapsed;
+    }
+
+    public void recordPlayerChunkSave(long elapsed, boolean flush) {
+        if (flush) this.playerObservedChunkFlushNanos += elapsed;
+        else this.playerObservedChunkSaveNanos += elapsed;
+        LOGGER.info("Player timing chunk save flush={} elapsedNanos={}", flush, elapsed);
+    }
+
+    @Nullable
+    private static PlayerPrefixTiming[] createPlayerPrefixTiming() {
+        if (!Boolean.getBoolean("forgia.playerPrefixTiming")) return null;
+        var phases = RegionPlayerTickCoordinator.Phase.values();
+        var array = new PlayerPrefixTiming[phases.length];
+        for (int i = 0; i < phases.length; i++) array[i] = new PlayerPrefixTiming();
+        return array;
+    }
 
     // Publisher-only totals. A measurement window differences the status snapshots; none of
     // these timers run in production unless explicitly enabled at JVM startup.
     static final class PlayerPrefixTiming {
         long waves, calls, groups, admissionNanos, leaseNanos, submitAndJoinNanos, workerBodyNanosSum, cleanupNanos;
         long workerWakeDelayNanos, validateLaneNanos, startGateWaitNanos, groupLoopNanos, barrierWakeNanos;
+        long networkFreezeNanos, refusedBeforeCaptureNanos, serverTailNanos;
 
         Map<String, Long> snapshot() {
             var map = new java.util.LinkedHashMap<String, Long>();
@@ -5251,6 +5283,9 @@ public final class RegionThreadingEngine implements RegionThreading {
             map.put("startGateWaitNanos", startGateWaitNanos);
             map.put("groupLoopNanos", groupLoopNanos);
             map.put("barrierWakeNanos", barrierWakeNanos);
+            map.put("networkFreezeNanos", networkFreezeNanos);
+            map.put("refusedBeforeCaptureNanos", refusedBeforeCaptureNanos);
+            map.put("serverTailNanos", serverTailNanos);
             return Map.copyOf(map);
         }
     }
@@ -5282,11 +5317,20 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (ordered.isEmpty() || !this.playerCriterionStorageEnabled()) return 0;
         final ServerPlayer first = ordered.getFirst().player;
         if (!first.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Player dispatch requires its original server publisher");
-        final PlayerPrefixTiming timing = this.playerPrefixTiming == null ? null : this.playerPrefixTiming[ordered.getFirst().phase.ordinal()];
+        final var firstPhase = ordered.getFirst().phase;
+        final PlayerPrefixTiming timing = this.playerPrefixTiming == null ? null : this.playerPrefixTiming[firstPhase.ordinal()];
         final long begin = timing == null ? 0 : System.nanoTime();
         long captured = 0, submitted = 0, returned = 0;
         int groupsSubmitted = 0;
-        if (this.regionWorkAdmission.isOwner() || !this.regionWorkAdmission.tryEnter(this::playerDispatchQuiescent)) return 0;
+        boolean enteredAdmission = false;
+        if (this.regionWorkAdmission.isOwner()) {
+            // CONNECTION_BODY runs from inside ServerGamePacketListenerImpl.tick() while the server thread
+            // already holds the serial CONNECTION admission fence; verify no workers are active.
+            if (firstPhase != RegionPlayerTickCoordinator.Phase.CONNECTION_BODY || !this.isInteractionCompletionQuiescent()) return 0;
+        } else {
+            if (!this.regionWorkAdmission.tryEnter(this::playerDispatchQuiescent)) return 0;
+            enteredAdmission = true;
+        }
         RegionTickBatch parent = null;
         boolean ownParent = false;
         boolean frozen = false;
@@ -5295,14 +5339,21 @@ public final class RegionThreadingEngine implements RegionThreading {
         final List<RegionPlayerSpatialLease> leases = new ArrayList<>();
         final List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
         RegionPlayerTickDispatch effects = null;
+        Throwable dispatchFailure = null;
         try {
             // Unknown extensions keep their ORIGINAL receive-thread contract as well as serial ticks.
             // Freezing even a subsequently refused prefix could move an explicit NETWORK payload to
             // the server queue. Inspect the global environment before creating that boundary; the full
             // per-call capture/worker consume below still rechecks every admission condition.
-            var environment = RegionPlayerExtensionSnapshot.capture();
-            if (environment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
-                this.capturePlayerAdmissionPlan(first, ordered.getFirst().phase, environment, null);
+            boolean entityPhase = firstPhase == RegionPlayerTickCoordinator.Phase.ENTITY;
+            boolean connectionBodyPhase = firstPhase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
+            var environment = connectionBodyPhase
+                    ? RegionPlayerExtensionSnapshot.captureConnectionBody(false)
+                    : RegionPlayerExtensionSnapshot.capture();
+            var localEnvironment = entityPhase && environment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE
+                    ? RegionPlayerExtensionSnapshot.capture(true) : environment;
+            if (localEnvironment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
+                this.capturePlayerAdmissionPlan(first, firstPhase, localEnvironment, null);
                 return 0;
             }
             for (RegionTickBatch active : this.activeTickBatches) {
@@ -5322,17 +5373,24 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
             // The worker rechecks connection observations after closing the original network gate.
             for (RegionPlayerTickDispatch.Call call : ordered) {
-                if (calls.size() == PLAYER_PREFIX_LIMIT || call.player.serverLevel() != first.serverLevel() || call.phase != ordered.getFirst().phase) break;
+                if (calls.size() == PLAYER_PREFIX_LIMIT || call.player.serverLevel() != first.serverLevel() || call.phase != firstPhase) break;
                 this.playerRegions.publishAtPlayerStage(this, call.player);
-                var admission = call.phase == RegionPlayerTickCoordinator.Phase.ENTITY
-                        ? RegionPlayerAdmissionPlan.tryCaptureLocalEntity(this, call.player) : null;
+                var localCapture = entityPhase ? RegionPlayerAdmissionPlan.captureLocalEntity(this, call.player) : null;
+                var admission = localCapture == null ? null : localCapture.plan();
                 if (admission == null) {
+                    if (localEnvironment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
+                        this.recordPlayerAdmissionCapture(call.phase, java.util.Objects.requireNonNull(localCapture));
+                        break;
+                    }
                     var geometry = RegionPlayerSpatialPlan.capture(this, call.player, call.phase, true, true);
-                    if (geometry.plan() != null && call.phase == RegionPlayerTickCoordinator.Phase.CONNECTION) {
+                    if (geometry.plan() != null
+                            && (call.phase == RegionPlayerTickCoordinator.Phase.CONNECTION
+                                    || (call.phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                                            && !RegionPlayerAdmissionPlan.mayEmitGameEvent(call.player)))) {
                         admission = RegionPlayerAdmissionPlan.tryCaptureLocalConnection(this, call.player, geometry.plan());
                     }
                     if (admission == null) {
-                        admission = this.capturePlayerAdmissionPlan(call.player, call.phase, environment, geometry).plan();
+                        admission = this.capturePlayerAdmissionPlan(call.player, call.phase, localEnvironment, geometry).plan();
                     }
                 }
                 if (admission == null) break;
@@ -5409,12 +5467,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                     }
                 }
             }
-            dispatch.localNetworkWave = localWave;
+            // Keep the body’s direct network callbacks frozen through the publisher join and cleanup.
+            dispatch.localNetworkWave = localWave && !connectionBodyPhase;
             for (int i = 0; i < lanes; i++) {
                 final int lane = i;
-                work.add("complete player " + ordered.getFirst().phase, parent.groupWork(() -> dispatch.runLane(groups, startup, lane, nextGroup), startup::refuse));
+                work.add("complete player " + firstPhase, parent.groupWork(() -> dispatch.runLane(groups, startup, lane, nextGroup), startup::refuse));
             }
             boolean networkReady;
+            long freezeStart = timing == null ? 0 : System.nanoTime();
             if (dispatch.localNetworkWave) {
                 var connections = new ArrayList<net.minecraft.network.Connection>(calls.size());
                 for (int i = 0, size = calls.size(); i < size; i++) {
@@ -5424,10 +5484,11 @@ public final class RegionThreadingEngine implements RegionThreading {
             } else {
                 networkReady = this.playerNetworkGate.freezePreservingNetworkThread(first.server);
             }
+            if (timing != null) timing.networkFreezeNanos += System.nanoTime() - freezeStart;
             if (!networkReady) return 0;
             frozen = true;
             if (!this.playerTicks.admitWorkerPrefix(calls)) return 0;
-            if (environment.hasExtraMods()) this.playerTicksAdmittedWithMods.addAndGet(calls.size());
+            if (localEnvironment.hasExtraMods()) this.playerTicksAdmittedWithMods.addAndGet(calls.size());
             parent.externalWaveActive(true);
             this.beginRegionPhase(parent.level());
             regionPhase = true;
@@ -5436,17 +5497,32 @@ public final class RegionThreadingEngine implements RegionThreading {
                 groupsSubmitted = groups.size();
                 dispatch.initLaneTimers(lanes, submitted);
             }
-            var joined = work.submit(this.workerPool);
-            // Deliberately no chunk/server queue pump: the supported branch owns all loaded chunks
-            // and rejects synchronous server services. Netty callbacks stay queued until after join.
-            joined.awaitCompletion();
+            if (connectionBodyPhase) {
+                parent.submitAndJoinPlayerConnectionBody(work, this.workerPool);
+            } else {
+                var joined = work.submit(this.workerPool);
+                joined.awaitCompletion();
+                joined.throwIfFailed();
+            }
             if (timing != null) returned = System.nanoTime();
-            joined.throwIfFailed();
             return calls.size();
+        } catch (Throwable failure) {
+            dispatchFailure = failure;
+            Throwable original = calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
+            if (original != null) {
+                dispatchFailure = accumulateFailure(original, failure);
+                throwUnchecked(dispatchFailure);
+            }
+            throw failure;
         } finally {
-            if (regionPhase) this.levelTickPhaseState(parent.level()).endRegionPhase();
-            if (parent != null) parent.externalWaveActive(false);
+            long cleanupStart = timing == null ? 0 : System.nanoTime();
             Throwable cleanup = null;
+            try {
+                if (regionPhase) this.levelTickPhaseState(parent.level()).endRegionPhase();
+            } catch (Throwable problem) {
+                cleanup = accumulateFailure(cleanup, problem);
+            }
+            if (parent != null) parent.externalWaveActive(false);
             try {
                 if (!calls.isEmpty()) {
                     Throwable finishFailure = this.playerTicks.finishWorkerPrefix(calls);
@@ -5475,22 +5551,29 @@ public final class RegionThreadingEngine implements RegionThreading {
                     }
                 }
             } finally {
-                if (prefixClaimsHeld) this.playerPrefixClaims.release();
                 try {
+                    if (prefixClaimsHeld) this.playerPrefixClaims.release();
                     if (ownParent) {
                         parent.completeExternalWaves();
                         parent.finish();
+                    }
+                } catch (Throwable problem) {
+                    cleanup = accumulateFailure(cleanup, problem);
+                } finally {
+                    if (ownParent) {
                         this.activeTickBatches.remove(parent);
                         parent.clearExecutingOnCurrentThread();
                     }
-                } finally {
                     try {
                         if (frozen) this.playerNetworkGate.thaw();
+                    } catch (Throwable problem) {
+                        cleanup = accumulateFailure(cleanup, problem);
                     } finally {
-                        this.regionWorkAdmission.exit();
+                        if (enteredAdmission) this.regionWorkAdmission.exit();
                     }
                 }
             }
+            if (timing != null && captured == 0) timing.refusedBeforeCaptureNanos += cleanupStart - begin;
             if (returned != 0) {
                 timing.waves++;
                 timing.calls += calls.size();
@@ -5503,11 +5586,57 @@ public final class RegionThreadingEngine implements RegionThreading {
                 if (effects != null) effects.accumulateLaneTimers(timing, submitted, returned);
             }
             if (cleanup != null) {
-                Throwable original = calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
+                Throwable original = dispatchFailure != null ? dispatchFailure
+                        : calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
                 if (original != null) accumulateFailure(original, cleanup);
                 else throwUnchecked(cleanup);
             }
         }
+    }
+
+    /**
+     * Controlled {@code CONNECTION_BODY} entry called at the exact {@code this.player.doTick()} site
+     * inside {@code ServerGamePacketListenerImpl.tick()}. Preserves complete {@code Connection.tick()}
+     * ordering and lifecycle on the server thread while executing {@code originalDoTick} on a region worker.
+     */
+    @ApiStatus.Internal
+    public boolean tryRunPlayerConnectionBodyTick(ServerPlayer player, Runnable originalDoTick) {
+        if (!this.playerTickPlanningRequested || this.shutdown) return false;
+        if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) {
+            throw new IllegalStateException("Player connection body tick requires the original server thread");
+        }
+        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.connection == null) {
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    player instanceof net.neoforged.neoforge.common.util.FakePlayer
+                            ? RegionPlayerTickCoordinator.Reason.FAKE_PLAYER
+                            : RegionPlayerTickCoordinator.Reason.NOT_CURRENT_PLAYER);
+            return false;
+        }
+        if (!this.playerCriterionStorageEnabled()) {
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    RegionPlayerTickCoordinator.Reason.DEPENDENCIES);
+            return false;
+        }
+        var call = new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, originalDoTick);
+        int consumed = this.dispatchPlayerPrefix(List.of(call));
+        if (consumed == 0) {
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    player.isPassenger() || !player.getPassengers().isEmpty()
+                            ? RegionPlayerTickCoordinator.Reason.RIDING
+                            : RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
+            return false;
+        }
+        if (call.failure != null) throwUnchecked(call.failure);
+        if (!call.started) {
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    RegionPlayerTickCoordinator.Reason.STALE);
+            return false;
+        }
+        return true;
+    }
+
+    int dispatchPlayerConnectionBodyPrefix(List<RegionPlayerTickDispatch.Call> calls) {
+        return this.dispatchPlayerPrefix(calls);
     }
 
     private void tickPlayerWorldSequence(RegionEntityTickBatch parent, List<Entity> entities) {
@@ -5565,18 +5694,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                 if (!done.started) tickPlayerSerial(done.player, connection, RegionPlayerTickCoordinator.Phase.CONNECTION, connection::tick);
                 return true;
             }
-            while (this.cursor < this.ordered.size() && this.ordered.get(this.cursor) != connection) this.cursor++;
-            List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
-            for (int index = this.cursor; index < this.ordered.size() && calls.size() < PLAYER_PREFIX_LIMIT; index++) {
-                var current = this.ordered.get(index);
-                if (current.isConnecting() || !current.isConnected() || !(current.getPacketListener() instanceof net.minecraft.server.network.ServerGamePacketListenerImpl listener)) break;
-                calls.add(new RegionPlayerTickDispatch.Call(listener.player, RegionPlayerTickCoordinator.Phase.CONNECTION, current::tick));
-            }
-            int consumed = dispatchPlayerPrefix(calls);
-            this.cursor++;
-            if (consumed == 0) return false;
-            for (var call : calls.subList(0, consumed)) this.completed.put(call.player.connection.getConnection(), call);
-            return this.tick(connection);
+            // Keep complete Connection.tick on the original server thread; ServerPlayer.doTick()
+            // enters Region Worker via the controlled CONNECTION_BODY hook inside
+            // ServerGamePacketListenerImpl.tick().
+            return false;
         }
 
         @Override

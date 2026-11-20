@@ -106,30 +106,40 @@ public final class RegionPlayerAdmissionPlan {
         // Publisher binding must still prove the claimed objects. On the ordinary sealed path,
         // the worker repeats the full callback and intrinsic-state checks just before effects.
         if (beforeBody || declaredPayload != null) {
+            boolean connectionBody = spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
             if (declaredPayload == null) {
-                if (!laneExtensionsVerified && RegionPlayerExtensionSnapshot.capture().refusal() != Refusal.NONE) return false;
+                boolean mayEmitGameEvent = connectionBody && mayEmitGameEvent(player);
+                if (!laneExtensionsVerified || spatial.isLocalEntity() || mayEmitGameEvent) {
+                    var ext = connectionBody
+                            ? RegionPlayerExtensionSnapshot.captureConnectionBody(mayEmitGameEvent)
+                            : RegionPlayerExtensionSnapshot.capture(spatial.isLocalEntity());
+                    if (ext.refusal() != Refusal.NONE) return false;
+                }
             } else if (!declaredPayload.current()) {
                 return false;
             }
-            if (intrinsic(player, spatial.isLocalEntity(), spatial).refusal() != Refusal.NONE
-                    || (!spatial.isLocalEntity() && !touchCallbacksSupported(spatial))) return false;
+            if (intrinsic(player, spatial.isLocalEntity(), spatial, spatial.phase()).refusal() != Refusal.NONE) return false;
+            if (connectionBody) {
+                if (RegionPlayerDamagePlan.starving(player)) return false;
+                for (Entity target : spatial.members().keySet()) {
+                    if (target != player && target.getBoundingBox().intersects(spatial.footprint().queryBounds())) return false;
+                }
+            } else if (!spatial.isLocalEntity() && !touchCallbacksSupported(spatial)) return false;
         }
         return player.connection != null && player.getEntityData() == localObjects.get(0) && player.getRandom() == localObjects.get(1)
                 && player.getCombatTracker() == localObjects.get(2) && player.connection.chunkSender == localObjects.get(3);
     }
 
-    @Nullable
-    static RegionPlayerAdmissionPlan tryCaptureLocalEntity(RegionThreadingEngine engine, ServerPlayer player) {
-        if (player.forgiaPlayerStateTemplate(RegionPlayerTickCoordinator.Phase.ENTITY.ordinal()) == null
-                || engine.playerServerOnlyReason(player) != null) return null;
-        var spatial = RegionPlayerSpatialPlan.captureLocalEntity(engine, player);
-        if (spatial == null || player.getEntityData() == null || player.getRandom() == null || player.getCombatTracker() == null
-                || player.connection == null || player.connection.chunkSender == null) return null;
-        var state = RegionPlayerStatePlan.rebindTick(engine, spatial, true);
-        if (state == null) return null;
-        var plan = new RegionPlayerAdmissionPlan(engine, spatial, state, null);
-        state.bindAdmission(plan);
-        return plan;
+    static Capture captureLocalEntity(RegionThreadingEngine engine, ServerPlayer player) {
+        String declared = engine.playerServerOnlyReason(player);
+        if (declared != null) return refused(Refusal.SERVER_ONLY_DECLARATION, declared);
+        var geometry = RegionPlayerSpatialPlan.captureLocalEntity(engine, player);
+        if (geometry.plan() == null) return refused(Refusal.SPATIAL, geometry.refusal().name());
+        var spatial = geometry.plan();
+        var intrinsic = intrinsic(player, true, spatial, RegionPlayerTickCoordinator.Phase.ENTITY);
+        if (intrinsic.refusal() != Refusal.NONE) return refused(intrinsic.refusal(), intrinsic.detail());
+        var state = RegionPlayerStatePlan.captureFresh(engine, spatial);
+        return state.plan() == null ? refused(Refusal.STATE, state.refusal().name()) : admitted(engine, spatial, state.plan(), null);
     }
 
     @Nullable
@@ -167,8 +177,14 @@ public final class RegionPlayerAdmissionPlan {
         if (!engine.playerCriterionStorageEnabled()) return refused(Refusal.DEPENDENCIES, "player phase dependencies disabled");
         String declared = engine.playerServerOnlyReason(player);
         if (declared != null) return refused(Refusal.SERVER_ONLY_DECLARATION, declared);
+        boolean connectionBody = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
         if (declaredPayload == null) {
-            var extensions = prefixEnvironment == null ? RegionPlayerExtensionSnapshot.capture() : prefixEnvironment;
+            boolean mayEmitGameEvent = connectionBody && mayEmitGameEvent(player);
+            var extensions = (prefixEnvironment == null || mayEmitGameEvent)
+                    ? (connectionBody
+                            ? RegionPlayerExtensionSnapshot.captureConnectionBody(mayEmitGameEvent)
+                            : RegionPlayerExtensionSnapshot.capture())
+                    : prefixEnvironment;
             if (extensions.refusal() != Refusal.NONE) return refused(extensions.refusal(), extensions.detail());
         } else if (declaredPayload.payload == null || declaredPayload.player != player || !declaredPayload.current()) {
             return refused(Refusal.UNKNOWN_LOCAL_CALLBACK, "stale or unregistered payload declaration");
@@ -183,13 +199,27 @@ public final class RegionPlayerAdmissionPlan {
                 if (rebound != null) return admitted(engine, spatial, rebound, null);
             }
         }
-        var intrinsic = intrinsic(player);
+        // Validate doTick’s loaded footprint before any world read, including the eye-in-wall probe.
+        if (connectionBody && preparedGeometry == null) {
+            preparedGeometry = RegionPlayerSpatialPlan.capture(engine, player, phase, true);
+        }
+        if (connectionBody && preparedGeometry.plan() == null) return refused(Refusal.SPATIAL, preparedGeometry.detail());
+        var intrinsic = intrinsic(player, false, preparedGeometry == null ? null : preparedGeometry.plan(), phase);
         if (intrinsic.refusal() != Refusal.NONE) return refused(intrinsic.refusal(), intrinsic.detail());
         var geometry = preparedGeometry == null ? RegionPlayerSpatialPlan.capture(engine, player, phase, declaredPayload == null) : preparedGeometry;
-        if (geometry.plan() == null) return refused(Refusal.SPATIAL, geometry.refusal().name());
+        if (geometry.plan() == null) return refused(Refusal.SPATIAL, geometry.detail());
         // Original full query/body, synchronous XP and original outbound connection are retained.
         // Final vanilla XP removal uses the existing removal kernel at this prefix's physical join.
-        if (!touchCallbacksSupported(geometry.plan())) return refused(Refusal.TOUCH_CALLBACK, "uncaptured touch or outbound recipient");
+        if (connectionBody) {
+            // Item/XP pickup and starvation use synchronous tracking or level broadcasts.
+            // Their original callback stacks retain the serial connection boundary.
+            if (RegionPlayerDamagePlan.starving(player)) return refused(Refusal.OPTIONAL_TICK_STATE, "starvation damage and broadcast");
+            for (Entity target : geometry.plan().members().keySet()) {
+                if (target != player && target.getBoundingBox().intersects(geometry.plan().footprint().queryBounds())) {
+                    return refused(Refusal.TOUCH_CALLBACK, "connection body has a live touch target");
+                }
+            }
+        } else if (!touchCallbacksSupported(geometry.plan())) return refused(Refusal.TOUCH_CALLBACK, "uncaptured touch or outbound recipient");
         var local = prefixEnvironment == null ? RegionPlayerStatePlan.captureFresh(engine, geometry.plan()) : RegionPlayerStatePlan.captureTick(engine, geometry.plan());
         if (local.plan() == null) return refused(Refusal.STATE, local.refusal().name());
         return admitted(engine, geometry.plan(), local.plan(), declaredPayload);
@@ -268,7 +298,46 @@ public final class RegionPlayerAdmissionPlan {
 
     /** Only data inspection: no tick, extension callback, menu invocation, attachment supplier or task. */
     static RegionPlayerExtensionSnapshot.Check intrinsic(ServerPlayer player) {
-        return intrinsic(player, false, null);
+        return intrinsic(player, false, null, RegionPlayerTickCoordinator.Phase.CONNECTION);
+    }
+
+    static boolean mayEmitGameEvent(ServerPlayer player) {
+        return RegionPlayerDamagePlan.starving(player);
+    }
+
+    private static boolean equipmentSettled(ServerPlayer player) {
+        try {
+            var inventory = player.getInventory();
+            if (inventory == null || inventory.getContainerSize() != 41 || inventory.selected < 0 || inventory.selected >= 9) {
+                return false;
+            }
+            ItemStack mainHand = inventory.getItem(inventory.selected);
+            ItemStack offHand = inventory.getItem(40);
+            if (mainHand == null || offHand == null) return false;
+            ItemStack lastMain = (ItemStack) IntrinsicFields.LAST_MAIN_HAND.get(player);
+            if (lastMain == null || !ItemStack.matches(lastMain, mainHand)) {
+                return false;
+            }
+            if (!(IntrinsicFields.LAST_HAND.get(player) instanceof List<?> lastHand) || lastHand.size() < 2
+                    || !(lastHand.get(0) instanceof ItemStack h0) || !(lastHand.get(1) instanceof ItemStack h1)
+                    || !ItemStack.matches(h0, mainHand)
+                    || !ItemStack.matches(h1, offHand)) {
+                return false;
+            }
+            if (!(IntrinsicFields.LAST_ARMOR.get(player) instanceof List<?> lastArmor) || lastArmor.size() < 4) {
+                return false;
+            }
+            for (int i = 0; i < 4; i++) {
+                ItemStack armor = inventory.getItem(36 + i);
+                if (armor == null || !(lastArmor.get(i) instanceof ItemStack prev) || !ItemStack.matches(prev, armor)) {
+                    return false;
+                }
+            }
+            ItemStack lastBody = (ItemStack) IntrinsicFields.LAST_BODY.get(player);
+            return lastBody != null && lastBody.isEmpty();
+        } catch (RuntimeException | LinkageError failure) {
+            return false;
+        }
     }
 
     private static boolean supportingBlockWithinBounds(ServerPlayer player) {
@@ -283,7 +352,8 @@ public final class RegionPlayerAdmissionPlan {
                 && cz >= box.minZ - 1.0 && cz < box.maxZ + 1.0;
     }
 
-    private static RegionPlayerExtensionSnapshot.Check intrinsic(ServerPlayer player, boolean localEntity, @Nullable RegionPlayerSpatialPlan spatial) {
+    private static RegionPlayerExtensionSnapshot.Check intrinsic(ServerPlayer player, boolean localEntity,
+            @Nullable RegionPlayerSpatialPlan spatial, RegionPlayerTickCoordinator.Phase phase) {
         try {
             if (player.getClass() != ServerPlayer.class || player.gameMode == null || player.gameMode.getClass() != ServerPlayerGameMode.class
                     || player.getInventory().getClass() != Inventory.class || player.getAttributes().getClass() != AttributeMap.class)
@@ -298,11 +368,16 @@ public final class RegionPlayerAdmissionPlan {
             if (player.hasAttachments() || levelHasAttachments) return check(Refusal.ATTACHMENTS, "player/level attachments");
             if (player.server.getProfiler() != InactiveProfiler.INSTANCE || player.serverLevel().getProfiler() != InactiveProfiler.INSTANCE)
                 return check(Refusal.ACTIVE_PROFILER, "shared profiler");
+            boolean connectionBody = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
             // The local ENTITY specialization only runs ServerPlayer.tick. Motion, breathing,
             // equipment callbacks and the damage path belong to the CONNECTION doTick body.
-            if (!localEntity && (!emptyStacks(IntrinsicFields.LAST_HAND.get(player))
-                    || !emptyStacks(IntrinsicFields.LAST_ARMOR.get(player))
-                    || !((ItemStack) IntrinsicFields.LAST_BODY.get(player)).isEmpty()
+            boolean equipmentBlocked = connectionBody
+                    ? !equipmentSettled(player)
+                    : (!emptyStacks(IntrinsicFields.LAST_HAND.get(player))
+                            || !emptyStacks(IntrinsicFields.LAST_ARMOR.get(player))
+                            || !((ItemStack) IntrinsicFields.LAST_BODY.get(player)).isEmpty()
+                            || !((ItemStack) IntrinsicFields.LAST_MAIN_HAND.get(player)).isEmpty());
+            if (!localEntity && (equipmentBlocked
                     || player.isUsingItem() || player.isSprinting() || player.isShiftKeyDown() || player.isSwimming()
                     || player.isInWater() || player.isInLava() || player.isInFluidType() || player.isInPowderSnow || player.wasOnFire
                     || player.getAirSupply() < player.getMaxAirSupply() || player.getForcedPose() != null
@@ -312,7 +387,6 @@ public final class RegionPlayerAdmissionPlan {
                     || !Float.isFinite(player.getHealth()) || !Float.isFinite(player.getMaxHealth())
                     || !Float.isFinite(player.moveDist) || player.moveDist > (float) IntrinsicFields.NEXT_STEP.get(player)
                     || !supportingBlockWithinBounds(player)
-                    || !((ItemStack) IntrinsicFields.LAST_MAIN_HAND.get(player)).isEmpty()
                     || !Float.isFinite(player.getXRot()) || !Float.isFinite(player.getYRot())
                     || player.getAttributeValue(Attributes.GRAVITY) != 0.08 || player.getScale() != 1.0F
                     || (float) IntrinsicFields.APPLIED_SCALE.get(player) != 1.0F
@@ -332,18 +406,23 @@ public final class RegionPlayerAdmissionPlan {
             if (listener == null || listener.getClass() != ServerGamePacketListenerImpl.class || listener.chunkSender == null) return check(Refusal.UNKNOWN_LOCAL_CALLBACK, "listener/chunk sender");
             Connection connection = listener.getConnection();
             if (connection == null || connection.getClass() != Connection.class) return check(Refusal.UNKNOWN_LOCAL_CALLBACK, "connection");
-            if (!listener.isAcceptingMessages() || connection.getPacketListener() != listener || !connection.isConnected()
-                    || connection.isMemoryConnection() || IntrinsicFields.BANDWIDTH_MONITOR.get(connection) != null
+            // Connection lifecycle fields (disconnect, fault, closed) always block worker execution.
+            // Neither local ServerPlayer.tick nor doTick accesses the listener tail state.
+            // Direct receive-thread callbacks still have to quiesce at the network gate.
+            boolean connectionLifecycleBlocked = !listener.isAcceptingMessages() || connection.getPacketListener() != listener || !connection.isConnected()
+                    || connection.isMemoryConnection()
                     || IntrinsicFields.DELAYED_DISCONNECT.get(connection) != null
                     || IntrinsicFields.DISCONNECTION_DETAILS.get(connection) != null
                     || (boolean) IntrinsicFields.HANDLING_FAULT.get(connection)
                     || (boolean) IntrinsicFields.DISCONNECTION_HANDLED.get(connection)
-                    || (boolean) IntrinsicFields.CLOSED.get(listener)
+                    || (boolean) IntrinsicFields.CLOSED.get(listener);
+            boolean connectionTickOnlyBlocked = !connectionBody && !localEntity && (IntrinsicFields.BANDWIDTH_MONITOR.get(connection) != null
                     || (boolean) IntrinsicFields.KEEP_ALIVE_PENDING.get(listener)
                     || (boolean) IntrinsicFields.CLIENT_FLOATING.get(listener)
                     || (boolean) IntrinsicFields.VEHICLE_FLOATING.get(listener)
                     || (IntrinsicFields.AWAITING_POSITION.get(listener) != null && !RegionPlayerPacketPlan.permitsAwaitingTeleport(player))
-                    || player.server.getPlayerIdleTimeout() != 0)
+                    || player.server.getPlayerIdleTimeout() != 0);
+            if (connectionLifecycleBlocked || connectionTickOnlyBlocked)
                 return check(Refusal.NETWORK_TRANSITION, "connection/teleport/keepalive/idle transition");
             Queue<?> pending = (Queue<?>) IntrinsicFields.PENDING_ACTIONS.get(connection);
             if (!pending.isEmpty()) return check(Refusal.NETWORK_PENDING_ACTIONS, "Connection.pendingActions");
