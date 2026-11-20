@@ -21,7 +21,7 @@
   <div><span class="spec-label">基线目标</span><strong>NeoForge <b>1.21.1</b></strong></div>
   <div><span class="spec-label">实体并行度</span><strong>最高 <b>4.5×</b>（1024 只牛）</strong></div>
   <div><span class="spec-label">32 玩家规模</span><strong><b>3.97 ms</b>（较串行 -6.4%）</strong></div>
-  <div><span class="spec-label">BE 热路径（64 熔炉）</span><strong><b>1.67×</b> MSPT · <b>-72%</b> 内存分配</strong></div>
+  <div><span class="spec-label">64 熔炉 · .100</span><strong><b>2.40 ms</b> Worker · <b>0.26 ms</b> 串行</strong></div>
 </div>
 
 <section class="arch-section-home">
@@ -150,35 +150,9 @@
       <p class="perf-note">两阶段派发开销从 2.450 降至 0.918 ms/tick；Ping P99 从 314.11 降至 6.35 ms。</p>
     </div>
 
-    <div class="perf-card">
-      <div class="perf-card-top">
-        <h3>64 燃烧熔炉（Resources 开启）</h3>
-        <span class="perf-delta">1.67× MSPT · -72% 分配</span>
-      </div>
-      <p class="perf-sub">400 预热 + 2×400 测量 tick，4 个 Worker，2 GiB G1。验证前后 NBT 与物品守恒完全一致。</p>
-      <div class="bar-group">
-        <div class="bar-row"><span class="bar-label">.98 复用优化前</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">10.36 ms</span></div>
-        <div class="bar-row"><span class="bar-label">7efd88d 优化前基线</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:22%"></div></div><span class="bar-val">2.24 ms</span></div>
-        <div class="bar-row"><span class="bar-label">Forgia 7efd88d 优化</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:13%"></div></div><span class="bar-val">1.34 ms</span></div>
-        <div class="bar-row"><span class="bar-label">Forgia 串行 / 原版</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:4%"></div></div><span class="bar-val">0.35 / 0.22 ms</span></div>
-      </div>
-      <p class="perf-note">分配速率从 253 → 18.68 → 5.18 MiB/s（降低 3.61×）。轻量静态 BE 仍以串行更快。</p>
-    </div>
+    <div class="perf-card"><div class="perf-card-top"><h3>64 个燃烧熔炉（最新 .100）</h3><span class="perf-delta perf-delta--neutral">Worker 路径仍较慢</span></div><p class="perf-sub">最终 .100 安装服务端独立确认，4 个 Worker、2 GiB G1；400 tick 预热 + 400 tick 测量窗口。完整 NBT 与物品守恒验证通过。</p><div class="bar-group"><div class="bar-row"><span class="bar-label">Forgia .100 Workers</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">2.40 ms</span></div><div class="bar-row"><span class="bar-label">Forgia 串行</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:11%"></div></div><span class="bar-val">0.26 ms</span></div><div class="bar-row"><span class="bar-label">原版 NeoForge 21.1.249</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:10%"></div></div><span class="bar-val">0.23 ms</span></div></div><p class="perf-note">Worker 分配速率约 18.7 MiB/s。该轻量静态原版 BE fixture 主要暴露协调开销；它不能代表整合包整体表现。</p></div>
 
-    <div class="perf-card">
-      <div class="perf-card-top">
-        <h3>6000-Tick 混合生产耐久测试</h3>
-        <span class="perf-delta perf-delta--neutral">均值 0.976× 对比关闭</span>
-      </div>
-      <p class="perf-sub">真实生成地形：村民、怪物、漏斗/熔炉产线、农田、跨边界红石时钟与假人。</p>
-      <div class="bar-group">
-        <div class="bar-row"><span class="bar-label">延迟提交前（开启）</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">7.35–8.28 ms</span></div>
-        <div class="bar-row"><span class="bar-label">同构建关闭</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:82%"></div></div><span class="bar-val">6.25–6.70 ms</span></div>
-        <div class="bar-row"><span class="bar-label">延迟提交 + Lift 开启</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:80%"></div></div><span class="bar-val">6.13–6.72 ms</span></div>
-        <div class="bar-row"><span class="bar-label">Persistent + Packed</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:84%"></div></div><span class="bar-val">6.69 ms</span></div>
-      </div>
-      <p class="perf-note">0 次所有权违规，6200/6200 红石一致，100% 已派发区块运行在 Worker。</p>
-    </div>
+    <div class="perf-card"><div class="perf-card-top"><h3>6000 Tick 混合普通世界耐久（.100）</h3><span class="perf-delta perf-delta--neutral">尚未证明整体加速</span></div><p class="perf-sub">包含红石、POI、实体、自然刷怪与随机刻；同一 2 GiB/G1 测试配置。</p><div class="bar-group"><div class="bar-row"><span class="bar-label">.100 诊断开启</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">均值 8.204 ms</span></div><div class="bar-row"><span class="bar-label">.100 采样关闭</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:95%"></div></div><span class="bar-val">均值 7.776 ms</span></div><div class="bar-row"><span class="bar-label">反向顺序开启（通过）</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:98%"></div></div><span class="bar-val">均值 8.406 ms</span></div></div><p class="perf-note">通过的测量单元均满足 51/51 项不变量。开启/关闭的 P95 为 11.320 / 11.170 ms，P99 为 16.948 / 17.250 ms。反向顺序关闭单元未通过区域映射断言，已排除；因此不声称已确定诊断采样的因果开销上限。</p></div>
   </div>
   <a class="text-link" href="../benchmarks.zh/">查看完整基准测试表格与方法论 <span>↗</span></a>
 </section>
