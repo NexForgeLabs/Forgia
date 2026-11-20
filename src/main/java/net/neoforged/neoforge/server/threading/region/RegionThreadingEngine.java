@@ -4035,8 +4035,16 @@ public final class RegionThreadingEngine implements RegionThreading {
             // batch for region state that no longer exists.
             return null;
         }
+        final RegionSpawnPlan activeSpawn = this.activeTickSpawnPlan;
+        this.activeTickSpawnPlan = null;
+        if (activeSpawn != null) {
+            return new RegionChunkTickPlan(this, level, randomTickSpeed, barrier,
+                    activeSpawn.loadedChunkCache(), activeSpawn.verifiedNeighborhoods());
+        }
         return new RegionChunkTickPlan(this, level, randomTickSpeed, barrier);
     }
+
+    private @Nullable RegionSpawnPlan activeTickSpawnPlan;
 
     /**
      * {@return true when every chunk around {@code chunkPos} belongs to the same region}
@@ -4140,7 +4148,9 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final var preparedPlan = net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.preparePlan(level);
         if (!preparedPlan.workerReady()) return null;
-        return new RegionSpawnPlan(this, level, source, spawnFriendlies, spawnEnemies, spawnPersistent, barrier, preparedPlan);
+        final RegionSpawnPlan plan = new RegionSpawnPlan(this, level, source, spawnFriendlies, spawnEnemies, spawnPersistent, barrier, preparedPlan);
+        this.activeTickSpawnPlan = plan;
+        return plan;
     }
 
     /**
@@ -5426,7 +5436,8 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
             // Overlap persistent worker OS wake-up (~90 us) with server-thread admission & leasing.
             if (ordered.size() > 1) {
-                this.workerPool.preWake(Math.min(ordered.size(), this.workerPool.threadCount()));
+                int preWakeCount = entityPhase && ordered.size() > 2 ? Math.max(2, (ordered.size() + 3) / 4) : ordered.size();
+                this.workerPool.preWake(Math.min(preWakeCount, this.workerPool.threadCount()));
             }
             // The worker rechecks connection observations after closing the original network gate.
             int inspected = 0;
@@ -5441,6 +5452,15 @@ public final class RegionThreadingEngine implements RegionThreading {
                         this.recordPlayerAdmissionCapture(call.phase, java.util.Objects.requireNonNull(localCapture));
                         if (skipIneligible) continue;
                         break;
+                    }
+                    if (entityPhase) {
+                        var nonLocalIntrinsic = RegionPlayerAdmissionPlan.intrinsic(call.player, false, null, call.phase);
+                        if (nonLocalIntrinsic.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
+                            this.recordPlayerAdmissionCapture(call.phase,
+                                    new RegionPlayerAdmissionPlan.Capture(null, nonLocalIntrinsic.refusal(), nonLocalIntrinsic.detail()));
+                            if (skipIneligible) continue;
+                            break;
+                        }
                     }
                     var geometry = RegionPlayerSpatialPlan.capture(this, call.player, call.phase, true, true);
                     if (geometry.plan() != null
@@ -5504,7 +5524,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                 }
             }
             final RegionTaskBatch work = new RegionTaskBatch();
-            final int lanes = Math.min(groups.size(), this.workerPool.threadCount());
+            final int maxLanes = entityPhase && isolated && groups.size() > 2
+                    ? Math.max(2, (groups.size() + 3) / 4)
+                    : this.workerPool.threadCount();
+            final int lanes = Math.min(groups.size(), Math.min(maxLanes, this.workerPool.threadCount()));
             final var startup = new RegionPlayerTickDispatch.StartGate(lanes);
             final var nextGroup = lanes < groups.size() ? new java.util.concurrent.atomic.AtomicInteger(lanes) : null;
             final var dispatch = effects;

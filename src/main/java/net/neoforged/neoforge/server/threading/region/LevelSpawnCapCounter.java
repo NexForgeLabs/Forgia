@@ -70,6 +70,9 @@ public final class LevelSpawnCapCounter {
     public static LevelSpawnCapCounter count(ServerLevel level, RegionSpawnSource source) {
         final int[] counts = new int[MobCategory.values().length];
         final NaturalSpawner.ChunkGetter chunkGetter = source.chunkGetter();
+        long lastChunkKey = Long.MIN_VALUE;
+        boolean lastChunkPresent = false;
+        final boolean[] hit = { false };
         for (final Entity entity : level.getAllEntities()) {
             if (entity instanceof Mob mob && (mob.isPersistenceRequired() || mob.requiresCustomPersistence())) {
                 continue;
@@ -79,7 +82,20 @@ public final class LevelSpawnCapCounter {
                 continue;
             }
             final BlockPos pos = entity.blockPosition();
-            chunkGetter.query(ChunkPos.asLong(pos), chunk -> ++counts[category.ordinal()]);
+            final long chunkKey = ChunkPos.asLong(pos);
+            if (chunkKey == lastChunkKey) {
+                if (lastChunkPresent) {
+                    ++counts[category.ordinal()];
+                }
+                continue;
+            }
+            hit[0] = false;
+            chunkGetter.query(chunkKey, chunk -> {
+                hit[0] = true;
+                ++counts[category.ordinal()];
+            });
+            lastChunkKey = chunkKey;
+            lastChunkPresent = hit[0];
         }
         return new LevelSpawnCapCounter(source.naturalSpawnChunkCount().getAsInt(), counts);
     }

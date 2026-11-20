@@ -83,6 +83,9 @@ public final class RegionSpawnPlan {
     private final ParallelAdapterRuntime.PreparedSpawnPlan preparedPlan;
     /** Tick-scoped caches avoiding repeated chunk-map and player-distance scans across regions. */
     private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet verifiedNeighborhoods = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
+    private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> fullChunkCache = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(256);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet absentFullChunks = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(64);
     /** Shared read-only neighborhood populated on the server thread before workers start. */
     private final RegionSpawnNeighborhood sharedNeighborhood = new RegionSpawnNeighborhood(256);
     private boolean executed;
@@ -92,12 +95,44 @@ public final class RegionSpawnPlan {
         this.preparedPlan = preparedPlan;
         this.engine = engine;
         this.level = level;
-        this.source = source;
+        final NaturalSpawner.ChunkGetter rawGetter = source.chunkGetter();
+        final NaturalSpawner.ChunkGetter cachedGetter = (chunkKey, consumer) -> {
+            final LevelChunk cached = this.fullChunkCache.get(chunkKey);
+            if (cached != null) {
+                consumer.accept(cached);
+                return;
+            }
+            if (this.absentFullChunks.contains(chunkKey)) {
+                return;
+            }
+            final boolean[] hit = { false };
+            rawGetter.query(chunkKey, chunk -> {
+                hit[0] = true;
+                this.fullChunkCache.put(chunkKey, chunk);
+                consumer.accept(chunk);
+            });
+            if (!hit[0]) {
+                this.absentFullChunks.add(chunkKey);
+            }
+        };
+        this.source = new RegionSpawnSource(
+                cachedGetter,
+                source.playersNearForSpawning(),
+                source.spawnableChunk(),
+                source.naturalSpawnChunkCount());
         this.spawnFriendlies = spawnFriendlies;
         this.spawnEnemies = spawnEnemies;
         this.spawnPersistent = spawnPersistent;
         this.barrier = barrier;
-        this.capCounter = LevelSpawnCapCounter.count(level, source);
+        this.capCounter = LevelSpawnCapCounter.count(level, this.source);
+    }
+
+    it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache() {
+        return this.loadedChunkCache;
+    }
+
+    it.unimi.dsi.fastutil.longs.LongOpenHashSet verifiedNeighborhoods() {
+        return this.verifiedNeighborhoods;
     }
 
     /**
@@ -126,6 +161,9 @@ public final class RegionSpawnPlan {
             return;
         }
         final ChunkPos chunkPos = chunk.getPos();
+        final long chunkKey = chunkPos.toLong();
+        this.fullChunkCache.putIfAbsent(chunkKey, chunk);
+        this.loadedChunkCache.add(chunkKey);
         if (!this.isLoadedChunkNeighborhoodCached(chunkPos)) {
             // The spawn body reads the chunks around the spawning chunk - the candidate positions, the block
             // below a candidate, the biome, the spawn rules - and a worker may not load a chunk, so the chunk
@@ -252,6 +290,10 @@ public final class RegionSpawnPlan {
     }
 
     private boolean isLoadedChunkNeighborhoodCached(ChunkPos chunkPos) {
+        final long centerKey = chunkPos.toLong();
+        if (this.verifiedNeighborhoods.contains(centerKey)) {
+            return true;
+        }
         final net.minecraft.server.level.ServerChunkCache chunkSource = this.level.getChunkSource();
         for (int offsetX = -1; offsetX <= 1; offsetX++) {
             for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
@@ -269,6 +311,7 @@ public final class RegionSpawnPlan {
                 }
             }
         }
+        this.verifiedNeighborhoods.add(centerKey);
         return true;
     }
 

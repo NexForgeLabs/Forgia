@@ -54,14 +54,23 @@ public final class RegionChunkTickPlan {
     private final int randomTickSpeed;
     /** The chunks this plan hands to the batch, in the order {@code tickChunks} collected them. */
     private final List<RegionChunkTickEntry> chunks = new ArrayList<>(CHUNK_CAPACITY_HINT);
-    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache;
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet verifiedNeighborhoods;
     private boolean executed;
 
     RegionChunkTickPlan(RegionThreadingEngine engine, ServerLevel level, int randomTickSpeed, RegionTickBarrier barrier) {
+        this(engine, level, randomTickSpeed, barrier, null, null);
+    }
+
+    RegionChunkTickPlan(RegionThreadingEngine engine, ServerLevel level, int randomTickSpeed, RegionTickBarrier barrier,
+            @org.jetbrains.annotations.Nullable it.unimi.dsi.fastutil.longs.LongOpenHashSet sharedLoadedChunkCache,
+            @org.jetbrains.annotations.Nullable it.unimi.dsi.fastutil.longs.LongOpenHashSet sharedVerifiedNeighborhoods) {
         this.engine = engine;
         this.level = level;
         this.randomTickSpeed = randomTickSpeed;
         this.barrier = barrier;
+        this.loadedChunkCache = sharedLoadedChunkCache != null ? sharedLoadedChunkCache : new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
+        this.verifiedNeighborhoods = sharedVerifiedNeighborhoods != null ? sharedVerifiedNeighborhoods : new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
     }
 
     /**
@@ -135,6 +144,10 @@ public final class RegionChunkTickPlan {
     }
 
     private boolean isLoadedChunkNeighborhoodCached(ChunkPos chunkPos) {
+        final long centerKey = chunkPos.toLong();
+        if (this.verifiedNeighborhoods.contains(centerKey)) {
+            return true;
+        }
         final net.minecraft.server.level.ServerChunkCache chunkSource = this.level.getChunkSource();
         for (int offsetX = -1; offsetX <= 1; offsetX++) {
             for (int offsetZ = -1; offsetZ <= 1; offsetZ++) {
@@ -152,6 +165,7 @@ public final class RegionChunkTickPlan {
                 }
             }
         }
+        this.verifiedNeighborhoods.add(centerKey);
         return true;
     }
 }
