@@ -3820,6 +3820,9 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
         }
         if (!players.isEmpty()) {
+            if (players.size() > 1) {
+                players.sort(java.util.Comparator.comparingInt(Entity::getId));
+            }
             this.tickPlayerWorldSequence(batch, players);
         }
     }
@@ -5542,6 +5545,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 }
             }
             dispatch.parallelTemplateValidation = needsParallelValidation;
+            dispatch.independentGroups = skipIneligible && isolated && entityPhase;
             // A group may resume its exact connection after returning only if every group owns
             // a single local-only player and has no captured target or shared state.
             boolean localWave = groups.size() == calls.size();

@@ -129,6 +129,8 @@ public final class RegionBlockEntityTickPlan {
         this.canonicalTickers = List.copyOf(this.level.snapshotBlockEntityTickers());
         final boolean runsNormally = this.level.tickRateManager().runsNormally();
         List<TickingBlockEntity> removed = null;
+        long lastKey = Long.MIN_VALUE;
+        ExplicitUnit lastUnit = null;
         try {
             for (int ordinal = 0; ordinal < this.canonicalTickers.size(); ++ordinal) {
                 final TickingBlockEntity ticker = this.canonicalTickers.get(ordinal);
@@ -142,7 +144,7 @@ public final class RegionBlockEntityTickPlan {
                 if (!runsNormally) continue;
                 final BlockPos rawPos = ticker.getPos();
                 final long key = ChunkPos.asLong(rawPos);
-                ExplicitUnit unit = this.explicitUnits.get(key);
+                ExplicitUnit unit = (key == lastKey && lastUnit != null) ? lastUnit : this.explicitUnits.get(key);
                 if (unit == null) {
                     final ServerChunkCache source = this.level.getChunkSource();
                     final LevelChunk chunk = source == null ? null : source.getChunkNow(rawPos.getX() >> 4, rawPos.getZ() >> 4);
@@ -153,6 +155,8 @@ public final class RegionBlockEntityTickPlan {
                     unit = new ExplicitUnit(key, chunk, cache, chunkEligible);
                     this.explicitUnits.put(key, unit);
                 }
+                lastKey = key;
+                lastUnit = unit;
                 final var template = unit.cache == null ? null : unit.cache.admission(ticker);
                 final RegionBlockEntityTickAdmission admission;
                 if (template != null && template.isCurrentForCollection()) {

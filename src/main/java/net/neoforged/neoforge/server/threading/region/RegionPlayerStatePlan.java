@@ -202,13 +202,24 @@ public final class RegionPlayerStatePlan {
             this.scoreboardRevision = base.scoreboardRevision;
             this.stats = base.stats;
             this.inventory = inventory;
-            this.inventoryResources = inventory == base.inventory ? base.inventoryResources : List.copyOf(inventory.resources());
+            if (inventory == base.inventory) {
+                this.inventoryResources = base.inventoryResources;
+                this.claims = base.claims;
+            } else {
+                List<Object> nextInvResources = inventory.resources();
+                if (sameReferences(base.inventoryResources, nextInvResources)) {
+                    this.inventoryResources = base.inventoryResources;
+                    this.claims = base.claims;
+                } else {
+                    this.inventoryResources = List.copyOf(nextInvResources);
+                    this.claims = null;
+                }
+            }
             this.admissionResources = base.admissionResources;
             this.adm0 = base.adm0;
             this.adm1 = base.adm1;
             this.adm2 = base.adm2;
             this.adm3 = base.adm3;
-            this.claims = inventory == base.inventory ? base.claims : null;
             this.container = base.container;
             this.scorePlan = base.scorePlan;
             this.maps = base.maps;

@@ -4,10 +4,10 @@
  */
 package net.neoforged.neoforge.server.threading.region;
 
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.IdentityHashMap;
 import java.util.List;
 
 /** Publisher-owned resource claims for a prefix of mutually isolated players. */
@@ -33,15 +33,20 @@ final class RegionPlayerPrefixClaims {
             this.activeCount = proof.count();
             return true;
         }
-        var seen = new IdentityHashMap<Object, Integer>();
+        var seen = new Reference2IntOpenHashMap<Object>(Math.max(64, resources.size() * 64));
+        seen.defaultReturnValue(-1);
         for (int index = 0; index < resources.size(); index++) {
             for (Object resource : resources.get(index)) {
-                Integer owner = seen.putIfAbsent(resource, index);
-                if (owner != null && owner != index) return false;
+                int owner = seen.putIfAbsent(resource, index);
+                if (owner != -1 && owner != index) return false;
             }
         }
         this.activeCount = seen.size();
-        this.previous.put(phase, new Proof(resources.stream().map(WeakReference::new).toList(), this.activeCount));
+        var weakRefs = new ArrayList<WeakReference<List<Object>>>(resources.size());
+        for (int i = 0, size = resources.size(); i < size; i++) {
+            weakRefs.add(new WeakReference<>(resources.get(i)));
+        }
+        this.previous.put(phase, new Proof(List.copyOf(weakRefs), this.activeCount));
         return true;
     }
 

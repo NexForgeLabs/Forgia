@@ -75,6 +75,7 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
     final RegionDeferredEntityRemovals removals;
     boolean localNetworkWave;
     boolean parallelTemplateValidation;
+    boolean independentGroups;
     @Nullable
     private long[] laneEnter, laneAfterVal, laneAfterGate, laneExit;
 
@@ -137,14 +138,14 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
         int index = lane;
         do {
             Group group = groups.get(index);
-            StartGate gate = index == lane && !this.parallelTemplateValidation ? startup : null;
+            StartGate gate = index == lane && !this.parallelTemplateValidation && !this.independentGroups ? startup : null;
             Call last = group.calls().getLast();
             this.runGroup(group.lease(), group.calls(), gate, laneExtensionsVerified);
             if (last.failure != null || (!last.started && gate != null)) {
                 if (timed) this.laneExit[lane] = System.nanoTime();
                 return;
             }
-            if (this.localNetworkWave && this.sections.pendingCount() == 0) {
+            if (this.localNetworkWave && last.started && this.sections.pendingCount() == 0) {
                 var connection = last.admission.state().connection();
                 if (connection.isConnected()) this.engine.playerNetworkGate().resumeCompletedConnection(connection);
             }
