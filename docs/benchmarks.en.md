@@ -9,6 +9,16 @@ Forgia separates **where region threading already wins** (entity-heavy worlds, m
 
 ---
 
+
+## Latest controlled installed-server results (.100)
+
+The final .100 build was independently checked with the same installed 64-furnace fixture. Four 400-tick windows (two unsampled and two monitored) completed with identical full NBT and item conservation. The four means were 2.324, 2.624, 2.393 and 2.273 ms; their simple descriptive average is **2.404 ms**. The same fixture's Forgia serial windows average about **0.262 ms**, while stock NeoForge 21.1.249 averages about **0.229 ms**. Worker allocation remains about **18.7 MiB/s**. This deliberately light stationary workload is still much faster in serial; do not present the Worker result as a speedup.
+
+The final .100 6000-tick mixed-world soak measured **8.204 ms mean / 11.320 ms P95 / 16.948 ms P99** with diagnostics enabled and **7.776 / 11.170 / 17.250 ms** with sampling disabled. Passing cells satisfied all 51 invariants. The reverse-order monitored cell also passed at 8.406 ms mean, but its unmonitored counterpart failed the final region-mapping assertion (a live bat mapped 23/23 instead of 23/22) and is excluded. Consequently, these data do not establish a causal monitoring-overhead bound or a broad parallel speedup. GameTest accelerated timing is not paced-server TPS.
+
+See the full per-window data, environment, failure accounting and methodology in [region-threading/PERFORMANCE-BENCHMARKS.md](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md).
+
+
 ## 1. Visual Summary Across Workloads
 
 <div class="perf-grid">
