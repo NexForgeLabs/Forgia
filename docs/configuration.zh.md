@@ -1,0 +1,214 @@
+# 配置与硬件调优指南（`config/forgia.toml`）
+
+<div class="lang-pill-bar">
+  <a href="../configuration.en/">English</a>
+  <a class="active" href="../configuration.zh/">中文</a>
+</div>
+
+Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config/forgia.toml`**（与上游 `neoforge-server.toml` 隔离）。所有并行开关默认均为 `false`（关闭即等价于原版串行），修改标注为“需重启”的引擎/布局/切片开关后必须**停服并以新 JVM 重启**才能生效。
+
+---
+
+## 1. 快速选型：不同硬件的推荐配置
+
+> **核心调优原则**：
+> 1. **区域模式优先选 `DYNAMIC_CLUSTER`（默认 `shift = 3`，即 8×8 chunks / 128×128 格）**：已通过 30/30 动态拓扑与所有权审计测试及 32 玩家耐久验证，相比 `FIXED_3X3` 吞吐更高（+9.2% TPS）、P95 更低（-17%）且玩家进 Worker 比例高出 +37%。
+> 2. **不要在超线程 CPU 上放任 `regionThreadingWorkerThreads = 0`**：`0` 表示 `逻辑线程数 - 1`（例如 8 核 16 线程会开出 15 个 Worker），容易与主线程、原版区块生成线程池和 GC 争抢物理核与内存带宽。建议按 **`物理核数 - 1 ~ 2`** 显式固定 Worker 数，**始终给 Server 主线程留出至少 1 个完整物理核**。
+
+### 场景 A：4 核 8 线程机器（如 i5-1135G7 / 4C VPS，8–16 GB 内存）
+
+* 追求**最低中位延迟（P50）与最低内存占用**（实测 P50 `43.34 ms`，堆内存比串行省 35%）：`regionThreadingWorkerThreads = 3`（留 1 物理核给主线程）。
+* 追求**更低 P99 长尾延迟**：`regionThreadingWorkerThreads = 4`。
+
+```toml
+# === 核心与并行切片开关 ===
+enableRegionThreadingBridge = true
+enableRegionThreadingWorkers = true
+enableGlobalRegionThreadingWorker = true
+enableRegionThreadingEntityTicks = true
+enableRegionThreadingPlayerTicks = true
+enableRegionThreadingBlockEntityTicks = false      # 轻负载静止 BE 串行更快；重度熔炉/受审计适配器场景再开
+enableRegionThreadingFurnaceWorkWaves = false
+enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingScheduledTicks = false        # 仅对受审计红石灯阶段生效，常规服可保持关闭
+enableRegionThreadingRandomTicks = true
+enableRegionThreadingSpawning = true
+enableRegionThreadingPoi = true
+enableRegionThreadingBorderUpdates = true
+enableRegionThreadingGameEvents = true
+enableRegionThreadingPersistentWorkers = true
+enableRegionThreadingPackedRegionLeases = true
+
+# === 动态区域布局与线程池 ===
+regionThreadingMode = "DYNAMIC_CLUSTER"
+regionThreadingDynamicSectionShift = 3             # 8x8 chunks (128x128 格)
+regionThreadingDynamicSplitDelayTicks = 40         # 2 秒延迟防边界抖动拆合
+regionThreadingWorkerThreads = 3                   # 4 物理核：3 Workers + 1 物理核留给主线程（追求 P99 可设 4）
+```
+
+### 场景 B：8 核 16 线程高频 CPU + 32 GB 双通道内存（如 E5-2667 v2 @ 4.1GHz，16GB×2 DDR3-1666）
+
+* **硬件特点**：8 个物理核充裕、25 MB 大 L3 缓存非常契合 `8×8` 动态区域，但双通道 DDR3-1666 内存带宽偏紧，切忌开满 15 个超线程 Worker。
+* **核数分配**：1 物理核专供 Server 主线程 + **6 个物理核给 Region Workers**（重度探图/生区块高峰可设 `5`）+ 1 物理核及剩余超线程给原版世界生成、Netty I/O 与分代 ZGC。
+
+```toml
+# === 核心与并行切片开关 ===
+enableRegionThreadingBridge = true
+enableRegionThreadingWorkers = true
+enableGlobalRegionThreadingWorker = true
+enableRegionThreadingEntityTicks = true
+enableRegionThreadingPlayerTicks = true
+enableRegionThreadingBlockEntityTicks = true       # 若服内有大量熔炉/受审计适配器可开启，否则可设为 false
+enableRegionThreadingFurnaceWorkWaves = false
+enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingScheduledTicks = true
+enableRegionThreadingRandomTicks = true
+enableRegionThreadingSpawning = true
+enableRegionThreadingPoi = true
+enableRegionThreadingBorderUpdates = true
+enableRegionThreadingGameEvents = true
+enableRegionThreadingPersistentWorkers = true
+enableRegionThreadingPackedRegionLeases = true
+
+# === 动态区域布局与线程池 ===
+regionThreadingMode = "DYNAMIC_CLUSTER"
+regionThreadingDynamicSectionShift = 3             # 8x8 chunks，充分利用 25MB L3 并减少内存总线访问
+regionThreadingDynamicSplitDelayTicks = 40
+regionThreadingWorkerThreads = 6                   # 8 物理核甜点（重度生区块高峰期可改 5）
+```
+
+配套 JDK 21 启动参数（32 GB 物理内存留一半给 OS Page Cache 缓存 `.mca` 区块文件）：
+
+```bash
+-Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch
+```
+
+### 场景 C：16 核及以上高并发服务器（如 Ryzen 9 / EPYC，64+ GB 内存）
+
+* 留 2–4 个物理核给主线程、区块生成、Netty 与 GC，其余 **10–12 核** 分配给 `regionThreadingWorkerThreads`。
+* 若 20+ 名玩家高度集中在同一个 200–300 格半径主城内，可将 `regionThreadingDynamicSectionShift` 降至 `2`（`4×4` chunks）防止合并成单个巨型岛；常规分散生存服保持 `3`（`8×8` chunks）。
+
+### 场景 D：回滚至原版串行 / C6 历史基线
+
+* **一键回滚串行**：将 `enableRegionThreadingBridge = false` 并重启 JVM，即可 100% 退回原版串行热路径。
+* **历史 C6 固定布局基线**：参考 `tools/production-readiness/config/c6-persistent.toml`（`regionThreadingMode = "FIXED_3X3"`、`regionThreadingFixedRegionChunks = 3`、`regionThreadingWorkerThreads = 4`）。
+
+---
+
+## 2. `regionThreadingDynamicSectionShift` 尺寸选择建议
+
+| `shift` 值 | 单 Section 尺寸 | 适用场景 | 特点 |
+|---:|---|---|---|
+| **`2`** | `4×4` chunks（64×64 格） | 玩家聚集在较近区域（主城/小地图）或追求极致 P99 | 岛合并更克制、岛数更多、P99 更低，但玩家更易跨区边界 |
+| **`3`（推荐）** | `8×8` chunks（128×128 格） | **绝大多数多人与混合生存/模组服** | 综合 TPS 最高、L3 缓存友好、玩家进 Worker 比例最高（~86%） |
+| **`4`** | `16×16` chunks（256×256 格） | 超大地图且玩家彼此相距 >500 格的百人服（Folia 默认） | 边界极少，但在玩家间距 <300 格时易合并成大岛降低并发度 |
+
+---
+
+## 3. 完整配置项总表（全部 36 项 `config/forgia.toml` 键）
+
+### 3.1 并行核心与切片开关（16 项，均默认 `false`，均需重启）
+
+| 配置键 | 默认值 | 依赖前置 | 说明 |
+|---|---:|---|---|
+| `enableRegionThreadingBridge` | `false` | 无 | 总开关：安装区域线程引擎；关闭时完全退回原版串行 |
+| `enableRegionThreadingWorkers` | `false` | `Bridge` | 在原生 Region Worker 线程池上执行区域任务队列 drain（不是其他 tick 切片的总开关） |
+| `enableGlobalRegionThreadingWorker` | `false` | `Bridge` | 将全局区域（Global Region）队列 drain 移至原生 Worker 池 |
+| `enableRegionThreadingEntityTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 在 Region Worker 上并行执行 `ServerLevel` 实体 tick，自动启用 region-owned 实体存储与延迟状态发布 |
+| `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` | 在满足空间/状态/回调/网络契约时，将玩家 `ENTITY`（`ServerPlayer.tick`）与受控 `CONNECTION_BODY` 派发至 Region Worker；按实际影响面判定第三方模组准入 |
+| `enableRegionThreadingBlockEntityTicks` | `false` | `Bridge` | 将已声明区域安全的方块实体 tick 派发至 Region Worker；未声明或存在跨区副作用的类型保持主线程串行 |
+| `enableRegionThreadingFurnaceWorkWaves` | `false` | `BlockEntityTicks` + `FIXED_3X3` | 实验性：按有向资源波次并行执行已验证燃烧中的原版熔炉族方块实体 |
+| `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` | 实验性：在熔炉波次内启用对象级 READ/WRITE 资源 claims、非阻塞租约与 scope |
+| `enableRegionThreadingScheduledTicks` | `false` | `Bridge` | 启用有界计划刻（红石灯等受审计惰性方块阶段）并行执行；其余保持原版 `LevelTicks` 串行 |
+| `enableRegionThreadingRandomTicks` | `false` | `Bridge` | 在 Region Worker 上并行执行区块 tick（随机方块/流体刻、冰雪降水、雷击），要求 3×3 邻域区块已加载 |
+| `enableRegionThreadingSpawning` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 在 Region Worker 上并行执行自然刷怪，共享全维度原版生物上限（`LevelSpawnCapCounter`） |
+| `enableRegionThreadingPoi` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 按区域分区存储 POI（村民/铁傀儡/蜜蜂等），开启 `EntityTicks` 时隐含启用 |
+| `enableRegionThreadingBorderUpdates` | `false` | `Bridge` | 捕获跨区方块邻居更新并在同 tick 由目标区域 Worker 通过定点传播重放 |
+| `enableRegionThreadingGameEvents` | `false` | `Bridge` | 捕获跨区 Game Event（如幽匿感测体振动）并在同 tick 按发布顺序交由目标区域 Worker 投递 |
+| `enableRegionThreadingPersistentWorkers` | `false` | `Bridge` | 使用持久化 Worker 线程 + 工作窃取（Work Stealing）派发器替代普通固定线程池，大幅降低批次提交与唤醒开销 |
+| `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` | 允许单个 Worker 任务打包持有多个区域租约（最多 16 个，全有或全无），减少微任务提交开销 |
+
+### 3.2 区域布局、线程池与安全/预算控制（11 项）
+
+| 配置键 | 默认值 | 取值范围 | 需重启 | 说明 |
+|---|---|---|---:|---|
+| `regionThreadingMode` | `"FIXED_3X3"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | 是 | 区域划分策略。**推荐 `"DYNAMIC_CLUSTER"`**；`"FIXED_3X3"` 为 C6 固定网格基线；`"DYNAMIC"` 为遗留 16×16 网格 |
+| `regionThreadingDynamicSectionShift` | `3` | `2..4` | 是 | `DYNAMIC_CLUSTER` 基础 Section 边长位偏移：`1 << shift` chunks（`2`=4×4、`3`=8×8 推荐、`4`=16×16） |
+| `regionThreadingDynamicSplitDelayTicks` | `40` | `0..1200` | 是 | `DYNAMIC_CLUSTER` 空 Section 分离并触发连通分量拆分的迟滞等待 tick 数 |
+| `regionThreadingFixedRegionChunks` | `3` | `3..32` | 是 | `FIXED_3X3` 模式下单个固定区域的边长（chunk 数） |
+| `regionThreadingWorkerThreads` | `0` | `0..512` | 是 | Worker 线程数。`0` 自动取 `max(1, 逻辑核数 - 1)`；生产与调优强烈建议显式设为 `物理核数 - 1 ~ 2` |
+| `regionThreadingOwnershipViolationMode` | `"WARN"` | `WARN` / `THROW` / `DISABLED` | 否 | 所有权断言失败处理模式（所有模式均持续计数，强制安全拒绝不受此项关闭） |
+| `defaultRegionThreadingSupport` | `"UNKNOWN"` | `RegionThreadingSupport` 枚举 | 是 | 未声明显式元数据的模组默认并行支持状态 |
+| `regionThreadingForceWithKnownConflicts` | `false` | bool | 是 | 仅用于兼容测试：忽略已知冲突表强制安装引擎（生产环境请务必保持 `false`） |
+| `regionThreadingLongTickWarningNanos` | `0` | `≥ 0` | 否 | 区域或全局队列耗时超过该纳秒阈值时输出告警日志；`0` 关闭 |
+| `regionThreadingMaxImmediateTasksPerDrain` | `10000` | `≥ 0` | 否 | 单次 tick 每队列最大立即任务 drain 数量；`0` 不限制 |
+| `regionThreadingMaxScheduledTasksPerDrain` | `10000` | `≥ 0` | 否 | 单次 tick 每队列最大到期计划任务 drain 数量；`0` 不限制 |
+
+### 3.3 运行时诊断与瓶颈告警阈值（9 项，均支持热生效、无需重启）
+
+| 配置键 | 默认值 | 取值范围 | 说明 |
+|---|---:|---|---|
+| `runtimeDiagnosticsEnabled` | `true` | bool | 采集有界原生 tick 历史与 Worker 任务耗时供 `/forgia` 命令查询 |
+| `runtimeJvmSamplingEnabled` | `true` | bool | 每秒采样一次本地 JVM CPU、内存分配与 GC 计数（无 profiler/磁盘 I/O 开销） |
+| `runtimeHighRegionMspt` | `50` | `1..10000` | 单区域最新 tick 耗时触发 `HIGH_REGION_MSPT` 告警的毫秒阈值 |
+| `runtimeWorkerSaturationPercent` | `90` | `1..100` | Worker 采样总 CPU 占配置 Worker 核数百分比触发 `WORKER_SATURATION` 的阈值 |
+| `runtimeQueuePerWorker` | `2` | `1..10000` | 每 Worker 待处理任务数触发 `QUEUE_CONGESTION` 的阈值 |
+| `runtimeSerialFallbackPercent` | `50` | `1..100` | 实体/BE 串行回退占比触发 `HIGH_SERIAL_FALLBACK` 的百分比阈值（至少 100 次后生效） |
+| `runtimeRegionImbalanceRatio` | `4` | `2..1000` | 最重区域均值与活跃区域均值之比触发 `REGION_LOAD_IMBALANCE` 的倍率阈值 |
+| `runtimeMainCpuPercent` | `90` | `1..100` | 主线程单核 CPU 占用触发 `MAIN_THREAD_BOTTLENECK` 的百分比阈值 |
+| `runtimeHighServerMspt` | `50` | `1..10000` | 服务端均值 MSPT 触发 `MAIN_THREAD_BOTTLENECK` 的毫秒阈值 |
+
+---
+
+## 4. 完整全开配置模板（含全部 36 项注释参考）
+
+可直接复制保存为 `config/forgia.toml`，再根据本机物理核数调整 `regionThreadingWorkerThreads`：
+
+```toml
+# Forgia 推荐并行配置模板（DYNAMIC_CLUSTER 8x8）
+# 修改标注 [重启] 的项后请停服并以新 JVM 启动。
+
+# --- 运行时诊断与告警 ---
+runtimeDiagnosticsEnabled = true
+runtimeJvmSamplingEnabled = true
+runtimeHighRegionMspt = 50
+runtimeWorkerSaturationPercent = 90
+runtimeQueuePerWorker = 2
+runtimeSerialFallbackPercent = 50
+runtimeRegionImbalanceRatio = 4
+runtimeMainCpuPercent = 90
+runtimeHighServerMspt = 50
+
+# --- 核心与并行切片开关 [重启] ---
+enableRegionThreadingBridge = true
+enableRegionThreadingWorkers = true
+enableGlobalRegionThreadingWorker = true
+enableRegionThreadingEntityTicks = true
+enableRegionThreadingPlayerTicks = true
+enableRegionThreadingBlockEntityTicks = false
+enableRegionThreadingFurnaceWorkWaves = false
+enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingScheduledTicks = false
+enableRegionThreadingRandomTicks = true
+enableRegionThreadingSpawning = true
+enableRegionThreadingPoi = true
+enableRegionThreadingBorderUpdates = true
+enableRegionThreadingGameEvents = true
+enableRegionThreadingPersistentWorkers = true
+enableRegionThreadingPackedRegionLeases = true
+
+# --- 区域布局与线程池 [重启] ---
+regionThreadingMode = "DYNAMIC_CLUSTER"
+regionThreadingDynamicSectionShift = 3
+regionThreadingDynamicSplitDelayTicks = 40
+regionThreadingFixedRegionChunks = 3
+regionThreadingWorkerThreads = 6                  # 按物理核数调整：4核设3~4，8核设5~6，16核设10~12
+
+# --- 安全、兼容与预算 ---
+regionThreadingOwnershipViolationMode = "WARN"
+defaultRegionThreadingSupport = "UNKNOWN"
+regionThreadingForceWithKnownConflicts = false
+regionThreadingLongTickWarningNanos = 0
+regionThreadingMaxImmediateTasksPerDrain = 10000
+regionThreadingMaxScheduledTasksPerDrain = 10000
+```

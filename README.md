@@ -158,6 +158,7 @@ regionThreadingWorkerThreads = 4
 
 `regionThreadingWorkerThreads = 0` means "one less than the CPU count". Entity ticks, spawning and POI
 require `DYNAMIC_CLUSTER` or `FIXED_3X3`; everything else degrades to the vanilla path when its requirement is missing.
+For the complete reference of all 36 `config/forgia.toml` keys and hardware-specific tuning profiles (4-core, 8-core, 16+ core), see [Configuration & Hardware Tuning Guide](docs/configuration.en.md).
 
 A separate, default-off `enableRegionThreadingFurnaceWorkWaves` experiment executes verified burning
 vanilla furnace-family bodies in resource waves, including independent instances inside one chunk/region.

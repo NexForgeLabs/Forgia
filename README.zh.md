@@ -140,6 +140,7 @@ regionThreadingWorkerThreads = 4
 ```
 
 `regionThreadingWorkerThreads = 0` 表示“CPU 数减一”。实体 tick、刷怪与 POI 要求 `DYNAMIC_CLUSTER` 或 `FIXED_3X3` 布局；其他项在缺少前置条件时退化到原版路径。
+全部 36 项 `config/forgia.toml` 配置键说明与分硬件调优模板（4 核 / 8 核 / 16+ 核与 JVM 参数）见[配置与硬件调优指南](docs/configuration.zh.md)。
 
 另有默认关闭的 `enableRegionThreadingFurnaceWorkWaves` 实验，按资源波次执行已验证的燃烧原版熔炉族正文，
 包括同一 chunk/区域内相互独立的实例。未知/燃料/通知操作是完整串行 fence；该模式下其他 BE 类型也串行。

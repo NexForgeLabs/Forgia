@@ -57,6 +57,7 @@ nav:
       - 性能对比 (中文): benchmarks.zh.md
   - Project:
       - Overview: README.en.md
+      - Configuration & Tuning: configuration.en.md
       - Engineering status: status.en.md
       - API: api/README.en.md
       - Adapters: adapters/README.en.md
@@ -65,6 +66,7 @@ nav:
   - 中文:
       - 首页: index.zh.md
       - 项目文档: README.zh.md
+      - 配置与硬件调优: configuration.zh.md
       - 项目状态: status.zh.md
       - API: api/README.zh.md
       - 适配器: adapters/README.zh.md
