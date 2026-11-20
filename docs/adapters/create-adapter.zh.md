@@ -1,10 +1,10 @@
 # Create 适配器 0.2.0 —— 受审计的稳态动力 tick
 
-> 本页保留 0.2.0 的历史说明。当前 0.3.0 已迁移到 execution adapter，支持同区域资源并行和大阶段窗口；以[当前源码说明](../../adapters/create/README.md)为准。
+> 本页保留 0.2.0 的历史说明。当前 0.3.0 已迁移到 execution adapter，支持同区域资源并行和大阶段窗口；以[当前源码说明](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md)为准。
 
 [English](create-adapter.en.md) | 中文 · [适配器索引](README.zh.md)
 源码：[`adapters/create`](../../adapters/create) · 协议：[`AUDITED_BLOCK_ENTITY_TICKS`](../api/block-entity-ticks.zh.md)
-证据：[CREATE-ADAPTER-VALIDATION](../../region-threading/CREATE-ADAPTER-VALIDATION.md)、[CREATE-OPTIMIZATION-PLAN](../../region-threading/CREATE-OPTIMIZATION-PLAN.md)
+证据：[CREATE-ADAPTER-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-ADAPTER-VALIDATION.md)、[CREATE-OPTIMIZATION-PLAN](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)
 
 状态：**实验性。** 适配器 `0.2.0`，Minecraft **1.21.1**，Create **6.0.10**，核心需提供
 `AUDITED_BLOCK_ENTITY_TICKS`（本轮基于 `21.1.250.107-beta` 构建）。必须保留原 Create jar，且绝不打包进适配器。

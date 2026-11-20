@@ -61,6 +61,7 @@ nav:
       - API: api/README.en.md
       - Adapters: adapters/README.en.md
       - Engine internals: modules/README.en.md
+      - Experimental player ticks: modules/player-ticks.en.md
   - 中文:
       - 首页: index.zh.md
       - 项目文档: README.zh.md
@@ -68,3 +69,4 @@ nav:
       - API: api/README.zh.md
       - 适配器: adapters/README.zh.md
       - 引擎内部: modules/README.zh.md
+      - 实验性玩家 Tick: modules/player-ticks.zh.md

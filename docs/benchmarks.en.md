@@ -141,7 +141,7 @@ Measured with `tests/src/main/java/net/neoforged/neoforge/debug/level/FullParall
 
 1. **Mean / P95 / P99 MSPT under light load (+6.7% / +10.9% / +21.1%) — Pending Optimization**: At ~11–13 ms/tick where a single core is unsaturated, multi-slice barrier and coordination overhead exceeds parallel gains.
 2. **High Block-Entity & Scheduled-Tick Fallback Rate (`fallbackBlockEntityTicks=2,166,896`, `fallbackScheduledTicks=13,565`) — Pending Optimization**: Unadmitted mixed-world ticks still pay coordinator inspection overhead before falling back to serial execution.
-3. **Player Tick Serial Fallback on Undeclared Mods (`UNKNOWN_MOD`) — Pending Optimization**: Test mods without `regionThreading = COMPATIBLE` (such as `add_pack_finders_test`) force `playerTick` onto the server thread.
+3. **Historical player tick fallback.** This build recorded `UNKNOWN_MOD` for test mods such as `add_pack_finders_test`. Current builds evaluate the callback and transform surface. [Player ticks](modules/player-ticks.en.md)
 4. **Server-Thread Entity Ratio & Soak Coverage (`serverThreadOnlyEntityTicks=379,968`, `attacks=0`, `merges=0`) — Pending Optimization**: Reduce server-thread-pinned entity categories and improve entity attack targeting and island merge/split coverage in `FullParallelSoakGameTests`.
 
 ---

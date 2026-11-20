@@ -1,8 +1,8 @@
 # 方块实体 tick 准入（v1 谓词 + 受审计原 ticker）
 
 [English](block-entity-ticks.en.md) | 中文 · [API 索引](README.zh.md)
-源码：[`BlockEntityTickAdapter.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityTickAdapter.java)、[`AuditedBlockEntityTickAdapter.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/AuditedBlockEntityTickAdapter.java)
-证据：[AUDITED-BLOCK-ENTITY-TICK-API](../../region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md)、[BLOCK-ENTITY-PARALLELISM](../../region-threading/BLOCK-ENTITY-PARALLELISM.md)
+源码：[`BlockEntityTickAdapter.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityTickAdapter.java)、[`AuditedBlockEntityTickAdapter.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/AuditedBlockEntityTickAdapter.java)
+证据：[AUDITED-BLOCK-ENTITY-TICK-API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md)、[BLOCK-ENTITY-PARALLELISM](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md)
 
 状态：**实验性**，能力 `BLOCK_ENTITY_TICK_ADMISSION`（v1）与 `AUDITED_BLOCK_ENTITY_TICKS`（受审计）。
 注册不会启用切片；必须同时打开 `enableRegionThreadingBlockEntityTicks`。

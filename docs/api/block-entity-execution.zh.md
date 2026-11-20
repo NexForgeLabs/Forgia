@@ -73,4 +73,4 @@ canonical 阶段按最多 2048 个候选的窗口规划，大于 2048 项不再�
 
 这是受信任 adapter 的审计合同，并非任意 Java 的自动安全证明。首版保留无状态 ticker 限制；通用 Capability resolver、自动外部写入拦截、多 home 事务及通用效果提交不在当前能力内。
 
-独立范例与验证见 [BlockEntityExecutionAdapterTest](../../tests/src/junit/java/net/neoforged/neoforge/unittest/BlockEntityExecutionAdapterTest.java)；真实目标模组接入见 [CreateTickAdmission](../../adapters/create/src/main/java/net/neoforged/forgia/compat/create/CreateTickAdmission.java)。
+独立范例与验证见 [BlockEntityExecutionAdapterTest](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/junit/java/net/neoforged/neoforge/unittest/BlockEntityExecutionAdapterTest.java)；真实目标模组接入见 [CreateTickAdmission](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/src/main/java/net/neoforged/forgia/compat/create/CreateTickAdmission.java)。

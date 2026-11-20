@@ -1,5 +1,7 @@
 # Player worker execution audit
 
+For the current bounded worker dispatch and its scope, see [experimental player ticks](../docs/modules/player-ticks.en.md). This audit records the earlier design state.
+
 Follow-up design (2026-11-17): [玩家 Region Tick：源码调查与实施方案](PLAYER-REGION-TICK-DESIGN.zh.md)
 proposes full original player tick execution through two existing phase boundaries, reusing the current
 region engine after ownership, callback and lifecycle prerequisites are closed. It is a design only;

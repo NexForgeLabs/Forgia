@@ -1,8 +1,8 @@
 # Module: entity ticks
 
 English | [中文](entity-ticks.zh.md) · [Module map](README.en.md)
-Source: [`RegionEntityTickPlan`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPlan.java), [`RegionEntityTickBatch`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickBatch.java), [`RegionScopedEntityQuery`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java), [`RegionPlayerSnapshots`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSnapshots.java)
-Evidence: [OWNERSHIP-PROTOCOLS-VALIDATION](../../region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md), [ENTITY-CALLBACK-LIFECYCLE](../../region-threading/ENTITY-CALLBACK-LIFECYCLE.md), [STATUS](../../region-threading/STATUS.md)
+Source: [`RegionEntityTickPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPlan.java), [`RegionEntityTickBatch`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickBatch.java), [`RegionScopedEntityQuery`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java), [`RegionPlayerSnapshots`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSnapshots.java)
+Evidence: [OWNERSHIP-PROTOCOLS-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md), [ENTITY-CALLBACK-LIFECYCLE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/ENTITY-CALLBACK-LIFECYCLE.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
 Status: **Certified within C6 scope** (`enableRegionThreadingEntityTicks`). Off by default.
 

@@ -2,7 +2,7 @@
 
 [English](mobspawncontroller-adapter.en.md) | 中文 · [适配器索引](README.zh.md)
 源码：[`adapters/mobspawncontroller`](../../adapters/mobspawncontroller) · 协议：[刷怪准备](../api/natural-spawn-preparation.zh.md)
-证据：[MOBSPAWNCONTROLLER-LOCAL-RESULTS](../../region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md)、[MOBSPAWNCONTROLLER-ADAPTER-AUDIT](../../region-threading/MOBSPAWNCONTROLLER-ADAPTER-AUDIT.md)、[NEARBY-SPAWN-ADMISSION](../../region-threading/NEARBY-SPAWN-ADMISSION.md)
+证据：[MOBSPAWNCONTROLLER-LOCAL-RESULTS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md)、[MOBSPAWNCONTROLLER-ADAPTER-AUDIT](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-ADAPTER-AUDIT.md)、[NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md)
 
 状态：**实验性，不建议用于生产。** 适配器 `0.3.0`，Minecraft **1.21.1**，MobSpawnController **1.2.3**。
 需要包含有序刷怪最终化协议的核心。

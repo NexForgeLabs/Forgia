@@ -1,8 +1,8 @@
 # 模块：实体 tick
 
 [English](entity-ticks.en.md) | 中文 · [模块地图](README.zh.md)
-源码：[`RegionEntityTickPlan`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPlan.java)、[`RegionEntityTickBatch`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickBatch.java)、[`RegionScopedEntityQuery`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java)、[`RegionPlayerSnapshots`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSnapshots.java)
-证据：[OWNERSHIP-PROTOCOLS-VALIDATION](../../region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md)、[ENTITY-CALLBACK-LIFECYCLE](../../region-threading/ENTITY-CALLBACK-LIFECYCLE.md)、[STATUS](../../region-threading/STATUS.md)
+源码：[`RegionEntityTickPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPlan.java)、[`RegionEntityTickBatch`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickBatch.java)、[`RegionScopedEntityQuery`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java)、[`RegionPlayerSnapshots`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSnapshots.java)
+证据：[OWNERSHIP-PROTOCOLS-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md)、[ENTITY-CALLBACK-LIFECYCLE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/ENTITY-CALLBACK-LIFECYCLE.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
 状态：在 C6 范围内（`enableRegionThreadingEntityTicks`）**已认证**。默认关闭。
 

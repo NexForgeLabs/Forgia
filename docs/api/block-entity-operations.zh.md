@@ -1,8 +1,8 @@
 # BlockEntityOperations —— 完整双 owner 操作与有界搬运
 
 [English](block-entity-operations.en.md) | 中文 · [API 索引](README.zh.md)
-源码：[`BlockEntityOperations.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityOperations.java)
-证据：[CROSS-REGION-OPERATIONS](../../region-threading/CROSS-REGION-OPERATIONS.md) · 示例：[`ContainerLinkExample.java`](../../examples/parallel-api/ContainerLinkExample.java)
+源码：[`BlockEntityOperations.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityOperations.java)
+证据：[CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md) · 示例：[`ContainerLinkExample.java`](https://github.com/NexForgeLabs/Forgia/blob/main/examples/parallel-api/ContainerLinkExample.java)
 
 状态：**实验性**，能力 `BLOCK_ENTITY_OPERATIONS`。完成阶段是串行的：本服务让你*安全地完成*一次交互，
 并不给两个区域并行 lease。

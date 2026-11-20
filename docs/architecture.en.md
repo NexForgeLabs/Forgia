@@ -7,6 +7,9 @@
 
 Forgia is built on NeoForge 1.21.1. Instead of replacing mod compatibility assumptions with an opaque global lock or assuming arbitrary mods are thread-safe, Forgia keeps the vanilla tick phase structure and introduces **explicit spatial leases**, **alternating `GLOBAL` / `REGION` phases**, and **fail-closed Serial Fences** for unknown code.
 
+!!! tip "3D walkthrough"
+    Prefer the flow first? Open the [Forgia 3D architecture walkthrough](visualizer/index.html): six interactive steps covering GLOBAL/REGION alternation, spatial leases, parallel batches and the join barrier, cross-region seqlock/mailbox traffic, and the Canonical block-entity serial fence.
+
 <figure class="diagram-frame">
   <img src="../assets/arch-stock-vs-forgia.svg" alt="Side-by-side architecture comparison between Stock Forge/NeoForge and Forgia" />
   <figcaption class="diagram-caption">
@@ -69,7 +72,7 @@ Forgia is built on NeoForge 1.21.1. Instead of replacing mod compatibility assum
 
 ## 2. Subsystem Comparison Matrix
 
-| Dimension | Stock Forge / NeoForge | Forgia (`main @ 7efd88d`) |
+| Dimension | Stock Forge / NeoForge | Forgia |
 |---|---|---|
 | **Tick Loop** | Monolithic single-thread `ServerLevel.tick` | Alternating `GLOBAL` ↔ `REGION` phases (`LevelTickPhaseState`); at most one region batch per level in flight |
 | **World Ownership** | Implicit global ownership by the server thread | Explicit `RegionState` leases; `RegionLeasePack` acquires up to 16 regions all-or-none |
@@ -77,7 +80,7 @@ Forgia is built on NeoForge 1.21.1. Instead of replacing mod compatibility assum
 | **Entity Ticks** | Sequential `EntityTickList` | Parallel per-region entity batches (`FixedEntitySectionPartitions`, `EntityIdentityLedger`, `RegionEntityTransferJournal`) |
 | **Chunk & Redstone** | Direct neighbor chunk mutation during tick | Parallel random ticks + `RegionDeferredBlockUpdates` / `RegionBorderUpdates` with same-tick fixpoint convergence |
 | **Block Entities** | Flat `Level.tickBlockEntities` loop | `CanonicalBlockEntityCoordinator` monotonic cursor: proven prefixes + `BlockEntityResourceOwnership` + Serial Fences |
-| **Players** | Inline server tick | Server-thread `ServerPlayer` ticks with `RegionPlayerTickCoordinator`, `VarHandle` intrinsics & zero-alloc local checks |
+| **Players** | Inline server tick | Server-owned connection traversal with opt-in worker dispatch for admitted entity calls and the original `doTick()` body. [Player ticks](modules/player-ticks.en.md) |
 | **Unknown Mod Code** | Runs inline natively | **Fail-closed Serial Fence**: physical worker join → run full original ticker once on server thread → re-audit suffix |
 | **Cross-Region Ops** | Direct mutation | `BlockEntityOperationRuntime`, `RegionMailbox`, seqlock cross-region read verification & serial completion stage |
 | **Default Behavior** | Always single-threaded | All region-threading & resource flags default to `false` (behaves like serial NeoForge until opted in) |

@@ -22,6 +22,7 @@ default**.
 | Natural spawning & POI | `RegionSpawnPlan`, `...Batch`, `...State`, `RegionSpawnAdmissionBarrier`, `NearbySpawnReservations`, `RegionPoiStorage(s)`, `RegionPoiSections` | `enableRegionThreadingSpawning`, `...Poi` | Experimental / certified (scope) | [natural-spawning-and-poi](natural-spawning-and-poi.en.md) |
 | Block entities | `CanonicalBlockEntityCoordinator`, `NativeBlockEntityPreparation`, `FurnaceWorkPreparation`, `BlockEntityResourceOwnership`, `BlockEntityWorkPlanner`, `AuditedBlockEntityPreparation` | `enableRegionThreadingBlockEntityTicks`, `...FurnaceWorkWaves`, `...BlockEntityResources` | Certified (scope) / experimental | [block-entities](block-entities.en.md) |
 | Cross-region ops, scheduled ticks, players | `BlockEntityOperationRuntime`, `RegionScheduledTickAdmission`, `RegionEntityInteractionTask`, `RegionPlayerSnapshots`, `PlayerRegionTransitions`, `GlobalRegionState` | `enableRegionThreadingScheduledTicks`, `enableGlobalRegionThreadingWorker` | Experimental | [cross-region-and-scheduled](cross-region-and-scheduled.en.md) |
+| Player ticks | `RegionPlayerTickCoordinator`, `RegionPlayerTickDispatch`, `RegionPlayerNetworkGate` | `enableRegionThreadingPlayerTicks` | Experimental | [player-ticks](player-ticks.en.md) |
 | Observation & configuration | `RuntimeObservability`, `RegionDiagnosticsCollector`, `RegionMetricsReport`, `ForgiaConfig`, `/forgia` tree | diagnostics keys | Implemented | [observability](observability.en.md) |
 
 ## 2. How to read a module page
@@ -44,8 +45,8 @@ Every page uses the same sections so implementations can be compared:
 
 | Executor | Runs | Owns |
 |---|---|---|
-| Server thread | Level tick phases that were refused or are not regionized, finalization, publication, operations completion, player ticks | Everything not leased |
-| Region worker | A leased region's entity/chunk/BE/scheduled batch | Only the leased region's storage |
+| Server thread | Level tick phases that were refused or are not regionized, finalization, publication, operations completion, player connection traversal | Everything not leased |
+| Region worker | A leased region's entity/chunk/BE/scheduled batch and admitted player bodies | Only the leased region's storage |
 | Global-region worker (opt-in) | Global-region queue drains | Global state, not arbitrary chunks |
 | Async/external | Engine internals, IO, network | No world mutation |
 
@@ -63,7 +64,7 @@ Ownership is by lease, not by thread name. `Thread.currentThread().getName()` is
 | Redstone/border | Yes | Same-tick convergence | C6 (fixed layouts) | Fixpoint with cascade budget |
 | Cross-region BE ops | Yes | n/a (correctness) | Experimental | Completion stage serial |
 | Scheduled ticks | Yes | n/a (correctness) | C6 lamp-only cohort | Radius-2 inert footprint |
-| Players | Server thread | n/a | Bounded tests | Not multiplayer-certified |
+| Player ticks | Opt-in bounded dispatch | 32-player short GameTest coverage | Experimental | Each connection body joins before traversal continues |
 | Structures/contraptions | No | — | — | Still server thread |
 
 ## 5. Where the evidence lives

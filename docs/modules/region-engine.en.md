@@ -1,8 +1,8 @@
 # Module: region engine, layout and ownership
 
 English | [中文](region-engine.zh.md) · [Module map](README.en.md)
-Source: [`RegionThreadingEngine`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java), [`RegionLayout`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java), [`LevelTickPhase`](../../src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java), [`RegionWorkerPool`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
-Evidence: [FOLIA-REFERENCE](../../region-threading/FOLIA-REFERENCE.md), [PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md), [STATUS](../../region-threading/STATUS.md)
+Source: [`RegionThreadingEngine`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java), [`RegionLayout`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java), [`LevelTickPhase`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java), [`RegionWorkerPool`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
+Evidence: [FOLIA-REFERENCE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/FOLIA-REFERENCE.md), [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
 Status: **Certified within C6 scope** for the fixed layout, four workers, documented switches. All switches
 default to `false`. `DYNAMIC_CLUSTER` is experimental and falls outside the C6 certification scope.
@@ -129,7 +129,7 @@ Detection is by mod id; unknown transformations are not exhaustively discovered.
 
 `DYNAMIC_CLUSTER` builds connected islands from loaded chunks. Adjacent sections, including diagonals, merge at a global phase boundary. Empty sections trigger a split check when their delay expires. Ordinary batches can coalesce work from the same island when the number of tasks exceeds the worker count. Coalescing leaves at least one task per worker available in that case. Recent section timings are tracked per slice, and a pack is capped at the greater of the largest task and average work per worker. Each section retains its own ownership lease. Ordered spawning keeps separate submissions so its participants can advance concurrently. `/forgia regions` reports island sizes, merges, splits, and submissions saved for the current dimension. Tick timings are recorded per section.
 
-The [random-tick GameTest fixture](../../tests/src/main/java/net/neoforged/neoforge/debug/level/ServerLoadBenchmarkGameTests.java) compares the original task-count policy with weighted packing. Both runs used the same source baseline, world seed and workload coordinates, 144 workload chunks, and four workers. Each JVM warmed up for 200 ticks and measured 600 ticks.
+The [random-tick GameTest fixture](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/main/java/net/neoforged/neoforge/debug/level/ServerLoadBenchmarkGameTests.java) compares the original task-count policy with weighted packing. Both runs used the same source baseline, world seed and workload coordinates, 144 workload chunks, and four workers. Each JVM warmed up for 200 ticks and measured 600 ticks.
 
 | Metric | Task-count packing | Weighted packing |
 |---|---:|---:|

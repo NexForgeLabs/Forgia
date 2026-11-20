@@ -58,5 +58,5 @@ successful worker completions. Checks include planning and revalidation, not jus
 Stateful ticker support, generic capability resolvers, multi-home transactions and general effect
 profiles remain future extensions. Compile against the facade with `compileOnly`, never bundle it.
 
-See the [independent executable integration](../../tests/src/junit/java/net/neoforged/neoforge/unittest/BlockEntityExecutionAdapterTest.java)
-and [Create adapter](../../adapters/create/README.md) for examples and acceptance boundaries.
+See the [independent executable integration](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/junit/java/net/neoforged/neoforge/unittest/BlockEntityExecutionAdapterTest.java)
+and [Create adapter](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md) for examples and acceptance boundaries.

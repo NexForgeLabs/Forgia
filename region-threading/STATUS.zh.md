@@ -1,5 +1,7 @@
 # Forgia 状态
 
+当前阶段合同与 32 人验证见[玩家 Tick 模块](../docs/modules/player-ticks.zh.md)。
+
 [English](STATUS.md) | 中文
 
 下表中的历史负载均在 4 核/8 线程机器、JDK 21、分代 ZGC、固定 3×3 chunk 区域（除非另述）、4 个 worker、

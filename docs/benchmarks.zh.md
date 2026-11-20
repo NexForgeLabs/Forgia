@@ -141,7 +141,7 @@ Forgia 明确区分 **区域线程已取得显著加速的场景**（高密度�
 
 1. **轻负载全开关开启的均值与尾延迟开销（Mean +6.7% / P95 +10.9% / P99 +21.1%）— 待优化**：在 ~11–13 ms/tick 的轻负载下，多切片屏障等待与协调开销高于并行收益。
 2. **方块实体与计划刻回退率高（`fallbackBlockEntityTicks=2,166,896`、`fallbackScheduledTicks=13,565`）— 待优化**：混合场景下未命中准入前缀仍支付了协调器检查成本，需降低空跑/回退路径的固定开销。
-3. **玩家 Tick 在未声明模组存在时整体回退串行（`UNKNOWN_MOD`）— 待优化**：GameTest 环境因 `add_pack_finders_test` 等测试模组未声明兼容导致 `playerTick` 全部退回主线程；需优化多模组环境下玩家切片的隔离准入策略。
+3. **历史玩家 Tick 回退。** 该构建对 `add_pack_finders_test` 等测试模组记录 `UNKNOWN_MOD`。当前构建根据回调和变换影响面判断准入。[玩家 Tick](modules/player-ticks.zh.md)
 4. **实体主线程占比与压测攻击/岛合并覆盖（`serverThreadOnlyEntityTicks=379,968`、`attacks=0`、`merges=0`）— 待优化**：需继续缩减被迫停留在主线程的实体类型占比，并增强 `FullParallelSoakGameTests` 的实体攻击判定与跨 Section 岛合并/拆分触发率。
 
 ---

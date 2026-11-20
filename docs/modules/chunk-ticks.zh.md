@@ -1,8 +1,8 @@
 # 模块：Chunk tick 与跨区效果
 
 [English](chunk-ticks.en.md) | 中文 · [模块地图](README.zh.md)
-源码：[`RegionChunkTickCoordinator`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionChunkTickCoordinator.java)、[`RegionBorderUpdates`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderUpdates.java)、[`RegionBorderGameEvents`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderGameEvents.java)、[`RegionDeferredBlockUpdates`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionDeferredBlockUpdates.java)
-证据：[STATUS](../../region-threading/STATUS.md)、[PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md)、[GUARD-INVENTORY](../../region-threading/GUARD-INVENTORY.md)
+源码：[`RegionChunkTickCoordinator`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionChunkTickCoordinator.java)、[`RegionBorderUpdates`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderUpdates.java)、[`RegionBorderGameEvents`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderGameEvents.java)、[`RegionDeferredBlockUpdates`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionDeferredBlockUpdates.java)
+证据：[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)、[PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md)、[GUARD-INVENTORY](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GUARD-INVENTORY.md)
 
 状态：随机 chunk tick 在 C6 内**已认证**；边界更新与 game event 为**实验性**
 （`enableRegionThreadingBorderUpdates`、`enableRegionThreadingGameEvents` 默认关闭，C6 之外）。

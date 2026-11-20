@@ -1,8 +1,8 @@
 # BlockEntityOperations — whole two-owner operations and bounded transfers
 
 English | [中文](block-entity-operations.zh.md) · [API index](README.en.md)
-Source: [`BlockEntityOperations.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityOperations.java)
-Evidence: [CROSS-REGION-OPERATIONS](../../region-threading/CROSS-REGION-OPERATIONS.md) · Example: [`ContainerLinkExample.java`](../../examples/parallel-api/ContainerLinkExample.java)
+Source: [`BlockEntityOperations.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityOperations.java)
+Evidence: [CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md) · Example: [`ContainerLinkExample.java`](https://github.com/NexForgeLabs/Forgia/blob/main/examples/parallel-api/ContainerLinkExample.java)
 
 Status: **Experimental**, capability `BLOCK_ENTITY_OPERATIONS`. The completion stage is serial: this service
 lets you *complete* an interaction safely, it does not give two regions parallel leases.

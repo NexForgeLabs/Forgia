@@ -12,6 +12,12 @@
 原始 C5 request-only 接口仍保持完整 serial fence。结果和未覆盖项见[本轮方案](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)。
 这条新路线是明确的 trusted-adapter 合同，不将类指纹表述为自动语义证明。
 
+## 当前玩家 Tick 验证
+
+32 人 GameTest 中，576 次连接正文有 9 次在 worker 上执行，ENTITY 为 328 / 348（94.3%）。完整连接 tick 均在服务器线程执行。源码 setup 与 433 项玩家 JUnit 全部通过。[当前执行合同与验证](modules/player-ticks.zh.md)
+
+以下报告记录各历史构建及其对应的阶段合同。
+
 ## 10 分钟 32 Fake Player 全并行 vs 原版串行耐久测试（`FullParallelSoakGameTests`）
 
 使用 [`FullParallelSoakGameTests.java`](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) 在同一种子（`4242424242`）下完成了 600 秒对照：

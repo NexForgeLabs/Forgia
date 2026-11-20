@@ -1,8 +1,8 @@
 # Natural-spawn preparation, claims and ordered finalization
 
 English | [中文](natural-spawn-preparation.zh.md) · [API index](README.en.md)
-Source: [`ParallelApi.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java), [`ParallelAdapterRuntime.java`](../../src/main/java/net/neoforged/neoforge/server/threading/ParallelAdapterRuntime.java)
-Evidence: [MOD-PARALLEL-API](../../region-threading/MOD-PARALLEL-API.md), [NEARBY-SPAWN-ADMISSION](../../region-threading/NEARBY-SPAWN-ADMISSION.md)
+Source: [`ParallelApi.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java), [`ParallelAdapterRuntime.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/ParallelAdapterRuntime.java)
+Evidence: [MOD-PARALLEL-API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOD-PARALLEL-API.md), [NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md)
 
 Status: **Experimental.** Natural spawning has its own config switch (`enableRegionThreadingSpawning`), which is
 **off by default and outside the accepted C6 profile**. Registration never enables it.

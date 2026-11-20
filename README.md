@@ -65,10 +65,9 @@ Forgia is not a finished Folia replacement. The honest list:
   contraptions, still run on the server thread.
 - **Cross-region game-event capture (sculk) is implemented and off by default.** The inline baseline with
   worker callbacks can reach foreign listeners; validate the target configuration explicitly.
-- **Players tick on the server thread by default; experimental player region ticks exist.** Region membership,
-  riding, teleport and dimension handoffs have bounded tests. Opt-in `enableRegionThreadingPlayerTicks` (P2–P5)
-  and the declared region worker payload API (`IRegionPayloadHandler`) dispatch admitted players on workers
-  (`3.97 ms` vs `4.24 ms` serial in the 32-player `n32-spread` benchmark), while undeclared mods fail closed to serial.
+- **Players tick on the server thread by default.** With `enableRegionThreadingPlayerTicks`, admitted entity calls
+  and the original `ServerPlayer.doTick()` body can run on region workers. The server thread owns the complete
+  connection traversal and joins each dispatched body before continuing. [Player tick execution and validation](docs/modules/player-ticks.en.md)
 - **Long-run and multiplayer acceptance remain open.** A 10-minute 32-fake-player soak (`FullParallelSoakGameTests`,
   `DYNAMIC_CLUSTER`, 7 workers) achieved `0` ownership violations and lower P50 (`-7.1%`) and GC pause (`-48.8%`),
   while mean/P95/P99 trailed serial due to coordination overhead and fallback rates; arbitrary C6 canary packs still require their own validation.

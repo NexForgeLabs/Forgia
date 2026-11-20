@@ -1,10 +1,10 @@
 # Create adapter 0.2.0 — audited steady-state kinetic ticks
 
-> Historical documentation for 0.2.0. Version 0.3.0 uses execution adapters, same-region resource scopes and bounded planning windows; see the [current source guide](../../adapters/create/README.md).
+> Historical documentation for 0.2.0. Version 0.3.0 uses execution adapters, same-region resource scopes and bounded planning windows; see the [current source guide](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md).
 
 English | [中文](create-adapter.zh.md) · [Adapter index](README.en.md)
 Source: [`adapters/create`](../../adapters/create) · Protocol: [`AUDITED_BLOCK_ENTITY_TICKS`](../api/block-entity-ticks.en.md)
-Evidence: [CREATE-ADAPTER-VALIDATION](../../region-threading/CREATE-ADAPTER-VALIDATION.md), [CREATE-OPTIMIZATION-PLAN](../../region-threading/CREATE-OPTIMIZATION-PLAN.md)
+Evidence: [CREATE-ADAPTER-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-ADAPTER-VALIDATION.md), [CREATE-OPTIMIZATION-PLAN](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)
 
 Status: **Experimental.** Adapter `0.2.0`, Minecraft **1.21.1**, Create **6.0.10**, core providing
 `AUDITED_BLOCK_ENTITY_TICKS` (built against `21.1.250.107-beta`). The original Create jar is required and is

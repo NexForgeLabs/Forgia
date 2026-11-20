@@ -2,7 +2,7 @@
 
 English | [中文](mobspawncontroller-adapter.zh.md) · [Adapter index](README.en.md)
 Source: [`adapters/mobspawncontroller`](../../adapters/mobspawncontroller) · Protocol: [natural-spawn preparation](../api/natural-spawn-preparation.en.md)
-Evidence: [MOBSPAWNCONTROLLER-LOCAL-RESULTS](../../region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md), [MOBSPAWNCONTROLLER-ADAPTER-AUDIT](../../region-threading/MOBSPAWNCONTROLLER-ADAPTER-AUDIT.md), [NEARBY-SPAWN-ADMISSION](../../region-threading/NEARBY-SPAWN-ADMISSION.md)
+Evidence: [MOBSPAWNCONTROLLER-LOCAL-RESULTS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md), [MOBSPAWNCONTROLLER-ADAPTER-AUDIT](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-ADAPTER-AUDIT.md), [NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md)
 
 Status: **Experimental, and not recommended for production.** Adapter `0.3.0`, Minecraft **1.21.1**,
 MobSpawnController **1.2.3**. Requires a core with the ordered-spawn-finalization protocol.

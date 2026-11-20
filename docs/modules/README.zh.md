@@ -20,6 +20,7 @@
 | 自然刷怪与 POI | `RegionSpawnPlan`、`...Batch`、`...State`、`RegionSpawnAdmissionBarrier`、`NearbySpawnReservations`、`RegionPoiStorage(s)`、`RegionPoiSections` | `enableRegionThreadingSpawning`、`...Poi` | 实验性 / 已认证（范围） | [natural-spawning-and-poi](natural-spawning-and-poi.zh.md) |
 | 方块实体 | `CanonicalBlockEntityCoordinator`、`NativeBlockEntityPreparation`、`FurnaceWorkPreparation`、`BlockEntityResourceOwnership`、`BlockEntityWorkPlanner`、`AuditedBlockEntityPreparation` | `enableRegionThreadingBlockEntityTicks`、`...FurnaceWorkWaves`、`...BlockEntityResources` | 已认证（范围）/ 实验性 | [block-entities](block-entities.zh.md) |
 | 跨区操作、scheduled tick、玩家 | `BlockEntityOperationRuntime`、`RegionScheduledTickAdmission`、`RegionEntityInteractionTask`、`RegionPlayerSnapshots`、`PlayerRegionTransitions`、`GlobalRegionState` | `enableRegionThreadingScheduledTicks`、`enableGlobalRegionThreadingWorker` | 实验性 | [cross-region-and-scheduled](cross-region-and-scheduled.zh.md) |
+| 玩家 Tick | `RegionPlayerTickCoordinator`、`RegionPlayerTickDispatch`、`RegionPlayerNetworkGate` | `enableRegionThreadingPlayerTicks` | 实验性 | [player-ticks](player-ticks.zh.md) |
 | 观测与配置 | `RuntimeObservability`、`RegionDiagnosticsCollector`、`RegionMetricsReport`、`ForgiaConfig`、`/forgia` 命令树 | 诊断相关键 | 已实现 | [observability](observability.zh.md) |
 
 ## 2. 如何阅读模块页
@@ -42,8 +43,8 @@
 
 | 执行者 | 运行内容 | 拥有 |
 |---|---|---|
-| 服务器线程 | 被拒或未区域化的 level tick 阶段、最终化、发布、操作完成、玩家 tick | 一切未被租出的内容 |
-| Region worker | 租出区域内的实体/chunk/BE/scheduled 批次 | 仅租出区域的存储 |
+| 服务器线程 | 被拒或未区域化的 level tick 阶段、最终化、发布、操作完成、玩家连接遍历 | 一切未被租出的内容 |
+| Region worker | 租出区域内的实体/chunk/BE/scheduled 批次及准入的玩家正文 | 仅租出区域的存储 |
 | 全局 region worker（可选） | 全局 region 队列 drain | 全局状态，不是任意 chunk |
 | 异步/外部 | 引擎内部、IO、网络 | 无世界修改权 |
 
@@ -61,7 +62,7 @@
 | 红石/边界 | 是 | 同 tick 收敛 | C6（固定布局） | 带级联预算的 fixpoint |
 | 跨区 BE 操作 | 是 | 不适用（正确性） | 实验性 | 完成阶段串行 |
 | Scheduled tick | 是 | 不适用（正确性） | C6 仅灯队列 | 半径 2 惰性足迹 |
-| 玩家 | 服务器线程 | 不适用 | 有界测试 | 未做多人认证 |
+| 玩家 Tick | 可选有界派发 | 32 人短时 GameTest 覆盖 | 实验性 | 每个连接正文返回后遍历继续 |
 | 结构/移动装置 | 否 | — | — | 仍在服务器线程 |
 
 ## 5. 证据位置

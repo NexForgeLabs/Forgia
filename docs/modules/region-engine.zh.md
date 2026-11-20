@@ -1,8 +1,8 @@
 # 模块：region 引擎、布局与所有权
 
 [English](region-engine.en.md) | 中文 · [模块地图](README.zh.md)
-源码：[`RegionThreadingEngine`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java)、[`RegionLayout`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java)、[`LevelTickPhase`](../../src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java)、[`RegionWorkerPool`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
-证据：[FOLIA-REFERENCE](../../region-threading/FOLIA-REFERENCE.md)、[PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md)、[STATUS](../../region-threading/STATUS.md)
+源码：[`RegionThreadingEngine`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java)、[`RegionLayout`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java)、[`LevelTickPhase`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java)、[`RegionWorkerPool`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
+证据：[FOLIA-REFERENCE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/FOLIA-REFERENCE.md)、[PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
 C6 认证覆盖固定布局、4 个 worker 和文档列出的开关。所有开关默认 `false`。`DYNAMIC_CLUSTER` 为实验模式，属于 C6 认证范围之外。
 

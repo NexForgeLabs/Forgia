@@ -7,6 +7,9 @@
 
 Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态回调，Forgia 没有用一把全局大锁掩盖并发，也没有假定任意模组天生线程安全，而是保留原版 Tick 阶段因果顺序，通过 **显式空间租约（Lease）**、**`GLOBAL` / `REGION` 交替阶段** 以及 **Fail-Closed 串行围栏（Serial Fence）** 实现受控并行。
 
+!!! tip "3D 动画解说"
+    想先看流程再看细节？打开 [Forgia 3D 架构动画流](visualizer/index.html)，用 6 个可交互步骤依次演示 GLOBAL/REGION 交替、空间租约、并行批次与屏障、跨区 Seqlock/邮箱，以及 Canonical 方块实体的串行围栏。
+
 <figure class="diagram-frame">
   <img src="../assets/arch-stock-vs-forgia.zh.svg" alt="原版 Forge/NeoForge 与 Forgia 架构对比蓝图" />
   <figcaption class="diagram-caption">
@@ -69,7 +72,7 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
 
 ## 2. 核心维度对比矩阵
 
-| 对比维度 | 原版 Forge / NeoForge | Forgia（`main @ 7efd88d`） |
+| 对比维度 | 原版 Forge / NeoForge | Forgia |
 |---|---|---|
 | **Tick 主循环** | 单线程 `ServerLevel.tick` 顺序执行 | `GLOBAL` ↔ `REGION` 交替（`LevelTickPhaseState`），同维度同一时刻最多一个区域批次在途 |
 | **世界所有权** | 服务器线程隐式独占全部可变状态 | 显式 `RegionState` 租约；`RegionLeasePack` 支持最多 16 个区域全有或全无打包获取 |
@@ -77,7 +80,7 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
 | **实体 Tick** | 单核顺序遍历 `EntityTickList` | 按区域并行执行（`FixedEntitySectionPartitions`、`EntityIdentityLedger`、迁移日志） |
 | **区块与红石** | 直接跨区块修改相邻状态 | 区域并行随机刻 + `RegionDeferredBlockUpdates` / `RegionBorderUpdates` 同 Tick 不动点收敛 |
 | **方块实体** | 扁平循环 `Level.tickBlockEntities` | `CanonicalBlockEntityCoordinator` 单调 cursor：已证明前缀 + `BlockEntityResourceOwnership` + 串行围栏 |
-| **玩家 Tick** | 主线程内联执行 | 主线程 `ServerPlayer` Tick + `RegionPlayerTickCoordinator`、`VarHandle` 内联字段与零分配模板校验 |
+| **玩家 Tick** | 主线程内联执行 | 服务器线程负责连接遍历。开启实验开关后，已准入的实体调用和原始 `doTick()` 正文可交给 worker。[玩家 Tick](modules/player-ticks.zh.md) |
 | **未知模组代码** | 直接运行 | **Fail-Closed 串行围栏**：物理 join Worker → 主线程完整执行一次原 ticker → 重审后缀 |
 | **跨区域交互** | 直接读写目标对象 | `BlockEntityOperationRuntime`、`RegionMailbox`、Seqlock 跨区读校验与串行完成阶段 |
 | **默认行为** | 单线程 | 所有区域线程与资源开关默认 `false`（未开启时保持原版串行行为） |

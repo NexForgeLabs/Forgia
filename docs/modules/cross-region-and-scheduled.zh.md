@@ -1,8 +1,8 @@
 # 模块：跨区操作、scheduled tick、全局状态与玩家
 
 [English](cross-region-and-scheduled.en.md) | 中文 · [模块地图](README.zh.md)
-源码：[`BlockEntityOperationRuntime`](../../src/main/java/net/neoforged/neoforge/server/threading/BlockEntityOperationRuntime.java)、[`RegionScheduledTickAdmission`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionScheduledTickAdmission.java)、[`RegionEntityInteractionTask`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityInteractionTask.java)、[`PlayerRegionTransitions`](../../src/main/java/net/neoforged/neoforge/server/threading/region/PlayerRegionTransitions.java)、[`GlobalRegionState`](../../src/main/java/net/neoforged/neoforge/server/threading/region/GlobalRegionState.java)
-证据：[CROSS-REGION-OPERATIONS](../../region-threading/CROSS-REGION-OPERATIONS.md)、[CHUNK-OWNER-OPERATIONS](../../region-threading/CHUNK-OWNER-OPERATIONS.md)、[STATUS](../../region-threading/STATUS.md)
+源码：[`BlockEntityOperationRuntime`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/BlockEntityOperationRuntime.java)、[`RegionScheduledTickAdmission`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScheduledTickAdmission.java)、[`RegionEntityInteractionTask`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityInteractionTask.java)、[`PlayerRegionTransitions`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/PlayerRegionTransitions.java)、[`GlobalRegionState`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/GlobalRegionState.java)
+证据：[CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md)、[CHUNK-OWNER-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-OWNER-OPERATIONS.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
 状态：除范围很窄的灯队列（在该范围内通过 C6 正确性）外，整体为**实验性**。所有开关默认关闭。
 

@@ -1,8 +1,8 @@
 # 模块：自然刷怪与兴趣点（POI）
 
 [English](natural-spawning-and-poi.en.md) | 中文 · [模块地图](README.zh.md)
-源码：[`RegionSpawnPlan`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnPlan.java)、[`RegionSpawnAdmissionBarrier`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnAdmissionBarrier.java)、[`LevelSpawnCapCounter`](../../src/main/java/net/neoforged/neoforge/server/threading/region/LevelSpawnCapCounter.java)、[`RegionPoiStorage`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorage.java)、[`RegionPoiStorages`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorages.java)
-证据：[NEARBY-SPAWN-ADMISSION](../../region-threading/NEARBY-SPAWN-ADMISSION.md)、[STATUS](../../region-threading/STATUS.md)、[MOBSPAWNCONTROLLER-LOCAL-RESULTS](../../region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md)
+源码：[`RegionSpawnPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnPlan.java)、[`RegionSpawnAdmissionBarrier`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnAdmissionBarrier.java)、[`LevelSpawnCapCounter`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelSpawnCapCounter.java)、[`RegionPoiStorage`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorage.java)、[`RegionPoiStorages`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorages.java)
+证据：[NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)、[MOBSPAWNCONTROLLER-LOCAL-RESULTS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md)
 
 状态：POI 在 C6 内**已认证**；自然刷怪**实验性且 C6 之外**
 （`enableRegionThreadingSpawning` 默认关闭；`enableRegionThreadingPoi` 默认关闭但会被实体 tick 隐含）。

@@ -1,6 +1,6 @@
 # ParallelApi —— 服务器服务、数据键与准备结果
 
-[English](parallel-api.en.md) | 中文 · [API 索引](README.zh.md) · 源码：[`ParallelApi.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java)
+[English](parallel-api.en.md) | 中文 · [API 索引](README.zh.md) · 源码：[`ParallelApi.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java)
 
 状态：**实验性（major 1）。** `ParallelApi` 是唯一始终存在的模组级服务。它从不授予世界所有权，只让你
 *协商*、*注册*、*读取有界诊断*。

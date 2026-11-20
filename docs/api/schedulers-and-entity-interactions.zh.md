@@ -1,8 +1,8 @@
 # 调度器、实体交互与 scheduled tick 诊断
 
 [English](schedulers-and-entity-interactions.en.md) | 中文 · [API 索引](README.zh.md)
-源码：[`RegionThreadingManager.java`](../../src/main/java/net/neoforged/neoforge/server/threading/RegionThreadingManager.java)、[`RegionScheduler.java`](../../src/main/java/net/neoforged/neoforge/server/threading/RegionScheduler.java)、[`EntityInteractionScheduler.java`](../../src/main/java/net/neoforged/neoforge/server/threading/EntityInteractionScheduler.java)、[`ScheduledTickStatus.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/ScheduledTickStatus.java)
-证据：[CROSS-REGION-OPERATIONS](../../region-threading/CROSS-REGION-OPERATIONS.md)、[CHUNK-OWNER-OPERATIONS](../../region-threading/CHUNK-OWNER-OPERATIONS.md)
+源码：[`RegionThreadingManager.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/RegionThreadingManager.java)、[`RegionScheduler.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/RegionScheduler.java)、[`EntityInteractionScheduler.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/EntityInteractionScheduler.java)、[`ScheduledTickStatus.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/ScheduledTickStatus.java)
+证据：[CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md)、[CHUNK-OWNER-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-OWNER-OPERATIONS.md)
 
 状态：**实验性。** 调度器需要完整 Forgia 编译依赖且引擎已安装；`EntityInteractionScheduler` 单独标记实验性。
 

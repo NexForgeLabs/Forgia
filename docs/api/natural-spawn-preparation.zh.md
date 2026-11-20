@@ -1,8 +1,8 @@
 # 刷怪准备、claim 与有序最终化
 
 [English](natural-spawn-preparation.en.md) | 中文 · [API 索引](README.zh.md)
-源码：[`ParallelApi.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java)、[`ParallelAdapterRuntime.java`](../../src/main/java/net/neoforged/neoforge/server/threading/ParallelAdapterRuntime.java)
-证据：[MOD-PARALLEL-API](../../region-threading/MOD-PARALLEL-API.md)、[NEARBY-SPAWN-ADMISSION](../../region-threading/NEARBY-SPAWN-ADMISSION.md)
+源码：[`ParallelApi.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java)、[`ParallelAdapterRuntime.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/ParallelAdapterRuntime.java)
+证据：[MOD-PARALLEL-API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOD-PARALLEL-API.md)、[NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md)
 
 状态：**实验性。** 自然刷怪有自己的配置开关（`enableRegionThreadingSpawning`），**默认关闭且不在已验收 C6 配置内**。
 注册永不自动启用它。

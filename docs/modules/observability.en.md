@@ -1,8 +1,8 @@
 # Module: observation, commands and configuration
 
 English | [中文](observability.zh.md) · [Module map](README.en.md)
-Source: [`RuntimeObservability`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RuntimeObservability.java), [`RegionThreadingCommand`](../../src/main/java/net/neoforged/neoforge/server/command/RegionThreadingCommand.java), [`ForgiaConfig`](../../src/main/java/net/neoforged/neoforge/common/ForgiaConfig.java)
-Evidence: [RUNTIME-OBSERVABILITY](../../region-threading/RUNTIME-OBSERVABILITY.md), [PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md)
+Source: [`RuntimeObservability`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RuntimeObservability.java), [`RegionThreadingCommand`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/command/RegionThreadingCommand.java), [`ForgiaConfig`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/common/ForgiaConfig.java)
+Evidence: [RUNTIME-OBSERVABILITY](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/RUNTIME-OBSERVABILITY.md), [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md)
 
 Status: **Implemented.** Monitoring adds no scheduler, pool, ticket, authority or disk writer; it reads the
 existing engine and native server tick ring.
@@ -35,6 +35,7 @@ existing engine and native server tick ring.
 | `/forgia performance json` | Versioned compact JSON, nulls for unavailable numbers |
 | `/forgia diagnostics` | Performance/worker/scheduler/threshold summaries |
 | `/neoforge regionthreading status [raw]` | Slice/worker/fallback/health/region stats, raw diagnostics |
+| `/neoforge regionthreading status players` | Player phase counts, refusal and cleanup diagnostics. [Player ticks](player-ticks.en.md) |
 | `/neoforge regionthreading compat` | Compatibility declarations, adapter registrations, operations counters, scheduled reasons/latency |
 | `/neoforge regionthreading workgraph [start <phases>\|stop]` | Bounded access graph, furnace wave counts, resource metrics |
 | `/neoforge regionthreading regions [count]` | Regions ranked by slowness |

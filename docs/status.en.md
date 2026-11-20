@@ -13,6 +13,12 @@ explicitly installed, audited adapters provide implementation, branch, and resou
 the original C5 request-only interface still retains a full serial fence. Results and uncovered items are in [the optimization plan](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md).
 This route is an explicit trusted-adapter contract and does not present class fingerprinting as an automatic semantic proof.
 
+## Current player tick verification
+
+The bounded connection body ran on workers in 9 of 576 calls in the 32-player GameTest. ENTITY coverage was 328 of 348 (94.3%). Every complete connection tick remained on the server thread. Setup and all 433 player JUnit cases passed. [Current execution contract and evidence](modules/player-ticks.en.md)
+
+The reports below record earlier builds and their respective phase contracts.
+
 ## 10-Minute 32-Fake-Player Full-Parallel vs. Vanilla Serial Soak (`FullParallelSoakGameTests`)
 
 A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](https://github.com/NexForgeLabs/Forgia/blob/main/tests/src/main/java/net/neoforged/neoforge/debug/level/FullParallelSoakGameTests.java) under seed `4242424242`:

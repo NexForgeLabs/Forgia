@@ -1,8 +1,8 @@
 # Module: chunk ticks and cross-region effects
 
 English | [中文](chunk-ticks.zh.md) · [Module map](README.en.md)
-Source: [`RegionChunkTickCoordinator`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionChunkTickCoordinator.java), [`RegionBorderUpdates`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderUpdates.java), [`RegionBorderGameEvents`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderGameEvents.java), [`RegionDeferredBlockUpdates`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RegionDeferredBlockUpdates.java)
-Evidence: [STATUS](../../region-threading/STATUS.md), [PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md), [GUARD-INVENTORY](../../region-threading/GUARD-INVENTORY.md)
+Source: [`RegionChunkTickCoordinator`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionChunkTickCoordinator.java), [`RegionBorderUpdates`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderUpdates.java), [`RegionBorderGameEvents`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderGameEvents.java), [`RegionDeferredBlockUpdates`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionDeferredBlockUpdates.java)
+Evidence: [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md), [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md), [GUARD-INVENTORY](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GUARD-INVENTORY.md)
 
 Status: random chunk ticks **certified within C6**; border updates and game events are **experimental**
 (`enableRegionThreadingBorderUpdates`, `enableRegionThreadingGameEvents`, both default off, outside C6).

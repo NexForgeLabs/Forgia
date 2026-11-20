@@ -1,6 +1,6 @@
 # ParallelApi — server service, keys and preparation results
 
-English | [中文](parallel-api.zh.md) · [API index](README.en.md) · Source: [`ParallelApi.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java)
+English | [中文](parallel-api.zh.md) · [API index](README.en.md) · Source: [`ParallelApi.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/ParallelApi.java)
 
 Status: **Experimental (major 1).** `ParallelApi` is the only always-present mod-facing service. It never
 grants world ownership; it lets you *negotiate*, *register* and *read bounded diagnostics*.

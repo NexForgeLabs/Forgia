@@ -1,8 +1,8 @@
 # Block-entity tick admission (v1 predicate + audited original ticker)
 
 English | [中文](block-entity-ticks.zh.md) · [API index](README.en.md)
-Source: [`BlockEntityTickAdapter.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityTickAdapter.java), [`AuditedBlockEntityTickAdapter.java`](../../src/main/java/net/neoforged/neoforge/server/threading/api/AuditedBlockEntityTickAdapter.java)
-Evidence: [AUDITED-BLOCK-ENTITY-TICK-API](../../region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md), [BLOCK-ENTITY-PARALLELISM](../../region-threading/BLOCK-ENTITY-PARALLELISM.md)
+Source: [`BlockEntityTickAdapter.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/BlockEntityTickAdapter.java), [`AuditedBlockEntityTickAdapter.java`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/api/AuditedBlockEntityTickAdapter.java)
+Evidence: [AUDITED-BLOCK-ENTITY-TICK-API](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md), [BLOCK-ENTITY-PARALLELISM](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md)
 
 Status: **Experimental**, capability `BLOCK_ENTITY_TICK_ADMISSION` (v1) and `AUDITED_BLOCK_ENTITY_TICKS` (audited).
 Registration never enables the slice; `enableRegionThreadingBlockEntityTicks` must be on.

@@ -57,9 +57,9 @@ Forgia 不是完成态的 Folia 替代品。诚实的清单：
 - **结构不感知区域。** 跨边界移动方块的活塞与 Create 式移动装置仍在服务器线程运行。
 - **跨区 game-event 捕获（sculk）已实现且默认关闭。** 带 worker 回调的 inline 基线可能触达外部监听器；
   请显式验证目标配置。
-- **玩家默认在服务器线程 tick；实验性玩家区域 tick 已实现。** 区域成员、骑乘、传送与维度交接已有有界测试；
-  可通过 `enableRegionThreadingPlayerTicks`（P2–P5）与声明式区域 Worker 载荷 API（`IRegionPayloadHandler`）
-  在 Worker 上执行已准入玩家（32 玩家 `n32-spread` 实测 `3.97 ms` 对串行 `4.24 ms`），未声明模组 fail-closed 回退主线程。
+- **玩家默认在服务器线程 tick。** 开启 `enableRegionThreadingPlayerTicks` 后，已准入的实体调用和原始
+  `ServerPlayer.doTick()` 正文可在区域 worker 上执行。服务器线程负责完整连接遍历，等待当前正文返回后继续。
+  [玩家 Tick 执行与验证](docs/modules/player-ticks.zh.md)
 - **长跑与多人验收仍未完成。** 10 分钟 32 假人全并行耐久测试（`FullParallelSoakGameTests`，`DYNAMIC_CLUSTER`，7 Workers）
   实现 `0` 次所有权违规，且 P50（`-7.1%`）与 GC 耗时（`-48.8%`）优于原版串行，但轻载均值与长尾仍受协调与回退开销影响；
   任意 C6 canary 整合包仍需独立验证。

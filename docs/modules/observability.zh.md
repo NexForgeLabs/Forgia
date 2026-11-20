@@ -1,8 +1,8 @@
 # 模块：观测、命令与配置
 
 [English](observability.en.md) | 中文 · [模块地图](README.zh.md)
-源码：[`RuntimeObservability`](../../src/main/java/net/neoforged/neoforge/server/threading/region/RuntimeObservability.java)、[`RegionThreadingCommand`](../../src/main/java/net/neoforged/neoforge/server/command/RegionThreadingCommand.java)、[`ForgiaConfig`](../../src/main/java/net/neoforged/neoforge/common/ForgiaConfig.java)
-证据：[RUNTIME-OBSERVABILITY](../../region-threading/RUNTIME-OBSERVABILITY.md)、[PRODUCTION-CONFIGURATION](../../region-threading/PRODUCTION-CONFIGURATION.md)
+源码：[`RuntimeObservability`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RuntimeObservability.java)、[`RegionThreadingCommand`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/command/RegionThreadingCommand.java)、[`ForgiaConfig`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/common/ForgiaConfig.java)
+证据：[RUNTIME-OBSERVABILITY](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/RUNTIME-OBSERVABILITY.md)、[PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md)
 
 状态：**已实现。** 监控不新增调度器、线程池、ticket、权限或磁盘写入；它读取既有引擎与原生服务器 tick 环。
 
@@ -34,6 +34,7 @@
 | `/forgia performance json` | 版本化紧凑 JSON，不可用数值为 null |
 | `/forgia diagnostics` | 性能/worker/调度器/阈值摘要 |
 | `/neoforge regionthreading status [raw]` | 切片/worker/fallback/health/区域统计，raw 诊断 |
+| `/neoforge regionthreading status players` | 玩家各阶段计数、拒绝与清理诊断。[玩家 Tick](player-ticks.zh.md) |
 | `/neoforge regionthreading compat` | 兼容声明、适配器注册、操作计数、scheduled 原因/延迟 |
 | `/neoforge regionthreading workgraph [start <phases>\|stop]` | 有界访问图、熔炉波次计数、资源指标 |
 | `/neoforge regionthreading regions [count]` | 按慢速排序的区域 |

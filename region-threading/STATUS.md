@@ -1,5 +1,7 @@
 # Forgia status
 
+The current phase contract and 32-player verification are in the [player tick module](../docs/modules/player-ticks.en.md).
+
 English | [中文](STATUS.zh.md)
 
 Historical workload tables below were measured on a 4-core/8-thread machine, JDK 21, ZGC generational,
