@@ -142,18 +142,22 @@ when preparing a canary:
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true            # selects region-owned entity storage
+enableRegionThreadingPlayerTicks = true
 enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
 enableRegionThreadingPoi = true                    # implied by entity ticks
 enableRegionThreadingBorderUpdates = true
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+enableRegionThreadingPersistentWorkers = true
+enableRegionThreadingPackedRegionLeases = true
+regionThreadingMode = "DYNAMIC_CLUSTER"            # recommended mode (FIXED_3X3 remains the C6 baseline)
+regionThreadingDynamicSectionShift = 3             # 8x8 chunks (128x128 blocks) per dynamic section
+regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 4
 ```
 
 `regionThreadingWorkerThreads = 0` means "one less than the CPU count". Entity ticks, spawning and POI
-require the fixed layout; everything else degrades to the vanilla path when its requirement is missing.
+require `DYNAMIC_CLUSTER` or `FIXED_3X3`; everything else degrades to the vanilla path when its requirement is missing.
 
 A separate, default-off `enableRegionThreadingFurnaceWorkWaves` experiment executes verified burning
 vanilla furnace-family bodies in resource waves, including independent instances inside one chunk/region.

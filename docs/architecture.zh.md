@@ -58,7 +58,7 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
       <p class="compare-lead">静止的 <code>GLOBAL</code> 协调阶段与并行的 <code>REGION</code> Worker 切片严格交替。任何离主线程写入都必须持有有效租约；未知路径自动闭环回退。</p>
       <ul class="compare-steps">
         <li><span class="compare-step-key">全局阶段</span><span>时间、天气、边界、玩家快照发布与跨区提交在主协调线程安全点完成。</span></li>
-        <li><span class="compare-step-key">区域划分</span><span>支持 <code>FIXED_3X3</code>（3..32 区块固定网格）及实验性 <code>DYNAMIC_CLUSTER</code> 加载岛合并。</span></li>
+        <li><span class="compare-step-key">区域划分</span><span>支持 <code>DYNAMIC_CLUSTER</code> 加载岛动态合并/拆分（推荐）及 <code>FIXED_3X3</code>（3..32 区块 C6 基线网格）。</span></li>
         <li><span class="compare-step-key">工作线程池</span><span>专用 <code>RegionWorkerThread</code>（Fixed / Persistent 工作窃取），直访线程字段 + <code>preWake</code> 预唤醒。</span></li>
         <li><span class="compare-step-key">实体隔离</span><span>区域私有 section 分区、迁移日志（Transfer Journal）与只读玩家快照。</span></li>
         <li><span class="compare-step-key">方块实体</span><span><code>CanonicalBlockEntityCoordinator</code> 派发已证明前缀至 Worker；未知回调触发完整串行围栏。</span></li>

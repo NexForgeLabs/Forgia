@@ -74,7 +74,7 @@ as server-only.
 | Gate | Detail |
 |---|---|
 | Bridge installed | `enableRegionThreadingBridge`; known-conflict policy may refuse installation |
-| Layout | `FIXED_3X3` is the C6 baseline. `DYNAMIC_CLUSTER` uses stable section coordinates and retains per-slice admission checks. |
+| Layout | `DYNAMIC_CLUSTER` is the recommended mode for multiplayer and mixed worlds (audited by `DynamicClusterOwnershipAuditTest` / `DynamicClusterScalabilityAuditTest` / `DynamicRegionTopologyTest`); `FIXED_3X3` remains the historical C6 baseline. |
 | Profiler inactive | An active vanilla profiler keeps slices inline |
 | Loaded neighbourhood | Required by chunk/BE/spawn slices; a FULL ticket alone does not prove load |
 | Ownership/storage mode | Region-owned entity storage for entity ticks; per-slice guards |
@@ -88,8 +88,8 @@ as server-only.
 | `enableRegionThreadingBridge` | `false` | bool | yes | Installs the engine; all slices depend on it |
 | `enableRegionThreadingWorkers` | `false` | bool | yes | Region queue drains on the pool; not a master gate for other slices |
 | `enableGlobalRegionThreadingWorker` | `false` | bool | yes | Moves global-region drains to the pool (outside C6) |
-| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC`/`DYNAMIC_CLUSTER` | yes | `DYNAMIC_CLUSTER` enables experimental loaded-island dispatch |
-| `regionThreadingDynamicSectionShift` | `3` | 2..4 | yes | Section edge length is `1 << shift` chunks |
+| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC`/`DYNAMIC_CLUSTER` | yes | `DYNAMIC_CLUSTER` (recommended) enables loaded-island dispatch; `FIXED_3X3` is the C6 baseline |
+| `regionThreadingDynamicSectionShift` | `3` | 2..4 | yes | Section edge length is `1 << shift` chunks (`2` = 4×4, `3` = 8×8 recommended, `4` = 16×16) |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | 0..1200 | yes | Ticks to retain an emptied section before checking for a split |
 | `regionThreadingFixedRegionChunks` | `3` | 3..32 | yes | N×N chunks, 16N×16N blocks, full height |
 | `regionThreadingWorkerThreads` | `0` | 0..512 | yes | `0` → `max(1, cpus-1)`; pin explicitly for reproducibility |
@@ -139,12 +139,12 @@ The [random-tick GameTest fixture](https://github.com/NexForgeLabs/Forgia/blob/m
 
 Both runs completed 115,344 worker chunk ticks with zero fallbacks and ownership violations. The final random-tick state fingerprints differed. Each policy was measured once in a single connected workload. Multi-island scaling and whole-island ownership still need validation.
 
-| Choice | Fixed N×N | Legacy DYNAMIC |
-|---|---|---|
-| Region boundaries | Never merge/split | Merge/split 16-chunk grid |
-| Entity/spawn/POI/fine furnace support | Yes | Not certified; several requirements unmet |
-| Load-adaptive sizing | Not implemented | Not implemented |
-| Config | `FIXED_3X3` + size | `DYNAMIC` |
+| Choice | `DYNAMIC_CLUSTER` (Recommended) | Fixed N×N (`FIXED_3X3`) | Legacy `DYNAMIC` |
+|---|---|---|---|
+| Region boundaries | Dynamic loaded-island merge/split over `(1 << shift)`-chunk sections (`4×4` / `8×8` / `16×16`) | Never merge/split | Legacy 16-chunk grid |
+| Entity/spawn/POI/player support | Yes (higher player worker admission, +9.2% TPS & -17% P95 vs `FIXED_3X3` on 32-player soak) | Yes (C6 baseline) | Not certified; several requirements unmet |
+| Stability verification | 30/30 audit & topology unit tests + 120s/600s 32-player soaks (`0` ownership violations) | C6 certified | Legacy only |
+| Recommended section shift | `shift = 3` (`8×8` chunks, 128×128 blocks) default; `shift = 2` (`4×4`) for tight P99 or many small bases | `3` (3×3 chunks) | N/A |
 
 | Choice | Fixed executor | Persistent + work stealing |
 |---|---|---|

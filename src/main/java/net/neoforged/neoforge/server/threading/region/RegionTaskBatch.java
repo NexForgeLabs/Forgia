@@ -203,7 +203,9 @@ public final class RegionTaskBatch {
             }
             return;
         }
-        this.orderByEstimatedCost(1);
+        if (executor instanceof RegionWorkerPool) {
+            this.orderByEstimatedCost(1);
+        }
         for (final Group group : this.groups) {
             submitTask(executor, barrier, group.description(), () -> runGroup(barrier, group));
         }

@@ -92,7 +92,7 @@
     <article class="focus-item">
       <span class="focus-number">A / 01</span>
       <h3>Region Leases &amp; Workers</h3>
-      <p>Partition worlds into <code>FIXED_3X3</code> (3..32 chunk) grids or experimental loaded islands, backed by Fixed or Persistent work-stealing <code>RegionWorkerThread</code>s.</p>
+      <p>Partition worlds into <code>DYNAMIC_CLUSTER</code> loaded islands (recommended) or <code>FIXED_3X3</code> (3..32 chunk) grids, backed by Fixed or Persistent work-stealing <code>RegionWorkerThread</code>s.</p>
       <span class="focus-rule"></span>
     </article>
     <article class="focus-item">

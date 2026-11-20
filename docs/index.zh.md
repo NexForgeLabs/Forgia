@@ -92,7 +92,7 @@
     <article class="focus-item">
       <span class="focus-number">A / 01</span>
       <h3>区域租约与工作线程</h3>
-      <p>将世界划分为 <code>FIXED_3X3</code>（3..32 区块）网格或实验性加载岛屿（<code>DYNAMIC_CLUSTER</code>），由 Fixed 或 Persistent 窃取型 <code>RegionWorkerThread</code> 执行。</p>
+      <p>将世界划分为动态合并/拆分的加载岛屿（<code>DYNAMIC_CLUSTER</code>，推荐）或 <code>FIXED_3X3</code>（3..32 区块）固定网格，由 Fixed 或 Persistent 窃取型 <code>RegionWorkerThread</code> 执行。</p>
       <span class="focus-rule"></span>
     </article>
     <article class="focus-item">

@@ -125,18 +125,21 @@ SERVER 配置规则覆盖实例文件。迁移不修改 legacy 源文件。若�
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true            # 选择 region-owned 实体存储
+enableRegionThreadingPlayerTicks = true
 enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
 enableRegionThreadingPoi = true                    # 由实体 tick 隐含
 enableRegionThreadingBorderUpdates = true
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+enableRegionThreadingPersistentWorkers = true
+enableRegionThreadingPackedRegionLeases = true
+regionThreadingMode = "DYNAMIC_CLUSTER"            # 推荐区域模式（FIXED_3X3 保留为历史 C6 基线）
+regionThreadingDynamicSectionShift = 3             # 8x8 chunks（128x128 格）动态 section
+regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 4
 ```
 
-`regionThreadingWorkerThreads = 0` 表示“CPU 数减一”。实体 tick、刷怪与 POI 要求固定布局；其他项在缺少
-前置条件时退化到原版路径。
+`regionThreadingWorkerThreads = 0` 表示“CPU 数减一”。实体 tick、刷怪与 POI 要求 `DYNAMIC_CLUSTER` 或 `FIXED_3X3` 布局；其他项在缺少前置条件时退化到原版路径。
 
 另有默认关闭的 `enableRegionThreadingFurnaceWorkWaves` 实验，按资源波次执行已验证的燃烧原版熔炉族正文，
 包括同一 chunk/区域内相互独立的实例。未知/燃料/通知操作是完整串行 fence；该模式下其他 BE 类型也串行。

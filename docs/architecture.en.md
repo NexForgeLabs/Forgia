@@ -58,7 +58,7 @@ Forgia is built on NeoForge 1.21.1. Instead of replacing mod compatibility assum
       <p class="compare-lead">Alternates quiescent <code>GLOBAL</code> boundaries with parallel <code>REGION</code> worker slices. Every off-thread write requires an active lease; unknown code falls back cleanly.</p>
       <ul class="compare-steps">
         <li><span class="compare-step-key">GLOBAL PHASE</span><span>Time, weather, border, player snapshots and cross-region commits execute on the server coordinator.</span></li>
-        <li><span class="compare-step-key">LAYOUT</span><span><code>FIXED_3X3</code> (3..32 chunk grid) or experimental <code>DYNAMIC_CLUSTER</code> loaded-island coalescing.</span></li>
+        <li><span class="compare-step-key">LAYOUT</span><span><code>DYNAMIC_CLUSTER</code> loaded-island coalescing (recommended) or <code>FIXED_3X3</code> (3..32 chunk C6 baseline grid).</span></li>
         <li><span class="compare-step-key">WORKERS</span><span>Dedicated <code>RegionWorkerThread</code> pool (Fixed or Persistent work-stealing) with direct thread fields &amp; <code>preWake</code>.</span></li>
         <li><span class="compare-step-key">ENTITIES</span><span>Region-owned section partitions, transfer journal and published <code>RegionPlayerSnapshots</code>.</span></li>
         <li><span class="compare-step-key">BLOCK ENT.</span><span><code>CanonicalBlockEntityCoordinator</code> runs proven prefixes on workers; unknown callbacks trigger a full Serial Fence.</span></li>

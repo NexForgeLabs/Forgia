@@ -72,7 +72,7 @@ ServerLevel.tick（服务器线程）
 | 门 | 说明 |
 |---|---|
 | bridge 已安装 | `enableRegionThreadingBridge`；已知冲突策略可能拒绝安装 |
-| 布局 | `FIXED_3X3` 是 C6 基线。`DYNAMIC_CLUSTER` 使用固定 Section 坐标，并保留各切片的准入检查。 |
+| 布局 | `DYNAMIC_CLUSTER` 为多人与混合世界的**推荐模式**（已通过 `DynamicClusterOwnershipAuditTest` / `DynamicClusterScalabilityAuditTest` / `DynamicRegionTopologyTest` 稳定性审计）；`FIXED_3X3` 保留为历史 C6 基线。 |
 | profiler 未激活 | 激活的原版 profiler 会让切片保持 inline |
 | 邻域已加载 | chunk/BE/刷怪切片要求；FULL ticket 本身不能证明加载完成 |
 | 所有权/存储模式 | 实体 tick 需要 region-owned 实体存储；各切片有各自 guard |
@@ -86,8 +86,8 @@ ServerLevel.tick（服务器线程）
 | `enableRegionThreadingBridge` | `false` | bool | 是 | 安装引擎；所有切片依赖它 |
 | `enableRegionThreadingWorkers` | `false` | bool | 是 | region 队列 drain 上池；不是其他切片的总开关 |
 | `enableGlobalRegionThreadingWorker` | `false` | bool | 是 | 把 global region drain 移到池（C6 之外） |
-| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC`/`DYNAMIC_CLUSTER` | 是 | `DYNAMIC_CLUSTER` 为实验性加载岛派发，`DYNAMIC` 为遗留策略 |
-| `regionThreadingDynamicSectionShift` | `3` | 2..4 | 是 | `DYNAMIC_CLUSTER` 的 Section 边长为 `1 << shift` 个 chunk |
+| `regionThreadingMode` | `"FIXED_3X3"` | `FIXED_3X3`/`DYNAMIC`/`DYNAMIC_CLUSTER` | 是 | **`DYNAMIC_CLUSTER`（推荐）** 启用加载岛动态合并/拆分派发；`FIXED_3X3` 为 C6 基线，`DYNAMIC` 为遗留策略 |
+| `regionThreadingDynamicSectionShift` | `3` | 2..4 | 是 | `DYNAMIC_CLUSTER` 的 Section 边长为 `1 << shift` 个 chunk（`2` = 4×4、`3` = 8×8 推荐、`4` = 16×16） |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | 0..1200 | 是 | Section 卸空后等待多少 tick 才参与拆分 |
 | `regionThreadingFixedRegionChunks` | `3` | 3..32 | 是 | N×N chunk，16N×16N 方块，全高度 |
 | `regionThreadingWorkerThreads` | `0` | 0..512 | 是 | `0` → `max(1, cpus-1)`；可复现性要求显式固定 |
@@ -131,12 +131,12 @@ ServerLevel.tick（服务器线程）
 
 加权合包在同一份源码的独立目录中与按任务数合包对照。两组使用相同世界种子、固定负载坐标、144 个负载区块和 4 个 worker，各预热 200 tick，测量 600 tick。平均 MSPT 从 4.050 降至 2.464，P99 从 10.619 降至 3.961，平均 chunk 批次等待从 1.999 ms 降至 1.061 ms。两组的 worker 区块 tick 数均为 115,344，回退与所有权违规均为零。每组运行一次，结束时随机状态指纹不同。多岛扩展性和整岛所有权仍待验证。
 
-| 选择 | 固定 N×N | 遗留 DYNAMIC |
-|---|---|---|
-| 区域边界 | 从不合并/拆分 | 16-chunk 网格合并/拆分 |
-| 实体/刷怪/POI/细粒度熔炉支持 | 是 | 未认证；多项要求无法满足 |
-| 负载自适应尺寸 | 未实现 | 未实现 |
-| 配置 | `FIXED_3X3` + size | `DYNAMIC` |
+| 选择 | **`DYNAMIC_CLUSTER`（推荐）** | 固定 N×N (`FIXED_3X3`) | 遗留 `DYNAMIC` |
+|---|---|---|---|
+| 区域边界 | 基于 `(1 << shift)`-chunk Section（`4×4` / `8×8` / `16×16`）动态合并/拆分加载岛 | 从不合并/拆分 | 遗留 16-chunk 网格 |
+| 实体/刷怪/POI/玩家支持 | 是（32 玩家实测玩家进 Worker 比例高 +37%、TPS +9.2%、P95 -17%） | 是（历史 C6 基线） | 未认证；多项要求无法满足 |
+| 稳定性验证 | 30/30 审计与拓扑单测 + 120s/600s 32 玩家压测（`0` 所有权违规） | C6 已认证 | 仅遗留兼容 |
+| 推荐尺寸 | 默认 `shift = 3`（`8×8` chunk，128×128 格）；追求更低 P99 或大量分散小基地可选 `shift = 2`（`4×4`） | `3`（3×3 chunk） | N/A |
 
 | 选择 | 固定 executor | 持久 + work stealing |
 |---|---|---|
