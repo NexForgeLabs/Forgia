@@ -52,35 +52,9 @@ See the full per-window data, environment, failure accounting and methodology in
     <p class="perf-note">Two-phase dispatch overhead fell 2.450 → 0.918 ms/tick; ping p99 fell 314.11 → 6.35 ms.</p>
   </div>
 
-  <div class="perf-card">
-    <div class="perf-card-top">
-      <h3>64 Burning Furnaces (Resources ON)</h3>
-      <span class="perf-delta">1.67× faster · -72% alloc</span>
-    </div>
-    <p class="perf-sub">Seed 813584 flat, 400 warmup + 2×400 measured ticks, 4 workers, 2 GiB G1. Exact NBT verified.</p>
-    <div class="bar-group">
-      <div class="bar-row"><span class="bar-label">.98 Before Reuse</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">10.36 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Pre-7efd88d Base</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:22%"></div></div><span class="bar-val">2.24 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Forgia 7efd88d Opt</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:13%"></div></div><span class="bar-val">1.34 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Forgia Serial / Stock</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:4%"></div></div><span class="bar-val">0.35 / 0.22 ms</span></div>
-    </div>
-    <p class="perf-note">Allocation dropped 253 → 18.68 → 5.18 MiB/s (3.61× reduction vs baseline). Serial stays faster on tiny stationary BEs.</p>
-  </div>
+  <div class="perf-card"><div class="perf-card-top"><h3>64 Burning Furnaces (.100)</h3><span class="perf-delta perf-delta--neutral">Worker path still slower</span></div><p class="perf-sub">Final .100 installed-server confirmation; 4 workers, 2 GiB G1, 400 warmup + 400-tick windows. Full NBT and item conservation verified.</p><div class="bar-group"><div class="bar-row"><span class="bar-label">Forgia .100 Workers</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">2.40 ms</span></div><div class="bar-row"><span class="bar-label">Forgia Serial</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:11%"></div></div><span class="bar-val">0.26 ms</span></div><div class="bar-row"><span class="bar-label">Stock NeoForge 21.1.249</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:10%"></div></div><span class="bar-val">0.23 ms</span></div></div><p class="perf-note">Worker allocation ~18.7 MiB/s. This light stationary vanilla-BE fixture exposes coordination overhead, not whole-modpack performance.</p></div>
 
-  <div class="perf-card">
-    <div class="perf-card-top">
-      <h3>6000-Tick Mixed Production Soak</h3>
-      <span class="perf-delta perf-delta--neutral">0.976× mean vs Off</span>
-    </div>
-    <p class="perf-sub">Generated terrain with villagers, mobs, hopper/furnace lines, farm, border redstone clock &amp; fake player.</p>
-    <div class="bar-group">
-      <div class="bar-row"><span class="bar-label">Pre-deferral On</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">7.35–8.28 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Same-build Off</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:82%"></div></div><span class="bar-val">6.25–6.70 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Deferred + Lift On</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:80%"></div></div><span class="bar-val">6.13–6.72 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Persistent + Packed</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:84%"></div></div><span class="bar-val">6.69 ms</span></div>
-    </div>
-    <p class="perf-note">0 ownership violations, 0 tick failures, 6200/6200 redstone consistency, 100% dispatched chunks on workers.</p>
-  </div>
+  <div class="perf-card"><div class="perf-card-top"><h3>6000-Tick Mixed Normal-World Soak (.100)</h3><span class="perf-delta perf-delta--neutral">No broad win established</span></div><p class="perf-sub">Redstone, POI, entities, spawning and random ticks; 2 GiB/G1 test profile.</p><div class="bar-group"><div class="bar-row"><span class="bar-label">Diagnostics ON</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">8.204 ms mean</span></div><div class="bar-row"><span class="bar-label">Sampling OFF</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:95%"></div></div><span class="bar-val">7.776 ms mean</span></div><div class="bar-row"><span class="bar-label">Reverse-order ON (passes)</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:98%"></div></div><span class="bar-val">8.406 ms mean</span></div></div><p class="perf-note">Passing cells: 51/51 invariants. Reverse-order OFF failed region mapping and is excluded; no causal monitoring-overhead bound is claimed.</p></div>
 </div>
 
 ---
