@@ -145,14 +145,18 @@
          CompletableFuture<ChunkResult<ChunkAccess>> completablefuture;
          if (flag) {
              completablefuture = this.getChunkFutureMainThread(p_8432_, p_8433_, p_330326_, p_8435_);
-@@ -270,6 +_,13 @@
+@@ -270,6 +_,17 @@
          return this.mainThreadProcessor.pollTask();
      }
  
-+    // Neo: lets the region entity tick barrier service chunk source tasks while region workers tick entities.
-+    // Off thread chunk requests are dispatched to this queue, so the server thread has to keep draining it.
++    // Neo: lets the region tick barrier wait for region workers while servicing their main-thread handoffs.
++    // Native region workers never dispatch blocking chunk loads to mainThreadProcessor (getChunkForRegionWorker
++    // refuses unloaded chunks immediately), so the barrier must not pump runDistanceManagerUpdates(),
++    // runGenerationTasks(), or light updates concurrently while workers are ticking.
 +    public void managedBlockOnMainThread(java.util.function.BooleanSupplier condition) {
-+        this.mainThreadProcessor.managedBlock(condition);
++        while (net.minecraft.server.MinecraftServer.throwIfFatalException() && !condition.getAsBoolean()) {
++            java.util.concurrent.locks.LockSupport.parkNanos("waiting for region tick barrier", 100_000L);
++        }
 +    }
 +
      boolean runDistanceManagerUpdates() {
