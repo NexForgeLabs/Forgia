@@ -144,6 +144,27 @@ Measured with `tests/src/main/java/net/neoforged/neoforge/debug/level/FullParall
 3. **Historical player tick fallback.** This build recorded `UNKNOWN_MOD` for test mods such as `add_pack_finders_test`. Current builds evaluate the callback and transform surface. [Player ticks](modules/player-ticks.en.md)
 4. **Server-Thread Entity Ratio & Soak Coverage (`serverThreadOnlyEntityTicks=379,968`, `attacks=0`, `merges=0`) — Pending Optimization**: Reduce server-thread-pinned entity categories and improve entity attack targeting and island merge/split coverage in `FullParallelSoakGameTests`.
 
+### 120s 32-Player Complex Behavior: Scheduling Overhead Optimization & Region Mode Comparison (`DYNAMIC_CLUSTER` 8×8 / 4×4 vs. `FIXED_3X3` vs. Vanilla Serial)
+
+Measured on the enhanced `FullParallelSoakGameTests` workload (seed `4242424242`, 32 players exploring, merging/splitting islands, executing 4,000+ entity attacks and 2,800+ block breaks/placements with all attribution probes enabled on a 4C/8T i5-1135G7, JDK 21) after landing O(1) criterion-listener verification, incremental player-state template refresh, single-wave player dispatch, LPT snake-distributed batch ordering, and shared `SPAWN`/`CHUNK_TICK` neighborhood caches:
+
+| Metric | Forgia Before (`DYNAMIC_CLUSTER` 8×8) | **Forgia After (`DYNAMIC_CLUSTER` 8×8, `shift=3`)** | **Forgia After (`DYNAMIC_CLUSTER` 4×4, `shift=2`)** | Forgia After (`FIXED_3X3` Fixed 3×3) | Vanilla Serial (`Bridge = false`) |
+|---|---:|---:|---:|---:|---:|
+| **Region Topology** | 98 sections → 14 islands (`merges=13`) | 98 sections → **14 dynamic islands** (`merges=13`) | **32 dynamic islands** (`merges=2`) | **239 fixed regions** (no merges) | Single-thread unpartitioned |
+| **Coalesced Submissions Saved** | 54,226 | **54,226** | **45,688** | 0 | - |
+| **Total Ticks (120s)** | 1,103 | **1,368 (+24.0%)** | 1,291 | 1,254 | 1,425 |
+| **Mean TPS** | 9.19 | **11.40 (+24.0%)** | 10.75 | 10.44 | 11.87 |
+| **Mean MSPT** | 84.29 ms | **56.14 ms (-33.4%)** | 60.16 ms | 56.67 ms | 54.32 ms |
+| **P50 MSPT** | 63.45 ms | **44.32 – 46.52 ms (-30.1%)** | 44.72 ms | 45.50 ms | 32.43 ms |
+| **P95 MSPT** | 144.66 ms | **101.27 – 101.95 ms (-30.0%)** | 110.12 ms | 122.16 ms | 76.94 ms |
+| **P99 MSPT** | 234.99 ms | 172.51 ms (-26.6%) | **167.13 ms (-28.9%)** | 172.26 ms | 123.55 ms |
+| **Max MSPT** | 2,971.13 ms | 3,561.12 ms | 2,810.72 ms | **1,181.43 ms** | 6,328.14 ms |
+| **`ENTITY_TICK.plan`** | 0.75 ms/tick | 0.70 ms/tick | **0.46 ms/tick** | 0.52 ms/tick | - |
+| **`ENTITY_TICK.await`** | 22.76 ms/tick | **21.55 – 22.85 ms/tick** | 22.45 ms/tick | 23.53 ms/tick | - |
+| **`ENTITY_TICK.handoff`** | 26.00 ms/tick | **5.30 ms/tick (-79.6%)** | 5.27 ms/tick | 5.25 ms/tick | - |
+| **Player `ENTITY` on Workers** | 22,628 (~5.4 waves/tick) | **28,922 (86.3%, 1.00 wave/tick)** | 24,590 (75.8%, 1.00 wave/tick) | 21,099 (69.3%, 1.00 wave/tick) | 0 |
+| **Ownership Violations** | **0** | **0** | **0** | **0** | - |
+
 ---
 
 ## 6. Evidence & Limits
