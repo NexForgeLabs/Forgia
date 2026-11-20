@@ -82,12 +82,13 @@ public final class RegionSpawnPlan {
     private final LevelSpawnCapCounter capCounter;
     private final ParallelAdapterRuntime.PreparedSpawnPlan preparedPlan;
     /** Tick-scoped caches avoiding repeated chunk-map and player-distance scans across regions. */
-    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
-    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet verifiedNeighborhoods = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(256);
-    private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> fullChunkCache = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(256);
-    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet absentFullChunks = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(64);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(512);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet verifiedNeighborhoods = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(512);
+    private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> fullChunkCache = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(512);
+    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet absentFullChunks = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(128);
+    private final it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap spawnableChunkCache = new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap(512);
     /** Shared read-only neighborhood populated on the server thread before workers start. */
-    private final RegionSpawnNeighborhood sharedNeighborhood = new RegionSpawnNeighborhood(256);
+    private final RegionSpawnNeighborhood sharedNeighborhood = new RegionSpawnNeighborhood(512);
     private boolean executed;
 
     RegionSpawnPlan(RegionThreadingEngine engine, ServerLevel level, RegionSpawnSource source, boolean spawnFriendlies,
@@ -115,10 +116,20 @@ public final class RegionSpawnPlan {
                 this.absentFullChunks.add(chunkKey);
             }
         };
+        final var rawSpawnable = source.spawnableChunk();
+        final java.util.function.LongPredicate cachedSpawnable = chunkKey -> {
+            final byte cached = this.spawnableChunkCache.get(chunkKey);
+            if (cached != 0) {
+                return cached == 1;
+            }
+            final boolean allowed = rawSpawnable.test(chunkKey);
+            this.spawnableChunkCache.put(chunkKey, (byte) (allowed ? 1 : 2));
+            return allowed;
+        };
         this.source = new RegionSpawnSource(
                 cachedGetter,
                 source.playersNearForSpawning(),
-                source.spawnableChunk(),
+                cachedSpawnable,
                 source.naturalSpawnChunkCount());
         this.spawnFriendlies = spawnFriendlies;
         this.spawnEnemies = spawnEnemies;

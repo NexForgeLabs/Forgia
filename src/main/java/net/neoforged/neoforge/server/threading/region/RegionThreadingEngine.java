@@ -7481,6 +7481,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 batch.setWorkGraph(graph);
                 final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
                 boolean orderedMonotonic = true;
+                boolean anyWorkerCandidate = this.coreModPreparation != null && this.blockEntityResourcesEnabled;
                 long lastSeq = -1L;
                 for (int c = 0; c < chunks.size(); ++c) {
                     final List<RegionBlockEntityTickAdmission> admissions = chunks.get(c).admissions();
@@ -7489,6 +7490,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                         final long seq = adm.sequence();
                         if (seq <= lastSeq) orderedMonotonic = false;
                         lastSeq = seq;
+                        if (!anyWorkerCandidate
+                                && (adm.decision() != RegionBlockEntityTickAdmission.Decision.TYPE_NOT_DECLARED
+                                        && adm.decision() != RegionBlockEntityTickAdmission.Decision.NOT_INTERIOR_CHUNK
+                                        || (furnaces && LevelChunk.furnaceWorkSource(adm.ticker()) != null))) {
+                            anyWorkerCandidate = true;
+                        }
                         ordered.add(adm);
                     }
                 }
@@ -7498,6 +7505,15 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final var phase = batch;
                 final var sample = graph;
                 final var general = adapters;
+                if (!anyWorkerCandidate) {
+                    for (int i = 0, size = ordered.size(); i < size; ++i) {
+                        final var admission = ordered.get(i);
+                        phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
+                        if (furnaces) this.furnaceWorkMetrics.serial();
+                        this.fallbackBlockEntityTicks.incrementAndGet();
+                        this.tickBlockEntitySerial(phase, admission, sample, general, null);
+                    }
+                } else {
                 // One preparation budget/home table/scratch for the whole canonical phase; a new
                 // prefix never resets logical uses or borrows an earlier successful resource proof.
                 final var resources = furnaces && this.blockEntityResourcesEnabled ? new FurnaceResourcePreparation(level, this.layout) : null;
@@ -7742,6 +7758,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         tickBlockEntitySerial(phase, admission, sample, general, knownEligible);
                     }
                 });
+                }
             }
         } catch (Throwable throwable) {
             failure = throwable;

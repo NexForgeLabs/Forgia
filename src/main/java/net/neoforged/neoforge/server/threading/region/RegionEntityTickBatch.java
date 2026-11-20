@@ -362,7 +362,11 @@ final class RegionEntityTickBatch extends RegionTickBatch {
      * @return the number of released updates, which the caller counts as dropped
      */
     int closeDeferredSectionUpdates() {
-        return this.deferredSectionUpdates.close();
+        int released = this.deferredSectionUpdates.close();
+        for (int i = 0, size = this.groups.size(); i < size; i++) {
+            released += this.groups.get(i).clearLocalSectionUpdates();
+        }
+        return released;
     }
 
     /**
@@ -542,7 +546,12 @@ final class RegionEntityTickBatch extends RegionTickBatch {
      * Takes the deferred section updates that wait for the end of the batch.
      */
     List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> drainDeferredSectionUpdates() {
-        return this.deferredSectionUpdates.drain();
+        final List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> drained = this.deferredSectionUpdates.drain();
+        List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> combined = null;
+        for (int i = 0, size = this.groups.size(); i < size; i++) {
+            combined = this.groups.get(i).drainLocalSectionUpdatesInto(drained, combined);
+        }
+        return combined != null ? combined : drained;
     }
 
     /**
@@ -618,6 +627,7 @@ final class RegionEntityTickBatch extends RegionTickBatch {
         private final Set<Entity> members;
         private final RandomSource random;
         private final IdentityHashMap<Entity, DeferredEntityUpdate> localDeferredUpdates = new IdentityHashMap<>();
+        private final List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> localSectionUpdates = new ArrayList<>();
 
         Group(RegionEntityTickBatch batch, RegionState region, List<Entity> entities, Set<Entity> members, long randomSeed) {
             this.batch = batch;
@@ -700,7 +710,40 @@ final class RegionEntityTickBatch extends RegionTickBatch {
 
         @Override
         public boolean deferSectionUpdate(Entity entity, EntityInLevelCallback callback, long targetSection) {
-            return this.batch.deferSectionUpdate(entity, callback, targetSection);
+            synchronized (this.localSectionUpdates) {
+                if (!this.batch.acceptsDeferredSectionUpdates()) {
+                    return false;
+                }
+                this.localSectionUpdates.add(new RegionDeferredEntitySectionUpdates.DeferredSectionUpdate(entity, callback, targetSection));
+                return true;
+            }
+        }
+
+        int clearLocalSectionUpdates() {
+            synchronized (this.localSectionUpdates) {
+                final int count = this.localSectionUpdates.size();
+                this.localSectionUpdates.clear();
+                return count;
+            }
+        }
+
+        @Nullable
+        List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> drainLocalSectionUpdatesInto(
+                List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> base,
+                @Nullable List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> combined) {
+            synchronized (this.localSectionUpdates) {
+                if (this.localSectionUpdates.isEmpty()) {
+                    return combined;
+                }
+                List<RegionDeferredEntitySectionUpdates.DeferredSectionUpdate> target = combined;
+                if (target == null) {
+                    target = new ArrayList<>(base.size() + this.localSectionUpdates.size() * 2);
+                    target.addAll(base);
+                }
+                target.addAll(this.localSectionUpdates);
+                this.localSectionUpdates.clear();
+                return target;
+            }
         }
 
         @Override
