@@ -318,11 +318,18 @@ final class RegionEntityTickBatch extends RegionTickBatch {
      */
     void discardDeferredUpdates(Collection<Entity> entities) {
         synchronized (this.deferredUpdates) {
+            this.mergeGroupDeferredUpdatesLocked();
             // An identity map matches the recorded key by reference, so no lookup set has to be built and the
             // discard costs one hash removal per named entity instead of a scan of every deferred update.
             for (final Entity entity : entities) {
                 this.deferredUpdates.remove(entity);
             }
+        }
+    }
+
+    private void mergeGroupDeferredUpdatesLocked() {
+        for (int i = 0, size = this.groups.size(); i < size; i++) {
+            this.groups.get(i).drainLocalDeferredUpdatesInto(this.deferredUpdates);
         }
     }
 
@@ -578,6 +585,7 @@ final class RegionEntityTickBatch extends RegionTickBatch {
      */
     List<DeferredEntityUpdate> drainDeferredUpdates() {
         synchronized (this.deferredUpdates) {
+            this.mergeGroupDeferredUpdatesLocked();
             final List<DeferredEntityUpdate> updates = List.copyOf(this.deferredUpdates.values());
             this.deferredUpdates.clear();
             return updates;
@@ -609,6 +617,7 @@ final class RegionEntityTickBatch extends RegionTickBatch {
         private final List<Entity> entities = new ArrayList<>();
         private final Set<Entity> members;
         private final RandomSource random;
+        private final IdentityHashMap<Entity, DeferredEntityUpdate> localDeferredUpdates = new IdentityHashMap<>();
 
         Group(RegionEntityTickBatch batch, RegionState region, List<Entity> entities, Set<Entity> members, long randomSeed) {
             this.batch = batch;
@@ -616,6 +625,22 @@ final class RegionEntityTickBatch extends RegionTickBatch {
             this.members = members;
             this.random = RandomSource.create(randomSeed);
             this.addEntities(entities);
+        }
+
+        void deferEntityUpdate(Entity entity, @Nullable RegionCoordinate destination) {
+            final DeferredEntityUpdate update = new DeferredEntityUpdate(entity, destination);
+            synchronized (this.localDeferredUpdates) {
+                this.localDeferredUpdates.put(entity, update);
+            }
+        }
+
+        void drainLocalDeferredUpdatesInto(IdentityHashMap<Entity, DeferredEntityUpdate> target) {
+            synchronized (this.localDeferredUpdates) {
+                if (!this.localDeferredUpdates.isEmpty()) {
+                    target.putAll(this.localDeferredUpdates);
+                    this.localDeferredUpdates.clear();
+                }
+            }
         }
 
         RegionEntityTickBatch batch() {

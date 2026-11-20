@@ -7,7 +7,7 @@ package net.neoforged.neoforge.server.threading.region;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLongArray;
+import java.util.concurrent.atomic.LongAdder;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
@@ -72,25 +72,33 @@ public final class RegionEntityQueryCounters {
 
     private static final Operation[] OPERATIONS = Operation.values();
     private static final Path[] PATHS = Path.values();
-    private static final AtomicLongArray COUNTS = new AtomicLongArray(OPERATIONS.length * PATHS.length);
+    private static final LongAdder[] COUNTS = createCounts();
+
+    private static LongAdder[] createCounts() {
+        final LongAdder[] array = new LongAdder[OPERATIONS.length * PATHS.length];
+        for (int i = 0; i < array.length; i++) {
+            array[i] = new LongAdder();
+        }
+        return array;
+    }
 
     private RegionEntityQueryCounters() {}
 
     public static void record(Operation operation, Path path) {
-        COUNTS.incrementAndGet(operation.ordinal() * PATHS.length + path.ordinal());
+        COUNTS[operation.ordinal() * PATHS.length + path.ordinal()].increment();
     }
 
     /** {@return the number of times {@code operation} answered with {@code path}} */
     public static long count(Operation operation, Path path) {
-        return COUNTS.get(operation.ordinal() * PATHS.length + path.ordinal());
+        return COUNTS[operation.ordinal() * PATHS.length + path.ordinal()].sum();
     }
 
     /**
      * Resets every counter, called when an engine is installed and by the tests that assert absolute counts.
      */
     public static void reset() {
-        for (int index = 0; index < COUNTS.length(); index++) {
-            COUNTS.set(index, 0L);
+        for (int index = 0; index < COUNTS.length; index++) {
+            COUNTS[index].reset();
         }
     }
 

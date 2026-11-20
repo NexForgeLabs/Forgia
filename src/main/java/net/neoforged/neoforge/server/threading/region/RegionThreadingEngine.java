@@ -6755,6 +6755,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     // region cannot merge, split or transfer.
                     final List<RegionEntityTickEntry> entries = region.entityTickEntries();
                     final List<Entity> tickable = new ArrayList<>(entries.size());
+                    int localServerThreadOnly = 0;
                     for (final RegionEntityTickEntry entry : entries) {
                         if (!entry.ticking()) {
                             // Mapped to the region but not in the level's entity tick list: the vanilla pass
@@ -6765,7 +6766,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                             // An always-ticking entity (a player) is ticked by the server thread, never by a
                             // region worker: its tick reaches the connection and the chunk source.
                             group.batch().addSelfDrivenFallback(entry.entity());
-                            this.serverThreadOnlyEntityTicks.incrementAndGet();
+                            ++localServerThreadOnly;
                             continue;
                         }
                         if (carriesPlayer(entry.entity())) {
@@ -6773,7 +6774,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                             // that carries a player would tick that player on the worker even though a player is
                             // declared server-thread-only. The whole riding stack is pinned at the vehicle.
                             group.batch().addSelfDrivenFallback(entry.entity());
-                            this.serverThreadOnlyEntityTicks.incrementAndGet();
+                            ++localServerThreadOnly;
                             continue;
                         }
                         if (!ridesLiveVehicle(entry.entity())) {
@@ -6787,6 +6788,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                             }
                         }
                         tickable.add(entry.entity());
+                    }
+                    if (localServerThreadOnly > 0) {
+                        this.serverThreadOnlyEntityTicks.addAndGet(localServerThreadOnly);
                     }
                     if (!tickable.isEmpty()) {
                         // The ownership lease covers exactly the entities of this region. Installing them
@@ -11283,7 +11287,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     public void removeRegionEntity(Entity entity) {
         final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
         if (group != null) {
-            group.batch().deferEntityUpdate(entity, this.deferredEntityDestination(entity));
+            group.deferEntityUpdate(entity, this.deferredEntityDestination(entity));
             return;
         }
         synchronized (this.admissionLock) {
@@ -11313,7 +11317,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
         if (group != null) {
-            group.batch().deferEntityUpdate(entity, this.deferredEntityDestination(entity));
+            group.deferEntityUpdate(entity, this.deferredEntityDestination(entity));
             return;
         }
         if (!this.shutdown && this.entityTasksByEntity.isEmpty() && entity.level() instanceof ServerLevel level) {

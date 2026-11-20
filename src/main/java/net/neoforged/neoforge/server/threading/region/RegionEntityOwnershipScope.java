@@ -8,6 +8,7 @@ package net.neoforged.neoforge.server.threading.region;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.server.level.ServerLevel;
@@ -147,11 +148,11 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     private static final ThreadLocal<Long> CURRENT_LEASE_ID = new ThreadLocal<>();
     private static volatile int fallbackDepth;
     private static final AtomicLong NEXT_LEASE_ID = new AtomicLong();
-    private static final AtomicLong ALLOWED_MUTATION_COUNT = new AtomicLong();
-    private static final AtomicLong REJECTED_MUTATION_COUNT = new AtomicLong();
-    private static final AtomicLong ALLOWED_QUERY_COUNT = new AtomicLong();
-    private static final AtomicLong TRUNCATED_QUERY_COUNT = new AtomicLong();
-    private static final AtomicLong REJECTED_QUERY_COUNT = new AtomicLong();
+    private static final LongAdder ALLOWED_MUTATION_COUNT = new LongAdder();
+    private static final LongAdder REJECTED_MUTATION_COUNT = new LongAdder();
+    private static final LongAdder ALLOWED_QUERY_COUNT = new LongAdder();
+    private static final LongAdder TRUNCATED_QUERY_COUNT = new LongAdder();
+    private static final LongAdder REJECTED_QUERY_COUNT = new LongAdder();
 
     private final RegionCoordinate coordinate;
     private final RegionOwnershipLeaseGroup group;
@@ -276,11 +277,11 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
         if (scope.coordinate.level() == level
                 && scope.group.owns(entity)
                 && grantsOperation(scope, entity, operation)) {
-            ALLOWED_MUTATION_COUNT.incrementAndGet();
+            ALLOWED_MUTATION_COUNT.increment();
             return true;
         }
         if (grantsPendingAdmissionMutation(scope, level, entity, operation)) {
-            ALLOWED_MUTATION_COUNT.incrementAndGet();
+            ALLOWED_MUTATION_COUNT.increment();
             return true;
         }
         if (scope.coordinate.level() == level && !hasLevelEffects(entity) && !scope.group.owns(entity)) {
@@ -290,7 +291,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
             // separately, so the remaining spawn rate stays observable next to the removal counters.
             RegionOwnershipViolationHandler.recordEntityAdditionRejection();
         }
-        REJECTED_MUTATION_COUNT.incrementAndGet();
+        REJECTED_MUTATION_COUNT.increment();
         if (REJECT_DIAGNOSIS_ENABLED) {
             LOGGER.error("Region entity mutation refused: operation={} entity={} addedToLevel={} removed={} "
                     + "leaseRegion={} ownedByGroup={} entityRegion={} deferredSectionUpdates={} "
@@ -545,11 +546,11 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     }
 
     static void recordAllowedQuery() {
-        ALLOWED_QUERY_COUNT.incrementAndGet();
+        ALLOWED_QUERY_COUNT.increment();
     }
 
     public static void recordTruncatedQuery() {
-        TRUNCATED_QUERY_COUNT.incrementAndGet();
+        TRUNCATED_QUERY_COUNT.increment();
     }
 
     /**
@@ -558,7 +559,7 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * next to the ownership counters.
      */
     public static void recordRejectedQuery() {
-        REJECTED_QUERY_COUNT.incrementAndGet();
+        REJECTED_QUERY_COUNT.increment();
     }
 
     /**
@@ -754,23 +755,23 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     }
 
     static long allowedMutationCount() {
-        return ALLOWED_MUTATION_COUNT.get();
+        return ALLOWED_MUTATION_COUNT.sum();
     }
 
     static long rejectedMutationCount() {
-        return REJECTED_MUTATION_COUNT.get();
+        return REJECTED_MUTATION_COUNT.sum();
     }
 
     static long allowedQueryCount() {
-        return ALLOWED_QUERY_COUNT.get();
+        return ALLOWED_QUERY_COUNT.sum();
     }
 
     static long truncatedQueryCount() {
-        return TRUNCATED_QUERY_COUNT.get();
+        return TRUNCATED_QUERY_COUNT.sum();
     }
 
     static long rejectedQueryCount() {
-        return REJECTED_QUERY_COUNT.get();
+        return REJECTED_QUERY_COUNT.sum();
     }
 
     /**
@@ -793,10 +794,10 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     }
 
     static void resetCounters() {
-        ALLOWED_MUTATION_COUNT.set(0L);
-        REJECTED_MUTATION_COUNT.set(0L);
-        ALLOWED_QUERY_COUNT.set(0L);
-        TRUNCATED_QUERY_COUNT.set(0L);
-        REJECTED_QUERY_COUNT.set(0L);
+        ALLOWED_MUTATION_COUNT.reset();
+        REJECTED_MUTATION_COUNT.reset();
+        ALLOWED_QUERY_COUNT.reset();
+        TRUNCATED_QUERY_COUNT.reset();
+        REJECTED_QUERY_COUNT.reset();
     }
 }
