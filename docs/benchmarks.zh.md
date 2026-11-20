@@ -52,35 +52,9 @@ Forgia 明确区分 **区域线程已取得显著加速的场景**（高密度�
     <p class="perf-note">两阶段调度开销从 2.450 降至 0.918 ms/tick；Ping p99 从 314.11 ms 降至 6.35 ms。</p>
   </div>
 
-  <div class="perf-card">
-    <div class="perf-card-top">
-      <h3>64 燃烧熔炉（Resources 开启）</h3>
-      <span class="perf-delta">快 1.67× · 分配降 72%</span>
-    </div>
-    <p class="perf-sub">Seed 813584 平坦地形，400 预热 + 2×400 测量 tick，4 Workers，2 GiB G1，NBT 全量等价。</p>
-    <div class="bar-group">
-      <div class="bar-row"><span class="bar-label">.98 Lookahead 复用前</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">10.36 ms</span></div>
-      <div class="bar-row"><span class="bar-label">7efd88d 优化前基线</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:22%"></div></div><span class="bar-val">2.24 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Forgia 7efd88d 优化</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:13%"></div></div><span class="bar-val">1.34 ms</span></div>
-      <div class="bar-row"><span class="bar-label">Forgia 串行 / 原版</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:4%"></div></div><span class="bar-val">0.35 / 0.22 ms</span></div>
-    </div>
-    <p class="perf-note">分配速率 253 → 18.68 → 5.18 MiB/s（较基线降为 1/3.61）。极轻静止方块实体仍是串行更快。</p>
-  </div>
+  <div class="perf-card"><div class="perf-card-top"><h3>64 个燃烧熔炉（.100）</h3><span class="perf-delta perf-delta--neutral">Worker 路径仍较慢</span></div><p class="perf-sub">最终 .100 安装服务端确认；4 个 Worker、2 GiB G1、400 tick 预热 + 400 tick 测量。完整 NBT 与物品守恒验证通过。</p><div class="bar-group"><div class="bar-row"><span class="bar-label">Forgia .100 Workers</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">2.40 ms</span></div><div class="bar-row"><span class="bar-label">Forgia 串行</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:11%"></div></div><span class="bar-val">0.26 ms</span></div><div class="bar-row"><span class="bar-label">原版 NeoForge 21.1.249</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:10%"></div></div><span class="bar-val">0.23 ms</span></div></div><p class="perf-note">Worker 分配速率约 18.7 MiB/s。该轻量静态原版 BE fixture 暴露的是协调开销，不代表整合包整体性能。</p></div>
 
-  <div class="perf-card">
-    <div class="perf-card-top">
-      <h3>6000 Tick 混合生产长稳（Soak）</h3>
-      <span class="perf-delta perf-delta--neutral">均值较关闭 0.976×</span>
-    </div>
-    <p class="perf-sub">自然生成地形，含村民、生物、漏斗/熔炉线、农场、跨边界红石钟与移动假玩家。</p>
-    <div class="bar-group">
-      <div class="bar-row"><span class="bar-label">延迟跨区写入前（开）</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">7.35–8.28 ms</span></div>
-      <div class="bar-row"><span class="bar-label">同版关闭（串行）</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:82%"></div></div><span class="bar-val">6.25–6.70 ms</span></div>
-      <div class="bar-row"><span class="bar-label">延迟写入+解除内部（开）</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:80%"></div></div><span class="bar-val">6.13–6.72 ms</span></div>
-      <div class="bar-row"><span class="bar-label">持久池 + 打包租约</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:84%"></div></div><span class="bar-val">6.69 ms</span></div>
-    </div>
-    <p class="perf-note">0 所有权违规、0 tick 失败、6200/6200 红石一致、100% 已派发区块跑在 Worker 上。</p>
-  </div>
+  <div class="perf-card"><div class="perf-card-top"><h3>6000 Tick 混合普通世界耐久（.100）</h3><span class="perf-delta perf-delta--neutral">尚未证明整体加速</span></div><p class="perf-sub">包含红石、POI、实体、自然刷怪与随机刻；2 GiB/G1 测试配置。</p><div class="bar-group"><div class="bar-row"><span class="bar-label">诊断开启</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">均值 8.204 ms</span></div><div class="bar-row"><span class="bar-label">采样关闭</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:95%"></div></div><span class="bar-val">均值 7.776 ms</span></div><div class="bar-row"><span class="bar-label">反向顺序诊断开启（通过）</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:98%"></div></div><span class="bar-val">均值 8.406 ms</span></div></div><p class="perf-note">通过单元满足 51/51 项不变量。反向顺序的采样关闭单元未通过区域映射断言，已排除；不声称已确定诊断采样的因果开销上限。</p></div>
 </div>
 
 ---
@@ -100,7 +74,7 @@ Forgia 明确区分 **区域线程已取得显著加速的场景**（高密度�
 
 ---
 
-## 3. 方块实体热路径优化专项（`main @ 7efd88d`）
+## 3. 历史方块实体优化记录（.98 / .99；早于 .100）
 
 使用 `tools/performance/controlled_server.py` 测量（8 个区域共 64 个持续燃烧原版熔炉、完整 3×3 已加载邻域、400 预热 + 2×400 测量 tick、4 持久化 Worker、开启 `enableRegionThreadingBlockEntityResources = true`、2 GiB G1 堆）。每次运行均核验每窗口 128 个产物、库存守恒、`furnace.nativeCompleted == 25600`、`resource.refusedWaves == 0`，且完整前后 NBT SHA256（`bc74013f2c5b`、`2ca340b85b64`）完全一致。
 
