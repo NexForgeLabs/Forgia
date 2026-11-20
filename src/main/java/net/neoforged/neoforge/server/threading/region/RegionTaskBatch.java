@@ -193,6 +193,7 @@ public final class RegionTaskBatch {
 
     private void submitGroups(RegionWorkerExecutor executor, Barrier barrier) {
         if (executor instanceof RegionWorkerPool pool && pool.isPersistent() && this.groups.size() > pool.threadCount()) {
+            this.orderByEstimatedCost(pool.threadCount());
             final var dispatcher = new RegionWorkStealingDispatcher(this.groups.size(), pool.threadCount(),
                     index -> runDispatchedGroup(barrier, this.groups.get(index)), pool::recordBatchSteal);
             pool.recordBatchDispatch(this.groups.size(), dispatcher.runnerCount());
@@ -202,8 +203,64 @@ public final class RegionTaskBatch {
             }
             return;
         }
+        this.orderByEstimatedCost(1);
         for (final Group group : this.groups) {
             submitTask(executor, barrier, group.description(), () -> runGroup(barrier, group));
+        }
+    }
+
+    /**
+     * Orders groups longest-processing-time first when historical cost estimates are available.
+     * <p>
+     * For the range-based work-stealing dispatcher, groups are snake-distributed across runner ranges so every
+     * runner starts on one of the heaviest tasks at its range front while lighter tasks sit at the stealable tail.
+     */
+    private void orderByEstimatedCost(int runners) {
+        final int size = this.groups.size();
+        if (size <= 1) {
+            return;
+        }
+        boolean hasEstimate = false;
+        for (int i = 0; i < size; ++i) {
+            if (this.groups.get(i).estimatedNanos() > 0L) {
+                hasEstimate = true;
+                break;
+            }
+        }
+        if (!hasEstimate) {
+            return;
+        }
+        this.groups.sort((a, b) -> Long.compare(b.estimatedNanos(), a.estimatedNanos()));
+        if (runners <= 1 || runners >= size) {
+            return;
+        }
+        final Group[] arranged = new Group[size];
+        final int[] cursors = new int[runners];
+        final int[] limits = new int[runners];
+        for (int r = 0; r < runners; ++r) {
+            cursors[r] = (int) ((long) size * r / runners);
+            limits[r] = (int) ((long) size * (r + 1) / runners);
+        }
+        int placed = 0;
+        boolean forward = true;
+        while (placed < size) {
+            if (forward) {
+                for (int r = 0; r < runners && placed < size; ++r) {
+                    if (cursors[r] < limits[r]) {
+                        arranged[cursors[r]++] = this.groups.get(placed++);
+                    }
+                }
+            } else {
+                for (int r = runners - 1; r >= 0 && placed < size; --r) {
+                    if (cursors[r] < limits[r]) {
+                        arranged[cursors[r]++] = this.groups.get(placed++);
+                    }
+                }
+            }
+            forward = !forward;
+        }
+        for (int i = 0; i < size; ++i) {
+            this.groups.set(i, arranged[i]);
         }
     }
 

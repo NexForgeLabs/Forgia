@@ -54,7 +54,7 @@ public final class RegionSpawnNeighborhood {
     private final Long2ObjectMap<List<ServerPlayer>> playersNear;
 
     public RegionSpawnNeighborhood() {
-        this(32);
+        this(256);
     }
 
     public RegionSpawnNeighborhood(int expectedChunks) {
@@ -102,7 +102,10 @@ public final class RegionSpawnNeighborhood {
             return;
         }
         this.spawnAllowed.put(chunkKey, level.isNaturalSpawningAllowed(new ChunkPos(chunkKey)));
-        this.playersNear.put(chunkKey, source.playersNearForSpawning().apply(chunkKey));
+        final List<ServerPlayer> players = source.playersNearForSpawning().apply(chunkKey);
+        if (players != null && !players.isEmpty()) {
+            this.playersNear.put(chunkKey, players);
+        }
     }
 
     /**
@@ -114,7 +117,10 @@ public final class RegionSpawnNeighborhood {
             return;
         }
         this.spawnAllowed.put(chunkKey, spawnAllowedLookup.test(chunkKey));
-        this.playersNear.put(chunkKey, playersNearLookup.apply(chunkKey));
+        final List<ServerPlayer> players = playersNearLookup.apply(chunkKey);
+        if (players != null && !players.isEmpty()) {
+            this.playersNear.put(chunkKey, players);
+        }
     }
 
     /** {@return the vanilla spawn-gate answer of {@code chunkKey}; an unrecorded chunk answers {@code false}} */

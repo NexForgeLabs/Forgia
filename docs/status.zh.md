@@ -49,6 +49,21 @@
     - Forgia 全并行：`1,235` ticks、`10.29 TPS`、P50 `43.08 ms`、Mean `60.87 ms`、P95 `105.23 ms`、P99 `239.17 ms`、Max `5,737.73 ms`、GC `178 次 / 4,154 ms`、结束堆 `1,635 MiB`、`entityTicksOnWorkers = 818,135`、`ownershipViolationCount = 0`。
     - 原版串行（`Bridge = false`）：`1,295` ticks、`10.79 TPS`、P50 `35.28 ms`、Mean `43.79 ms`、P95 `89.65 ms`、P99 `133.11 ms`、Max `908.49 ms`、GC `131 次 / 2,602 ms`、结束堆 `2,191 MiB`。
 
+### 玩家 Tick 与区域批调度开销优化（探针驱动）
+
+基于 `FullParallelSoakGameTests` 120 秒全探针归因定位并消除了玩家 `ENTITY` 并行准入与批调度中的主要固定开销：
+
+- **`PlayerCriterionListeners.matches()` 从 $O(N)$ 降至 $O(1)$**：通过 `TrackedListenerSet extends HashSet` 在直接集合变更（含 `iterator().remove()`）时自动递增 `revision`，移除 `Snapshot` 中监听器成员深拷贝与全量 `stream().allMatch(...)` 扫描。
+- **玩家状态模板增量复用与校验补齐**：在 `RegionPlayerStatePlan` 补齐 `validateTemplate()` 漏检项并在失效时立即丢弃旧模板，新增 `tryIncrementalRefresh(...)` 在仅 `inventory` / `listeners` 变化时增量复用稳定模板与 `ownedTable`，并对纯本地单人 tick 静态缓存 `plainLocalStats` / `plainLocalCriteria`。
+- **单波次玩家派发与扩展校验去重**：`tickSelfDrivenFallbacks` 将候选 `ServerPlayer` 与普通回退实体分离，`dispatchPlayerPrefix` 支持 `skipIneligible` 跳过单个不满足准入的玩家而不打断整批（玩家 `ENTITY` 波次从 `~5.4 waves/tick` 降至精确 `1.00 wave/tick`）；`RegionPlayerTickDispatch` 按 `allLocalEntity` 每 lane 仅做一次扩展快照校验；`RegionPlayerExtensionSnapshot` 缓存 `ModList` 基础模组扫描。
+- **LPT 区域调度与 `CONNECTION_BODY` / `SPAWN` 热路径瘦身**：`RegionTaskBatch.submitGroups` 按历史 `estimatedNanos` 做 LPT 蛇形均衡分布；`tryRunPlayerConnectionBodyTick` 前置 `intrinsicRefusal(..., true)` 与 `intrinsic(..., null, CONNECTION_BODY)` 快速拒绝（`refusedBeforeCaptureNanos` 由 `1.31 s` 降至 `0.11 s`）；`RegionSpawnNeighborhood` 预分配容量并跳过空玩家列表写入；`RegionEntityTickAttribution` 新增 `sectionUpdateNanos` / `fallbackNanos` / `deferredTasksNanos` 子阶段探针。
+- **120 秒 32 玩家 `FullParallelSoakGameTests` 复测（同种子 `4242424242`，4 核 8 线程 i5-1135G7，JDK 21）**：
+  - **Forgia 优化前（全探针）**：`1,103` ticks、`9.19 TPS`、Mean `84.29 ms`、P50 `63.45 ms`、P95 `144.66 ms`、P99 `234.99 ms`、Max `2,971.13 ms`、`ENTITY_TICK.handoff = 26.00 ms/tick`、`ENTITY.worker = 22,628`、`ownershipViolationCount = 0`。
+  - **Forgia 优化后（全探针）**：`1,368` ticks（`+24.0%`）、`11.40 TPS`（`+24.0%`）、Mean `56.14 ms`（`-33.4%`）、P50 `46.52 ms`（`-26.7%`）、P95 `101.95 ms`（`-29.5%`）、P99 `172.51 ms`（`-26.6%`）、Max `3,561.12 ms`、`ENTITY_TICK.handoff = 5.30 ms/tick`（`-79.6%`）、`PLAYER.ENTITY` `admission = 1.45 s` / `submitAndJoin = 1.70 s` / `waves = 1,368`（`1.00/tick`）、`ENTITY.worker = 28,922 / 33,518`（`86.3%`）、`ownershipViolationCount = 0`。
+  - **Forgia 优化后（关探针）**：`1,277` ticks、`10.64 TPS`、Mean `61.04 ms`、P50 `45.26 ms`、P95 `111.07 ms`、P99 `200.61 ms`、Max `2,776.00 ms`、`ENTITY.worker = 26,612`、`ownershipViolationCount = 0`。
+  - **原版串行基线（`Bridge = false`）**：`1,425` ticks、`11.87 TPS`、Mean `54.32 ms`、P50 `32.43 ms`、P95 `76.94 ms`、P99 `123.55 ms`、Max `6,328.14 ms`。
+  - **单元测试**：`:tests:junitTest`（`*PlayerCriterionListenersTest`、`*RegionPlayer*`、`*RegionSpawn*`、`RegionEntityTickAttributionTest`、`*DynamicCluster*`、`RegionSelfDrivenEntityTickTest`）全部通过。
+
 ## 测量过的性能工作与运行时命令 —— 有界实现
 
 [性能报告](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-OPTIMIZATION-REPORT.md)、[受控测量](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md)、

@@ -109,7 +109,7 @@ public final class RegionPlayerAdmissionPlan {
             boolean connectionBody = spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
             if (declaredPayload == null) {
                 boolean mayEmitGameEvent = connectionBody && mayEmitGameEvent(player);
-                if (!laneExtensionsVerified || spatial.isLocalEntity() || mayEmitGameEvent) {
+                if (!laneExtensionsVerified || mayEmitGameEvent) {
                     var ext = connectionBody
                             ? RegionPlayerExtensionSnapshot.captureConnectionBody(mayEmitGameEvent)
                             : RegionPlayerExtensionSnapshot.capture(spatial.isLocalEntity());
@@ -138,7 +138,7 @@ public final class RegionPlayerAdmissionPlan {
         var spatial = geometry.plan();
         var intrinsic = intrinsic(player, true, spatial, RegionPlayerTickCoordinator.Phase.ENTITY);
         if (intrinsic.refusal() != Refusal.NONE) return refused(intrinsic.refusal(), intrinsic.detail());
-        var state = RegionPlayerStatePlan.captureFresh(engine, spatial);
+        var state = RegionPlayerStatePlan.captureTick(engine, spatial);
         return state.plan() == null ? refused(Refusal.STATE, state.refusal().name()) : admitted(engine, spatial, state.plan(), null);
     }
 
@@ -352,7 +352,7 @@ public final class RegionPlayerAdmissionPlan {
                 && cz >= box.minZ - 1.0 && cz < box.maxZ + 1.0;
     }
 
-    private static RegionPlayerExtensionSnapshot.Check intrinsic(ServerPlayer player, boolean localEntity,
+    static RegionPlayerExtensionSnapshot.Check intrinsic(ServerPlayer player, boolean localEntity,
             @Nullable RegionPlayerSpatialPlan spatial, RegionPlayerTickCoordinator.Phase phase) {
         try {
             if (player.getClass() != ServerPlayer.class || player.gameMode == null || player.gameMode.getClass() != ServerPlayerGameMode.class

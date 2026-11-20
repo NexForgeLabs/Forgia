@@ -178,15 +178,41 @@ public final class RegionPlayerStatePlan {
             this.scorePlan = source.scorePlan;
             this.maps = source.maps;
             this.damage = source.damage;
-            int total = this.resourceArray.length + this.inventoryResources.size();
+            int total = this.resourceArray.length;
             int cap = 16;
             while (cap < total * 2) cap <<= 1;
             Object[] table = new Object[cap];
             int mask = cap - 1;
             for (Object obj : this.resourceArray) insertOwned(table, mask, obj);
-            for (Object obj : this.inventoryResources) insertOwned(table, mask, obj);
             this.ownedTable = table;
             this.ownedMask = mask;
+        }
+
+        private Template(Template base, PlayerCriterionListeners.Snapshot listeners, long listenerGeneration, RegionPlayerInventoryPlan inventory) {
+            this.advancements = base.advancements;
+            this.listener = base.listener;
+            this.connection = base.connection;
+            this.listeners = listeners;
+            this.listenerGeneration = listenerGeneration;
+            this.resources = base.resources;
+            this.resourceArray = base.resourceArray;
+            this.ownedTable = base.ownedTable;
+            this.ownedMask = base.ownedMask;
+            this.scoreboard = base.scoreboard;
+            this.scoreboardRevision = base.scoreboardRevision;
+            this.stats = base.stats;
+            this.inventory = inventory;
+            this.inventoryResources = inventory == base.inventory ? base.inventoryResources : List.copyOf(inventory.resources());
+            this.admissionResources = base.admissionResources;
+            this.adm0 = base.adm0;
+            this.adm1 = base.adm1;
+            this.adm2 = base.adm2;
+            this.adm3 = base.adm3;
+            this.claims = inventory == base.inventory ? base.claims : null;
+            this.container = base.container;
+            this.scorePlan = base.scorePlan;
+            this.maps = base.maps;
+            this.damage = base.damage;
         }
 
         private static void insertOwned(Object[] table, int mask, Object obj) {
@@ -280,7 +306,57 @@ public final class RegionPlayerStatePlan {
         // The sealed wave can compare all claim identities in parallel while the bodies are idle.
         plan.needsTemplateValidation = true;
         if (deferValidation) return plan.currentOwner() ? plan : null;
-        return plan.validateTemplate() ? plan : null;
+        if (plan.validateTemplate()) return plan;
+        var refreshed = tryIncrementalRefresh(engine, spatial, template);
+        if (refreshed != null) return refreshed;
+        plan.discardInvalidTemplate();
+        return null;
+    }
+
+    @Nullable
+    private static RegionPlayerStatePlan tryIncrementalRefresh(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial, Template template) {
+        ServerPlayer player = spatial.player();
+        boolean connectionBody = spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
+        if (player.getAdvancements() != template.advancements || player.connection != template.listener
+                || template.listener == null || template.listener.getConnection() != template.connection
+                || player.server.getPlayerList().getPlayer(player.getUUID()) != player
+                || player.getScoreboard() != template.scoreboard
+                || template.scoreboard.forgiaObjectiveRevision() != template.scoreboardRevision
+                || !player.forgiaHasSimpleSharedState() || !boundedExperience(player)
+                || !template.container.current() || !template.scorePlan.current()
+                || !ServerPlayer.forgiaMatchesLocalTemplateResources(player, template.resourceArray, connectionBody)) {
+            return null;
+        }
+        PlayerCriterionListeners storage = template.advancements.forgiaCriterionListeners();
+        if (!storage.enabled()) return null;
+        PlayerCriterionListeners.Snapshot newListeners = template.listeners;
+        long newGen = template.listenerGeneration;
+        if (!storage.matches(template.listeners)) {
+            var tick = storage.get(CriteriaTriggers.TICK);
+            if (tick != null && !tick.isEmpty()) return null;
+            if (spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION
+                    && (!storage.empty(CriteriaTriggers.LOCATION) || !storage.empty(CriteriaTriggers.ENTER_BLOCK))) {
+                return null;
+            }
+            if (!spatial.isLocalEntity() && spatial.phase() != RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                    && !storage.empty(CriteriaTriggers.INVENTORY_CHANGED)) {
+                return null;
+            }
+            newListeners = storage.snapshot();
+            newGen = storage.generation();
+        }
+        RegionPlayerInventoryPlan newInventory = template.inventory;
+        if (!template.inventory.current(spatial, true)) {
+            newInventory = RegionPlayerInventoryPlan.capture(spatial);
+            if (newInventory == null) return null;
+            if (!spatial.isLocalEntity() && !template.maps.currentAfterInventory()) return null;
+        }
+        if (newListeners == template.listeners && newInventory == template.inventory) {
+            return null;
+        }
+        Template updated = new Template(template, newListeners, newGen, newInventory);
+        player.forgiaPlayerStateTemplate(templateIndex(spatial), updated);
+        return new RegionPlayerStatePlan(engine, spatial, updated);
     }
 
     private static boolean connectionBodyCriteriaSafe(RegionPlayerSpatialPlan spatial) {
@@ -320,8 +396,11 @@ public final class RegionPlayerStatePlan {
         boolean connectionBody = this.spatial.phase() == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
         boolean localOk = ServerPlayer.forgiaMatchesLocalTemplateResources(this.player, this.resourceArray, connectionBody)
                 || (hasPhaseLocalStateBindings(this.player, this.spatial) && this.localResourcesCurrent());
-        if (!this.currentOwner() || !localOk || !this.connectionBodyCriteriaSnapshotSafe()
-                || !this.inventory.current(this.spatial, true) || !this.scorePlan.current()) {
+        if (!this.currentOwner() || !localOk || !this.player.forgiaHasSimpleSharedState()
+                || !this.advancements.forgiaCriterionListeners().matches(this.listeners)
+                || !this.connectionBodyCriteriaSnapshotSafe() || !boundedExperience(this.player)
+                || !this.inventory.current(this.spatial, true) || !this.container.current()
+                || !this.scorePlan.current()) {
             this.invalidTemplate = true;
             return false;
         }
@@ -466,7 +545,9 @@ public final class RegionPlayerStatePlan {
     /** The sole indexed entity in this scope has no recipients or shared state. Its mutable
      * local objects are server-owned until submission, then owned exclusively until return. */
     void completeSealedLocalCheck() {
-        if (this.template == null || this.spatial.members().size() != 1) return;
+        if (this.spatial.members().size() != 1) return;
+        if (this.template == null && (!this.sharedResources.isEmpty() || !this.menuResources.isEmpty()
+                || !this.awards.isEmpty() || !this.orbs.isEmpty())) return;
         this.publisherLocalStateChecked = true;
     }
 
@@ -475,7 +556,11 @@ public final class RegionPlayerStatePlan {
     }
 
     private boolean stateCurrent(boolean beforeBody) {
-        return (admission == null || admission.current(beforeBody)) && currentOwner() && localBindingsCurrent() && player.forgiaHasSimpleSharedState()
+        return stateCurrent(beforeBody, false);
+    }
+
+    private boolean stateCurrent(boolean beforeBody, boolean laneExtensionsVerified) {
+        return (admission == null || admission.current(beforeBody, laneExtensionsVerified)) && currentOwner() && localBindingsCurrent() && player.forgiaHasSimpleSharedState()
                 && advancements.forgiaCriterionListeners().matches(listeners) && connectionBodyCriteriaSnapshotSafe() && boundedExperience(player)
                 && localResourcesCurrent() && player.getScoreboard() == scoreboard
                 && scoreboard.forgiaObjectiveRevision() == scoreboardRevision
@@ -512,7 +597,7 @@ public final class RegionPlayerStatePlan {
                         && advancements.forgiaCriterionListeners().matches(listeners) && connectionBodyCriteriaSnapshotSafe() && boundedExperience(player)
                         && (laneExtensionsVerified ? player.containerMenu == player.inventoryMenu : container.current() && scorePlan.current())
                         && damage.current()
-                : stateCurrent(true);
+                : stateCurrent(true, laneExtensionsVerified);
         if (!current) return false;
         consumed = true;
         return true;
@@ -678,6 +763,35 @@ public final class RegionPlayerStatePlan {
     }
 
     /** The caller just captured geometry and has not run any original body or callback. */
+    private static volatile Map<StatType<?>, Map<?, Stat<?>>> plainLocalStats;
+    private static volatile Set<ObjectiveCriteria> plainLocalCriteria;
+
+    private static Map<StatType<?>, Map<?, Stat<?>>> getPlainLocalStats() {
+        Map<StatType<?>, Map<?, Stat<?>>> cached = plainLocalStats;
+        if (cached != null) return cached;
+        Map<ResourceLocation, Stat<?>> warmed = new IdentityHashMap<>();
+        for (ResourceLocation value : List.of(Stats.PLAY_TIME, Stats.TOTAL_WORLD_TIME, Stats.TIME_SINCE_DEATH, Stats.CROUCH_TIME, Stats.TIME_SINCE_REST)) {
+            warmed.put(value, Stats.CUSTOM.get(value));
+        }
+        Map<StatType<?>, Map<?, Stat<?>>> stats = new IdentityHashMap<>();
+        stats.put(Stats.CUSTOM, Collections.unmodifiableMap(warmed));
+        stats.put(Stats.ITEM_PICKED_UP, Map.of());
+        cached = Collections.unmodifiableMap(stats);
+        plainLocalStats = cached;
+        return cached;
+    }
+
+    private static Set<ObjectiveCriteria> getPlainLocalCriteria(Map<StatType<?>, Map<?, Stat<?>>> stats) {
+        Set<ObjectiveCriteria> cached = plainLocalCriteria;
+        if (cached != null) return cached;
+        Set<ObjectiveCriteria> criteria = Collections.newSetFromMap(new IdentityHashMap<>());
+        criteria.addAll(stats.get(Stats.CUSTOM).values());
+        criteria.addAll(List.of(ObjectiveCriteria.HEALTH, ObjectiveCriteria.FOOD, ObjectiveCriteria.AIR, ObjectiveCriteria.ARMOR, ObjectiveCriteria.EXPERIENCE, ObjectiveCriteria.LEVEL));
+        cached = Collections.unmodifiableSet(criteria);
+        plainLocalCriteria = cached;
+        return cached;
+    }
+
     static Capture captureFresh(RegionThreadingEngine engine, RegionPlayerSpatialPlan spatial) {
         return capture(engine, spatial, true);
     }
@@ -744,20 +858,29 @@ public final class RegionPlayerStatePlan {
         if (!boundedExperience(player)) return reject(Refusal.XP_SHARED_SOUND);
         // Initialize only mandatory intrinsic stat handles on the publisher. Workers use immutable
         // identity snapshots, and cannot populate shared StatType/ObjectiveCriteria caches.
-        Map<ResourceLocation, Stat<?>> warmed = new IdentityHashMap<>();
-        for (ResourceLocation value : List.of(Stats.PLAY_TIME, Stats.TOTAL_WORLD_TIME, Stats.TIME_SINCE_DEATH, Stats.CROUCH_TIME, Stats.TIME_SINCE_REST)) warmed.put(value, Stats.CUSTOM.get(value));
-        if (RegionPlayerPacketPlan.preparesMovement(player)) warmed.put(Stats.WALK_ONE_CM, Stats.CUSTOM.get(Stats.WALK_ONE_CM));
-        if (RegionPlayerDamagePlan.starving(player)) warmed.put(Stats.DAMAGE_TAKEN, Stats.CUSTOM.get(Stats.DAMAGE_TAKEN));
-        Map<StatType<?>, Map<?, Stat<?>>> stats = new IdentityHashMap<>();
-        stats.put(Stats.CUSTOM, Collections.unmodifiableMap(warmed));
-        Set<ObjectiveCriteria> criteria = Collections.newSetFromMap(new IdentityHashMap<>());
-        criteria.addAll(warmed.values());
-        Map<net.minecraft.world.item.Item, Stat<?>> pickedUp = new IdentityHashMap<>();
-        for (var target : spatial.members().keySet()) if (target instanceof ItemEntity item && inventory.captures(item))
-            pickedUp.put(item.getItem().getItem(), Stats.ITEM_PICKED_UP.get(item.getItem().getItem()));
-        stats.put(Stats.ITEM_PICKED_UP, Collections.unmodifiableMap(pickedUp));
-        criteria.addAll(pickedUp.values());
-        criteria.addAll(List.of(ObjectiveCriteria.HEALTH, ObjectiveCriteria.FOOD, ObjectiveCriteria.AIR, ObjectiveCriteria.ARMOR, ObjectiveCriteria.EXPERIENCE, ObjectiveCriteria.LEVEL));
+        final Map<StatType<?>, Map<?, Stat<?>>> stats;
+        final Set<ObjectiveCriteria> criteria;
+        if (spatial.members().size() == 1 && !RegionPlayerPacketPlan.preparesMovement(player) && !RegionPlayerDamagePlan.starving(player)) {
+            stats = getPlainLocalStats();
+            criteria = getPlainLocalCriteria(stats);
+        } else {
+            Map<ResourceLocation, Stat<?>> warmed = new IdentityHashMap<>();
+            for (ResourceLocation value : List.of(Stats.PLAY_TIME, Stats.TOTAL_WORLD_TIME, Stats.TIME_SINCE_DEATH, Stats.CROUCH_TIME, Stats.TIME_SINCE_REST)) warmed.put(value, Stats.CUSTOM.get(value));
+            if (RegionPlayerPacketPlan.preparesMovement(player)) warmed.put(Stats.WALK_ONE_CM, Stats.CUSTOM.get(Stats.WALK_ONE_CM));
+            if (RegionPlayerDamagePlan.starving(player)) warmed.put(Stats.DAMAGE_TAKEN, Stats.CUSTOM.get(Stats.DAMAGE_TAKEN));
+            Map<StatType<?>, Map<?, Stat<?>>> builtStats = new IdentityHashMap<>();
+            builtStats.put(Stats.CUSTOM, Collections.unmodifiableMap(warmed));
+            Set<ObjectiveCriteria> builtCriteria = Collections.newSetFromMap(new IdentityHashMap<>());
+            builtCriteria.addAll(warmed.values());
+            Map<net.minecraft.world.item.Item, Stat<?>> pickedUp = new IdentityHashMap<>();
+            for (var target : spatial.members().keySet()) if (target instanceof ItemEntity item && inventory.captures(item))
+                pickedUp.put(item.getItem().getItem(), Stats.ITEM_PICKED_UP.get(item.getItem().getItem()));
+            builtStats.put(Stats.ITEM_PICKED_UP, Collections.unmodifiableMap(pickedUp));
+            builtCriteria.addAll(pickedUp.values());
+            builtCriteria.addAll(List.of(ObjectiveCriteria.HEALTH, ObjectiveCriteria.FOOD, ObjectiveCriteria.AIR, ObjectiveCriteria.ARMOR, ObjectiveCriteria.EXPERIENCE, ObjectiveCriteria.LEVEL));
+            stats = builtStats;
+            criteria = builtCriteria;
+        }
         Scoreboard board = player.getScoreboard();
         RegionPlayerScoreboardPlan scorePlan = RegionPlayerScoreboardPlan.capture(player, criteria);
         if (scorePlan == null) return reject(Refusal.SCOREBOARD_OBJECTIVES);

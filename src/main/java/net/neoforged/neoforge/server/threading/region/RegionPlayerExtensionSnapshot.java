@@ -134,6 +134,9 @@ final class RegionPlayerExtensionSnapshot {
         CONNECTION_BODY_GAME_EVENT
     }
 
+    private record ModListScan(WeakReference<ModList> mods, int size, boolean basePresent, boolean hasExtraMods) {}
+    private static volatile ModListScan modListScan;
+
     private record VerifiedListeners(WeakReference<IEventBus> bus, Object[] arrays, Check result) {}
     private static volatile VerifiedListeners verifiedListeners;
     private static volatile VerifiedListeners verifiedLocalEntityListeners;
@@ -159,14 +162,9 @@ final class RegionPlayerExtensionSnapshot {
             ModList mods = ModList.get();
             ModuleLayer layer = FMLLoader.getGameLayer();
             if (mods == null || layer == null) return unavailable("loader not ready");
-            boolean minecraft = false, neoforge = false, hasExtraMods = false;
-            for (var mod : mods.getMods()) {
-                String id = mod.getModId();
-                if (id.equals("minecraft")) minecraft = true;
-                else if (id.equals("neoforge")) neoforge = true;
-                else hasExtraMods = true;
-            }
-            if (!minecraft || !neoforge) return unavailable("base mods absent");
+            ModListScan scan = scanModList(mods);
+            if (!scan.basePresent()) return unavailable("base mods absent");
+            boolean hasExtraMods = scan.hasExtraMods();
             String unknown = firstUnknownMixinConfig(mods);
             if (unknown == null) unknown = firstUnknownProvider(layer);
             if (unknown != null) return new Check(RegionPlayerAdmissionPlan.Refusal.UNKNOWN_TRANSFORM, unknown, hasExtraMods);
@@ -177,6 +175,24 @@ final class RegionPlayerExtensionSnapshot {
             // Missing inspection dependencies are a pre-body serial decision. No original tick is caught.
             return unavailable(failure.getClass().getName());
         }
+    }
+
+    private static ModListScan scanModList(ModList mods) {
+        int size = mods.size();
+        ModListScan cached = modListScan;
+        if (cached != null && cached.mods().get() == mods && cached.size() == size) {
+            return cached;
+        }
+        boolean minecraft = false, neoforge = false, hasExtraMods = false;
+        for (var mod : mods.getMods()) {
+            String id = mod.getModId();
+            if (id.equals("minecraft")) minecraft = true;
+            else if (id.equals("neoforge")) neoforge = true;
+            else hasExtraMods = true;
+        }
+        ModListScan scan = new ModListScan(new WeakReference<>(mods), size, minecraft && neoforge, hasExtraMods);
+        modListScan = scan;
+        return scan;
     }
 
     @org.jetbrains.annotations.Nullable

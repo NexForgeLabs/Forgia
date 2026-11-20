@@ -50,6 +50,21 @@ A 600-second A/B comparison using [`FullParallelSoakGameTests.java`](https://git
     - Forgia Full Parallel: `1,235` ticks, `10.29 TPS`, P50 `43.08 ms`, Mean `60.87 ms`, P95 `105.23 ms`, P99 `239.17 ms`, Max `5,737.73 ms`, GC `178 / 4,154 ms`, end heap `1,635 MiB`, `entityTicksOnWorkers = 818,135`, `ownershipViolationCount = 0`.
     - Vanilla Serial (`Bridge = false`): `1,295` ticks, `10.79 TPS`, P50 `35.28 ms`, Mean `43.79 ms`, P95 `89.65 ms`, P99 `133.11 ms`, Max `908.49 ms`, GC `131 / 2,602 ms`, end heap `2,191 MiB`.
 
+### Player Tick & Region Batch Scheduling Overhead Optimization (Probe-Driven)
+
+Using full-probe attribution on the 120s `FullParallelSoakGameTests` workload, we identified and eliminated the dominant fixed overhead in player `ENTITY` parallel admission and region batch dispatch:
+
+- **O(1) `PlayerCriterionListeners.matches()`**: introduced `TrackedListenerSet extends HashSet` to bump `revision` on direct set mutations (including `iterator().remove()`), removing deep member-set copying in `Snapshot` and per-call `stream().allMatch(...)` scans across all triggers.
+- **Incremental `RegionPlayerStatePlan` template reuse & complete validation**: added the missing checks to `validateTemplate()` with immediate stale-template eviction, added `tryIncrementalRefresh(...)` to refresh only `inventory` / `listeners` while reusing the stable `Template` and `ownedTable`, and cached `plainLocalStats` / `plainLocalCriteria` for plain local single-player ticks.
+- **Single-wave player dispatch & per-lane extension checks**: partitioned candidate `ServerPlayer`s from non-player fallbacks in `tickSelfDrivenFallbacks`, added `skipIneligible` mode to `dispatchPlayerPrefix` so ineligible players no longer fragment the wave (`~5.4 waves/tick` → `1.00 wave/tick`), verified extensions once per lane with `allLocalEntity` in `RegionPlayerTickDispatch`, and cached the `ModList` base-mod scan in `RegionPlayerExtensionSnapshot`.
+- **LPT batch ordering & `CONNECTION_BODY` / `SPAWN` fast paths**: snake-distributed `RegionTaskBatch` groups by descending `estimatedNanos` across work-stealing runner ranges; added fast `intrinsicRefusal(..., true)` + `intrinsic(..., null, CONNECTION_BODY)` pre-checks in `tryRunPlayerConnectionBodyTick` (`refusedBeforeCaptureNanos`: `1.31 s` → `0.11 s`); pre-sized `RegionSpawnNeighborhood` and skipped empty `playersNear` insertions; added `sectionUpdateNanos` / `fallbackNanos` / `deferredTasksNanos` sub-segments to `RegionEntityTickAttribution`.
+- **120s 32-Player `FullParallelSoakGameTests` Comparison (seed `4242424242`, 4C/8T i5-1135G7, JDK 21)**:
+  - **Forgia Before (all probes ON)**: `1,103` ticks, `9.19 TPS`, Mean `84.29 ms`, P50 `63.45 ms`, P95 `144.66 ms`, P99 `234.99 ms`, Max `2,971.13 ms`, `ENTITY_TICK.handoff = 26.00 ms/tick`, `ENTITY.worker = 22,628`, `ownershipViolationCount = 0`.
+  - **Forgia After (all probes ON)**: `1,368` ticks (`+24.0%`), `11.40 TPS` (`+24.0%`), Mean `56.14 ms` (`-33.4%`), P50 `46.52 ms` (`-26.7%`), P95 `101.95 ms` (`-29.5%`), P99 `172.51 ms` (`-26.6%`), Max `3,561.12 ms`, `ENTITY_TICK.handoff = 5.30 ms/tick` (`-79.6%`), `PLAYER.ENTITY` `admission = 1.45 s` / `submitAndJoin = 1.70 s` / `waves = 1,368` (`1.00/tick`), `ENTITY.worker = 28,922 / 33,518` (`86.3%`), `ownershipViolationCount = 0`.
+  - **Forgia After (probes OFF)**: `1,277` ticks, `10.64 TPS`, Mean `61.04 ms`, P50 `45.26 ms`, P95 `111.07 ms`, P99 `200.61 ms`, Max `2,776.00 ms`, `ENTITY.worker = 26,612`, `ownershipViolationCount = 0`.
+  - **Vanilla Serial (`Bridge = false`)**: `1,425` ticks, `11.87 TPS`, Mean `54.32 ms`, P50 `32.43 ms`, P95 `76.94 ms`, P99 `123.55 ms`, Max `6,328.14 ms`.
+  - **Unit Tests**: `:tests:junitTest` (`*PlayerCriterionListenersTest`, `*RegionPlayer*`, `*RegionSpawn*`, `RegionEntityTickAttributionTest`, `*DynamicCluster*`, `RegionSelfDrivenEntityTickTest`) all passed.
+
 ## Measured performance work and runtime commands — bounded implementation
 
 The [performance report](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-OPTIMIZATION-REPORT.md), [controlled measurements](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PERFORMANCE-BENCHMARKS.md),

@@ -124,10 +124,15 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
         if (this.parallelTemplateValidation) {
             if (!validateLane(groups, startup, lane, timed)) return;
             laneExtensionsVerified = true;
-        } else if (timed) {
-            long now = System.nanoTime();
-            this.laneAfterVal[lane] = now;
-            this.laneAfterGate[lane] = now;
+        } else {
+            if (RegionWorkerScope.isNativeWorkerThread() && verifyLaneExtensions(groups)) {
+                laneExtensionsVerified = true;
+            }
+            if (timed) {
+                long now = System.nanoTime();
+                this.laneAfterVal[lane] = now;
+                this.laneAfterGate[lane] = now;
+            }
         }
         int index = lane;
         do {
@@ -152,15 +157,29 @@ final class RegionPlayerTickDispatch implements RegionOwnershipLeaseGroup {
         if (timed) this.laneExit[lane] = System.nanoTime();
     }
 
+    private static boolean verifyLaneExtensions(List<Group> groups) {
+        var phase = groups.getFirst().calls().getFirst().phase;
+        boolean allLocalEntity = phase == RegionPlayerTickCoordinator.Phase.ENTITY;
+        if (allLocalEntity) {
+            for (int i = 0, size = groups.size(); i < size; i++) {
+                var admission = groups.get(i).calls().getFirst().admission;
+                if (admission == null || admission.spatial() == null || !admission.spatial().isLocalEntity()) {
+                    allLocalEntity = false;
+                    break;
+                }
+            }
+        }
+        var ext = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
+                ? RegionPlayerExtensionSnapshot.captureConnectionBody(false)
+                : RegionPlayerExtensionSnapshot.capture(allLocalEntity);
+        return ext.refusal() == RegionPlayerAdmissionPlan.Refusal.NONE;
+    }
+
     private boolean validateLane(List<Group> groups, StartGate startup, int lane, boolean timed) {
         boolean validated = false;
         try {
             if (!RegionWorkerScope.isNativeWorkerThread()) return false;
-            var phase = groups.getFirst().calls().getFirst().phase;
-            var ext = phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
-                    ? RegionPlayerExtensionSnapshot.captureConnectionBody(false)
-                    : RegionPlayerExtensionSnapshot.capture();
-            if (ext.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
+            if (!verifyLaneExtensions(groups)) return false;
             for (int index = lane; index < groups.size(); index += startup.participants) {
                 if (!groups.get(index).calls().getFirst().admission.state().validatePrefix(true)) return false;
             }

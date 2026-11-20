@@ -38,6 +38,9 @@ public final class RegionEntityTickAttribution {
     private static long leaseNanos;
     private static long awaitNanos;
     private static long handoffNanos;
+    private static long sectionUpdateNanos;
+    private static long fallbackNanos;
+    private static long deferredTasksNanos;
     private static long deferredPublicationNanos;
     private static long sliceNanos;
     private static long sliceCount;
@@ -68,6 +71,9 @@ public final class RegionEntityTickAttribution {
         leaseNanos = 0L;
         awaitNanos = 0L;
         handoffNanos = 0L;
+        sectionUpdateNanos = 0L;
+        fallbackNanos = 0L;
+        deferredTasksNanos = 0L;
         deferredPublicationNanos = 0L;
         sliceNanos = 0L;
         sliceCount = 0L;
@@ -145,6 +151,33 @@ public final class RegionEntityTickAttribution {
     }
 
     /**
+     * Adds the part of the handoff spent applying deferred entity section updates on the server thread.
+     */
+    public static void recordSectionUpdates(long durationNanos) {
+        if (enabled) {
+            sectionUpdateNanos += durationNanos;
+        }
+    }
+
+    /**
+     * Adds the part of the handoff spent running fallback and player-sequence entity ticks on the server thread.
+     */
+    public static void recordFallbacks(long durationNanos) {
+        if (enabled) {
+            fallbackNanos += durationNanos;
+        }
+    }
+
+    /**
+     * Adds the part of the handoff spent draining deferred server-thread tasks of the batch.
+     */
+    public static void recordDeferredTasks(long durationNanos) {
+        if (enabled) {
+            deferredTasksNanos += durationNanos;
+        }
+    }
+
+    /**
      * Adds the part of the handoff the server thread spent applying the deferred ownership updates of the
      * barrier, so the publication of the ownership handoff is separable from the fallback entity ticks that
      * run in the same segment.
@@ -159,7 +192,7 @@ public final class RegionEntityTickAttribution {
      * {@return the accumulated attribution of the server thread so far}
      */
     public static Snapshot snapshot() {
-        return new Snapshot(planNanos, leaseNanos, awaitNanos, handoffNanos, deferredPublicationNanos, sliceNanos, sliceCount);
+        return new Snapshot(planNanos, leaseNanos, awaitNanos, handoffNanos, sectionUpdateNanos, fallbackNanos, deferredTasksNanos, deferredPublicationNanos, sliceNanos, sliceCount);
     }
 
     /**
@@ -173,6 +206,9 @@ public final class RegionEntityTickAttribution {
             long leaseNanos,
             long awaitNanos,
             long handoffNanos,
+            long sectionUpdateNanos,
+            long fallbackNanos,
+            long deferredTasksNanos,
             long deferredPublicationNanos,
             long sliceNanos,
             long sliceCount) {}

@@ -245,6 +245,7 @@ runs {
             systemProperty("forgia.fullParallelSoakSeconds", providers.gradleProperty("fullSoakSeconds").getOrElse("600"))
             systemProperty("forgia.fullSoakScenario", providers.gradleProperty("fullSoakScenario").getOrElse("default"))
             systemProperty("forgia.fullSoakAttribution", providers.gradleProperty("fullSoakAttribution").getOrElse("false"))
+            systemProperty("forgia.playerPrefixTiming", providers.gradleProperty("fullSoakAttribution").getOrElse("false"))
             systemProperty("neoforge.gameTestServer.filter", "fullParallelSoak")
             systemProperty("neoforge.gameTestWorldPreset", providers.gradleProperty("soakWorldPreset").getOrElse("minecraft:normal"))
             systemProperty("neoforge.gameTestWorldSeed", providers.gradleProperty("soakWorldSeed").getOrElse("4242424242"))

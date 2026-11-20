@@ -3638,15 +3638,36 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // of the tick it belongs to, and the destination search may read the POI manager of the
                 // destination level, which only the server thread may touch.
                 failure = runBatchCompletion(failure, () -> this.applyDeferredPortalTransitions(batch));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredEntitySectionUpdates(batch));
+                final long sectionStart = attribution ? System.nanoTime() : 0L;
+                try {
+                    failure = runBatchCompletion(failure, () -> this.applyDeferredEntitySectionUpdates(batch));
+                } finally {
+                    if (attribution) {
+                        RegionEntityTickAttribution.recordSectionUpdates(System.nanoTime() - sectionStart);
+                    }
+                }
                 failure = runBatchCompletion(failure, () -> this.applyDeferredEntityRemovals(batch));
                 failure = runBatchCompletion(failure, () -> this.applyDeferredEntityAdditions(batch));
                 // The light rechecks and block updates of the blocks the workers wrote are the level-wide effects
                 // of their tick, so they run before the server-thread fallback ticks of this batch observe the
                 // written state.
                 failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-                failure = runBatchCompletion(failure, () -> this.tickSelfDrivenFallbacks(batch));
-                failure = runBatchCompletion(failure, batch::runDeferredServerTasks);
+                final long fallbackStart = attribution ? System.nanoTime() : 0L;
+                try {
+                    failure = runBatchCompletion(failure, () -> this.tickSelfDrivenFallbacks(batch));
+                } finally {
+                    if (attribution) {
+                        RegionEntityTickAttribution.recordFallbacks(System.nanoTime() - fallbackStart);
+                    }
+                }
+                final long deferredTasksStart = attribution ? System.nanoTime() : 0L;
+                try {
+                    failure = runBatchCompletion(failure, batch::runDeferredServerTasks);
+                } finally {
+                    if (attribution) {
+                        RegionEntityTickAttribution.recordDeferredTasks(System.nanoTime() - deferredTasksStart);
+                    }
+                }
                 final long publicationStart = attribution ? System.nanoTime() : 0L;
                 try {
                     failure = runBatchCompletion(failure, () -> this.applyDeferredEntityUpdates(batch));
@@ -3773,13 +3794,45 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     private void tickSelfDrivenFallbacks(RegionEntityTickBatch batch) {
         final ServerLevel level = batch.level();
-        final List<Entity> ordered = new ArrayList<>(batch.deferredUpdateFallbackEntities());
-        ordered.addAll(batch.selfDrivenFallbackEntities());
-        if (this.playerCriterionStorageEnabled()) {
-            this.tickPlayerWorldSequence(batch, ordered);
-        } else {
-            for (final Entity entity : ordered) this.tickEntityServerSide(level, entity);
+        final List<Entity> deferred = batch.deferredUpdateFallbackEntities();
+        final List<Entity> selfDriven = batch.selfDrivenFallbackEntities();
+        if (!this.playerCriterionStorageEnabled()) {
+            for (final Entity entity : deferred) this.tickEntityServerSide(level, entity);
+            for (final Entity entity : selfDriven) this.tickEntityServerSide(level, entity);
+            return;
         }
+        // Self-driven fallbacks arrive from concurrent workers in arbitrary order; separate candidate players
+        // into a contiguous list so tickPlayerWorldSequence can dispatch them in a single parallel wave.
+        final boolean runsNormally = level.tickRateManager() == null || level.tickRateManager().runsNormally();
+        final List<Entity> players = new ArrayList<>();
+        for (final Entity entity : deferred) {
+            if (isPlayerEntityWaveCandidate(level, entity, runsNormally)) {
+                players.add(entity);
+            } else {
+                this.tickEntityServerSide(level, entity);
+            }
+        }
+        for (final Entity entity : selfDriven) {
+            if (isPlayerEntityWaveCandidate(level, entity, runsNormally)) {
+                players.add(entity);
+            } else {
+                this.tickEntityServerSide(level, entity);
+            }
+        }
+        if (!players.isEmpty()) {
+            this.tickPlayerWorldSequence(batch, players);
+        }
+    }
+
+    private static boolean isPlayerEntityWaveCandidate(ServerLevel level, Entity entity, boolean runsNormally) {
+        return entity instanceof ServerPlayer player
+                && player.getClass() == ServerPlayer.class
+                && !player.isRemoved()
+                && player.level() == level
+                && !player.isPassenger()
+                && player.getPassengers().isEmpty()
+                && level.isInEntityTickingRange(player.chunkPosition().toLong())
+                && !RegionEntityTickActivation.isFrozen(player, runsNormally);
     }
 
     /**
@@ -5314,6 +5367,10 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     /** One bounded contiguous prefix. Every acquired capability is released after real physical join. */
     private int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered) {
+        return this.dispatchPlayerPrefix(ordered, false);
+    }
+
+    private int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered, boolean skipIneligible) {
         if (ordered.isEmpty() || !this.playerCriterionStorageEnabled()) return 0;
         final ServerPlayer first = ordered.getFirst().player;
         if (!first.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Player dispatch requires its original server publisher");
@@ -5372,14 +5429,17 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.workerPool.preWake(Math.min(ordered.size(), this.workerPool.threadCount()));
             }
             // The worker rechecks connection observations after closing the original network gate.
+            int inspected = 0;
             for (RegionPlayerTickDispatch.Call call : ordered) {
                 if (calls.size() == PLAYER_PREFIX_LIMIT || call.player.serverLevel() != first.serverLevel() || call.phase != firstPhase) break;
+                ++inspected;
                 this.playerRegions.publishAtPlayerStage(this, call.player);
                 var localCapture = entityPhase ? RegionPlayerAdmissionPlan.captureLocalEntity(this, call.player) : null;
                 var admission = localCapture == null ? null : localCapture.plan();
                 if (admission == null) {
                     if (localEnvironment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
                         this.recordPlayerAdmissionCapture(call.phase, java.util.Objects.requireNonNull(localCapture));
+                        if (skipIneligible) continue;
                         break;
                     }
                     var geometry = RegionPlayerSpatialPlan.capture(this, call.player, call.phase, true, true);
@@ -5393,7 +5453,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                         admission = this.capturePlayerAdmissionPlan(call.player, call.phase, localEnvironment, geometry).plan();
                     }
                 }
-                if (admission == null) break;
+                if (admission == null) {
+                    if (skipIneligible) continue;
+                    break;
+                }
                 call.admission = admission;
                 calls.add(call);
             }
@@ -5505,7 +5568,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 joined.throwIfFailed();
             }
             if (timing != null) returned = System.nanoTime();
-            return calls.size();
+            return skipIneligible ? inspected : calls.size();
         } catch (Throwable failure) {
             dispatchFailure = failure;
             Throwable original = calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
@@ -5617,6 +5680,24 @@ public final class RegionThreadingEngine implements RegionThreading {
                     RegionPlayerTickCoordinator.Reason.DEPENDENCIES);
             return false;
         }
+        var spatialRefusal = RegionPlayerSpatialPlan.intrinsicRefusal(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, true);
+        if (spatialRefusal != RegionPlayerSpatialPlan.Refusal.NONE) {
+            this.playerAdmissionRefusals.computeIfAbsent("CONNECTION_BODY:SPATIAL", key -> new AtomicLong()).incrementAndGet();
+            this.playerAdmissionLastRefusal.put("CONNECTION_BODY", "SPATIAL:" + spatialRefusal.name());
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    spatialRefusal == RegionPlayerSpatialPlan.Refusal.RIDING
+                            ? RegionPlayerTickCoordinator.Reason.RIDING
+                            : RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
+            return false;
+        }
+        var intrinsicRefusal = RegionPlayerAdmissionPlan.intrinsic(player, false, null, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY);
+        if (intrinsicRefusal.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
+            this.playerAdmissionRefusals.computeIfAbsent("CONNECTION_BODY:" + intrinsicRefusal.refusal().name(), key -> new AtomicLong()).incrementAndGet();
+            this.playerAdmissionLastRefusal.put("CONNECTION_BODY", intrinsicRefusal.refusal() + ":" + intrinsicRefusal.detail());
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
+            return false;
+        }
         var call = new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, originalDoTick);
         int consumed = this.dispatchPlayerPrefix(List.of(call));
         if (consumed == 0) {
@@ -5651,9 +5732,16 @@ public final class RegionThreadingEngine implements RegionThreading {
                 calls.add(new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.ENTITY,
                         () -> parent.level().guardEntityTick(parent.level()::tickNonPassenger, player)));
             }
-            int consumed = this.dispatchPlayerPrefix(calls);
-            if (consumed == 0) {
+            if (calls.isEmpty()) {
                 this.tickEntityServerSide(parent.level(), entities.get(index++));
+                continue;
+            }
+            int consumed = this.dispatchPlayerPrefix(calls, true);
+            if (consumed == 0) {
+                for (var call : calls) {
+                    this.tickEntityServerSide(parent.level(), call.player);
+                }
+                index += calls.size();
                 continue;
             }
             for (var call : calls.subList(0, consumed)) {
@@ -6143,7 +6231,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // The section publication and the target chunk acquisition of a worker entity move are the
                 // vanilla effects of the move itself, so they run before any other server-thread work observes
                 // the entity and before the ownership handoff of the batch commits a new region.
-                failure = runBatchCompletion(failure, () -> this.applyDeferredEntitySectionUpdates(batch));
+                final long sectionStart = attribution ? System.nanoTime() : 0L;
+                try {
+                    failure = runBatchCompletion(failure, () -> this.applyDeferredEntitySectionUpdates(batch));
+                } finally {
+                    if (attribution) {
+                        RegionEntityTickAttribution.recordSectionUpdates(System.nanoTime() - sectionStart);
+                    }
+                }
                 // The removal of an owned entity is the other vanilla storage effect a worker may defer. It
                 // runs after the section updates, so the removal removes the entity from the section it was
                 // published in, and before the ownership publication, so the handoff observes the removed
@@ -6161,8 +6256,22 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // of their tick, so they run before the server-thread fallback ticks of this batch observe the
                 // written state.
                 failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-                failure = runBatchCompletion(failure, () -> this.tickFallbackEntities(batch));
-                failure = runBatchCompletion(failure, batch::runDeferredServerTasks);
+                final long fallbackStart = attribution ? System.nanoTime() : 0L;
+                try {
+                    failure = runBatchCompletion(failure, () -> this.tickFallbackEntities(batch));
+                } finally {
+                    if (attribution) {
+                        RegionEntityTickAttribution.recordFallbacks(System.nanoTime() - fallbackStart);
+                    }
+                }
+                final long deferredTasksStart = attribution ? System.nanoTime() : 0L;
+                try {
+                    failure = runBatchCompletion(failure, batch::runDeferredServerTasks);
+                } finally {
+                    if (attribution) {
+                        RegionEntityTickAttribution.recordDeferredTasks(System.nanoTime() - deferredTasksStart);
+                    }
+                }
                 // The ownership publication is timed on its own inside the handoff, so the cost of the
                 // deferred ownership handoff is separable from the fallback entity ticks that share the
                 // handoff segment.

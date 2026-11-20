@@ -5,10 +5,13 @@
 
 package net.neoforged.neoforge.server.threading.region;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import net.minecraft.advancements.CriterionTrigger;
 import net.minecraft.advancements.critereon.SimpleCriterionTrigger;
 import org.jetbrains.annotations.ApiStatus;
@@ -30,22 +33,106 @@ public final class PlayerCriterionListeners {
     private long revision;
     private volatile long generation;
 
+    /** HashSet that bumps the owning storage revision on every direct mutation, including iterator.remove(). */
+    private final class TrackedListenerSet<E> extends HashSet<E> {
+        @Override
+        public boolean add(E element) {
+            if (super.add(element)) {
+                PlayerCriterionListeners.this.revision++;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean remove(Object object) {
+            if (super.remove(object)) {
+                PlayerCriterionListeners.this.revision++;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public void clear() {
+            if (!this.isEmpty()) {
+                super.clear();
+                PlayerCriterionListeners.this.revision++;
+            }
+        }
+
+        @Override
+        public boolean addAll(Collection<? extends E> collection) {
+            boolean modified = false;
+            for (E element : collection) {
+                if (super.add(element)) {
+                    modified = true;
+                }
+            }
+            if (modified) PlayerCriterionListeners.this.revision++;
+            return modified;
+        }
+
+        @Override
+        public boolean removeAll(Collection<?> collection) {
+            if (super.removeAll(collection)) {
+                PlayerCriterionListeners.this.revision++;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> collection) {
+            if (super.retainAll(collection)) {
+                PlayerCriterionListeners.this.revision++;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean removeIf(Predicate<? super E> filter) {
+            if (super.removeIf(filter)) {
+                PlayerCriterionListeners.this.revision++;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public Iterator<E> iterator() {
+            final Iterator<E> delegate = super.iterator();
+            return new Iterator<>() {
+                @Override
+                public boolean hasNext() {
+                    return delegate.hasNext();
+                }
+
+                @Override
+                public E next() {
+                    return delegate.next();
+                }
+
+                @Override
+                public void remove() {
+                    delegate.remove();
+                    PlayerCriterionListeners.this.revision++;
+                }
+            };
+        }
+    }
+
     /** Frozen registration identities for the unstarted invocation check; never used to execute criteria. */
     static final class Snapshot {
         private final long revision;
         private final long generation;
-        private final Map<SimpleCriterionTrigger<?>, Set<?>> sets = new IdentityHashMap<>();
-        private final Map<SimpleCriterionTrigger<?>, Set<Object>> members = new IdentityHashMap<>();
+        private final Map<SimpleCriterionTrigger<?>, Set<?>> sets;
 
         private Snapshot(PlayerCriterionListeners storage) {
             this.revision = storage.revision;
             this.generation = storage.generation;
-            storage.listeners.forEach((trigger, set) -> {
-                this.sets.put(trigger, set);
-                Set<Object> identities = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-                identities.addAll(set);
-                this.members.put(trigger, identities);
-            });
+            this.sets = storage.listeners.isEmpty() ? Map.of() : new IdentityHashMap<>(storage.listeners);
         }
 
         boolean empty(SimpleCriterionTrigger<?> trigger) {
@@ -65,15 +152,9 @@ public final class PlayerCriterionListeners {
     }
 
     // Only the plan's pre-body check uses this. Calling get()/revision() on a native worker still
-    // requires the active owner scope. Raw original HashSet mutations must also invalidate capture.
+    // requires the active owner scope. TrackedListenerSet bumps revision on direct HashSet mutations too.
     boolean matches(Snapshot snapshot) {
-        if (this.revision != snapshot.revision || this.generation != snapshot.generation || this.listeners.size() != snapshot.sets.size()) return false;
-        for (var entry : snapshot.sets.entrySet()) {
-            Set<?> current = this.listeners.get(entry.getKey());
-            Set<Object> members = snapshot.members.get(entry.getKey());
-            if (current != entry.getValue() || current.size() != members.size() || !current.stream().allMatch(members::contains)) return false;
-        }
-        return true;
+        return this.revision == snapshot.revision && this.generation == snapshot.generation;
     }
 
     public long revision() {
@@ -121,7 +202,7 @@ public final class PlayerCriterionListeners {
         check();
         Set<CriterionTrigger.Listener<T>> set = this.get(trigger);
         if (set == null) {
-            set = new HashSet<>();
+            set = new TrackedListenerSet<>();
             this.listeners.put(trigger, set);
         }
         set.add(listener);

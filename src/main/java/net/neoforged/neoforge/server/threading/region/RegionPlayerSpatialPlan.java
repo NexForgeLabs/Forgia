@@ -674,7 +674,7 @@ public final class RegionPlayerSpatialPlan {
                 && identity.uuid().equals(entity.getUUID()) && identity.entityId() == entity.getId();
     }
 
-    private static Refusal intrinsicRefusal(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase, boolean checkInventory) {
+    static Refusal intrinsicRefusal(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase, boolean checkInventory) {
         return intrinsicRefusal(player, phase, checkInventory, true);
     }
 
