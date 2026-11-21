@@ -11,6 +11,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -129,6 +132,12 @@ abstract class RegionTickBatch {
      * submission is observable instead of being counted as worker time.
      */
     private long submitNanos;
+    @Nullable
+    private RegionSliceCriticalPathMetrics criticalPathMetrics;
+    private final AtomicLong maxGroupNanos = new AtomicLong();
+    private final AtomicLong sumGroupNanos = new AtomicLong();
+    private final AtomicInteger timedGroupCount = new AtomicInteger();
+    private final AtomicReference<String> slowestRegionId = new AtomicReference<>();
 
     RegionTickBatch(ServerLevel level, RegionTickSlice slice, int blockUpdateEntryBudget) {
         this.level = level;
@@ -248,9 +257,44 @@ abstract class RegionTickBatch {
         }
     }
 
+    private boolean callerRunsEnabled;
+
+    final void enableCallerRuns(boolean enabled) {
+        this.callerRunsEnabled = enabled;
+    }
+
+    final void attachCriticalPathMetrics(@Nullable RegionSliceCriticalPathMetrics metrics) {
+        this.criticalPathMetrics = metrics;
+    }
+
+    private void recordGroupTiming(RegionState region, long elapsedNanos) {
+        this.sumGroupNanos.addAndGet(elapsedNanos);
+        this.timedGroupCount.incrementAndGet();
+        long prev;
+        do {
+            prev = this.maxGroupNanos.get();
+            if (elapsedNanos <= prev) {
+                return;
+            }
+        } while (!this.maxGroupNanos.compareAndSet(prev, elapsedNanos));
+        this.slowestRegionId.set(region.coordinate().toString());
+    }
+
     final void addTask(RegionState region, String description, Runnable work) {
+        final RegionSliceCriticalPathMetrics cpMetrics = this.criticalPathMetrics;
         if (this.dispatchTopology == null) {
-            this.tasks.add(description, work);
+            if (cpMetrics == null) {
+                this.tasks.add(description, work);
+            } else {
+                this.tasks.add(description, () -> {
+                    final long start = System.nanoTime();
+                    try {
+                        work.run();
+                    } finally {
+                        this.recordGroupTiming(region, Math.max(0L, System.nanoTime() - start));
+                    }
+                });
+            }
         } else {
             final var costs = region.dispatchCosts();
             final int sliceIndex = this.slice.ordinal();
@@ -262,6 +306,9 @@ abstract class RegionTickBatch {
                 } finally {
                     final long elapsed = Math.clamp(System.nanoTime() - start, 1L, 1_000_000_000L);
                     costs.updateAndGet(sliceIndex, estimate -> estimate == 0L ? elapsed : (3L * estimate + elapsed + 2L) / 4L);
+                    if (cpMetrics != null) {
+                        this.recordGroupTiming(region, elapsed);
+                    }
                 }
             });
         }
@@ -628,11 +675,12 @@ abstract class RegionTickBatch {
         if (this.dispatchTopology != null && executor instanceof RegionWorkerPool pool) {
             this.tasks.groupByLoadedIsland(this.dispatchTopology, pool.threadCount());
         }
-        this.tasks.submitOpen(executor, this.groupBarrier);
+        final RegionWorkStealingDispatcher dispatcher = this.tasks.submitOpenWithDispatcher(executor, this.groupBarrier);
         this.groupBarrier.setupComplete();
         this.submitNanos = System.nanoTime() - submitStart;
         Throwable barrierFailure = null;
         this.groupBarrier.setWaiter(Thread.currentThread());
+        final boolean allowCallerRuns = this.callerRunsEnabled && this.spawnAdmissions == null && dispatcher != null;
         try {
             // The batch-aware barrier services the main-thread handoffs of the workers in addition to the
             // chunk source tasks the level barrier already pumps. The MinecraftServer task queue is not
@@ -644,6 +692,10 @@ abstract class RegionTickBatch {
                     }
                     this.runPendingMainThreadWork();
                     this.pumpSpawnAdmissions();
+                    if (allowCallerRuns && !this.groupBarrier.isComplete()) {
+                        dispatcher.stealOne();
+                        this.runPendingMainThreadWork();
+                    }
                     return this.groupBarrier.isComplete();
                 });
             }
@@ -662,6 +714,15 @@ abstract class RegionTickBatch {
             this.awaitEndNanos = awaitEnd;
             RegionBarrierAttribution.recordBatch(this.slice, submitStart, awaitEnd, this.submitNanos,
                     this.firstGroupStartNanos.get(), this.lastGroupEndNanos.get(), this.tasks.groupCount());
+            if (this.criticalPathMetrics != null && this.tasks.groupCount() > 0) {
+                this.criticalPathMetrics.recordBatch(
+                        this.slice,
+                        awaitEnd - submitStart,
+                        this.maxGroupNanos.get(),
+                        this.sumGroupNanos.get(),
+                        this.timedGroupCount.get(),
+                        this.slowestRegionId.get());
+            }
         }
         if (barrierFailure != null) {
             if (barrierFailure instanceof RuntimeException runtimeException) {

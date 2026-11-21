@@ -85,4 +85,28 @@ final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.regionThreadingOwnershipViolationMode.get()
                 : ForgiaConfig.SERVER.regionThreadingOwnershipViolationMode.getDefault();
     }
+
+    static boolean callerRunsEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableRegionThreadingCallerRuns.get()
+                : ForgiaConfig.SERVER.enableRegionThreadingCallerRuns.getDefault();
+    }
+
+    static boolean parallelBorderFixpointEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableRegionThreadingParallelBorderFixpoint.get()
+                : ForgiaConfig.SERVER.enableRegionThreadingParallelBorderFixpoint.getDefault();
+    }
+
+    static boolean canonicalFenceTailEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableCanonicalFenceTail.get()
+                : ForgiaConfig.SERVER.enableCanonicalFenceTail.getDefault();
+    }
+
+    static boolean fusedSlicesEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableRegionThreadingFusedSlices.get()
+                : ForgiaConfig.SERVER.enableRegionThreadingFusedSlices.getDefault();
+    }
 }

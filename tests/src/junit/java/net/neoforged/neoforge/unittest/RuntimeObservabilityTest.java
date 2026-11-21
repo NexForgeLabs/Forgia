@@ -31,8 +31,12 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.server.command.ForgiaCommand;
 import net.neoforged.neoforge.server.threading.RegionThreadingManager;
+import net.neoforged.neoforge.server.threading.region.RegionBottleneckAnalysis;
+import net.neoforged.neoforge.server.threading.region.RegionTickSnapshot;
+import net.neoforged.neoforge.server.threading.region.RegionTickStatus;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
 import net.neoforged.neoforge.server.threading.region.RuntimeObservability;
+import net.neoforged.neoforge.server.threading.region.RuntimeRegionSnapshot;
 import net.neoforged.neoforge.server.threading.region.RuntimeTickHistory;
 import net.neoforged.neoforge.server.threading.region.WorkerRuntimeSnapshot;
 import org.junit.jupiter.api.AfterEach;
@@ -355,5 +359,39 @@ class RuntimeObservabilityTest {
         assertTrue(lines.getFirst().contains("N/A"));
         engine.clearLevelRegionTasks(level);
         assertEquals(0, engine.runtimeRegionSnapshots().size());
+    }
+
+    @Test
+    void regionBottleneckAnalysisComputesPerRegionTpsAndIdentifiesDraggingRegion() {
+        final var globalHealthy = new RuntimeTickHistory.Summary(10, 100, 12.0, 10.0, 15.0, 18.0, 20.0, 12.0, 20.0, 0, 100, 0, 10.0, false);
+        final var lightRegion = snapshot("minecraft:overworld", 0, 0, 2.0, 20.0, 10, 16);
+        final var healthy = RegionBottleneckAnalysis.analyze(globalHealthy, List.of(lightRegion), 50, 50, 4);
+        assertEquals(RegionBottleneckAnalysis.BottleneckType.HEALTHY, healthy.verdict());
+        assertEquals(20.0, healthy.topRegion().capacityTps(), 1e-6);
+
+        final var globalRegionLag = new RuntimeTickHistory.Summary(10, 100, 85.0, 80.0, 95.0, 100.0, 110.0, 85.0, 11.76, 100, 100, 100, 10.0, false);
+        final var slowRegion = snapshot("minecraft:overworld", -19, -27, 75.0, 11.76, 248, 64);
+        final var regionDom = RegionBottleneckAnalysis.analyze(globalRegionLag, List.of(lightRegion, slowRegion), 50, 50, 4);
+        assertEquals(RegionBottleneckAnalysis.BottleneckType.REGION_DOMINATED, regionDom.verdict());
+        assertEquals("minecraft:overworld@-19,-27", regionDom.topRegion().id());
+        assertEquals(1000.0 / 75.0, regionDom.topRegion().capacityTps(), 1e-6);
+        assertTrue(regionDom.summary().contains("minecraft:overworld@-19,-27"));
+
+        final var globalMixedLag = new RuntimeTickHistory.Summary(10, 100, 68.3, 68.0, 81.6, 88.4, 91.4, 63.5, 14.3, 100, 100, 100, 10.0, false);
+        final var hotspotRegion = snapshot("minecraft:overworld", -19, -27, 25.05, 14.3, 248, 64);
+        final var mixed = RegionBottleneckAnalysis.analyze(globalMixedLag, List.of(lightRegion, hotspotRegion), 50, 50, 4);
+        assertEquals(RegionBottleneckAnalysis.BottleneckType.MIXED_REGION_AND_MAIN, mixed.verdict());
+        assertEquals(20.0, mixed.topRegion().capacityTps(), 1e-6);
+        assertEquals(14.3, mixed.topRegion().observedTps(), 1e-6);
+        assertTrue(mixed.estimatedSerialAndMainMs() > 40.0);
+
+        final var globalMainLag = new RuntimeTickHistory.Summary(10, 100, 65.0, 64.0, 72.0, 75.0, 80.0, 65.0, 15.38, 100, 100, 100, 10.0, false);
+        final var mainOnly = RegionBottleneckAnalysis.analyze(globalMainLag, List.of(lightRegion), 50, 50, 4);
+        assertEquals(RegionBottleneckAnalysis.BottleneckType.MAIN_THREAD_SERIAL, mainOnly.verdict());
+    }
+
+    private static RuntimeRegionSnapshot snapshot(String dim, int x, int z, double avgMs, double observedTps, int entities, int chunks) {
+        final var ticks = new RegionTickSnapshot(x, z, dim, 50, avgMs, avgMs * 1.1, avgMs * 1.2, avgMs * 1.3, avgMs, observedTps, 0, RegionTickStatus.OK);
+        return new RuntimeRegionSnapshot(ticks, avgMs, 50, 0, 0L, (long) (avgMs * 1_000_000L * 50), 0, 50, chunks, entities, 0, 0, 0, 0, "READY", false, true);
     }
 }

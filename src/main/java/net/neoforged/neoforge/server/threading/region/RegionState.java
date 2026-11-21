@@ -44,6 +44,7 @@ final class RegionState {
     private final RegionTickTimer tickTimer = new RegionTickTimer(System.nanoTime());
     private final RegionTickMetrics tickMetrics = new RegionTickMetrics();
     private volatile AtomicLongArray dispatchCosts;
+    private volatile RegionOverloadState overloadState;
     long cachedPlayerChunksGeneration = Long.MIN_VALUE;
     @Nullable
     it.unimi.dsi.fastutil.longs.Long2ObjectMap<net.minecraft.world.level.chunk.LevelChunk> cachedPlayerChunks;
@@ -495,6 +496,27 @@ final class RegionState {
             }
             return this.dispatchCosts;
         }
+    }
+
+    @Nullable
+    AtomicLongArray dispatchCostsOrNull() {
+        return this.dispatchCosts;
+    }
+
+    RegionOverloadState overloadState() {
+        RegionOverloadState state = this.overloadState;
+        if (state != null) return state;
+        synchronized (this) {
+            if (this.overloadState == null) {
+                this.overloadState = new RegionOverloadState();
+            }
+            return this.overloadState;
+        }
+    }
+
+    @Nullable
+    RegionOverloadState overloadStateOrNull() {
+        return this.overloadState;
     }
 
     RegionTickMetrics tickMetrics() {

@@ -71,12 +71,12 @@ import net.neoforged.neoforge.server.threading.RegionThreadingContext;
 import net.neoforged.neoforge.server.threading.RegionThreadingHooks;
 import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter.Access;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.AdapterDescriptor;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Inspection;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Outcome;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Refresh;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Resources;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.AdapterDescriptor;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Inspection;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Outcome;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Refresh;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Resources;
 import net.neoforged.neoforge.server.threading.api.BlockEntityOperations;
 import net.neoforged.neoforge.server.threading.api.ScheduledTickStatus;
 import net.neoforged.neoforge.server.timings.TimeTracker;
@@ -197,6 +197,19 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final boolean chunkTickWorkerExecutionEnabled;
     private final RegionChunkTickCoordinator chunkTickCoordinator;
     private final RegionDiagnosticsCollector diagnosticsCollector;
+    private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
+    private final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
+    private final RegionOverloadGovernor.Config overloadConfig;
+    @Nullable
+    private final RegionOverloadGovernor overloadGovernor;
+    private volatile boolean callerRunsEnabled;
+    private volatile boolean parallelBorderFixpointEnabled;
+    private volatile boolean canonicalFenceTailEnabled;
+    private final FusedRegionTickSession fusedSession = new FusedRegionTickSession();
+    private volatile boolean fusedSlicesEnabled;
+    private volatile boolean activeFusedBatch;
+    @Nullable
+    private it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> activeCanonicalBeRegionCosts;
     private volatile boolean spawnWorkerExecutionEnabled;
     /**
      * Whether a slice leases several regions into one worker task. Off means one task per region, exactly like
@@ -1109,6 +1122,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.spawnWorkerExecutionEnabled = ticks.spawning();
         this.packedRegionLeasesEnabled = workers.packedRegionLeases();
         this.entityStorageMode = options.entityStorageMode();
+        this.overloadConfig = options.overload();
+        this.overloadGovernor = this.overloadConfig.enabled() && this.layout.isDynamicCluster()
+                ? new RegionOverloadGovernor(this.overloadConfig)
+                : null;
         this.chunkTickCoordinator = new RegionChunkTickCoordinator(new ChunkTickHost());
         this.diagnosticsCollector = new RegionDiagnosticsCollector(
                 new RegionDiagnosticsCollector.BorderSources(
@@ -1927,6 +1944,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void endLevelTick(ServerLevel level) {
+        this.flushStagedFusedChunks(level);
         final LevelTickPhaseState state = this.levelTickPhases.get(level);
         if (state != null) {
             state.endGlobalPhase();
@@ -2220,6 +2238,12 @@ public final class RegionThreadingEngine implements RegionThreading {
         Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> reruns = invalidated;
         if (!reruns.isEmpty()) {
             this.foreignReadInvalidatedPasses.incrementAndGet();
+            if (this.activeFusedBatch) {
+                final long gameTime = level.getGameTime();
+                for (final RegionState invalidatedRegion : reruns.keySet()) {
+                    this.fusedSession.recordForeignReadInvalidation(invalidatedRegion.coordinate(), gameTime);
+                }
+            }
         }
         List<RegionBorderUpdates.BorderUpdate> nextPending = pending;
         while ((!nextPending.isEmpty() || !reruns.isEmpty()) && passes < budget && applied < budget) {
@@ -2238,23 +2262,71 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
             reruns = new java.util.LinkedHashMap<>();
             final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> ranThisPass = new java.util.LinkedHashMap<>();
-            for (final Map.Entry<RegionState, List<RegionBorderUpdates.BorderUpdate>> entry : byRegion.entrySet()) {
-                final List<RegionBorderUpdates.BorderUpdate> regionUpdates = entry.getValue();
-                if (applied >= budget) {
-                    deferred.addAll(regionUpdates);
-                    continue;
+            final boolean useParallelFirstPass = passes == 1
+                    && byRegion.size() > 1
+                    && (this.parallelBorderFixpointEnabled || RegionThreadingConfig.parallelBorderFixpointEnabled());
+            if (useParallelFirstPass) {
+                final List<List<RegionState>> colorWaves = RegionAdjacencyColoring.color(byRegion.keySet(), RegionState::coordinate);
+                for (final List<RegionState> wave : colorWaves) {
+                    final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> wavePayloads = new java.util.LinkedHashMap<>();
+                    for (final RegionState region : wave) {
+                        final List<RegionBorderUpdates.BorderUpdate> regionUpdates = byRegion.get(region);
+                        if (applied >= budget) {
+                            deferred.addAll(regionUpdates);
+                            continue;
+                        }
+                        final int allowed = Math.min(regionUpdates.size(), budget - applied);
+                        final List<RegionBorderUpdates.BorderUpdate> apply = regionUpdates.subList(0, allowed);
+                        if (allowed < regionUpdates.size()) {
+                            deferred.addAll(regionUpdates.subList(allowed, regionUpdates.size()));
+                        }
+                        applied += apply.size();
+                        wavePayloads.put(region, apply);
+                    }
+                    if (wavePayloads.isEmpty()) {
+                        continue;
+                    }
+                    if (wavePayloads.size() == 1) {
+                        final var single = wavePayloads.entrySet().iterator().next();
+                        if (this.runBorderPropagationPass(level, single.getKey(), single.getValue(), barrier)) {
+                            this.borderUpdateRegionsRerun.incrementAndGet();
+                            ranThisPass.put(single.getKey(), single.getValue());
+                        } else {
+                            applied -= single.getValue().size();
+                            deferred.addAll(single.getValue());
+                        }
+                    } else {
+                        final Set<RegionState> leased = this.runParallelBorderPropagationWave(level, wavePayloads, barrier);
+                        for (final var entry : wavePayloads.entrySet()) {
+                            if (leased.contains(entry.getKey())) {
+                                this.borderUpdateRegionsRerun.incrementAndGet();
+                                ranThisPass.put(entry.getKey(), entry.getValue());
+                            } else {
+                                applied -= entry.getValue().size();
+                                deferred.addAll(entry.getValue());
+                            }
+                        }
+                    }
                 }
-                final int allowed = Math.min(regionUpdates.size(), budget - applied);
-                final List<RegionBorderUpdates.BorderUpdate> apply = regionUpdates.subList(0, allowed);
-                if (allowed < regionUpdates.size()) {
-                    deferred.addAll(regionUpdates.subList(allowed, regionUpdates.size()));
-                }
-                if (this.runBorderPropagationPass(level, entry.getKey(), apply, barrier)) {
-                    applied += apply.size();
-                    this.borderUpdateRegionsRerun.incrementAndGet();
-                    ranThisPass.put(entry.getKey(), apply);
-                } else {
-                    deferred.addAll(apply);
+            } else {
+                for (final Map.Entry<RegionState, List<RegionBorderUpdates.BorderUpdate>> entry : byRegion.entrySet()) {
+                    final List<RegionBorderUpdates.BorderUpdate> regionUpdates = entry.getValue();
+                    if (applied >= budget) {
+                        deferred.addAll(regionUpdates);
+                        continue;
+                    }
+                    final int allowed = Math.min(regionUpdates.size(), budget - applied);
+                    final List<RegionBorderUpdates.BorderUpdate> apply = regionUpdates.subList(0, allowed);
+                    if (allowed < regionUpdates.size()) {
+                        deferred.addAll(regionUpdates.subList(allowed, regionUpdates.size()));
+                    }
+                    if (this.runBorderPropagationPass(level, entry.getKey(), apply, barrier)) {
+                        applied += apply.size();
+                        this.borderUpdateRegionsRerun.incrementAndGet();
+                        ranThisPass.put(entry.getKey(), apply);
+                    } else {
+                        deferred.addAll(apply);
+                    }
                 }
             }
             // A region whose propagation read a foreign chunk that changed under the read re-runs in the next
@@ -2269,6 +2341,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                 passInvalidated = true;
                 reruns.put(entry.getKey(), payload);
                 this.foreignReadRegionReruns.incrementAndGet();
+                if (this.activeFusedBatch) {
+                    this.fusedSession.recordForeignReadInvalidation(entry.getKey().coordinate(), level.getGameTime());
+                }
             }
             if (passInvalidated) {
                 this.foreignReadInvalidatedPasses.incrementAndGet();
@@ -2498,6 +2573,56 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         batch.throwIfFailed();
         return ran;
+    }
+
+    /**
+     * Runs one graph-colored wave of mutually non-adjacent border-propagation regions in parallel within a single
+     * {@link RegionBorderPropagationBatch} and barrier. Returns the subset of regions that were leased and executed.
+     */
+    private Set<RegionState> runParallelBorderPropagationWave(
+            ServerLevel level,
+            Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> wavePayloads,
+            RegionTickBarrier barrier) {
+        final RegionBorderPropagationBatch batch = new RegionBorderPropagationBatch(level, this.deferredBlockUpdateBudget);
+        final TickBatchPublication publication = this.publishTickBatch(batch, level);
+        if (publication != TickBatchPublication.PUBLISHED) {
+            return Set.of();
+        }
+        batch.markExecutingOnCurrentThread();
+        final Set<RegionState> leased = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        Throwable failure = null;
+        try {
+            for (final RegionState region : RegionLeasePack.canonicalOrder(wavePayloads.keySet())) {
+                if (this.acquireRegionLease(region, barrier)) {
+                    leased.add(region);
+                    final List<RegionBorderUpdates.BorderUpdate> updates = wavePayloads.get(region);
+                    this.addLeasedGroup(region, () -> batch.addGroup(region, this.borderPropagationGroup(batch, region, updates)));
+                }
+            }
+            if (!leased.isEmpty()) {
+                this.beginRegionPhase(level);
+                try {
+                    batch.submitAndAwait(this.workerPool, barrier);
+                } catch (Throwable throwable) {
+                    failure = throwable;
+                } finally {
+                    this.endRegionPhase(level);
+                }
+            }
+        } catch (Throwable throwable) {
+            failure = accumulateFailure(failure, throwable);
+        } finally {
+            failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
+            failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
+            batch.finish();
+            this.activeTickBatches.remove(batch);
+            batch.clearExecutingOnCurrentThread();
+        }
+        if (failure != null) {
+            throwUnchecked(failure);
+        }
+        batch.throwIfFailed();
+        return leased;
     }
 
     /**
@@ -3533,14 +3658,64 @@ public final class RegionThreadingEngine implements RegionThreading {
      * back to the server thread the same way.
      */
     void tickSelfDrivenEntities(ServerLevel level, RegionTickBarrier barrier) {
+        FusedRegionTickSession.PendingChunkWork pendingChunks = this.fusedSession.takeStagedChunks(level);
         final List<RegionState> regions = new ArrayList<>();
         this.regionizer.collectActiveEntityTickRegions(level, regions);
         if (regions.isEmpty()) {
+            if (pendingChunks != null) {
+                this.fusedSession.recordEarlyFlush();
+                this.chunkTickCoordinator.executeAndAwait(level, pendingChunks.chunks(), pendingChunks.randomTickSpeed(), pendingChunks.barrier());
+            }
             return;
         }
 
-        final RegionEntityTickBatch batch = new RegionEntityTickBatch(level, this.deferredBlockUpdateBudget);
-        if (this.tryDispatchPlayerOnlyLevel(level, regions, batch)) {
+        if (pendingChunks != null) {
+            long totalEntities = 0L;
+            for (final RegionState region : regions) {
+                totalEntities += region.tickingEntityCount();
+            }
+            final long neededBudget = (long) pendingChunks.chunks().size() * RegionTickSlice.CHUNK_TICK.reservationPerUnit()
+                    + totalEntities * RegionTickSlice.ENTITY_TICK.reservationPerUnit();
+            if (neededBudget > this.deferredBlockUpdateBudget) {
+                this.fusedSession.recordBudgetFallback();
+                this.chunkTickCoordinator.executeAndAwait(level, pendingChunks.chunks(), pendingChunks.randomTickSpeed(), pendingChunks.barrier());
+                pendingChunks = null;
+            }
+        }
+
+        Map<RegionState, List<RegionChunkTickEntry>> chunksByRegion = null;
+        if (pendingChunks != null) {
+            final long gameTime = level.getGameTime();
+            chunksByRegion = new java.util.IdentityHashMap<>();
+            final List<RegionChunkTickEntry> nonFusableChunks = new ArrayList<>();
+            for (final RegionChunkTickEntry entry : pendingChunks.chunks()) {
+                final RegionState region = this.regionizer.getOrCreate(entry.region(this.layout, level));
+                if (region == null || region.isDead()) {
+                    nonFusableChunks.add(entry);
+                } else if (this.shouldSkipOverloadedRegion(level, region)) {
+                    this.skippedChunkTicks.incrementAndGet();
+                } else if (this.fusedSession.isNonFusable(region.coordinate(), gameTime)) {
+                    nonFusableChunks.add(entry);
+                } else {
+                    chunksByRegion.computeIfAbsent(region, ignored -> new ArrayList<>()).add(entry);
+                }
+            }
+            if (!nonFusableChunks.isEmpty()) {
+                this.chunkTickCoordinator.executeAndAwait(level, nonFusableChunks, pendingChunks.randomTickSpeed(), pendingChunks.barrier());
+            }
+            if (chunksByRegion.isEmpty()) {
+                pendingChunks = null;
+                chunksByRegion = null;
+            }
+        }
+
+        final FusedRegionTickBatch fusedBatch = pendingChunks != null
+                ? new FusedRegionTickBatch(level, pendingChunks.randomTickSpeed(), this.deferredBlockUpdateBudget)
+                : null;
+        final RegionEntityTickBatch batch = fusedBatch != null
+                ? fusedBatch
+                : new RegionEntityTickBatch(level, this.deferredBlockUpdateBudget);
+        if (fusedBatch == null && this.tryDispatchPlayerOnlyLevel(level, regions, batch)) {
             return;
         }
         // The chunk-load answers are shared by every region of the pass and by every following pass of the
@@ -3552,6 +3727,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         final boolean hasMailbox = this.mailboxes.containsKey(level);
         final List<RegionEntityTickActivation> activations = new ArrayList<>(regions.size());
         for (final RegionState region : regions) {
+            if (this.shouldSkipOverloadedRegion(level, region)) {
+                this.skippedEntityTicks.addAndGet(region.tickingEntityCount());
+                continue;
+            }
             if (!hasMailbox && this.collectServerThreadOnlyRegion(batch, region)) {
                 continue;
             }
@@ -3572,7 +3751,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             activations.add(activation);
         }
         RegionEntityTickAttribution.endPlanSegment();
-        if (activations.isEmpty()) {
+        if (activations.isEmpty() && fusedBatch == null) {
             // Every region was handed to the server thread: no batch has to be published for this tick.
             this.tickSelfDrivenFallbacks(batch);
             return;
@@ -3586,6 +3765,11 @@ public final class RegionThreadingEngine implements RegionThreading {
             for (final RegionEntityTickActivation activation : activations) {
                 this.skippedEntityTicks.addAndGet(activation.region().tickingEntityCount());
             }
+            if (chunksByRegion != null) {
+                for (final List<RegionChunkTickEntry> c : chunksByRegion.values()) {
+                    this.skippedChunkTicks.addAndGet(c.size());
+                }
+            }
             return;
         }
         if (publication == TickBatchPublication.SHUTDOWN) {
@@ -3593,24 +3777,61 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.addRegionFallback(batch, activation.region());
             }
             this.tickSelfDrivenFallbacks(batch);
+            if (chunksByRegion != null && pendingChunks != null) {
+                for (final List<RegionChunkTickEntry> c : chunksByRegion.values()) {
+                    for (final RegionChunkTickEntry entry : c) {
+                        this.tickChunkOnServerThread(level, entry, pendingChunks.randomTickSpeed());
+                    }
+                }
+            }
             return;
         }
         batch.markExecutingOnCurrentThread();
         final boolean attribution = RegionEntityTickAttribution.isEnabled();
         Throwable failure = null;
+        int fusedRegionCount = 0;
         try {
             final long leaseStart = attribution ? System.nanoTime() : 0L;
             try {
                 for (final RegionEntityTickActivation activation : activations) {
                     final RegionState region = activation.region();
+                    final List<RegionChunkTickEntry> regionChunks = chunksByRegion != null ? chunksByRegion.remove(region) : null;
                     if (!this.acquireRegionLease(region, barrier)) {
                         this.fallbackEntityTickRegions.incrementAndGet();
                         this.addRegionFallback(batch, region);
+                        if (fusedBatch != null && regionChunks != null) {
+                            fusedBatch.addFallbackChunks(regionChunks);
+                        }
                         continue;
                     }
                     this.entityTickRegionsOnWorkers.incrementAndGet();
-                    this.addLeasedGroup(region, () -> batch.addSelfDrivenGroup(activation,
-                            group -> this.withRegionMailboxDelivery(batch.level(), region, this.selfDrivenEntityTickGroup(group, activation))));
+                    if (fusedBatch != null && regionChunks != null && !regionChunks.isEmpty()) {
+                        ++fusedRegionCount;
+                        final int rts = fusedBatch.randomTickSpeed();
+                        this.addLeasedGroup(region, () -> batch.addSelfDrivenGroup(activation,
+                                group -> this.withRegionMailboxDelivery(batch.level(), region, () -> {
+                                    this.runFusedChunkStage(fusedBatch, region, group, regionChunks, rts, false);
+                                    this.selfDrivenEntityTickGroup(group, activation).run();
+                                })));
+                    } else {
+                        this.addLeasedGroup(region, () -> batch.addSelfDrivenGroup(activation,
+                                group -> this.withRegionMailboxDelivery(batch.level(), region, this.selfDrivenEntityTickGroup(group, activation))));
+                    }
+                }
+                if (fusedBatch != null && chunksByRegion != null && !chunksByRegion.isEmpty()) {
+                    final int rts = fusedBatch.randomTickSpeed();
+                    for (final var entry : chunksByRegion.entrySet()) {
+                        final RegionState region = entry.getKey();
+                        final List<RegionChunkTickEntry> regionChunks = entry.getValue();
+                        if (!this.acquireRegionLease(region, barrier)) {
+                            fusedBatch.addFallbackChunks(regionChunks);
+                            continue;
+                        }
+                        ++fusedRegionCount;
+                        this.addLeasedGroup(region, () -> fusedBatch.addChunkOnlyGroup(region,
+                                group -> this.withRegionMailboxDelivery(batch.level(), region,
+                                        () -> this.runFusedChunkStage(fusedBatch, region, group, regionChunks, rts, true))));
+                    }
                 }
             } catch (Throwable throwable) {
                 failure = throwable;
@@ -3620,6 +3841,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                 }
             }
             final long awaitStart = attribution ? System.nanoTime() : 0L;
+            if (fusedBatch != null) {
+                this.activeFusedBatch = true;
+            }
             try {
                 this.runRegionBatch(level, () -> batch.submitAndAwait(this.workerPool, barrier));
             } catch (Throwable throwable) {
@@ -3627,6 +3851,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                     failure = throwable;
                 }
             } finally {
+                if (fusedBatch != null) {
+                    this.activeFusedBatch = false;
+                    this.fusedSession.recordFusedBatch(fusedRegionCount);
+                }
                 if (attribution) {
                     RegionEntityTickAttribution.recordAwait(System.nanoTime() - awaitStart);
                 }
@@ -3652,6 +3880,16 @@ public final class RegionThreadingEngine implements RegionThreading {
                 // of their tick, so they run before the server-thread fallback ticks of this batch observe the
                 // written state.
                 failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
+                if (fusedBatch != null) {
+                    final FusedRegionTickBatch completedFused = fusedBatch;
+                    failure = runBatchCompletion(failure, () -> this.applyFusedChunkTickLightning(level, completedFused.lightningStrikes()));
+                    failure = runBatchCompletion(failure, () -> {
+                        for (final RegionChunkTickEntry fallbackChunk : completedFused.drainFallbackChunks()) {
+                            this.tickChunkOnServerThread(level, fallbackChunk, completedFused.randomTickSpeed());
+                        }
+                    });
+                    failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(completedFused.regionTickMutations()));
+                }
                 final long fallbackStart = attribution ? System.nanoTime() : 0L;
                 try {
                     failure = runBatchCompletion(failure, () -> this.tickSelfDrivenFallbacks(batch));
@@ -3690,6 +3928,99 @@ public final class RegionThreadingEngine implements RegionThreading {
             throwUnchecked(failure);
         }
         batch.throwIfFailed();
+    }
+
+    /**
+     * Executes the fused {@link RegionTickSlice#CHUNK_TICK} stage for one region inside a
+     * {@link FusedRegionTickBatch}. When {@code releaseLeaseWhenDone} is {@code false}, the caller
+     * immediately runs {@link #selfDrivenEntityTickGroup} under the same region lease and that stage
+     * releases {@code region.clearRunning()}.
+     */
+    private void runFusedChunkStage(
+            FusedRegionTickBatch batch,
+            RegionState region,
+            RegionOwnershipLeaseGroup group,
+            List<RegionChunkTickEntry> chunks,
+            int randomTickSpeed,
+            boolean releaseLeaseWhenDone) {
+        final RegionCoordinate coordinate = region.coordinate();
+        final ServerLevel level = batch.level();
+        final long start = System.nanoTime();
+        final int[] ticked = { 0 };
+        try {
+            region.beginOwnership();
+            this.currentRegionTickMutations.set(batch.regionTickMutations());
+            try {
+                final RegionEntityOwnershipScope ownership = RegionEntityOwnershipScope.open(coordinate, group);
+                try {
+                    final RegionNeighborUpdateScope previousNeighbors = RegionNeighborUpdateScope.enter(new RegionNeighborUpdateScope());
+                    try {
+                        this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), () -> {
+                            for (final RegionChunkTickEntry chunk : chunks) {
+                                if (!region.isOwnedByCurrentThread() || this.regionizer.isLevelClosed(level)) {
+                                    batch.addFallbackChunk(chunk);
+                                    continue;
+                                }
+                                final RandomSource random = chunk.random(level);
+                                this.currentChunkTickRandom.set(random);
+                                this.currentChunkTickPositionRandom.set(random);
+                                this.currentChunkTickLightning.set(batch.lightningStrikes());
+                                try {
+                                    level.tickChunk(chunk.chunk(), randomTickSpeed);
+                                    ++ticked[0];
+                                } catch (Throwable throwable) {
+                                    if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)) {
+                                        this.recordWorkerTickFailure(batch, coordinate, null, throwable);
+                                        return;
+                                    }
+                                    this.truncatedChunkTicks.incrementAndGet();
+                                } finally {
+                                    this.currentChunkTickLightning.remove();
+                                    this.currentChunkTickPositionRandom.remove();
+                                    this.currentChunkTickRandom.remove();
+                                }
+                            }
+                        });
+                    } finally {
+                        RegionNeighborUpdateScope.exit(previousNeighbors);
+                    }
+                } finally {
+                    ownership.close();
+                }
+            } finally {
+                this.currentRegionTickMutations.remove();
+            }
+        } finally {
+            region.endOwnership();
+            if (releaseLeaseWhenDone) {
+                region.clearRunning();
+            }
+            final long duration = System.nanoTime() - start;
+            region.tickMetrics().recordTick(duration);
+            if (this.layout.isDynamicCluster()) {
+                region.dispatchCosts().set(RegionTickSlice.CHUNK_TICK.ordinal(), duration);
+            }
+            RegionTickWatchdog.warnIfLongTick("fused chunk tick " + coordinate, duration);
+            this.chunkTicksOnWorkers.addAndGet(ticked[0]);
+            if (releaseLeaseWhenDone) {
+                this.regionizer.removeIfEmpty(region);
+            }
+        }
+    }
+
+    private void applyFusedChunkTickLightning(ServerLevel level, Queue<BlockPos> strikes) {
+        if (strikes.isEmpty()) {
+            return;
+        }
+        if (this.shutdown || this.regionizer.isLevelClosed(level)) {
+            strikes.clear();
+            return;
+        }
+        BlockPos rolled;
+        while ((rolled = strikes.poll()) != null) {
+            level.tickLightning(rolled);
+            this.chunkTickLightningStrikes.incrementAndGet();
+        }
     }
 
     /** In a player-only slice the ordinary worker groups would only collect the same fallbacks. */
@@ -5333,6 +5664,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         long waves, calls, groups, admissionNanos, leaseNanos, submitAndJoinNanos, workerBodyNanosSum, cleanupNanos;
         long workerWakeDelayNanos, validateLaneNanos, startGateWaitNanos, groupLoopNanos, barrierWakeNanos;
         long networkFreezeNanos, refusedBeforeCaptureNanos, serverTailNanos;
+        long preflightCalls, preflightRefusals, preflightNanos;
 
         Map<String, Long> snapshot() {
             var map = new java.util.LinkedHashMap<String, Long>();
@@ -5351,6 +5683,9 @@ public final class RegionThreadingEngine implements RegionThreading {
             map.put("barrierWakeNanos", barrierWakeNanos);
             map.put("networkFreezeNanos", networkFreezeNanos);
             map.put("refusedBeforeCaptureNanos", refusedBeforeCaptureNanos);
+            map.put("preflightCalls", preflightCalls);
+            map.put("preflightRefusals", preflightRefusals);
+            map.put("preflightNanos", preflightNanos);
             map.put("serverTailNanos", serverTailNanos);
             return Map.copyOf(map);
         }
@@ -5695,6 +6030,40 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) {
             throw new IllegalStateException("Player connection body tick requires the original server thread");
         }
+        if (!this.preparePlayerConnectionBody(player)) return false;
+        var call = new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, originalDoTick);
+        int consumed = this.dispatchPlayerPrefix(List.of(call));
+        if (consumed == 0) {
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    player.isPassenger() || !player.getPassengers().isEmpty()
+                            ? RegionPlayerTickCoordinator.Reason.RIDING
+                            : RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
+            return false;
+        }
+        if (call.failure != null) throwUnchecked(call.failure);
+        if (!call.started) {
+            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
+                    RegionPlayerTickCoordinator.Reason.STALE);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean preparePlayerConnectionBody(ServerPlayer player) {
+        var timing = this.playerPrefixTiming == null ? null : this.playerPrefixTiming[RegionPlayerTickCoordinator.Phase.CONNECTION_BODY.ordinal()];
+        if (timing == null) return checkPlayerConnectionBodyPreflight(player);
+        long start = System.nanoTime();
+        try {
+            boolean eligible = checkPlayerConnectionBodyPreflight(player);
+            if (!eligible) timing.preflightRefusals++;
+            return eligible;
+        } finally {
+            timing.preflightCalls++;
+            timing.preflightNanos += System.nanoTime() - start;
+        }
+    }
+
+    private boolean checkPlayerConnectionBodyPreflight(ServerPlayer player) {
         if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.connection == null) {
             this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
                     player instanceof net.neoforged.neoforge.common.util.FakePlayer
@@ -5723,21 +6092,6 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.playerAdmissionLastRefusal.put("CONNECTION_BODY", intrinsicRefusal.refusal() + ":" + intrinsicRefusal.detail());
             this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
                     RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
-            return false;
-        }
-        var call = new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, originalDoTick);
-        int consumed = this.dispatchPlayerPrefix(List.of(call));
-        if (consumed == 0) {
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    player.isPassenger() || !player.getPassengers().isEmpty()
-                            ? RegionPlayerTickCoordinator.Reason.RIDING
-                            : RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
-            return false;
-        }
-        if (call.failure != null) throwUnchecked(call.failure);
-        if (!call.started) {
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    RegionPlayerTickCoordinator.Reason.STALE);
             return false;
         }
         return true;
@@ -6156,6 +6510,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                     if (this.layout.isDynamicCluster()) {
                         batch.useLoadedIslandDispatch(this.dynamicTopologies.get(level));
                     }
+                    batch.enableCallerRuns(this.callerRunsEnabled || RegionThreadingConfig.callerRunsEnabled());
+                    batch.attachCriticalPathMetrics(this.criticalPathMetrics);
                     this.activeTickBatches.add(batch);
                     return TickBatchPublication.PUBLISHED;
                 }
@@ -6163,6 +6519,90 @@ public final class RegionThreadingEngine implements RegionThreading {
                 readLock.unlock();
             }
         }
+    }
+
+    /**
+     * Returns {@code true} when {@link #overloadGovernor} is active ({@code DYNAMIC_CLUSTER} + enabled) and
+     * decides to skip {@code region} on {@code level.getGameTime()}. All slices of {@code region} share a
+     * single cached decision per tick.
+     */
+    boolean shouldSkipOverloadedRegion(ServerLevel level, RegionState region) {
+        final RegionOverloadGovernor governor = this.overloadGovernor;
+        if (governor == null) {
+            return false;
+        }
+        boolean hasPlayers = false;
+        if (!governor.config().throttlePlayerRegions()) {
+            final RegionCoordinate target = region.coordinate();
+            for (final ServerPlayer player : level.players()) {
+                if (this.layout.regionAt(level, player.blockPosition()).equals(target)) {
+                    hasPlayers = true;
+                    break;
+                }
+            }
+        }
+        return governor.shouldSkip(level, region, hasPlayers);
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> boolean rescheduleThrottledScheduledTick(ServerLevel level, ScheduledTickPhase phase, ScheduledTick<T> tick, long targetGameTime) {
+        final long triggerTick = Math.max(level.getGameTime() + 1L, targetGameTime);
+        final ScheduledTick<T> rescheduled = new ScheduledTick<>(tick.type(), tick.pos(), triggerTick, tick.priority(), tick.subTickOrder());
+        if (phase == ScheduledTickPhase.BLOCK) {
+            final var blockTicks = level.getBlockTicks();
+            if (blockTicks == null) return false;
+            ((net.minecraft.world.ticks.LevelTicks<net.minecraft.world.level.block.Block>) blockTicks).schedule((ScheduledTick<net.minecraft.world.level.block.Block>) rescheduled);
+            return true;
+        }
+        final var fluidTicks = level.getFluidTicks();
+        if (fluidTicks == null) return false;
+        ((net.minecraft.world.ticks.LevelTicks<net.minecraft.world.level.material.Fluid>) fluidTicks).schedule((ScheduledTick<net.minecraft.world.level.material.Fluid>) rescheduled);
+        return true;
+    }
+
+    @ApiStatus.Internal
+    public List<RegionSliceCriticalPathMetrics.SliceSnapshot> criticalPathSnapshots() {
+        return this.criticalPathMetrics.snapshots();
+    }
+
+    @ApiStatus.Internal
+    public RegionFenceMetrics.Snapshot fenceMetricsSnapshot(int limit) {
+        return this.fenceMetrics.snapshot(limit);
+    }
+
+    @ApiStatus.Internal
+    public boolean isOverloadGovernorActive() {
+        return this.overloadGovernor != null;
+    }
+
+    @ApiStatus.Internal
+    public RegionOverloadGovernor.Config overloadGovernorConfig() {
+        return this.overloadConfig;
+    }
+
+    @ApiStatus.Internal
+    public List<RegionOverloadState.Snapshot> overloadRegionSnapshots() {
+        final List<RegionOverloadState.Snapshot> snapshots = new ArrayList<>();
+        for (final RegionState region : this.regionizer.regions()) {
+            final RegionOverloadState state = region.overloadStateOrNull();
+            if (state != null && (state.status() == RegionOverloadState.Status.THROTTLED || state.skippedTicks() > 0L)) {
+                snapshots.add(state.snapshot(region.coordinate().toString()));
+            }
+        }
+        snapshots.sort(Comparator.comparing((RegionOverloadState.Snapshot s) -> s.status() == RegionOverloadState.Status.THROTTLED ? 0 : 1)
+                .thenComparing(Comparator.comparingLong(RegionOverloadState.Snapshot::lastTotalCostNanos).reversed())
+                .thenComparing(RegionOverloadState.Snapshot::regionId));
+        return snapshots;
+    }
+
+    @ApiStatus.Internal
+    public boolean isFusedSlicesEnabled() {
+        return this.fusedSlicesEnabled || RegionThreadingConfig.fusedSlicesEnabled();
+    }
+
+    @ApiStatus.Internal
+    public FusedRegionTickSession.Snapshot fusedSliceSnapshot() {
+        return this.fusedSession.snapshot();
     }
 
     /**
@@ -6181,6 +6621,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * the server thread after the batch rather than being dropped.
      */
     void tickEntities(ServerLevel level, List<Entity> accepted, RegionTickBarrier barrier) {
+        this.flushStagedFusedChunks(level);
         if (accepted.isEmpty()) {
             return;
         }
@@ -6348,6 +6789,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final RegionState region = this.regionizer.regionFor(entity);
                 if (region == null || region.isDead()) {
                     retry.add(entity);
+                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)) {
+                    this.skippedEntityTicks.incrementAndGet();
                 } else {
                     grouping.add(region, entity);
                 }
@@ -6925,7 +7368,24 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (activation.isFrozen(entity)) {
             return false;
         }
-        entity.checkDespawn();
+        try {
+            entity.checkDespawn();
+        } catch (RegionWorkerBoundaryException boundary) {
+            // A mod listener on MobDespawnEvent (e.g. InControl reading DimensionDataStorage when its
+            // filtered despawn rule cache is cold) crossed a worker-forbidden boundary before the entity
+            // tick body started. Service checkDespawn() on the server thread immediately so any lazy
+            // global rule cache is populated for the rest of the batch; if servicing is unavailable,
+            // hand the entity back to the server-thread fallback pass.
+            try {
+                this.runOnServerThread(group.batch().level(), () -> {
+                    entity.checkDespawn();
+                    return null;
+                });
+            } catch (RuntimeException fallbackRequired) {
+                group.batch().addSelfDrivenFallback(entity);
+                return false;
+            }
+        }
         if (entity.isRemoved()) {
             return false;
         }
@@ -7447,7 +7907,6 @@ public final class RegionThreadingEngine implements RegionThreading {
         RegionBlockEntityTickBatch batch = null;
         RegionBlockEntityWorkGraph.Phase graph = null;
         boolean published = false;
-        BlockEntityAdapterPhase adapters = null;
         final List<BlockEntityExecutionAdapter> executionCleanup = new ArrayList<>();
         final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isFixed();
         final long resourcePhaseStart = furnaces && this.blockEntityResourcesEnabled ? System.nanoTime() : 0L;
@@ -7470,7 +7929,9 @@ public final class RegionThreadingEngine implements RegionThreading {
             } else {
                 published = true;
                 batch.markExecutingOnCurrentThread();
-                adapters = BlockEntityAdapterPhase.open(level, batch.execution());
+                if (this.layout.isDynamicCluster()) {
+                    this.activeCanonicalBeRegionCosts = new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>();
+                }
                 // Publish this same phase before any arbitrary prepare callback: unload/shutdown must
                 // await preparation too. Legacy adapter preparation still stays outside furnace waves;
                 // explicitly audited integrations use their own generic canonical preparation contract.
@@ -7484,7 +7945,15 @@ public final class RegionThreadingEngine implements RegionThreading {
                 boolean anyWorkerCandidate = this.coreModPreparation != null && this.blockEntityResourcesEnabled;
                 long lastSeq = -1L;
                 for (int c = 0; c < chunks.size(); ++c) {
-                    final List<RegionBlockEntityTickAdmission> admissions = chunks.get(c).admissions();
+                    final RegionBlockEntityTickChunk chunk = chunks.get(c);
+                    final List<RegionBlockEntityTickAdmission> admissions = chunk.admissions();
+                    if (this.overloadGovernor != null) {
+                        final RegionState chunkRegion = this.regionizer.get(chunk.region(this.layout, level));
+                        if (chunkRegion != null && !chunkRegion.isDead() && this.shouldSkipOverloadedRegion(level, chunkRegion)) {
+                            this.skippedBlockEntityTicks.addAndGet(admissions.size());
+                            continue;
+                        }
+                    }
                     for (int a = 0; a < admissions.size(); ++a) {
                         final RegionBlockEntityTickAdmission adm = admissions.get(a);
                         final long seq = adm.sequence();
@@ -7504,14 +7973,13 @@ public final class RegionThreadingEngine implements RegionThreading {
                 }
                 final var phase = batch;
                 final var sample = graph;
-                final var general = adapters;
                 if (!anyWorkerCandidate) {
                     for (int i = 0, size = ordered.size(); i < size; ++i) {
                         final var admission = ordered.get(i);
                         phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
                         if (furnaces) this.furnaceWorkMetrics.serial();
                         this.fallbackBlockEntityTicks.incrementAndGet();
-                        this.tickBlockEntitySerial(phase, admission, sample, general, null);
+                        this.tickBlockEntitySerial(phase, admission, sample, null);
                     }
                 } else {
                 // One preparation budget/home table/scratch for the whole canonical phase; a new
@@ -7564,9 +8032,6 @@ public final class RegionThreadingEngine implements RegionThreading {
                         this.lastPreparedIndex = index;
                         this.lastPreparedEligible = eligible;
                         if (!eligible) return null;
-                        // Unknown C5 closure proofs refuse through this same phase's kernel. Do not
-                        // invoke adapters during lookahead: inspect and body belong to this Serial Fence.
-                        if (general != null && general.handles(admission)) return null;
                         final var executionBinding = admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
                                 ? ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission)
                                 : null;
@@ -7755,9 +8220,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                         phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
                         if (furnaces) furnaceWorkMetrics.serial();
                         fallbackBlockEntityTicks.incrementAndGet();
-                        tickBlockEntitySerial(phase, admission, sample, general, knownEligible);
+                        tickBlockEntitySerial(phase, admission, sample, knownEligible);
                     }
-                });
+                }, this.canonicalFenceTailEnabled || RegionThreadingConfig.canonicalFenceTailEnabled());
                 }
             }
         } catch (Throwable throwable) {
@@ -7773,11 +8238,6 @@ public final class RegionThreadingEngine implements RegionThreading {
                     failure = runBatchCompletion(failure, () -> RegionPoiStorages.publishLevel(level));
                 }
                 if (graph != null) failure = runBatchCompletion(failure, graph::finish);
-                if (adapters != null) {
-                    final var closingAdapters = adapters;
-                    final boolean successful = failure == null;
-                    failure = runBatchCompletion(failure, () -> closingAdapters.close(successful));
-                }
                 final boolean executionSuccessful = failure == null;
                 for (final var adapter : executionCleanup)
                     failure = runBatchCompletion(failure, () -> adapter.phaseClosed(executionSuccessful));
@@ -7789,6 +8249,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.activeTickBatches.remove(batch);
                 batch.clearExecutingOnCurrentThread();
             }
+            final var beCosts = this.activeCanonicalBeRegionCosts;
+            this.activeCanonicalBeRegionCosts = null;
+            if (beCosts != null && published) {
+                this.flushCanonicalBlockEntityRegionCosts(level, beCosts);
+            }
             if (furnaces) this.furnaceWorkMetrics.prepared(furnaceCandidates[0], furnacePreparationNanos[0]);
             if (resourcePhaseStart != 0L) {
                 this.blockEntityResourceMetrics.prepared(furnaceCandidates[0], furnacePreparationNanos[0]);
@@ -7797,6 +8262,27 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.regionWorkAdmission.exit();
         }
         if (failure != null) throwUnchecked(failure);
+    }
+
+    private void flushCanonicalBlockEntityRegionCosts(
+            ServerLevel level,
+            it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> beCosts) {
+        final int sliceIndex = RegionTickSlice.BLOCK_ENTITY_TICK.ordinal();
+        final long gameTime = level.getGameTime();
+        for (final var entry : beCosts.object2LongEntrySet()) {
+            final RegionState region = entry.getKey();
+            if (region.isDead()) continue;
+            final long clamped = Math.clamp(entry.getLongValue(), 1L, 1_000_000_000L);
+            region.dispatchCosts().updateAndGet(sliceIndex, estimate -> estimate == 0L ? clamped : (3L * estimate + clamped + 2L) / 4L);
+        }
+        for (final RegionState region : this.regionizer.regions()) {
+            if (region.isDead() || region.coordinate().level() != level || beCosts.containsKey(region)) continue;
+            final var costs = region.dispatchCostsOrNull();
+            if (costs == null || costs.get(sliceIndex) == 0L) continue;
+            final var overload = region.overloadStateOrNull();
+            if (overload != null && overload.lastEvaluatedGameTime() == gameTime && overload.skipCurrentTick()) continue;
+            costs.updateAndGet(sliceIndex, estimate -> (3L * estimate) / 4L);
+        }
     }
 
     private boolean furnacePrefixIndependent(ServerLevel level, List<CanonicalBlockEntityCoordinator.Unit> units,
@@ -8746,6 +9232,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, batch.level()));
                 if (region == null || region.isDead()) {
                     retry.add(chunk);
+                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)) {
+                    this.skippedBlockEntityTicks.addAndGet(chunk.admissions().size());
                 } else {
                     grouping.add(region, chunk);
                 }
@@ -9388,23 +9876,38 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
             @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        this.tickBlockEntitySerial(batch, admission, graph, null, null);
+        this.tickBlockEntitySerial(batch, admission, graph, null);
     }
 
     private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph, @Nullable BlockEntityAdapterPhase adapters) {
-        this.tickBlockEntitySerial(batch, admission, graph, adapters, null);
-    }
-
-    private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph, @Nullable BlockEntityAdapterPhase adapters,
+            @Nullable RegionBlockEntityWorkGraph.Phase graph,
             @Nullable Boolean knownEligible) {
         final boolean eligible = knownEligible != null ? knownEligible.booleanValue() : batch.eligibleNow(admission);
         if (!eligible) return;
+        final boolean canonical = batch.canonicalSequence();
+        final long fenceStart = canonical ? System.nanoTime() : 0L;
         try (final var permit = batch.execution().beginSerial(admission)) {
-            if (adapters != null) adapters.inspect(admission);
-            this.tickBlockEntityInline(batch.level(), admission.ticker(), graph, batch.canonicalSequence());
+            this.tickBlockEntityInline(batch.level(), admission.ticker(), graph, canonical);
             permit.succeeded();
+        } finally {
+            if (canonical) {
+                final BlockPos pos = admission.ticker().getPos();
+                final RegionCoordinate coord = this.layout.regionAt(batch.level(), pos);
+                final String typeName = admission.ticker().getType();
+                final String tickerClass = (typeName != null && !typeName.isEmpty())
+                        ? typeName
+                        : admission.ticker().getClass().getName();
+                final long elapsed = System.nanoTime() - fenceStart;
+                this.fenceMetrics.recordFence(batch.level().dimension().location().toString(), coord.regionX(), coord.regionZ(), tickerClass,
+                        elapsed);
+                final var beCosts = this.activeCanonicalBeRegionCosts;
+                if (beCosts != null) {
+                    final RegionState region = this.regionizer.get(coord);
+                    if (region != null && !region.isDead()) {
+                        beCosts.addTo(region, elapsed);
+                    }
+                }
+            }
         }
     }
 
@@ -9544,10 +10047,17 @@ public final class RegionThreadingEngine implements RegionThreading {
         for (int attempt = 0; attempt < MAX_REGION_LEASE_ATTEMPTS && !remaining.isEmpty(); attempt++) {
             final RegionTickGrouping<RegionState, ScheduledTick<T>> grouping = new RegionTickGrouping<>();
             final List<ScheduledTick<T>> retry = new ArrayList<>();
+            int rescheduledCount = 0;
+            final int maxReschedule = this.overloadGovernor != null ? this.overloadGovernor.config().maxCatchUpScheduledTicks() : 0;
             for (final ScheduledTick<T> tick : remaining) {
                 final RegionState region = this.regionizer.getOrCreate(this.layout.regionAt(batch.level(), tick.pos()));
                 if (region == null || region.isDead()) {
                     retry.add(tick);
+                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)
+                        && rescheduledCount < maxReschedule
+                        && this.rescheduleThrottledScheduledTick(batch.level(), batch.phase(), tick, region.overloadState().nextActiveGameTime())) {
+                    ++rescheduledCount;
+                    this.skippedScheduledTicks.incrementAndGet();
                 } else {
                     grouping.add(region, tick);
                 }
@@ -9722,7 +10232,25 @@ public final class RegionThreadingEngine implements RegionThreading {
      * mutations, so a random tick never mutates a server-owned structure from a worker.
      */
     void tickChunks(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed, RegionTickBarrier barrier) {
+        if ((this.fusedSlicesEnabled || RegionThreadingConfig.fusedSlicesEnabled())
+                && this.entityTickWorkerExecutionEnabled
+                && this.entityStorageMode == RegionEntityStorageMode.REGION_OWNED
+                && !chunks.isEmpty()
+                && !this.shutdown
+                && !this.regionizer.isLevelClosed(level)) {
+            this.fusedSession.stageChunks(level, chunks, randomTickSpeed, barrier);
+            return;
+        }
         this.chunkTickCoordinator.executeAndAwait(level, chunks, randomTickSpeed, barrier);
+    }
+
+    private void flushStagedFusedChunks(ServerLevel level) {
+        final FusedRegionTickSession.PendingChunkWork pending = this.fusedSession.takeStagedChunks(level);
+        if (pending == null) {
+            return;
+        }
+        this.fusedSession.recordEarlyFlush();
+        this.chunkTickCoordinator.executeAndAwait(level, pending.chunks(), pending.randomTickSpeed(), pending.barrier());
     }
 
     /** Narrow bridge to the original runtime; the coordinator owns no independent execution authority. */
@@ -9890,6 +10418,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, batch.level()));
                 if (region == null || region.isDead()) {
                     retry.add(chunk);
+                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)) {
+                    this.skippedSpawnChunks.incrementAndGet();
                 } else {
                     grouping.add(region, chunk);
                 }
@@ -10113,6 +10643,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, batch.level()));
                 if (region == null || region.isDead()) {
                     retry.add(chunk);
+                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)) {
+                    this.skippedChunkTicks.incrementAndGet();
                 } else {
                     grouping.add(region, chunk);
                 }
@@ -10541,6 +11073,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         final String type = admission.type();
         RegionTickCompatibility.declareServerThreadOnlyType(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {
+            net.neoforged.neoforge.server.threading.RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
             LOGGER.warn("Region worker truncated the tick of block entity {} at {} due to worker boundary guard [{}]: {}. "
                     + "Ticks of this type now fall back to the server thread.",
                     type, admission.position(), violation.category(), violation.getMessage());
@@ -10680,6 +11213,14 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final BlockEventPhase phase = this.blockEventPhase.get();
         if (phase != null && phase.level == level) {
+            if (this.fusedSession.hasStagedChunks(level)) {
+                this.blockEventPhase.remove();
+                try {
+                    this.flushStagedFusedChunks(level);
+                } finally {
+                    this.blockEventPhase.set(phase);
+                }
+            }
             this.runInBlockEventPhase(phase, level, pos, task);
             return;
         }
@@ -10866,6 +11407,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void beginLevelSave(ServerLevel level) {
+        this.flushStagedFusedChunks(level);
         this.levelSaves.incrementAndGet();
         long tickDeferred = 0L;
         boolean batchInFlight = false;
@@ -11195,6 +11737,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.seededEntityTickLevels.remove(level);
                     this.playerTicks.clearLevel(level);
                     this.playerRegions.clearLevel(level);
+                    this.fusedSession.clearLevel(level);
                     RegionPlayerSnapshots.detach(level);
                     this.regionizer.clearLevel(level);
                     final DynamicRegionTopology topology = this.dynamicTopologies.remove(level);

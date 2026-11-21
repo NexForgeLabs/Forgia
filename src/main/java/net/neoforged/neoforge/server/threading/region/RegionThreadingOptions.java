@@ -19,7 +19,22 @@ public record RegionThreadingOptions(
         Workers workers,
         TickSlices ticks,
         RegionLayout layout,
-        RegionEntityStorageMode entityStorageMode) {
+        RegionEntityStorageMode entityStorageMode,
+        RegionOverloadGovernor.Config overload) {
+    public RegionThreadingOptions(
+            Workers workers,
+            TickSlices ticks,
+            RegionLayout layout,
+            RegionEntityStorageMode entityStorageMode) {
+        this(workers, ticks, layout, entityStorageMode, RegionOverloadGovernor.Config.disabled());
+    }
+
+    public RegionThreadingOptions {
+        if (overload == null) {
+            overload = RegionOverloadGovernor.Config.disabled();
+        }
+    }
+
     /** Worker-pool and region-task dispatch settings; no executor is created by this value. */
     public record Workers(
             int threads,

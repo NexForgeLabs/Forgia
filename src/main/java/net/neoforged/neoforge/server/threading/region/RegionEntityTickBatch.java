@@ -64,7 +64,7 @@ import org.jetbrains.annotations.Nullable;
  * batch.
  */
 @ApiStatus.Internal
-final class RegionEntityTickBatch extends RegionTickBatch {
+sealed class RegionEntityTickBatch extends RegionTickBatch permits FusedRegionTickBatch {
     private final List<Group> groups = new ArrayList<>();
     private final Set<RegionState> leasedRegions = Collections.newSetFromMap(new IdentityHashMap<>());
     private final List<Entity> fallbackEntities = new ArrayList<>();

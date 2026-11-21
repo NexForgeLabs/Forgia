@@ -6,12 +6,14 @@
 package net.neoforged.neoforge.common;
 
 import net.neoforged.neoforge.common.ModConfigSpec.BooleanValue;
+import net.neoforged.neoforge.common.ModConfigSpec.DoubleValue;
 import net.neoforged.neoforge.common.ModConfigSpec.IntValue;
 import net.neoforged.neoforge.common.ModConfigSpec.LongValue;
 import net.neoforged.neoforge.common.NeoForgeConfig.RegionThreadingOwnershipViolationMode;
 import net.neoforged.neoforge.server.threading.RegionThreadingSupport;
 import net.neoforged.neoforge.server.threading.region.DynamicRegionTopology;
 import net.neoforged.neoforge.server.threading.region.RegionLayout;
+import net.neoforged.neoforge.server.threading.region.RegionOverloadGovernor;
 import net.neoforged.neoforge.server.threading.region.RegionPolicy;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -102,6 +104,30 @@ public final class ForgiaConfig {
         public final IntValue regionThreadingMaxImmediateTasksPerDrain;
 
         public final IntValue regionThreadingMaxScheduledTasksPerDrain;
+
+        public final BooleanValue enableRegionOverloadGovernor;
+
+        public final LongValue regionOverloadBudgetNanos;
+
+        public final IntValue regionOverloadEnterTicks;
+
+        public final IntValue regionOverloadExitTicks;
+
+        public final DoubleValue regionOverloadExitRatio;
+
+        public final IntValue regionOverloadMaxPeriod;
+
+        public final BooleanValue regionOverloadThrottlePlayerRegions;
+
+        public final IntValue regionOverloadMaxCatchUpScheduledTicks;
+
+        public final BooleanValue enableRegionThreadingCallerRuns;
+
+        public final BooleanValue enableRegionThreadingParallelBorderFixpoint;
+
+        public final BooleanValue enableCanonicalFenceTail;
+
+        public final BooleanValue enableRegionThreadingFusedSlices;
 
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
@@ -284,6 +310,74 @@ public final class ForgiaConfig {
                     .comment("EXPERIMENTAL: Maximum due scheduled region tasks drained from one queue per tick. 0 disables the limit.")
                     .translation("neoforge.configgui.regionThreadingMaxScheduledTasksPerDrain")
                     .defineInRange("regionThreadingMaxScheduledTasksPerDrain", 10000, 0, Integer.MAX_VALUE);
+
+            enableRegionOverloadGovernor = builder
+                    .comment("EXPERIMENTAL: Isolates lagging regions by throttling their tick dispatch frequency so a single hot region does not drag down server-wide TPS. Effective only when regionThreadingMode is DYNAMIC_CLUSTER; ignored under FIXED_3X3 or DYNAMIC. Uses deterministic jittered scheduling so periodic modulo checks (e.g. gameTime % 20 or beacon % 80) never starve.")
+                    .translation("neoforge.configgui.enableRegionOverloadGovernor")
+                    .worldRestart()
+                    .define("enableRegionOverloadGovernor", false);
+
+            regionOverloadBudgetNanos = builder
+                    .comment("EXPERIMENTAL: Per-region aggregate slice EWMA duration threshold in nanoseconds above which a region counts toward entering THROTTLED mode. Default 15000000 (15 ms).")
+                    .translation("neoforge.configgui.regionOverloadBudgetNanos")
+                    .worldRestart()
+                    .defineInRange("regionOverloadBudgetNanos", RegionOverloadGovernor.Config.DEFAULT_BUDGET_NANOS, 1_000_000L, 1_000_000_000L);
+
+            regionOverloadEnterTicks = builder
+                    .comment("EXPERIMENTAL: Consecutive ticks a region's EWMA must exceed regionOverloadBudgetNanos before entering THROTTLED mode.")
+                    .translation("neoforge.configgui.regionOverloadEnterTicks")
+                    .worldRestart()
+                    .defineInRange("regionOverloadEnterTicks", RegionOverloadGovernor.Config.DEFAULT_ENTER_TICKS, 1, 1200);
+
+            regionOverloadExitTicks = builder
+                    .comment("EXPERIMENTAL: Server-tick hysteresis duration a THROTTLED region's EWMA must remain below budget * regionOverloadExitRatio before returning to NORMAL.")
+                    .translation("neoforge.configgui.regionOverloadExitTicks")
+                    .worldRestart()
+                    .defineInRange("regionOverloadExitTicks", RegionOverloadGovernor.Config.DEFAULT_EXIT_TICKS, 1, 6000);
+
+            regionOverloadExitRatio = builder
+                    .comment("EXPERIMENTAL: Fraction of regionOverloadBudgetNanos below which a THROTTLED region accumulates recovery credit.")
+                    .translation("neoforge.configgui.regionOverloadExitRatio")
+                    .worldRestart()
+                    .defineInRange("regionOverloadExitRatio", RegionOverloadGovernor.Config.DEFAULT_EXIT_RATIO, 0.1, 0.95);
+
+            regionOverloadMaxPeriod = builder
+                    .comment("EXPERIMENTAL: Maximum dispatch period (1/N tick rate) applied to a THROTTLED region.")
+                    .translation("neoforge.configgui.regionOverloadMaxPeriod")
+                    .worldRestart()
+                    .defineInRange("regionOverloadMaxPeriod", RegionOverloadGovernor.Config.DEFAULT_MAX_PERIOD, 2, 64);
+
+            regionOverloadThrottlePlayerRegions = builder
+                    .comment("EXPERIMENTAL: When true (default), regions containing players are throttled like any other overloaded region to protect server-wide TPS. When false, regions with players are exempted from throttling.")
+                    .translation("neoforge.configgui.regionOverloadThrottlePlayerRegions")
+                    .worldRestart()
+                    .define("regionOverloadThrottlePlayerRegions", RegionOverloadGovernor.Config.DEFAULT_THROTTLE_PLAYER_REGIONS);
+
+            regionOverloadMaxCatchUpScheduledTicks = builder
+                    .comment("EXPERIMENTAL: Maximum scheduled block/fluid ticks re-scheduled per skipped tick for a THROTTLED region before excess ticks fall back.")
+                    .translation("neoforge.configgui.regionOverloadMaxCatchUpScheduledTicks")
+                    .worldRestart()
+                    .defineInRange("regionOverloadMaxCatchUpScheduledTicks", RegionOverloadGovernor.Config.DEFAULT_MAX_CATCH_UP_SCHEDULED_TICKS, 1, 1_000_000);
+
+            enableRegionThreadingCallerRuns = builder
+                    .comment("EXPERIMENTAL: Allows the server thread to steal and execute one unstarted region group at a time from persistent work-stealing batches while waiting at the barrier (between pumping main-thread handoffs). Reduces barrier idle time on the server thread. Requires enableRegionThreadingPersistentWorkers. Default off.")
+                    .translation("neoforge.configgui.enableRegionThreadingCallerRuns")
+                    .define("enableRegionThreadingCallerRuns", false);
+
+            enableRegionThreadingParallelBorderFixpoint = builder
+                    .comment("EXPERIMENTAL: Uses 8-neighbor graph coloring on the first pass of cross-region border-update fixpoint propagation so non-adjacent target regions propagate in parallel on region workers instead of strictly one by one. Subsequent convergence passes and Seqlock foreign-read validation remain unchanged. Default off.")
+                    .translation("neoforge.configgui.enableRegionThreadingParallelBorderFixpoint")
+                    .define("enableRegionThreadingParallelBorderFixpoint", false);
+
+            enableCanonicalFenceTail = builder
+                    .comment("EXPERIMENTAL (opt-in, relaxes canonical BE order): Defers unproven serial-fence block entities to a single serial tail after parallel BE waves join, collapsing multiple barrier rounds into one. Trades strict canonical ordering between fenced and unfenced BEs for lower barrier overhead. Default off.")
+                    .translation("neoforge.configgui.enableCanonicalFenceTail")
+                    .define("enableCanonicalFenceTail", false);
+
+            enableRegionThreadingFusedSlices = builder
+                    .comment("EXPERIMENTAL (P3 slice fusion): Fuses eligible per-region CHUNK_TICK and self-driven ENTITY_TICK slices into a single worker task, single barrier, and single border-update fixpoint per tick when no block events intervene. Automatically flushes fail-closed before block events, saves, or end-of-tick, and falls back per-region on Seqlock foreign-read invalidation or deferred-update budget overflow. Default off.")
+                    .translation("neoforge.configgui.enableRegionThreadingFusedSlices")
+                    .define("enableRegionThreadingFusedSlices", false);
         }
     }
 }

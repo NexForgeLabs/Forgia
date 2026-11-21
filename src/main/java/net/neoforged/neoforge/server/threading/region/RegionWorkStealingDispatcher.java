@@ -104,6 +104,35 @@ final class RegionWorkStealingDispatcher {
         return -1;
     }
 
+    /**
+     * Atomically claims a single unstarted task from the tail of any runner's range and executes it on the
+     * calling thread (caller-runs). Any failure is already recorded on the batch barrier by the work wrapper.
+     *
+     * @return {@code true} when an unstarted task was claimed and executed, {@code false} when all ranges are empty
+     */
+    boolean stealOne() {
+        for (int victim = this.ranges.length - 1; victim >= 0; --victim) {
+            final AtomicLong range = this.ranges[victim];
+            while (true) {
+                final long observed = range.get();
+                final int from = from(observed);
+                final int to = to(observed);
+                if (from == to) break;
+                final int task = to - 1;
+                if (range.compareAndSet(observed, bounds(from, task))) {
+                    this.onSteal.accept(1);
+                    try {
+                        this.work.accept(task);
+                    } catch (Throwable ignored) {
+                        // The group wrapper already recorded the failure on the batch barrier and released its permit.
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private static long bounds(int from, int to) {
         return (long) from << 32 | to & 0xffffffffL;
     }

@@ -62,6 +62,7 @@ import net.neoforged.neoforge.server.threading.RegionThreadingDeclarations;
 import net.neoforged.neoforge.server.threading.RegionThreadingManager;
 import net.neoforged.neoforge.server.threading.region.RegionEntityStorageMode;
 import net.neoforged.neoforge.server.threading.region.RegionLayout;
+import net.neoforged.neoforge.server.threading.region.RegionOverloadGovernor;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingOptions;
 import net.neoforged.neoforge.server.threading.region.RegionTickCompatibility;
@@ -192,8 +193,21 @@ public class ServerLifecycleHooks {
                     ForgiaConfig.SERVER.enableRegionThreadingScheduledTicks.get(),
                     ForgiaConfig.SERVER.enableRegionThreadingRandomTicks.get(),
                     compatibility.spawnWorkers());
+            final var overload = new RegionOverloadGovernor.Config(
+                    ForgiaConfig.SERVER.enableRegionOverloadGovernor.get(),
+                    ForgiaConfig.SERVER.regionOverloadBudgetNanos.get(),
+                    ForgiaConfig.SERVER.regionOverloadEnterTicks.get(),
+                    ForgiaConfig.SERVER.regionOverloadExitTicks.get(),
+                    ForgiaConfig.SERVER.regionOverloadExitRatio.get(),
+                    ForgiaConfig.SERVER.regionOverloadMaxPeriod.get(),
+                    ForgiaConfig.SERVER.regionOverloadThrottlePlayerRegions.get(),
+                    ForgiaConfig.SERVER.regionOverloadMaxCatchUpScheduledTicks.get());
+            if (overload.enabled() && !layout.isDynamicCluster()) {
+                LOGGER.warn(SERVERHOOKS, "enableRegionOverloadGovernor is enabled but regionThreadingMode is {}; overload isolation is only active in DYNAMIC_CLUSTER mode and will be ignored",
+                        layout.policy());
+            }
             final RegionThreadingEngine engine = new RegionThreadingEngine(
-                    new RegionThreadingOptions(workers, ticks, layout, entityStorageMode));
+                    new RegionThreadingOptions(workers, ticks, layout, entityStorageMode, overload));
             // The engine ships the vanilla declarations of the types whose own tick reaches a mutation the
             // lease does not own (a splitting slime, a discarding fishing hook); every other type ticks on
             // its region worker. The vanilla POI declarations are gone because the level's POI storage is

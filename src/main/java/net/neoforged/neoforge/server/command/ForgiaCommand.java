@@ -22,6 +22,7 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.common.ForgiaConfig;
 import net.neoforged.neoforge.server.threading.RegionThreadingHooks;
 import net.neoforged.neoforge.server.threading.RegionThreadingManager;
+import net.neoforged.neoforge.server.threading.region.RegionBottleneckAnalysis;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
 import net.neoforged.neoforge.server.threading.region.RuntimeObservability;
 import net.neoforged.neoforge.server.threading.region.RuntimeRegionSnapshot;
@@ -31,14 +32,14 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public final class ForgiaCommand {
     private static final int PAGE_SIZE = 10;
-    private static final List<String> METRICS = List.of("mspt", "avg", "p50", "p95", "p99", "entities", "blockentities", "chunks", "pending", "worker", "serial");
+    private static final List<String> METRICS = List.of("mspt", "avg", "p50", "p95", "p99", "tps", "observed_tps", "entities", "blockentities", "chunks", "pending", "worker", "serial");
 
     private ForgiaCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("forgia").requires(source -> source.hasPermission(2))
                 .executes(context -> {
-                    line(context.getSource(), "Usage: /forgia status|regions [page]|region <dimension> <x> <z>|region top <metric> [count]|workers|scheduler|performance [history [seconds]|json]|diagnostics");
+                    line(context.getSource(), "Usage: /forgia status|regions [page]|region <dimension> <x> <z>|region top <metric> [count]|workers|scheduler|performance [history [seconds]|json]|bottleneck [json]|overload [json]|fences [top [count]|json]|diagnostics");
                     return 1;
                 })
                 .then(Commands.literal("status").executes(context -> {
@@ -66,9 +67,20 @@ public final class ForgiaCommand {
                 .then(Commands.literal("workers").executes(context -> workers(context.getSource())))
                 .then(Commands.literal("scheduler").executes(context -> scheduler(context.getSource())))
                 .then(performance())
+                .then(Commands.literal("bottleneck").executes(context -> bottleneck(context.getSource(), false))
+                        .then(Commands.literal("json").executes(context -> bottleneck(context.getSource(), true))))
+                .then(Commands.literal("overload").executes(context -> overload(context.getSource(), false))
+                        .then(Commands.literal("json").executes(context -> overload(context.getSource(), true))))
+                .then(Commands.literal("fences").executes(context -> fences(context.getSource(), PAGE_SIZE, false))
+                        .then(Commands.literal("json").executes(context -> fences(context.getSource(), PAGE_SIZE, true)))
+                        .then(Commands.literal("top").executes(context -> fences(context.getSource(), PAGE_SIZE, false))
+                                .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
+                                        .executes(context -> fences(context.getSource(), IntegerArgumentType.getInteger(context, "count"), false)))))
                 .then(Commands.literal("diagnostics").executes(context -> {
                     final var source = context.getSource();
                     performance(source, 10, false);
+                    bottleneck(source, false);
+                    overload(source, false);
                     workers(source);
                     scheduler(source);
                     warnings(source);
@@ -136,10 +148,11 @@ public final class ForgiaCommand {
             line(source, "Region metric " + metric + " is N/A; no measured values are available.");
             return 0;
         }
+        final boolean ascending = "tps".equals(metric) || "observed_tps".equals(metric);
         if (metric == null) regions.sort(Comparator.comparing(RuntimeRegionSnapshot::id));
         else regions.sort(Comparator.<RuntimeRegionSnapshot>comparingDouble(region -> {
             final double value = metric(region, metric);
-            return Double.isFinite(value) ? -value : Double.POSITIVE_INFINITY;
+            return Double.isFinite(value) ? (ascending ? value : -value) : Double.POSITIVE_INFINITY;
         }).thenComparing(RuntimeRegionSnapshot::id));
         final int pages = Math.max(1, (regions.size() + limit - 1) / limit);
         if (page > pages) {
@@ -153,7 +166,8 @@ public final class ForgiaCommand {
             final var region = regions.get(index);
             final var ticks = region.ticks();
             line(source, region.id() + " current=" + measured(region, ticks.msptLast()) + "ms avg=" + measured(region, ticks.msptAvg())
-                    + "ms p95=" + measured(region, ticks.msptP95()) + "ms chunks=" + region.loadedChunks()
+                    + "ms p95=" + measured(region, ticks.msptP95()) + "ms capTps=" + measured(region, RegionBottleneckAnalysis.capacityTps(ticks))
+                    + " tps=" + measured(region, ticks.ticksPerSecond()) + " chunks=" + region.loadedChunks()
                     + " entities=" + region.entities() + " players=" + count(region.players()) + " pending=" + region.pendingWork()
                     + " worker=" + number(region.workerNanos() / 1e6) + "ms serial=" + number(region.mainThreadNanos() / 1e6)
                     + "ms state=" + region.lifecycle());
@@ -167,9 +181,10 @@ public final class ForgiaCommand {
             final var ticks = region.ticks();
             if (!ticks.dimension().equals(dimension) || ticks.regionX() != x || ticks.regionZ() != z) continue;
             line(source, region.id() + " state=" + region.lifecycle() + " running=" + region.running() + " submitted=" + region.submitted());
-            line(source, "Leased-group MSPT: current=" + measured(region, ticks.msptLast()) + " avg=" + measured(region, ticks.msptAvg())
-                    + " p50=" + number(region.p50Ms()) + " p95=" + measured(region, ticks.msptP95()) + " p99=" + measured(region, ticks.msptP99())
-                    + " max=" + measured(region, ticks.msptMax()) + " samples=" + ticks.samples() + " overruns=" + region.overruns()
+            line(source, "Leased-group MSPT/TPS: current=" + measured(region, ticks.msptLast()) + "ms avg=" + measured(region, ticks.msptAvg())
+                    + "ms p50=" + number(region.p50Ms()) + "ms p95=" + measured(region, ticks.msptP95()) + "ms p99=" + measured(region, ticks.msptP99())
+                    + "ms max=" + measured(region, ticks.msptMax()) + "ms capTps=" + measured(region, RegionBottleneckAnalysis.capacityTps(ticks))
+                    + " observedTps=" + measured(region, ticks.ticksPerSecond()) + " samples=" + ticks.samples() + " overruns=" + region.overruns()
                     + " groupTicks=" + region.groupTicks() + " window=last100ticks; canonical BE and serial fallback time N/A");
             line(source, "Workload: loadedChunks=" + region.loadedChunks() + " trackedEntities=" + region.entities() + " publishedPlayers=" + count(region.players())
                     + " blockEntities=N/A tickingChunks=N/A scheduledBlockTicks=N/A pendingRegionQueueEntries=" + region.pendingWork());
@@ -189,6 +204,8 @@ public final class ForgiaCommand {
             case "p50" -> region.p50Ms();
             case "p95" -> region.ticks().hasSamples() ? region.ticks().msptP95() : Double.NaN;
             case "p99" -> region.ticks().hasSamples() ? region.ticks().msptP99() : Double.NaN;
+            case "tps" -> RegionBottleneckAnalysis.capacityTps(region.ticks());
+            case "observed_tps" -> region.ticks().hasSamples() ? region.ticks().ticksPerSecond() : Double.NaN;
             case "chunks" -> region.loadedChunks();
             case "entities" -> region.entities();
             case "pending" -> region.pendingWork();
@@ -196,6 +213,180 @@ public final class ForgiaCommand {
             case "serial" -> region.mainThreadNanos();
             default -> Double.NaN;
         };
+    }
+
+    private static int bottleneck(CommandSourceStack source, boolean json) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) return noEngine(source);
+        final var global = RuntimeObservability.history(source.getServer(), 10);
+        final var analysis = RegionBottleneckAnalysis.analyze(
+                global,
+                engine.runtimeRegionSnapshots(),
+                ForgiaConfig.SERVER.runtimeHighRegionMspt.get(),
+                ForgiaConfig.SERVER.runtimeHighServerMspt.get(),
+                ForgiaConfig.SERVER.runtimeRegionImbalanceRatio.get());
+        if (json) {
+            final var output = new com.google.gson.JsonObject();
+            output.addProperty("schemaVersion", 1);
+            output.addProperty("verdict", analysis.verdict().name());
+            output.addProperty("summary", analysis.summary());
+            jsonNumber(output, "globalTps", analysis.globalTps());
+            jsonNumber(output, "globalAvgMspt", analysis.globalAvgMs());
+            jsonNumber(output, "globalP95Mspt", analysis.globalP95Ms());
+            output.addProperty("globalSamples", analysis.globalSamples());
+            jsonNumber(output, "estimatedSerialAndMainMspt", analysis.estimatedSerialAndMainMs());
+            jsonNumber(output, "meanRegionAvgMspt", analysis.meanRegionAvgMs());
+            jsonNumber(output, "imbalanceRatio", analysis.imbalanceRatio());
+            final var regionsArray = new com.google.gson.JsonArray();
+            final int limit = Math.min(5, analysis.rankedRegions().size());
+            for (int i = 0; i < limit; ++i) {
+                final var r = analysis.rankedRegions().get(i);
+                final var item = new com.google.gson.JsonObject();
+                item.addProperty("id", r.id());
+                jsonNumber(item, "avgMspt", r.msptAvg());
+                jsonNumber(item, "p95Mspt", r.msptP95());
+                jsonNumber(item, "maxMspt", r.msptMax());
+                jsonNumber(item, "capacityTps", r.capacityTps());
+                jsonNumber(item, "observedTps", r.observedTps());
+                jsonNumber(item, "shareOfGlobalMsptPercent", r.shareOfGlobalMsptPercent());
+                jsonNumber(item, "shareOfBudgetPercent", r.shareOfBudgetPercent());
+                item.addProperty("entities", r.entities());
+                item.addProperty("loadedChunks", r.loadedChunks());
+                item.addProperty("players", r.players());
+                regionsArray.add(item);
+            }
+            output.add("topRegions", regionsArray);
+            final var slicesArray = new com.google.gson.JsonArray();
+            for (final var slice : engine.criticalPathSnapshots()) {
+                if (slice.batches() == 0L) continue;
+                final var s = new com.google.gson.JsonObject();
+                s.addProperty("slice", slice.slice().name());
+                s.addProperty("batches", slice.batches());
+                jsonNumber(s, "avgCriticalPathMs", slice.avgCriticalPathMs());
+                jsonNumber(s, "maxCriticalPathMs", slice.maxCriticalPathMs());
+                jsonNumber(s, "avgMeanRegionMs", slice.avgMeanRegionMs());
+                jsonNumber(s, "avgBarrierWaitMs", slice.avgBarrierWaitMs());
+                jsonNumber(s, "avgWorkerBusyMs", slice.avgWorkerBusyMs());
+                s.addProperty("slowestRegion", slice.slowestRegionId());
+                slicesArray.add(s);
+            }
+            output.add("sliceCriticalPaths", slicesArray);
+            line(source, new GsonBuilder().serializeNulls().create().toJson(output));
+            return 1;
+        }
+        line(source, "Global: TPS=" + number(analysis.globalTps()) + " avg=" + number(analysis.globalAvgMs())
+                + "ms p95=" + number(analysis.globalP95Ms()) + "ms samples=" + analysis.globalSamples());
+        line(source, "Bottleneck [" + analysis.verdict().name() + "]: " + analysis.summary());
+        if (analysis.topRegion() != null) {
+            final var top = analysis.topRegion();
+            line(source, "Barrier split: slowestRegion=" + top.id() + " (" + number(top.msptAvg()) + "ms, "
+                    + number(top.shareOfGlobalMsptPercent()) + "% of global) estMainOrSerial="
+                    + number(analysis.estimatedSerialAndMainMs()) + "ms imbalance=" + number(analysis.imbalanceRatio()) + "x");
+        }
+        final int limit = Math.min(5, analysis.rankedRegions().size());
+        for (int i = 0; i < limit; ++i) {
+            final var r = analysis.rankedRegions().get(i);
+            line(source, "  #" + (i + 1) + " " + r.id() + " avg=" + number(r.msptAvg()) + "ms p95=" + number(r.msptP95())
+                    + "ms capTps=" + number(r.capacityTps()) + " observedTps=" + number(r.observedTps())
+                    + " globalShare=" + number(r.shareOfGlobalMsptPercent()) + "% budget=" + number(r.shareOfBudgetPercent())
+                    + "% entities=" + r.entities() + " chunks=" + r.loadedChunks());
+        }
+        for (final var slice : engine.criticalPathSnapshots()) {
+            if (slice.batches() == 0L) continue;
+            line(source, "  slice " + slice.slice().name() + ": batches=" + slice.batches()
+                    + " critAvg=" + number(slice.avgCriticalPathMs()) + "ms critMax=" + number(slice.maxCriticalPathMs())
+                    + "ms meanRegion=" + number(slice.avgMeanRegionMs()) + "ms barrierAvg=" + number(slice.avgBarrierWaitMs())
+                    + "ms slowest=" + (slice.slowestRegionId() == null ? "N/A" : slice.slowestRegionId()));
+        }
+        return 1;
+    }
+
+    private static int overload(CommandSourceStack source, boolean json) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) return noEngine(source);
+        final var config = engine.overloadGovernorConfig();
+        final boolean active = engine.isOverloadGovernorActive();
+        final var regions = engine.overloadRegionSnapshots();
+        if (json) {
+            final var output = new com.google.gson.JsonObject();
+            output.addProperty("schemaVersion", 1);
+            output.addProperty("configured", config.enabled());
+            output.addProperty("active", active);
+            output.addProperty("layout", engine.regionLayout().policy().name());
+            jsonNumber(output, "budgetMs", config.budgetNanos() / 1_000_000.0);
+            output.addProperty("enterTicks", config.enterTicks());
+            output.addProperty("exitTicks", config.exitTicks());
+            jsonNumber(output, "exitRatio", config.exitRatio());
+            output.addProperty("maxPeriod", config.maxPeriod());
+            output.addProperty("throttlePlayerRegions", config.throttlePlayerRegions());
+            final var arr = new com.google.gson.JsonArray();
+            for (final var r : regions) {
+                final var item = new com.google.gson.JsonObject();
+                item.addProperty("region", r.regionId());
+                item.addProperty("status", r.status().name());
+                item.addProperty("period", r.period());
+                jsonNumber(item, "ewmaMs", r.lastTotalCostMs());
+                item.addProperty("skippedTicks", r.skippedTicks());
+                item.addProperty("transitions", r.throttledTransitions());
+                item.addProperty("nextActiveGameTime", r.nextActiveGameTime());
+                arr.add(item);
+            }
+            output.add("regions", arr);
+            line(source, new GsonBuilder().serializeNulls().create().toJson(output));
+            return 1;
+        }
+        line(source, "Overload governor: configured=" + config.enabled() + " active=" + active
+                + " layout=" + engine.regionLayout().policy().name()
+                + " budget=" + number(config.budgetNanos() / 1_000_000.0) + "ms"
+                + " enter=" + config.enterTicks() + "t exit=" + config.exitTicks() + "t@" + number(config.exitRatio())
+                + " maxPeriod=1/" + config.maxPeriod() + " throttlePlayers=" + config.throttlePlayerRegions());
+        if (regions.isEmpty()) {
+            line(source, "  No regions currently throttled or previously throttled.");
+            return 1;
+        }
+        for (final var r : regions) {
+            line(source, "  " + r.regionId() + " status=" + r.status().name()
+                    + " rate=1/" + r.period() + " ewma=" + number(r.lastTotalCostMs()) + "ms"
+                    + " skippedTicks=" + r.skippedTicks() + " transitions=" + r.throttledTransitions()
+                    + " nextActiveTick=" + r.nextActiveGameTime());
+        }
+        return 1;
+    }
+
+    private static int fences(CommandSourceStack source, int limit, boolean json) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) return noEngine(source);
+        final var snapshot = engine.fenceMetricsSnapshot(limit);
+        if (json) {
+            final var output = new com.google.gson.JsonObject();
+            output.addProperty("schemaVersion", 1);
+            output.addProperty("totalFences", snapshot.totalFences());
+            jsonNumber(output, "totalMs", snapshot.totalNanos() / 1_000_000.0);
+            output.addProperty("overflowEntries", snapshot.overflowEntries());
+            final var arr = new com.google.gson.JsonArray();
+            for (final var e : snapshot.topEntries()) {
+                final var item = new com.google.gson.JsonObject();
+                item.addProperty("region", e.regionId());
+                item.addProperty("ticker", e.tickerClass());
+                item.addProperty("count", e.count());
+                jsonNumber(item, "totalMs", e.totalMs());
+                jsonNumber(item, "maxMs", e.maxMs());
+                arr.add(item);
+            }
+            output.add("topFences", arr);
+            line(source, new GsonBuilder().serializeNulls().create().toJson(output));
+            return 1;
+        }
+        line(source, "Canonical BE serial fences: total=" + snapshot.totalFences()
+                + " totalWall=" + number(snapshot.totalNanos() / 1_000_000.0) + "ms"
+                + " overflowBuckets=" + snapshot.overflowEntries());
+        if (snapshot.topEntries().isEmpty()) {
+            line(source, "  No canonical serial fences recorded.");
+            return 1;
+        }
+        for (int i = 0; i < snapshot.topEntries().size(); ++i) {
+            final var e = snapshot.topEntries().get(i);
+            line(source, "  #" + (i + 1) + " " + e.tickerClass() + " @ " + e.regionId()
+                    + " count=" + e.count() + " total=" + number(e.totalMs()) + "ms max=" + number(e.maxMs()) + "ms");
+        }
+        return 1;
     }
 
     private static int workers(CommandSourceStack source) {
@@ -237,6 +428,15 @@ public final class ForgiaCommand {
                 + "ms execute+join=" + number(furnace.executionNanos() / 1e6) + "ms commit=" + number(furnace.commitNanos() / 1e6)
                 + "ms resourceReservationsIssued=" + resources.issuedLeases()
                 + "; activeTickets/activeResourceReservations/cancellations/commitWait/lockContention=N/A (no constant-time counters)");
+        final var fused = engine.fusedSliceSnapshot();
+        line(source, "Fused slices: enabled=" + engine.isFusedSlicesEnabled()
+                + " batches=" + fused.fusedBatches()
+                + " fusedRegions=" + fused.fusedRegions()
+                + " barriersSaved=" + fused.barriersSaved()
+                + " earlyFlushes=" + fused.earlyFlushes()
+                + " budgetFallbacks=" + fused.budgetFallbacks()
+                + " foreignReadFallbacks=" + fused.foreignReadFallbacks()
+                + " cooldownRegions=" + fused.activeCooldownRegions());
         return 1;
     }
 

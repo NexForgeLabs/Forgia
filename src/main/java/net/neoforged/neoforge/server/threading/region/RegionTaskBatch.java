@@ -186,12 +186,18 @@ public final class RegionTaskBatch {
      * original runner has not been submitted yet.
      */
     public void submitOpen(RegionWorkerExecutor executor, Barrier barrier) {
-        if (this.groups.isEmpty()) return;
-        barrier.registerGroups(this.groupCount());
-        this.submitGroups(executor, barrier);
+        this.submitOpenWithDispatcher(executor, barrier);
     }
 
-    private void submitGroups(RegionWorkerExecutor executor, Barrier barrier) {
+    @org.jetbrains.annotations.Nullable
+    RegionWorkStealingDispatcher submitOpenWithDispatcher(RegionWorkerExecutor executor, Barrier barrier) {
+        if (this.groups.isEmpty()) return null;
+        barrier.registerGroups(this.groupCount());
+        return this.submitGroups(executor, barrier);
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private RegionWorkStealingDispatcher submitGroups(RegionWorkerExecutor executor, Barrier barrier) {
         if (executor instanceof RegionWorkerPool pool && pool.isPersistent() && this.groups.size() > pool.threadCount()) {
             this.orderByEstimatedCost(pool.threadCount());
             final var dispatcher = new RegionWorkStealingDispatcher(this.groups.size(), pool.threadCount(),
@@ -201,7 +207,7 @@ public final class RegionTaskBatch {
                 final int runner = index;
                 submitTask(executor, barrier, "region batch runner " + runner, () -> dispatcher.run(runner));
             }
-            return;
+            return dispatcher;
         }
         if (executor instanceof RegionWorkerPool) {
             this.orderByEstimatedCost(1);
@@ -209,6 +215,7 @@ public final class RegionTaskBatch {
         for (final Group group : this.groups) {
             submitTask(executor, barrier, group.description(), () -> runGroup(barrier, group));
         }
+        return null;
     }
 
     /**
