@@ -150,12 +150,17 @@ public final class SableLoadedChunkLookup {
         }
     }
 
-    /** Called only from the serviced server-thread lookup, after public getChunkNow returned no chunk. */
+    /**
+     * Resolves Sable's plot-gap sentinel after {@code getVisibleChunkIfPresent} returned no holder.
+     * Safe on both the server thread and a native region worker because {@code getContainer},
+     * {@code inBounds} (pure arithmetic on final plot-grid coordinates) and {@code sable$emptyChunk}
+     * read only immutable container fields initialized at level creation.
+     */
     @Nullable
     public static LevelChunk claimedEmptyChunk(ServerChunkCache chunks, ServerLevel level, int chunkX, int chunkZ) {
         final var server = level.getServer();
-        if (server == null || !server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) {
-            throw new IllegalStateException("Sable plot lookup requires the server thread");
+        if (server == null || (!server.isSameThread() && !RegionWorkerScope.isNativeWorkerThread())) {
+            throw new IllegalStateException("Sable plot lookup requires the server thread or a native region worker");
         }
         final Binding binding = BINDINGS.get(chunks.getClass()).orElse(null);
         return binding == null ? null : resolve(binding, chunks, level, chunkX, chunkZ);

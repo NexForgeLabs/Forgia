@@ -13,7 +13,10 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 
 > **核心调优原则**：
 > 1. **区域模式优先选 `DYNAMIC_CLUSTER`（默认 `shift = 3`，即 8×8 chunks / 128×128 格）**：已通过 30/30 动态拓扑与所有权审计测试及 32 玩家耐久验证，相比 `FIXED_3X3` 吞吐更高（+9.2% TPS）、P95 更低（-17%）且玩家进 Worker 比例高出 +37%。
-> 2. **不要在超线程 CPU 上放任 `regionThreadingWorkerThreads = 0`**：`0` 表示 `逻辑线程数 - 1`（例如 8 核 16 线程会开出 15 个 Worker），容易与主线程、原版区块生成线程池和 GC 争抢物理核与内存带宽。建议按 **`物理核数 - 1 ~ 2`** 显式固定 Worker 数，**始终给 Server 主线程留出至少 1 个完整物理核**。
+> 2. **区分仅 `FIXED_3X3` 生效或需 JVM 参数的开关**：
+>    - `enableRegionThreadingPlayerTicks = true` 在 `FIXED_3X3` 下可直接生效；在 `DYNAMIC_CLUSTER` 下**必须同时在 JVM 启动参数中添加 `-Dforgia.dynamicPlayerSoak=true`**，否则玩家 tick 会保持主线程串行。
+>    - `enableRegionThreadingFurnaceWorkWaves`、`enableRegionThreadingBlockEntityResources` 与 `enableRegionThreadingPackedRegionLeases` **仅在 `FIXED_3X3` 下生效**（`DYNAMIC_CLUSTER` 下熔炉波次/资源会被忽略，租约打包会被动态岛合包自动绕过）。在 `DYNAMIC_CLUSTER` 配置中请将这三项保持 `false`。
+> 3. **不要在超线程 CPU 上放任 `regionThreadingWorkerThreads = 0`**：`0` 表示 `逻辑线程数 - 1`（例如 8 核 16 线程会开出 15 个 Worker），容易与主线程、原版区块生成线程池和 GC 争抢物理核与内存带宽。建议按 **`物理核数 - 1 ~ 2`** 显式固定 Worker 数，**始终给 Server 主线程留出至少 1 个完整物理核**。
 
 ### 场景 A：4 核 8 线程机器（如 i5-1135G7 / 4C VPS，8–16 GB 内存）
 
@@ -26,10 +29,10 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableGlobalRegionThreadingWorker = true
 enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # DYNAMIC_CLUSTER 下需配合 JVM 参数 -Dforgia.dynamicPlayerSoak=true
 enableRegionThreadingBlockEntityTicks = false      # 轻负载静止 BE 串行更快；重度熔炉/受审计适配器场景再开
-enableRegionThreadingFurnaceWorkWaves = false
-enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingFurnaceWorkWaves = false      # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
+enableRegionThreadingBlockEntityResources = false  # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
 enableRegionThreadingScheduledTicks = false        # 仅对受审计红石灯阶段生效，常规服可保持关闭
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
@@ -37,7 +40,7 @@ enableRegionThreadingPoi = true
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
 
 # === 动态区域布局与线程池 ===
 regionThreadingMode = "DYNAMIC_CLUSTER"
@@ -57,18 +60,18 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableGlobalRegionThreadingWorker = true
 enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # DYNAMIC_CLUSTER 下需配合 JVM 参数 -Dforgia.dynamicPlayerSoak=true
 enableRegionThreadingBlockEntityTicks = true       # 若服内有大量熔炉/受审计适配器可开启，否则可设为 false
-enableRegionThreadingFurnaceWorkWaves = false
-enableRegionThreadingBlockEntityResources = false
-enableRegionThreadingScheduledTicks = true
+enableRegionThreadingFurnaceWorkWaves = false      # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
+enableRegionThreadingBlockEntityResources = false  # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
+enableRegionThreadingScheduledTicks = false        # 仅对受审计红石灯阶段生效，常规服可保持关闭
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
 enableRegionThreadingPoi = true
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
 
 # === 动态区域布局与线程池 ===
 regionThreadingMode = "DYNAMIC_CLUSTER"
@@ -77,10 +80,10 @@ regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 6                   # 8 物理核甜点（重度生区块高峰期可改 5）
 ```
 
-配套 JDK 21 启动参数（32 GB 物理内存留一半给 OS Page Cache 缓存 `.mca` 区块文件）：
+配套 JDK 21 启动参数（32 GB 物理内存留一半给 OS Page Cache 缓存 `.mca` 区块文件；若在 `DYNAMIC_CLUSTER` 下开启 `enableRegionThreadingPlayerTicks = true`，请加上 `-Dforgia.dynamicPlayerSoak=true`）：
 
 ```bash
--Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch
+-Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch -Dforgia.dynamicPlayerSoak=true
 ```
 
 ### 场景 C：16 核及以上高并发服务器（如 Ryzen 9 / EPYC，64+ GB 内存）
@@ -115,18 +118,18 @@ regionThreadingWorkerThreads = 6                   # 8 物理核甜点（重度�
 | `enableRegionThreadingWorkers` | `false` | `Bridge` | 在原生 Region Worker 线程池上执行区域任务队列 drain（不是其他 tick 切片的总开关） |
 | `enableGlobalRegionThreadingWorker` | `false` | `Bridge` | 将全局区域（Global Region）队列 drain 移至原生 Worker 池 |
 | `enableRegionThreadingEntityTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 在 Region Worker 上并行执行 `ServerLevel` 实体 tick，自动启用 region-owned 实体存储与延迟状态发布 |
-| `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` | 在满足空间/状态/回调/网络契约时，将玩家 `ENTITY`（`ServerPlayer.tick`）与受控 `CONNECTION_BODY` 派发至 Region Worker；按实际影响面判定第三方模组准入 |
+| `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` +（`FIXED_3X3`，或 `DYNAMIC_CLUSTER` + `-Dforgia.dynamicPlayerSoak=true`） | 在满足空间/状态/回调/网络契约时，将玩家 `ENTITY`（`ServerPlayer.tick`）与受控 `CONNECTION_BODY` 派发至 Region Worker；按实际影响面判定第三方模组准入 |
 | `enableRegionThreadingBlockEntityTicks` | `false` | `Bridge` | 将已声明区域安全的方块实体 tick 派发至 Region Worker；未声明或存在跨区副作用的类型保持主线程串行 |
-| `enableRegionThreadingFurnaceWorkWaves` | `false` | `BlockEntityTicks` + `FIXED_3X3` | 实验性：按有向资源波次并行执行已验证燃烧中的原版熔炉族方块实体 |
-| `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` | 实验性：在熔炉波次内启用对象级 READ/WRITE 资源 claims、非阻塞租约与 scope |
-| `enableRegionThreadingScheduledTicks` | `false` | `Bridge` | 启用有界计划刻（红石灯等受审计惰性方块阶段）并行执行；其余保持原版 `LevelTicks` 串行 |
+| `enableRegionThreadingFurnaceWorkWaves` | `false` | `Bridge` + `BlockEntityTicks` + **仅 `FIXED_3X3`** | 实验性：按有向资源波次并行执行已验证燃烧中的原版熔炉族方块实体（`DYNAMIC_CLUSTER` 下忽略） |
+| `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` + **仅 `FIXED_3X3`** | 实验性：在熔炉波次内启用对象级 READ/WRITE 资源 claims、非阻塞租约与 scope（`DYNAMIC_CLUSTER` 下忽略） |
+| `enableRegionThreadingScheduledTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 启用有界计划刻（红石灯等受审计惰性方块阶段）并行执行；其余保持原版 `LevelTicks` 串行 |
 | `enableRegionThreadingRandomTicks` | `false` | `Bridge` | 在 Region Worker 上并行执行区块 tick（随机方块/流体刻、冰雪降水、雷击），要求 3×3 邻域区块已加载 |
 | `enableRegionThreadingSpawning` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 在 Region Worker 上并行执行自然刷怪，共享全维度原版生物上限（`LevelSpawnCapCounter`） |
 | `enableRegionThreadingPoi` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 按区域分区存储 POI（村民/铁傀儡/蜜蜂等），开启 `EntityTicks` 时隐含启用 |
 | `enableRegionThreadingBorderUpdates` | `false` | `Bridge` | 捕获跨区方块邻居更新并在同 tick 由目标区域 Worker 通过定点传播重放 |
 | `enableRegionThreadingGameEvents` | `false` | `Bridge` | 捕获跨区 Game Event（如幽匿感测体振动）并在同 tick 按发布顺序交由目标区域 Worker 投递 |
 | `enableRegionThreadingPersistentWorkers` | `false` | `Bridge` | 使用持久化 Worker 线程 + 工作窃取（Work Stealing）派发器替代普通固定线程池，大幅降低批次提交与唤醒开销 |
-| `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` | 允许单个 Worker 任务打包持有多个区域租约（最多 16 个，全有或全无），减少微任务提交开销 |
+| `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` + **仅 `FIXED_3X3`**（非 `DYNAMIC_CLUSTER`） | 允许单个 Worker 任务打包持有多个区域租约（最多 16 个，全有或全无），减少微任务提交开销；`DYNAMIC_CLUSTER` 下自动绕过 |
 
 ### 3.2 区域布局、线程池与安全/预算控制（11 项）
 
@@ -184,10 +187,10 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableGlobalRegionThreadingWorker = true
 enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # DYNAMIC_CLUSTER 下需配合 JVM 参数 -Dforgia.dynamicPlayerSoak=true
 enableRegionThreadingBlockEntityTicks = false
-enableRegionThreadingFurnaceWorkWaves = false
-enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingFurnaceWorkWaves = false      # 仅 FIXED_3X3 生效
+enableRegionThreadingBlockEntityResources = false  # 仅 FIXED_3X3 生效
 enableRegionThreadingScheduledTicks = false
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
@@ -195,7 +198,7 @@ enableRegionThreadingPoi = true
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
 
 # --- 区域布局与线程池 [重启] ---
 regionThreadingMode = "DYNAMIC_CLUSTER"

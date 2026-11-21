@@ -34,7 +34,6 @@ separately gated experimental features.
 | `BlockEntityExecutionEngine` / `...Batch` | Ticket/permit binding, one-shot body start, join, effects |
 | `ExecutionBlockEntityPreparation` | Resource-scoped `BlockEntityExecutionAdapter` preparation, revision checks, and same-region wave grouping |
 | `AuditedBlockEntityPreparation` | Manifest verification, footprint checks, wave splitting |
-| `BlockEntityAdapterRegistry` / `BlockEntityAdapterPhase` | C5 conservative request protocol (serial fences) |
 | `RegionBlockEntityWorkGraph` / `RegionBlockEntityTickAttribution` | Observation graph and timing |
 | `RegionBlockEntityTickFailure` | Failure carrier, no replay |
 
@@ -79,7 +78,6 @@ before the cursor advances.
 | Furnace waves | Fresh burning-furnace bodies only | Directed waves inside a region | `...FurnaceWorkWaves` | Experimental, C6 with bounded cohorts |
 | Resources | Object identity READ/WRITE claims, one-shot scopes | Furnace prefixes | `...BlockEntityResources` | Experimental |
 | Mod audited | Adapter manifest + footprint | Contiguous prefix | `...BlockEntityTicks` + adapter | Experimental |
-| C5 general | Conservative descriptor + validators | **None** (serial fence) | `...BlockEntityTicks` | Diagnostics only |
 | Unknown | — | Complete original tick | — | Always available |
 
 ## 6. Budgets and limits
@@ -99,12 +97,12 @@ before the cursor advances.
 
 | Key | Default | Notes |
 |---|---|---|
-| `enableRegionThreadingBlockEntityTicks` | `false` | Requests the actual canonical phase |
-| `enableRegionThreadingFurnaceWorkWaves` | `false` | Requires the BE slice and fixed layout |
-| `enableRegionThreadingBlockEntityResources` | `false` | Adds claims/leases/scopes to furnace prefixes; also gates C6 mod admission |
+| `enableRegionThreadingBlockEntityTicks` | `false` | Requests the actual canonical phase (works on `DYNAMIC_CLUSTER` and `FIXED_3X3`) |
+| `enableRegionThreadingFurnaceWorkWaves` | `false` | Requires the BE slice and **`FIXED_3X3` only** (ignored in `DYNAMIC_CLUSTER`) |
+| `enableRegionThreadingBlockEntityResources` | `false` | Adds claims/leases/scopes to furnace prefixes (**`FIXED_3X3` only**); also gates C6 mod admission |
 | `enableRegionThreadingBorderUpdates` | `false` | Required for furnace boundary admission |
-| `enableRegionThreadingPackedRegionLeases` | `false` | 16-region packing |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | Fixed layout |
+| `enableRegionThreadingPackedRegionLeases` | `false` | 16-region packing (**`FIXED_3X3` only**; bypassed in `DYNAMIC_CLUSTER`) |
+| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | `DYNAMIC_CLUSTER` works for regular BE ticks; **`FIXED_3X3` is required** for furnace waves/resources and packed leases |
 
 ```toml
 # config/forgia.toml — minimal block-entity slice
@@ -112,9 +110,9 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingBorderUpdates = true        # needed for furnace-family boundary admission
-# enableRegionThreadingFurnaceWorkWaves = true     # experimental
-# enableRegionThreadingBlockEntityResources = true # experimental
-regionThreadingMode = "FIXED_3X3"
+# enableRegionThreadingFurnaceWorkWaves = true     # experimental, FIXED_3X3 only
+# enableRegionThreadingBlockEntityResources = true # experimental, FIXED_3X3 only
+regionThreadingMode = "FIXED_3X3"                # use FIXED_3X3 when testing furnace waves/resources; DYNAMIC_CLUSTER works for standard BE ticks
 regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 4
 ```

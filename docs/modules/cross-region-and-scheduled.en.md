@@ -58,7 +58,7 @@ scope. All switches default off.
 
 | Gate | Requirement |
 |---|---|
-| Layout | Fixed region layout |
+| Layout | Section-partitioned layout (`DYNAMIC_CLUSTER` or `FIXED_3X3`); legacy `DYNAMIC` returns `NON_FIXED_LAYOUT` |
 | Profiler | Vanilla profiler inactive |
 | Footprint | Radius-2 cube around each callback fully loaded and inside one region |
 | Blocks | Only air, cave air, void air, stone, glass, redstone block, redstone lamp in the footprint |
@@ -110,7 +110,7 @@ serial. `priority`, `subTickOrder`, `clearArea`, `copyArea` and `willTickThisTic
 
 | Property | Behaviour |
 |---|---|
-| Tick thread | Server thread (players are always-ticking, never leased) |
+| Tick thread | Server thread by default; opt-in `enableRegionThreadingPlayerTicks` dispatches eligible calls to region workers (`FIXED_3X3`, or `DYNAMIC_CLUSTER` with `-Dforgia.dynamicPlayerSoak=true`; see [player-ticks](player-ticks.en.md)) |
 | Membership | Exactly one region |
 | Snapshot | Published at level tick head, replaced once per tick, dropped on unload |
 | Handoffs | Walking, 1000-block teleport, teleport during a batch, nether round trip, two players swapping regions |
@@ -122,7 +122,7 @@ serial. `priority`, `subTickOrder`, `clearArea`, `copyArea` and `willTickThisTic
 |---|---|---|
 | `enableRegionThreadingScheduledTicks` | `false` | Lamp cohort only |
 | `enableGlobalRegionThreadingWorker` | `false` | Global queue drains on pool |
-| `enableRegionThreadingPackedRegionLeases` | `false` | 16 regions per task |
+| `enableRegionThreadingPackedRegionLeases` | `false` | 16 regions per task (`FIXED_3X3` only; bypassed in `DYNAMIC_CLUSTER`) |
 | `regionThreadingMaxScheduledTasksPerDrain` | `10000` | Due tasks per queue drain |
 | `regionThreadingMaxImmediateTasksPerDrain` | `10000` | Immediate tasks per drain |
 

@@ -92,7 +92,7 @@ ServerLevel.tick（服务器线程）
 | `regionThreadingFixedRegionChunks` | `3` | 3..32 | 是 | N×N chunk，16N×16N 方块，全高度 |
 | `regionThreadingWorkerThreads` | `0` | 0..512 | 是 | `0` → `max(1, cpus-1)`；可复现性要求显式固定 |
 | `enableRegionThreadingPersistentWorkers` | `false` | bool | 是 | 持久 deque + work stealing 取代固定 executor |
-| `enableRegionThreadingPackedRegionLeases` | `false` | bool | 是 | 每任务最多 16 个区域全有或全无 |
+| `enableRegionThreadingPackedRegionLeases` | `false` | bool | 是 | 每任务最多 16 个区域全有或全无（仅 `FIXED_3X3` 生效；`DYNAMIC_CLUSTER` 下自动绕过） |
 | `regionThreadingOwnershipViolationMode` | `WARN` | `WARN`/`THROW`/`DISABLED` | 否 | 断言处理；所有模式都计数；强制检查独立拒绝 |
 | `regionThreadingLongTickWarningNanos` | `0` | ≥0 | 否 | 队列 drain 告警阈值；0 关闭 |
 | `regionThreadingMaxImmediateTasksPerDrain` | `10000` | ≥0 | 否 | 每队列立即 drain 数量（0 不限） |
@@ -134,7 +134,8 @@ ServerLevel.tick（服务器线程）
 | 选择 | **`DYNAMIC_CLUSTER`（推荐）** | 固定 N×N (`FIXED_3X3`) | 遗留 `DYNAMIC` |
 |---|---|---|---|
 | 区域边界 | 基于 `(1 << shift)`-chunk Section（`4×4` / `8×8` / `16×16`）动态合并/拆分加载岛 | 从不合并/拆分 | 遗留 16-chunk 网格 |
-| 实体/刷怪/POI/玩家支持 | 是（32 玩家实测玩家进 Worker 比例高 +37%、TPS +9.2%、P95 -17%） | 是（历史 C6 基线） | 未认证；多项要求无法满足 |
+| 实体/刷怪/POI/计划刻支持 | 是（`layout.supportsSectionPartitions()`） | 是（历史 C6 基线） | 未认证；多项要求无法满足 |
+| 玩家 / 熔炉波次 / 打包租约 | 玩家 tick 需配合 `-Dforgia.dynamicPlayerSoak=true`（32 玩家实测进 Worker 比例高 +37%、TPS +9.2%、P95 -17%）；熔炉波次/资源与打包租约仅 `FIXED_3X3` 生效 | 全部支持（`FIXED_3X3` C6 基线） | 不支持 / 仅遗留兼容 |
 | 稳定性验证 | 30/30 审计与拓扑单测 + 120s/600s 32 玩家压测（`0` 所有权违规） | C6 已认证 | 仅遗留兼容 |
 | 推荐尺寸 | 默认 `shift = 3`（`8×8` chunk，128×128 格）；追求更低 P99 或大量分散小基地可选 `shift = 2`（`4×4`） | `3`（3×3 chunk） | N/A |
 

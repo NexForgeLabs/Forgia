@@ -13,7 +13,10 @@ All Forgia parallel execution and runtime diagnostics settings live in **`config
 
 > **Core Tuning Principles**:
 > 1. **Use `DYNAMIC_CLUSTER` (`shift = 3`, i.e., 8×8 chunks / 128×128 blocks) as the default region mode**: verified by 30/30 dynamic cluster audit/topology tests and 32-player soaks (`0` ownership violations), delivering +9.2% TPS, -17% P95 MSPT, and +37% higher player worker admission than `FIXED_3X3`.
-> 2. **Do not leave `regionThreadingWorkerThreads = 0` on hyperthreaded CPUs**: `0` resolves to `logicalThreads - 1` (e.g., 15 workers on an 8C/16T CPU), which oversubscribes physical cores and saturates memory bandwidth against the server thread, chunk generation, and GC. Pin workers explicitly to **`physicalCores - 1..2`**, always reserving at least **1 full physical core** for the Server thread.
+> 2. **Know which switches are `FIXED_3X3`-only or gated by a JVM flag**:
+>    - `enableRegionThreadingPlayerTicks = true` works out of the box in `FIXED_3X3`, but in `DYNAMIC_CLUSTER` it **also requires `-Dforgia.dynamicPlayerSoak=true`** on the JVM command line (otherwise player ticks remain serial).
+>    - `enableRegionThreadingFurnaceWorkWaves`, `enableRegionThreadingBlockEntityResources`, and `enableRegionThreadingPackedRegionLeases` **only take effect in `FIXED_3X3`** (in `DYNAMIC_CLUSTER`, furnace waves/resources are ignored and lease packing is automatically bypassed because loaded-island coalescing replaces it). Keep all three `false` in `DYNAMIC_CLUSTER` profiles.
+> 3. **Do not leave `regionThreadingWorkerThreads = 0` on hyperthreaded CPUs**: `0` resolves to `logicalThreads - 1` (e.g., 15 workers on an 8C/16T CPU), which oversubscribes physical cores and saturates memory bandwidth against the server thread, chunk generation, and GC. Pin workers explicitly to **`physicalCores - 1..2`**, always reserving at least **1 full physical core** for the Server thread.
 
 ### Profile A: 4-Core / 8-Thread CPU (e.g., i5-1135G7 / 4C VPS, 8–16 GB RAM)
 
@@ -26,10 +29,10 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableGlobalRegionThreadingWorker = true
 enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # requires JVM flag -Dforgia.dynamicPlayerSoak=true in DYNAMIC_CLUSTER
 enableRegionThreadingBlockEntityTicks = false      # serial is faster on light stationary BEs; enable for heavy furnace/audited adapter worlds
-enableRegionThreadingFurnaceWorkWaves = false
-enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingFurnaceWorkWaves = false      # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
+enableRegionThreadingBlockEntityResources = false  # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
 enableRegionThreadingScheduledTicks = false        # only admits audited redstone-lamp phases; keep off for general servers
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
@@ -37,7 +40,7 @@ enableRegionThreadingPoi = true
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
 
 # === Dynamic Region Layout & Worker Pool ===
 regionThreadingMode = "DYNAMIC_CLUSTER"
@@ -57,18 +60,18 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableGlobalRegionThreadingWorker = true
 enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # requires JVM flag -Dforgia.dynamicPlayerSoak=true in DYNAMIC_CLUSTER
 enableRegionThreadingBlockEntityTicks = true       # set false if the world has no heavy furnace/audited-adapter load
-enableRegionThreadingFurnaceWorkWaves = false
-enableRegionThreadingBlockEntityResources = false
-enableRegionThreadingScheduledTicks = true
+enableRegionThreadingFurnaceWorkWaves = false      # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
+enableRegionThreadingBlockEntityResources = false  # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
+enableRegionThreadingScheduledTicks = false        # only admits audited redstone-lamp phases; keep off unless needed
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
 enableRegionThreadingPoi = true
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
 
 # === Dynamic Region Layout & Worker Pool ===
 regionThreadingMode = "DYNAMIC_CLUSTER"
@@ -77,10 +80,10 @@ regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 6                   # 8-core sweet spot (use 5 during heavy chunk generation)
 ```
 
-Recommended JDK 21 JVM flags (32 GB RAM — leave ~half for OS page cache of `.mca` region files):
+Recommended JDK 21 JVM flags (32 GB RAM — leave ~half for OS page cache of `.mca` region files; include `-Dforgia.dynamicPlayerSoak=true` if `enableRegionThreadingPlayerTicks = true` under `DYNAMIC_CLUSTER`):
 
 ```bash
--Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch
+-Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch -Dforgia.dynamicPlayerSoak=true
 ```
 
 ### Profile C: 16+ Core High-Concurrency Server (e.g., Ryzen 9 / EPYC, 64+ GB RAM)
@@ -115,18 +118,18 @@ Recommended JDK 21 JVM flags (32 GB RAM — leave ~half for OS page cache of `.m
 | `enableRegionThreadingWorkers` | `false` | `Bridge` | Drains region task queues on native worker threads (not a master switch for tick slices) |
 | `enableGlobalRegionThreadingWorker` | `false` | `Bridge` | Moves global-region queue drains onto the native worker pool |
 | `enableRegionThreadingEntityTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | Runs `ServerLevel` entity ticks on region workers; enables region-owned entity storage and deferred handoff |
-| `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` | Dispatches eligible player `ENTITY` (`ServerPlayer.tick`) and bounded `CONNECTION_BODY` ticks to region workers; evaluates third-party mods by actual transform/listener surface |
+| `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` + (`FIXED_3X3`, or `DYNAMIC_CLUSTER` + `-Dforgia.dynamicPlayerSoak=true`) | Dispatches eligible player `ENTITY` (`ServerPlayer.tick`) and bounded `CONNECTION_BODY` ticks to region workers; evaluates third-party mods by actual transform/listener surface |
 | `enableRegionThreadingBlockEntityTicks` | `false` | `Bridge` | Dispatches declared region-safe block entity ticks to region workers; undeclared/unsafe types stay serial |
-| `enableRegionThreadingFurnaceWorkWaves` | `false` | `BlockEntityTicks` + `FIXED_3X3` | Experimental: runs verified already-burning vanilla furnace-family ticks in directed resource waves |
-| `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` | Experimental: enables object-level READ/WRITE claims, nonblocking leases, and scopes inside furnace waves |
-| `enableRegionThreadingScheduledTicks` | `false` | `Bridge` | Bounded scheduled block/fluid tick slice (audited inert vanilla redstone-lamp phases); others stay serial in `LevelTicks` |
+| `enableRegionThreadingFurnaceWorkWaves` | `false` | `Bridge` + `BlockEntityTicks` + **`FIXED_3X3` only** | Experimental: runs verified already-burning vanilla furnace-family ticks in directed resource waves (ignored in `DYNAMIC_CLUSTER`) |
+| `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` + **`FIXED_3X3` only** | Experimental: enables object-level READ/WRITE claims, nonblocking leases, and scopes inside furnace waves (ignored in `DYNAMIC_CLUSTER`) |
+| `enableRegionThreadingScheduledTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | Bounded scheduled block/fluid tick slice (audited inert vanilla redstone-lamp phases); others stay serial in `LevelTicks` |
 | `enableRegionThreadingRandomTicks` | `false` | `Bridge` | Runs chunk ticks (random block/fluid ticks, snow/ice, lightning) on region workers when the 3×3 chunk neighborhood is loaded |
 | `enableRegionThreadingSpawning` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | Runs natural spawning on region workers sharing the level-wide vanilla mob cap (`LevelSpawnCapCounter`) |
 | `enableRegionThreadingPoi` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | Partitions POI storage per region (villagers, iron golems, bees, etc.); implied when `EntityTicks` is enabled |
 | `enableRegionThreadingBorderUpdates` | `false` | `Bridge` | Captures cross-region neighbor updates and replays them on the target region's worker in the same tick |
 | `enableRegionThreadingGameEvents` | `false` | `Bridge` | Captures cross-region game events (e.g., sculk vibrations) and delivers them on target region workers in posting order |
 | `enableRegionThreadingPersistentWorkers` | `false` | `Bridge` | Uses persistent worker threads with work-stealing ranges instead of a fixed executor, cutting dispatch/wake overhead |
-| `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` | Packs up to 16 regions per worker task (all-or-nothing lease) to reduce per-region submission overhead |
+| `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` + **`FIXED_3X3`** (non-`DYNAMIC_CLUSTER`) | Packs up to 16 regions per worker task (all-or-nothing lease) to reduce per-region submission overhead; automatically bypassed in `DYNAMIC_CLUSTER` |
 
 ### 3.2 Region Layout, Worker Pool & Safety/Budget Controls (11 keys)
 
@@ -184,10 +187,10 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableGlobalRegionThreadingWorker = true
 enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # add -Dforgia.dynamicPlayerSoak=true to JVM flags in DYNAMIC_CLUSTER
 enableRegionThreadingBlockEntityTicks = false
-enableRegionThreadingFurnaceWorkWaves = false
-enableRegionThreadingBlockEntityResources = false
+enableRegionThreadingFurnaceWorkWaves = false      # FIXED_3X3 only
+enableRegionThreadingBlockEntityResources = false  # FIXED_3X3 only
 enableRegionThreadingScheduledTicks = false
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
@@ -195,7 +198,7 @@ enableRegionThreadingPoi = true
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
 
 # --- Region Layout & Worker Pool [restart] ---
 regionThreadingMode = "DYNAMIC_CLUSTER"

@@ -54,7 +54,8 @@ final class AuditedTickImplementation {
                 }
                 for (final var method : type.getDeclaredMethods()) {
                     final var merged = method.getAnnotation(MixinMerged.class);
-                    if (merged != null && !implementation.allowedMixins().contains(merged.mixin())) return refused("UNVERIFIED_TRANSFORMATION");
+                    if (merged != null && !implementation.allowedMixins().contains(merged.mixin()))
+                        return refused("UNVERIFIED_TRANSFORMATION(" + type.getSimpleName() + ":" + merged.mixin() + ")");
                 }
             }
             return new Result(true, "VERIFIED_IMPLEMENTATIONS");

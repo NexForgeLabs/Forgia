@@ -50,7 +50,7 @@
 
 | 门 | 说明 |
 |---|---|
-| 固定布局 + profiler 未激活 | 必需 |
+| 已安装 bridge + profiler 未激活 | 必需（支持 `DYNAMIC_CLUSTER`、`FIXED_3X3` 与 `DYNAMIC`） |
 | 邻域已加载 | 区域 chunk 邻域必须已加载且有 live 映射 |
 | 所有权/预算 | 有效 lease 与剩余级联/延迟更新预算 |
 | 无不受支持邻居 | 外部/无限制邻居会让 chunk 保持串行 |
@@ -84,7 +84,7 @@
 | `enableRegionThreadingRandomTicks` | `false` | 是 | 整个 chunk tick 正文在 worker |
 | `enableRegionThreadingBorderUpdates` | `false` | 是 | 跨区邻居捕获 + fixpoint |
 | `enableRegionThreadingGameEvents` | `false` | 是 | 外部 game event 捕获；关闭时保持 inline 派发 |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | 是 | 要求固定布局 |
+| `regionThreadingMode` | `FIXED_3X3` | 是 | `DYNAMIC_CLUSTER`（推荐）或 `FIXED_3X3`（C6 基线） |
 | `regionThreadingOwnershipViolationMode` | `WARN` | 否 | 建议性断言 |
 
 ```toml
@@ -94,8 +94,8 @@ enableRegionThreadingWorkers = true
 enableRegionThreadingRandomTicks = true
 # enableRegionThreadingBorderUpdates = true  # 实验性，C6 之外
 # enableRegionThreadingGameEvents = true     # 实验性，C6 之外
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"      # 推荐（FIXED_3X3 为 C6 基线）
+regionThreadingDynamicSectionShift = 3
 ```
 
 ## 8. 实测负载（历史）

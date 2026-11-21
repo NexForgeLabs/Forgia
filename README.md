@@ -102,6 +102,7 @@ acceptance runs, profiler records).
 | Start here | English | 中文 |
 |---|---|---|
 | Project site home / 站点首页 | [Home](docs/index.md) | [首页](docs/index.zh.md) |
+| Configuration & hardware tuning | [Configuration](docs/configuration.en.md) | [配置与硬件调优](docs/configuration.zh.md) |
 | Architecture: Stock vs. Forgia | [Architecture](docs/architecture.en.md) | [架构对比](docs/architecture.zh.md) |
 | Performance benchmarks | [Benchmarks](docs/benchmarks.en.md) | [性能基准](docs/benchmarks.zh.md) |
 | Engineering status & receipts | [Status](docs/status.en.md) | [工程状态](docs/status.zh.md) |
@@ -142,22 +143,26 @@ when preparing a canary:
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true            # selects region-owned entity storage
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # in DYNAMIC_CLUSTER, also requires JVM flag -Dforgia.dynamicPlayerSoak=true
 enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
 enableRegionThreadingPoi = true                    # implied by entity ticks
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
 regionThreadingMode = "DYNAMIC_CLUSTER"            # recommended mode (FIXED_3X3 remains the C6 baseline)
 regionThreadingDynamicSectionShift = 3             # 8x8 chunks (128x128 blocks) per dynamic section
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 4
 ```
 
-`regionThreadingWorkerThreads = 0` means "one less than the CPU count". Entity ticks, spawning and POI
-require `DYNAMIC_CLUSTER` or `FIXED_3X3`; everything else degrades to the vanilla path when its requirement is missing.
+`regionThreadingWorkerThreads = 0` means "one less than the CPU count". Entity ticks, spawning, POI and
+scheduled ticks require `DYNAMIC_CLUSTER` or `FIXED_3X3`; player worker ticks require `FIXED_3X3` (or
+`DYNAMIC_CLUSTER` with `-Dforgia.dynamicPlayerSoak=true`); `enableRegionThreadingFurnaceWorkWaves`,
+`enableRegionThreadingBlockEntityResources` and `enableRegionThreadingPackedRegionLeases` apply to
+`FIXED_3X3` only (ignored/bypassed in `DYNAMIC_CLUSTER`). Everything else degrades to the vanilla path when
+its requirement is missing.
 For the complete reference of all 36 `config/forgia.toml` keys and hardware-specific tuning profiles (4-core, 8-core, 16+ core), see [Configuration & Hardware Tuning Guide](docs/configuration.en.md).
 
 A separate, default-off `enableRegionThreadingFurnaceWorkWaves` experiment executes verified burning
@@ -338,8 +343,10 @@ when reproducing that evidence. Collector changes require a separate validation.
 
 ## Architecture in one page
 
-- **Regions** are a fixed, non-overlapping grid of N×N chunks (`regionThreadingFixedRegionChunks`). Each
-  region has a lease; only the lease holder may tick its chunks, entities, block entities, spawns and POIs.
+- **Regions** use either `DYNAMIC_CLUSTER` loaded-island coalescing over `(1 << regionThreadingDynamicSectionShift)`-chunk
+  sections (recommended; default `8×8` chunks) or a fixed, non-overlapping `FIXED_3X3` grid of N×N chunks
+  (`regionThreadingFixedRegionChunks`). Each region has a lease; only the lease holder may tick its chunks,
+  entities, block entities, spawns and POIs.
 - **The server thread** builds the plan, leases every region, submits one task per region, waits at a barrier
   and runs the handoff: deferred section updates, removals, admissions, block updates, portal transitions,
   border updates and the propagation fixpoint.

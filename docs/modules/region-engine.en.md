@@ -94,7 +94,7 @@ as server-only.
 | `regionThreadingFixedRegionChunks` | `3` | 3..32 | yes | N×N chunks, 16N×16N blocks, full height |
 | `regionThreadingWorkerThreads` | `0` | 0..512 | yes | `0` → `max(1, cpus-1)`; pin explicitly for reproducibility |
 | `enableRegionThreadingPersistentWorkers` | `false` | bool | yes | Persistent deques + work stealing instead of fixed executor |
-| `enableRegionThreadingPackedRegionLeases` | `false` | bool | yes | Up to 16 regions acquired all-or-none per task |
+| `enableRegionThreadingPackedRegionLeases` | `false` | bool | yes | Up to 16 regions acquired all-or-none per task (`FIXED_3X3` only; bypassed in `DYNAMIC_CLUSTER`) |
 | `regionThreadingOwnershipViolationMode` | `WARN` | `WARN`/`THROW`/`DISABLED` | no | Assertion handling; all modes still count; mandatory checks reject independently |
 | `regionThreadingLongTickWarningNanos` | `0` | ≥0 | no | Queue-drain warning threshold; 0 disables |
 | `regionThreadingMaxImmediateTasksPerDrain` | `10000` | ≥0 | no | Per-queue immediate drain count (0 = unlimited) |
@@ -142,7 +142,8 @@ Both runs completed 115,344 worker chunk ticks with zero fallbacks and ownership
 | Choice | `DYNAMIC_CLUSTER` (Recommended) | Fixed N×N (`FIXED_3X3`) | Legacy `DYNAMIC` |
 |---|---|---|---|
 | Region boundaries | Dynamic loaded-island merge/split over `(1 << shift)`-chunk sections (`4×4` / `8×8` / `16×16`) | Never merge/split | Legacy 16-chunk grid |
-| Entity/spawn/POI/player support | Yes (higher player worker admission, +9.2% TPS & -17% P95 vs `FIXED_3X3` on 32-player soak) | Yes (C6 baseline) | Not certified; several requirements unmet |
+| Entity/spawn/POI/scheduled support | Yes (`layout.supportsSectionPartitions()`) | Yes (C6 baseline) | Not certified; several requirements unmet |
+| Player / Furnace waves / Packed leases | Player ticks require `-Dforgia.dynamicPlayerSoak=true` (+37% admission, +9.2% TPS & -17% P95 vs `FIXED_3X3` on 32-player soak); Furnace waves/resources & packed leases are `FIXED_3X3`-only | All supported (`FIXED_3X3` C6 baseline) | Unsupported / legacy only |
 | Stability verification | 30/30 audit & topology unit tests + 120s/600s 32-player soaks (`0` ownership violations) | C6 certified | Legacy only |
 | Recommended section shift | `shift = 3` (`8×8` chunks, 128×128 blocks) default; `shift = 2` (`4×4`) for tight P99 or many small bases | `3` (3×3 chunks) | N/A |
 

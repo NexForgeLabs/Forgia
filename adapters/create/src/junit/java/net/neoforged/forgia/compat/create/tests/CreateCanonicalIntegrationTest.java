@@ -6,27 +6,50 @@
 package net.neoforged.forgia.compat.create.tests;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.simibubi.create.AllBlockEntityTypes;
 import com.simibubi.create.AllBlocks;
+import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity;
+import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
+import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
+import com.simibubi.create.content.kinetics.flywheel.FlywheelBlockEntity;
+import com.simibubi.create.content.kinetics.gantry.GantryShaftBlockEntity;
+import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity;
+import com.simibubi.create.content.kinetics.steamEngine.PoweredShaftBlockEntity;
 import com.simibubi.create.content.kinetics.transmission.ClutchBlockEntity;
 import com.simibubi.create.content.kinetics.transmission.GearshiftBlockEntity;
+import com.simibubi.create.content.kinetics.transmission.SplitShaftBlockEntity;
+import com.simibubi.create.content.kinetics.turntable.TurntableBlockEntity;
+import com.simibubi.create.content.logistics.itemHatch.ItemHatchBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.entity.FurnaceBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.neoforged.forgia.compat.create.CreateAudit;
+import net.neoforged.forgia.compat.create.CreateTickAdmission;
+import net.neoforged.forgia.compat.create.mixin.ArmBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.DeployerBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.KineticBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.SmartBlockEntityAccessor;
+import net.neoforged.neoforge.server.threading.ParallelAdapterRuntime;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
 import net.neoforged.neoforge.server.threading.api.ParallelApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -38,6 +61,35 @@ import org.junit.jupiter.params.provider.ValueSource;
 class CreateCanonicalIntegrationTest {
     private static final BlockPos FIRST = new BlockPos(17, 64, 17);
     private static final BlockPos SECOND = new BlockPos(65, 64, 17);
+
+    /** Simulated Create addon BlockEntity that inherits SplitShaftBlockEntity without overriding the tick closure. */
+    public static final class AddonBrassGearboxBlockEntity extends SplitShaftBlockEntity {
+        public AddonBrassGearboxBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+            super(type, pos, state);
+        }
+
+        @Override
+        public float getRotationSpeedModifier(Direction face) {
+            return 1.0f;
+        }
+    }
+
+    /** Simulated Create addon BlockEntity that overrides tick() with custom unaudited logic and must be rejected. */
+    public static final class UnauditedAddonOverrideBlockEntity extends SplitShaftBlockEntity {
+        public UnauditedAddonOverrideBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
+            super(type, pos, state);
+        }
+
+        @Override
+        public void tick() {
+            super.tick();
+        }
+
+        @Override
+        public float getRotationSpeedModifier(Direction face) {
+            return 1.0f;
+        }
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = { false, true })
@@ -64,6 +116,137 @@ class CreateCanonicalIntegrationTest {
             assertEquals(999, ((KineticBlockEntityAccessor) second).forgia$validationCountdown());
             assertEquals(2, fixture.status().workerCompletions());
             assertEquals(2, fixture.engine.diagnostics().blockEntityTicksOnWorkers());
+            assertEquals(0, fixture.engine.diagnostics().ownershipViolationCount());
+        }
+    }
+
+    @Test
+    void expandedCreateCoreKineticAndSmartBlockEntitiesRunConcurrentlyOnWorkers() {
+        try (final var fixture = new CreateFixture()) {
+            final var gantry = new GantryShaftBlockEntity(AllBlockEntityTypes.GANTRY_SHAFT.get(), FIRST, AllBlocks.GANTRY_SHAFT.getDefaultState());
+            fixture.steady(gantry, 32);
+            final var turntable = new TurntableBlockEntity(AllBlockEntityTypes.TURNTABLE.get(), FIRST.east(), AllBlocks.TURNTABLE.getDefaultState());
+            fixture.steady(turntable, 32);
+            final var poweredShaft = new PoweredShaftBlockEntity(AllBlockEntityTypes.POWERED_SHAFT.get(), FIRST.east(2), AllBlocks.POWERED_SHAFT.getDefaultState());
+            fixture.steady(poweredShaft, 64);
+            final var copycat = new CopycatBlockEntity(AllBlockEntityTypes.COPYCAT.get(), SECOND, AllBlocks.COPYCAT_STEP.getDefaultState());
+            fixture.steadySmart(copycat);
+            final var itemHatch = new ItemHatchBlockEntity(AllBlockEntityTypes.ITEM_HATCH.get(), SECOND.east(), AllBlocks.ITEM_HATCH.getDefaultState());
+            fixture.steadySmart(itemHatch);
+
+            fixture.originalCreateTicker(gantry);
+            fixture.originalCreateTicker(turntable);
+            fixture.originalCreateTicker(poweredShaft);
+            fixture.originalCreateTicker(copycat);
+            fixture.originalCreateTicker(itemHatch);
+
+            final List<Thread> bodies = new CopyOnWriteArrayList<>();
+            fixture.engine.setBlockEntityBodyObserverForTesting((ticker, body) -> {
+                bodies.add(Thread.currentThread());
+                body.run();
+            });
+            fixture.canonicalTick();
+
+            assertEquals(5, bodies.size());
+            assertTrue(bodies.stream().noneMatch(thread -> thread == fixture.main), bodies.toString());
+            assertEquals(999, ((KineticBlockEntityAccessor) gantry).forgia$validationCountdown());
+            assertEquals(999, ((KineticBlockEntityAccessor) turntable).forgia$validationCountdown());
+            assertEquals(999, ((KineticBlockEntityAccessor) poweredShaft).forgia$validationCountdown());
+            assertEquals(999, ((SmartBlockEntityAccessor) copycat).forgia$lazyTickCounter());
+            assertEquals(999, ((SmartBlockEntityAccessor) itemHatch).forgia$lazyTickCounter());
+            assertEquals(5, fixture.status().workerCompletions());
+            assertEquals(5, fixture.engine.diagnostics().blockEntityTicksOnWorkers());
+            assertEquals(0, fixture.engine.diagnostics().ownershipViolationCount());
+        }
+    }
+
+    @Test
+    void deployerAndMechanicalArmSteadyTransitRunsConcurrentlyOnWorkersAndReturnsToServerOnActionBoundary() {
+        try (final var fixture = new CreateFixture()) {
+            final var deployer = new DeployerBlockEntity(AllBlockEntityTypes.DEPLOYER.get(), FIRST, AllBlocks.DEPLOYER.getDefaultState());
+            fixture.steady(deployer, 64);
+            CreateFixture.set(DeployerBlockEntity.class, deployer, "timer", 500);
+
+            final var arm = new ArmBlockEntity(AllBlockEntityTypes.MECHANICAL_ARM.get(), SECOND, AllBlocks.MECHANICAL_ARM.getDefaultState());
+            fixture.steady(arm, 64);
+            CreateFixture.set(ArmBlockEntity.class, arm, "updateInteractionPoints", false);
+            CreateFixture.set(ArmBlockEntity.class, arm, "chasedPointProgress", 0.25f);
+
+            fixture.originalCreateTicker(deployer);
+            fixture.originalCreateTicker(arm);
+
+            final var rendezvous = new CyclicBarrier(2);
+            final List<Thread> bodies = new CopyOnWriteArrayList<>();
+            fixture.engine.setBlockEntityBodyObserverForTesting((ticker, body) -> {
+                bodies.add(Thread.currentThread());
+                if (Thread.currentThread() != fixture.main) await(rendezvous);
+                body.run();
+            });
+            fixture.canonicalTick();
+
+            assertEquals(2, bodies.size());
+            assertTrue(bodies.stream().noneMatch(thread -> thread == fixture.main), bodies.toString());
+            assertTrue(bodies.get(0) != bodies.get(1));
+            assertEquals(372, ((DeployerBlockEntityAccessor) deployer).forgia$timer());
+            assertEquals(0.3125f, ((ArmBlockEntityAccessor) arm).forgia$chasedPointProgress(), 1.0e-5f);
+            assertEquals(2, fixture.status().workerCompletions());
+
+            // Now move both to their action completion boundary (Deployer timer == 0, Arm progress + delta >= 1.0f)
+            // and verify they fall back to the server thread for the world/inventory interaction tick.
+            bodies.clear();
+            fixture.engine.setBlockEntityBodyObserverForTesting((ticker, body) -> {
+                bodies.add(Thread.currentThread());
+                body.run();
+            });
+            CreateFixture.set(DeployerBlockEntity.class, deployer, "timer", 0);
+            CreateFixture.set(ArmBlockEntity.class, arm, "chasedPointProgress", 0.95f);
+            fixture.canonicalTick();
+
+            assertEquals(2, bodies.size());
+            assertSame(fixture.main, bodies.get(0));
+            assertSame(fixture.main, bodies.get(1));
+            assertEquals(2, fixture.status().workerCompletions());
+        }
+    }
+
+    @Test
+    void pureAddonInheritorBlockEntityPassesAuditAndRunsConcurrentlyOnWorkers() {
+        assertTrue(CreateAudit.isPureInheritedSmartBlockEntity(AddonBrassGearboxBlockEntity.class));
+        assertFalse(CreateAudit.isPureInheritedSmartBlockEntity(UnauditedAddonOverrideBlockEntity.class));
+
+        try (final var fixture = new CreateFixture()) {
+            ParallelAdapterRuntime.close(fixture.server);
+            ParallelAdapterRuntime.initialize(fixture.server, registrar -> registrar.registerBlockEntityExecutionAdapter(
+                    BlockEntityExecutionAdapter.PROTOCOL_VERSION,
+                    CreateTickAdmission.ID,
+                    CreateTickAdmission.TYPES,
+                    new CreateTickAdmission(Set.of(AddonBrassGearboxBlockEntity.class))));
+
+            final var audit = ParallelApi.forServer(fixture.server).orElseThrow().auditedBlockEntityTicks().getFirst();
+            assertTrue(audit.verified(), audit.toString());
+
+            final var first = new AddonBrassGearboxBlockEntity(AllBlockEntityTypes.GEARBOX.get(), FIRST, AllBlocks.GEARBOX.getDefaultState());
+            final var second = new AddonBrassGearboxBlockEntity(AllBlockEntityTypes.GEARBOX.get(), SECOND, AllBlocks.GEARBOX.getDefaultState());
+            fixture.steady(first, 64);
+            fixture.steady(second, 64);
+            fixture.originalCreateTicker(first);
+            fixture.originalCreateTicker(second);
+
+            final var rendezvous = new CyclicBarrier(2);
+            final List<Thread> bodies = new CopyOnWriteArrayList<>();
+            fixture.engine.setBlockEntityBodyObserverForTesting((ticker, body) -> {
+                bodies.add(Thread.currentThread());
+                if (Thread.currentThread() != fixture.main) await(rendezvous);
+                body.run();
+            });
+            fixture.canonicalTick();
+
+            assertEquals(2, bodies.size());
+            assertTrue(bodies.stream().noneMatch(thread -> thread == fixture.main), bodies.toString());
+            assertTrue(bodies.get(0) != bodies.get(1));
+            assertEquals(999, ((KineticBlockEntityAccessor) (Object) first).forgia$validationCountdown());
+            assertEquals(999, ((KineticBlockEntityAccessor) (Object) second).forgia$validationCountdown());
+            assertEquals(2, fixture.status().workerCompletions());
             assertEquals(0, fixture.engine.diagnostics().ownershipViolationCount());
         }
     }

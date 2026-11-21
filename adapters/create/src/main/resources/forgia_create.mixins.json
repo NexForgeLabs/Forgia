@@ -7,7 +7,10 @@
     "SmartBlockEntityAccessor",
     "KineticBlockEntityAccessor",
     "KineticEffectHandlerAccessor",
-    "TorquePropagatorAccessor"
+    "TorquePropagatorAccessor",
+    "DeployerBlockEntityAccessor",
+    "DeployerFakePlayerAccessor",
+    "ArmBlockEntityAccessor"
   ],
   "injectors": { "defaultRequire": 1 }
 }

@@ -452,6 +452,42 @@ public final class RegionThreadingHooks {
     }
 
     /**
+     * Routes a worker-initiated {@link LivingEntity#addEffect} targeting a {@link ServerPlayer} without
+     * introducing a synthetic lambda inside {@link LivingEntity} (preserving vanilla lambda numbering for Mixins).
+     */
+    public static boolean routeWorkerPlayerAddEffect(net.minecraft.world.entity.LivingEntity target,
+            net.minecraft.world.effect.MobEffectInstance effect, @Nullable Entity source) {
+        if (!(target instanceof ServerPlayer serverPlayer) || !shouldRouteWorkerPlayerAction()) {
+            return false;
+        }
+        return routeWorkerPlayerAction(serverPlayer, livePlayer -> livePlayer.addEffect(effect, source));
+    }
+
+    /**
+     * Routes a worker-initiated {@link LivingEntity#forceAddEffect} targeting a {@link ServerPlayer} without
+     * introducing a synthetic lambda inside {@link LivingEntity}.
+     */
+    public static boolean routeWorkerPlayerForceAddEffect(net.minecraft.world.entity.LivingEntity target,
+            net.minecraft.world.effect.MobEffectInstance effect, @Nullable Entity source) {
+        if (!(target instanceof ServerPlayer serverPlayer) || !shouldRouteWorkerPlayerAction()) {
+            return false;
+        }
+        return routeWorkerPlayerAction(serverPlayer, livePlayer -> livePlayer.forceAddEffect(effect, source));
+    }
+
+    /**
+     * Routes a worker-initiated {@link LivingEntity#removeEffect} targeting a {@link ServerPlayer} without
+     * introducing a synthetic lambda inside {@link LivingEntity}.
+     */
+    public static boolean routeWorkerPlayerRemoveEffect(net.minecraft.world.entity.LivingEntity target,
+            net.minecraft.core.Holder<net.minecraft.world.effect.MobEffect> effect) {
+        if (!(target instanceof ServerPlayer serverPlayer) || !shouldRouteWorkerPlayerAction()) {
+            return false;
+        }
+        return routeWorkerPlayerAction(serverPlayer, livePlayer -> livePlayer.removeEffect(effect));
+    }
+
+    /**
      * Hands the remaining cascade of a region worker's neighbor update to the server thread.
      * <p>
      * A neighbor update reads the target block, and vanilla loads the target chunk when the read misses. A region
@@ -1789,11 +1825,15 @@ public final class RegionThreadingHooks {
         if (server == null) {
             return null;
         }
+        final var chunks = level.getChunkSource();
+        final var claimedEmpty = net.neoforged.neoforge.server.threading.region.SableLoadedChunkLookup.claimedEmptyChunk(chunks, level, chunkX, chunkZ);
+        if (claimedEmpty != null) {
+            return claimedEmpty;
+        }
         return engine.runOnServerThread(level, () -> {
             if (!server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) {
                 throw new IllegalStateException("Loaded chunk provider lookup requires the actual server thread");
             }
-            final var chunks = level.getChunkSource();
             final var loaded = chunks.getChunkNow(chunkX, chunkZ);
             return loaded != null ? loaded
                     : net.neoforged.neoforge.server.threading.region.SableLoadedChunkLookup.claimedEmptyChunk(chunks, level, chunkX, chunkZ);

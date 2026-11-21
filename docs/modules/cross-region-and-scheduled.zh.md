@@ -57,7 +57,7 @@
 
 | 门 | 要求 |
 |---|---|
-| 布局 | 固定 region 布局 |
+| 布局 | 分区 region 布局（`DYNAMIC_CLUSTER` 或 `FIXED_3X3`）；遗留 `DYNAMIC` 返回 `NON_FIXED_LAYOUT` |
 | Profiler | 原版 profiler 未激活 |
 | 足迹 | 每个回调位置半径 2 立方体全部加载且在同一 region |
 | 方块 | 足迹内只有空气、洞穴空气、虚空空气、石头、玻璃、红石块、红石灯 |
@@ -109,7 +109,7 @@
 
 | 属性 | 行为 |
 |---|---|
-| Tick 线程 | 服务器线程（玩家始终 tick，从不租出） |
+| Tick 线程 | 默认服务器线程；开启实验性 `enableRegionThreadingPlayerTicks` 可将已准入调用派发到 region worker（`FIXED_3X3`，或 `DYNAMIC_CLUSTER` 配合 `-Dforgia.dynamicPlayerSoak=true`，见 [player-ticks](player-ticks.zh.md)） |
 | 成员 | 恰好一个 region |
 | 快照 | 在 level tick 头部发布，每 tick 替换一次，卸载时丢弃 |
 | 交接 | 行走、1000 格传送、批次中传送、下界往返、两名玩家交换区域 |
@@ -121,7 +121,7 @@
 |---|---|---|
 | `enableRegionThreadingScheduledTicks` | `false` | 仅灯队列 |
 | `enableGlobalRegionThreadingWorker` | `false` | 全局队列 drain 上池 |
-| `enableRegionThreadingPackedRegionLeases` | `false` | 每任务 16 区域 |
+| `enableRegionThreadingPackedRegionLeases` | `false` | 每任务 16 区域（仅 `FIXED_3X3` 生效；`DYNAMIC_CLUSTER` 下自动绕过） |
 | `regionThreadingMaxScheduledTasksPerDrain` | `10000` | 每队列 drain 的到期任务 |
 | `regionThreadingMaxImmediateTasksPerDrain` | `10000` | 每 drain 的立即任务 |
 

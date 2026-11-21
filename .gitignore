@@ -43,6 +43,8 @@ tools/block-entity-resource-ab/__pycache__/
 tools/performance/__pycache__/
 !tools/production-readiness/*.py
 tools/production-readiness/__pycache__/
+!tools/forgia-be-triage/*.py
+tools/forgia-be-triage/__pycache__/
 !adapters/create/tools/server_smoke.py
 *.7z
 /logs/
@@ -58,6 +60,7 @@ build
 # local scratch: profiler/benchmark scratch dirs, agent task notes, game-test run output
 tmp/
 .pi/
+.codegraph/
 
 # local run artifacts
 nohup.out

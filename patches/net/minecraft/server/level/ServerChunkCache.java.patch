@@ -59,6 +59,12 @@
 +        }
 +        ChunkHolder chunkholder = this.getVisibleChunkIfPresent(ChunkPos.asLong(p_8360_, p_8361_));
 +        ChunkAccess chunkaccess = chunkholder == null ? null : chunkholder.getChunkIfPresent(p_330876_);
++        if (chunkaccess == null && chunkholder != null && ChunkStatus.FULL.isOrAfter(p_330876_)) {
++            CompletableFuture<ChunkResult<LevelChunk>> fullFuture = chunkholder.getFullChunkFuture();
++            if (fullFuture != null) {
++                chunkaccess = fullFuture.getNow(ChunkHolder.UNLOADED_LEVEL_CHUNK).orElse(null);
++            }
++        }
 +        if (chunkaccess == null && p_8363_) {
 +            // Mod-owned loaded chunks (for example moving subworld plots) may have no vanilla holder.
 +            // Consult the public non-loading lookup on the server thread so its injected storage path is

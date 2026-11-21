@@ -32,8 +32,13 @@ import org.jetbrains.annotations.Nullable;
 public interface BlockEntityExecutionAdapter extends AuditedBlockEntityTickAdapter {
     int PROTOCOL_VERSION = 1;
 
+    /** A complete region owner and a subordinate work scope are different authorities. */
+    enum Mode {
+        REGION_OWNER, RESOURCE_SCOPED
+    }
+
     /** Frozen during registration; never a grant of ownership. */
-    BlockEntityExecutionContract.Mode executionMode();
+    Mode executionMode();
 
     /**
      * A complete, bounded read-only inspection, on the coordinator only. Default reuses the audited

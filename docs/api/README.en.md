@@ -97,7 +97,6 @@ execution context**. Neither is a permission token.
 | `ORDERED_SPAWN_FINALIZATION` | Worker selection + server finalization with peers parked | Not vanilla RNG/order bit-equality |
 | `BLOCK_ENTITY_TICK_ADMISSION` | Per-invocation admission of an original ticker | Not a type allowlist, not a slice switch |
 | `BLOCK_ENTITY_OPERATIONS` | Two-owner operations and container transfer | Not parallel cross-region leases |
-| `GENERAL_BLOCK_ENTITY_ADAPTERS` | C5 conservative request/validation protocol | Requests do not create execution authority; targets stay serial fences |
 | `AUDITED_BLOCK_ENTITY_TICKS` | Audited complete original-ticker branch with READ/WRITE footprint | Hash ≠ semantic proof |
 | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | [Original ticks through region/resource execution](block-entity-execution.en.md) | Requires a complete trusted adapter audit |
 | `SCHEDULED_TICK_DIAGNOSTICS` | Scheduled phase counters/latency | Empty list does not prove the slice is off |

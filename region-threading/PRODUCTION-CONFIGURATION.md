@@ -1,5 +1,7 @@
 # Production configuration audit
 
+> **Historical C6 audit snapshot.** This document records the frozen C6 fixed-layout (`FIXED_3X3`) audit at commit `a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1`. For the **current** 36-key `config/forgia.toml` schema (including `DYNAMIC_CLUSTER`, `enableRegionThreadingPlayerTicks`, runtime diagnostics keys, and exact `FIXED_3X3`-only vs. `DYNAMIC_CLUSTER` prerequisites), see [docs/configuration.en.md](../docs/configuration.en.md) ([中文](../docs/configuration.zh.md)).
+
 Audit source: `a45a3bddf595dde0a4e390f4fdaf05fb2bf832a1` after fetching `origin/main`.
 Production fingerprint: `f770fde7f5440e8859f51015b12d39f492eaf5b975df62b580137fb65b706787`.
 See [readiness and evidence](PRODUCTION-READINESS.md) and the [canary procedure](CONTROLLED-CANARY.md).

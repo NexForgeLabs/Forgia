@@ -37,7 +37,7 @@ Status: POI **certified within C6**; natural spawning **experimental and outside
 |---|---|---|
 | 1 | Server | `preparePlan` (adapter) before vanilla cap/state construction |
 | 2 | Server | Build the plan; `PerUnit` reaches per-chunk `prepare` |
-| 3 | Server | Verify gates: fixed storage, chunk/player/spawn gates, loaded neighbourhood, budget |
+| 3 | Server | Verify gates: section-partitioned entity storage (`DYNAMIC_CLUSTER` or `FIXED_3X3`), chunk/player/spawn gates, loaded neighbourhood, budget |
 | 4 | Workers | Run spawn bodies; region states partition the level counts |
 | 5 | Workers | Reserve cap with an atomic check-and-reserve; nearby-count limits |
 | 6 | Server | If ordered finalization: park peers, publish deferred effects, run native finalize/admission/afterSpawn |
@@ -47,7 +47,7 @@ Status: POI **certified within C6**; natural spawning **experimental and outside
 
 | Gate | Detail |
 |---|---|
-| Fixed entity storage | Region-owned entity storage required |
+| Section-partitioned entity storage | Region-owned entity storage required (`DYNAMIC_CLUSTER` or `FIXED_3X3`) |
 | Chunk/player/spawn gates | Existing level gates plus the player snapshot |
 | Loaded neighbourhood | Candidate positions may leave the source chunk; the neighbourhood must be loaded |
 | Budget | Deferred-update/spawn budgets |
@@ -72,7 +72,7 @@ Status: POI **certified within C6**; natural spawning **experimental and outside
 |---|---|
 | Query results | Identical to vanilla `PoiManager` (validated against a real single-threaded manager) |
 | Snapshot age | Answers may be one publication old; live ticket checks still apply |
-| Storage conversion | No supported live conversion; fixed layout installs partitioned storage |
+| Storage conversion | No supported live conversion; `DYNAMIC_CLUSTER` and `FIXED_3X3` install partitioned storage at world start |
 | Save/reload | Equivalent records, order and free-ticket counts (tested) |
 | Entity-tick implication | Enabling entity ticks also installs POI storage |
 
@@ -80,20 +80,20 @@ Status: POI **certified within C6**; natural spawning **experimental and outside
 
 | Key | Default | Notes |
 |---|---|---|
-| `enableRegionThreadingSpawning` | `false` | Requires fixed storage, gates, neighbourhood, budget |
-| `enableRegionThreadingPoi` | `false` | Implied by entity ticks even when false |
+| `enableRegionThreadingSpawning` | `false` | Requires `DYNAMIC_CLUSTER` or `FIXED_3X3`, region-owned storage, gates, neighbourhood, budget |
+| `enableRegionThreadingPoi` | `false` | Implied by entity ticks even when false; requires `DYNAMIC_CLUSTER` or `FIXED_3X3` |
 | `enableRegionThreadingEntityTicks` | `false` | Installs region POI storage |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | Fixed layout |
+| `regionThreadingMode` | `FIXED_3X3` | `DYNAMIC_CLUSTER` (recommended) or `FIXED_3X3` (C6 baseline) |
 | `enableRegionThreadingWorkers` | `false` | Spawn bodies run on region workers |
 
 ```toml
-# config/forgia.toml — POI on, spawning left serial
+# config/forgia.toml — POI on, spawning optional
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingPoi = true
-# enableRegionThreadingSpawning = true   # experimental, requires an audited adapter + canary
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+# enableRegionThreadingSpawning = true   # experimental, outside C6
+regionThreadingMode = "DYNAMIC_CLUSTER"  # recommended (FIXED_3X3 is the C6 baseline)
+regionThreadingDynamicSectionShift = 3
 ```
 
 ## 8. Measured workload (historical)

@@ -5,7 +5,7 @@
 
 package net.neoforged.neoforge.unittest;
 
-import static net.neoforged.neoforge.unittest.CoreModExecutionProofTest.call;
+import static net.neoforged.neoforge.unittest.CanonicalBlockEntityTestSupport.call;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;

@@ -19,12 +19,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.TickingBlockEntity;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Inspection;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Outcome;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Refresh;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Resources;
-import net.neoforged.neoforge.server.threading.api.adapter.BlockEntityAdapters.Refusal;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Inspection;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Outcome;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Refresh;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.Resources;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -232,7 +231,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         this.requireCoordinator();
         final var ticket = this.ticket(admission);
         synchronized (ticket) {
-            if (ticket.state != State.INSPECTED || ticket.adapterProof != AdapterProof.UNCHECKED
+            if (ticket.state != State.INSPECTED
                     || ticket.inspection.resources() != Resources.MOD_CLAIMS || manifest.admission() != admission)
                 throw new IllegalStateException("Mod proof requires this exact unstarted inspected invocation");
             ticket.modManifest = manifest;
@@ -246,7 +245,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         this.requireCoordinator();
         final var ticket = this.ticket(admission);
         synchronized (ticket) {
-            if (ticket.state != State.INSPECTED || ticket.adapterProof != AdapterProof.UNCHECKED
+            if (ticket.state != State.INSPECTED
                     || manifest.admission() != admission || ticket.inspection.descriptor() != manifest.binding().descriptor()
                     || !manifest.binding().verified() || !claims.complete())
                 throw new IllegalStateException("Execution evidence requires its exact unstarted invocation");
@@ -314,41 +313,6 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         }
     }
 
-    /**
-     * Core assessment on the original Ticket, never a second execution capability. Unknown Mod closures
-     * have no positive backend. Calling this gate already requires this exact canonical serial Permit;
-     * an adapter cannot create an assessment or turn CURRENT declarations into a worker grant.
-     */
-    void beginAdapterProof(RegionBlockEntityTickAdmission admission) {
-        final var ticket = this.adapterProofTicket(admission);
-        if (ticket.adapterProof != AdapterProof.UNCHECKED) throw new IllegalStateException("Adapter proof already checked");
-        ticket.adapterProof = AdapterProof.CHECKING;
-    }
-
-    Refusal refuseAdapterProof(RegionBlockEntityTickAdmission admission, boolean bindingCurrent,
-            boolean registrationCurrent, Refusal declaredRefusal) {
-        final var ticket = this.adapterProofTicket(admission);
-        if (ticket.adapterProof != AdapterProof.CHECKING) throw new IllegalStateException("No pending adapter proof");
-        // Neither a correct binding nor an adapter validator proves the complete original body closure.
-        // No Mod manifest is trusted yet: do not create Claims, reserve resources or grant a worker.
-        final var refusal = !bindingCurrent || !admission.isCurrent() ? Refusal.INVALID_BINDING
-                : !registrationCurrent || !this.live.getAsBoolean() ? Refusal.INVALIDATED : declaredRefusal;
-        ticket.adapterRefusal = java.util.Objects.requireNonNull(refusal);
-        ticket.adapterProof = AdapterProof.SERIAL_ONLY;
-        return refusal;
-    }
-
-    private InvocationTicket adapterProofTicket(RegionBlockEntityTickAdmission admission) {
-        this.requireCoordinator();
-        final var permit = CURRENT.get();
-        final var ticket = this.ticket(admission);
-        if (!this.orderedEffects || permit == null || permit.guard != null || permit.ticket != ticket
-                || ticket.state != State.RUNNING)
-            throw new IllegalStateException("Adapter proof requires this exact canonical serial invocation");
-        permit.requireCurrent();
-        return ticket;
-    }
-
     /** A true serial fence starts only after all worker authorities have returned. */
     Permit beginSerial(RegionBlockEntityTickAdmission admission) {
         this.requireCoordinator();
@@ -376,8 +340,6 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
                     || CURRENT.get() != null)
                 throw new IllegalStateException("Invocation already started or nested");
             if (guard != null) {
-                if (ticket.adapterProof != AdapterProof.UNCHECKED)
-                    throw new IllegalStateException("A refused Mod proof cannot enter worker authority");
                 synchronized (guard.region) {
                     if (guard.closed || guard.region.blockEntityExecution != guard || !guard.region.isRunning()
                             || (guard.mode == Mode.REGION_OWNER && !guard.region.isOwnedByCurrentThread())
@@ -405,7 +367,6 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         for (final var ticket : this.tickets.values()) {
             synchronized (ticket) {
                 if (ticket.state == State.CAPTURED || ticket.state == State.INSPECTED) ticket.state = State.CANCELLED;
-                ticket.adapterProof = AdapterProof.RETIRED;
                 ticket.modManifest = null;
                 ticket.executionManifest = null;
                 ticket.modClaims = null;
@@ -419,15 +380,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
         CAPTURED, INSPECTED, RUNNING, SUCCEEDED, FAILED, CANCELLED
     }
 
-    /** Assessment only; reservation/execution states remain in the original Ticket, Permit and Lease. */
-    enum AdapterProof {
-        UNCHECKED, CHECKING, SERIAL_ONLY, FAILED, RETIRED
-    }
-
     static final class InvocationTicket {
-        private AdapterProof adapterProof = AdapterProof.UNCHECKED;
-        @Nullable
-        private Refusal adapterRefusal;
         @Nullable
         private CoreModPreparation.Manifest modManifest;
         @Nullable
@@ -536,8 +489,7 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
 
         void succeeded() {
             this.requireCurrent();
-            if (this.succeeded || this.ticket.adapterProof == AdapterProof.CHECKING
-                    || this.ticket.adapterProof == AdapterProof.FAILED || (this.resources != null && !this.resources.consumed()))
+            if (this.succeeded || (this.resources != null && !this.resources.consumed()))
                 throw new IllegalStateException("Invocation already completed or resource scope has not returned");
             this.succeeded = true;
         }
@@ -548,7 +500,6 @@ final class BlockEntityExecutionEngine implements AutoCloseable {
             if (this.resources != null && this.resources.entered())
                 throw new IllegalStateException("Cannot release an invocation with an active resource scope");
             this.closed = true;
-            if (this.ticket.adapterProof == AdapterProof.CHECKING) this.ticket.adapterProof = AdapterProof.FAILED;
             this.ticket.state = this.succeeded ? State.SUCCEEDED : State.FAILED;
             CURRENT.remove();
             if (this.guard != null) {

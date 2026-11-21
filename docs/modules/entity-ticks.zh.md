@@ -50,7 +50,7 @@
 
 | 门 | 说明 |
 |---|---|
-| 固定布局 + region-owned 存储 | 必需；`DYNAMIC` 未认证 |
+| 分区布局 + region-owned 存储 | 必需（`DYNAMIC_CLUSTER` 或 `FIXED_3X3`）；遗留 `DYNAMIC` 不支持 |
 | 原版 profiler 未激活 | 激活时实体保持 inline |
 | 未被固定 | 固定类/类型与骑乘栈保持串行 |
 | 正文前足迹可用 | 否则实体保持串行 |
@@ -96,19 +96,20 @@ worker 在 lease 外的写入会被记录，并由目标区域在同一 tick 应
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `enableRegionThreadingEntityTicks` | `false` | 需要固定布局、region-owned 存储、profiler 未激活；隐含 POI 存储 |
+| `enableRegionThreadingEntityTicks` | `false` | 需要 `DYNAMIC_CLUSTER` 或 `FIXED_3X3`、region-owned 存储、profiler 未激活；隐含 POI 存储 |
 | `enableRegionThreadingPoi` | `false` | 即使为 false 也会被实体 tick 隐含 |
-| `regionThreadingMode` / `regionThreadingFixedRegionChunks` | `FIXED_3X3` / `3` | 实体 tick 要求固定 |
+| `regionThreadingMode` | `FIXED_3X3` | `DYNAMIC_CLUSTER`（推荐）或 `FIXED_3X3`（C6 基线）；遗留 `DYNAMIC` 保持串行 |
+| `regionThreadingDynamicSectionShift` / `regionThreadingFixedRegionChunks` | `3` / `3` | `DYNAMIC_CLUSTER` Section 位偏移（`3` = 8×8）或 `FIXED_3X3` 固定边长 |
 | `regionThreadingWorkerThreads` | `0` | 可复现测量需固定 |
 | `regionThreadingOwnershipViolationMode` | `WARN` | 仅建议性断言；存储 guard 仍独立拒绝 |
 
 ```toml
-# config/forgia.toml —— 最小实体 tick 切片
+# config/forgia.toml —— 最小实体 tick 切片（推荐 DYNAMIC_CLUSTER；FIXED_3X3 为 C6 基线）
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true          # 隐含 POI 存储
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"
+regionThreadingDynamicSectionShift = 3
 regionThreadingWorkerThreads = 4
 ```
 
@@ -146,7 +147,7 @@ regionThreadingWorkerThreads = 4
 
 | 限制 | 说明 |
 |---|---|
-| 玩家 | 服务器线程；仅有有界交接测试，无多人认证 |
+| 玩家 | 默认在服务器线程；可通过实验性 `enableRegionThreadingPlayerTicks` 显式开启（见 [player-ticks](player-ticks.zh.md)） |
 | 模组 AI | 任意模组 tick 正文未被 C6 闭包认证 |
 | 结构/移动装置 | 类实体移动装置不感知区域 |
 | 查询面 | 只有文档化入口被回答，其他拒绝 |

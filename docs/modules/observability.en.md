@@ -98,10 +98,10 @@ enums precisely so labels stay bounded.
 
 | Fact | Detail |
 |---|---|
-| File | `config/forgia.toml`, a SERVER config; world override `serverconfig/forgia.toml` replaces it as a whole |
+| File | `config/forgia.toml`, a SERVER config; world override `serverconfig/forgia.toml` replaces it as a whole. See [Configuration & Hardware Tuning Guide](../configuration.en.md) for all 36 keys and layout prerequisites |
 | Migration | Before load: `forgia.toml` wins, else legacy `neoforge-server.toml`, then `neoforge-server.forgia.toml` |
 | Deleting `forgia.toml` | Can reactivate old enabled settings; rollback writes explicit `false` |
-| Restart-only | Engine/layout/storage/slice/service switches (all default `false`, including experimental `enableRegionThreadingPlayerTicks`, `enableRegionThreadingPersistentWorkers`, `enableRegionThreadingPackedRegionLeases`, and `DYNAMIC_CLUSTER` layout) |
+| Restart-only | Engine/layout/storage/slice/service switches (all default `false`, including `enableRegionThreadingPlayerTicks`, `enableRegionThreadingPersistentWorkers`, `enableRegionThreadingPackedRegionLeases`, and `DYNAMIC_CLUSTER` layout). Note: under `DYNAMIC_CLUSTER`, `enableRegionThreadingPlayerTicks` also requires `-Dforgia.dynamicPlayerSoak=true`, while `FurnaceWorkWaves`, `BlockEntityResources` and `PackedRegionLeases` apply to `FIXED_3X3` only |
 | Live readers | Warning/drain/ownership settings (pin them during a canary) |
 | Bad values | Spec corrects out-of-range values; direct layout construction rejects |
 

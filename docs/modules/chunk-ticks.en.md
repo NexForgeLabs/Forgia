@@ -50,7 +50,7 @@ Status: random chunk ticks **certified within C6**; border updates and game even
 
 | Gate | Detail |
 |---|---|
-| Fixed layout + inactive profiler | Required |
+| Installed bridge + inactive profiler | Required (works on `DYNAMIC_CLUSTER`, `FIXED_3X3`, and `DYNAMIC`) |
 | Loaded neighbourhood | The region's chunk neighbourhood must be loaded with live mappings |
 | Ownership/budget | Valid lease and remaining cascade/deferred-update budget |
 | No unsupported neighbour | A foreign/unrestricted neighbour keeps the chunk serial |
@@ -84,7 +84,7 @@ Status: random chunk ticks **certified within C6**; border updates and game even
 | `enableRegionThreadingRandomTicks` | `false` | yes | Whole chunk tick body on workers |
 | `enableRegionThreadingBorderUpdates` | `false` | yes | Cross-region neighbour capture + fixpoint |
 | `enableRegionThreadingGameEvents` | `false` | yes | Foreign game-event capture; OFF keeps inline dispatch |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | yes | Fixed layout required |
+| `regionThreadingMode` | `FIXED_3X3` | yes | `DYNAMIC_CLUSTER` (recommended) or `FIXED_3X3` (C6 baseline) |
 | `regionThreadingOwnershipViolationMode` | `WARN` | no | Advisory assertions |
 
 ```toml
@@ -94,8 +94,8 @@ enableRegionThreadingWorkers = true
 enableRegionThreadingRandomTicks = true
 # enableRegionThreadingBorderUpdates = true  # experimental, outside C6
 # enableRegionThreadingGameEvents = true     # experimental, outside C6
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"      # recommended (FIXED_3X3 is the C6 baseline)
+regionThreadingDynamicSectionShift = 3
 ```
 
 ## 8. Measured workload (historical)

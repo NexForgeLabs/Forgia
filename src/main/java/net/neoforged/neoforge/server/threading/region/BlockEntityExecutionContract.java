@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: LGPL-2.1-only
  */
 
-package net.neoforged.neoforge.server.threading.api;
+package net.neoforged.neoforge.server.threading.region;
 
 import java.util.Objects;
 import java.util.Set;
 import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
@@ -15,19 +16,10 @@ import org.jetbrains.annotations.Nullable;
  * Immutable descriptions shared by the native-adapter and protected furnace execution bridges.
  * These values grant no execution rights. Only the internal engine may bind an original invocation,
  * refresh its proof and issue a thread-bound permit under the existing region exclusion.
- * <p>
- * This first contract adds no adapter registration protocol or worker/commit callbacks. Existing
- * {@link BlockEntityTickAdapter} registration and callback timing remain unchanged. Resource descriptions
- * name existing audited paths, not general capability, inventory or multi-region access permissions.
  */
-@ApiStatus.Experimental
+@ApiStatus.Internal
 public final class BlockEntityExecutionContract {
     private BlockEntityExecutionContract() {}
-
-    /** A complete region owner and a subordinate work scope are different authorities. */
-    public enum Mode {
-        REGION_OWNER, RESOURCE_SCOPED
-    }
 
     public enum Resources {
         UNPROVEN, REGION_LOCAL, FURNACE_LOCAL, FURNACE_CLAIMS, MOD_CLAIMS, ADAPTER_CLAIMS

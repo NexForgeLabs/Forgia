@@ -150,7 +150,7 @@ final class AuditedBlockEntityPreparation {
                 if (!Set.of("BoundTickingBlockEntity", "RebindableTickingBlockEntityWrapper").contains(nested.getSimpleName())) continue;
                 for (final var method : nested.getDeclaredMethods()) {
                     final MixinMerged merged = method.getAnnotation(MixinMerged.class);
-                    if (merged != null) {
+                    if (merged != null && !isAllowedCoreTickerMixin(merged.mixin())) {
                         return "blocked(" + nested.getSimpleName() + "#" + method.getName() + " by " + merged.mixin() + ")";
                     }
                 }
@@ -159,5 +159,20 @@ final class AuditedBlockEntityPreparation {
         } catch (RuntimeException | LinkageError unavailable) {
             return "error(" + unavailable.getClass().getSimpleName() + ")";
         }
+    }
+
+    private static boolean isAllowedCoreTickerMixin(String mixinName) {
+        if ("com.klnon.sablepanel.mixin.BoundTickingBlockEntityMixin".equals(mixinName)) {
+            return true;
+        }
+        if ("com.illusivesoulworks.polymorph.mixin.core.MixinLevelChunk".equals(mixinName)) {
+            try {
+                Class.forName("com.forgia.polymorphcompat.PolymorphCompatMod", false, AuditedBlockEntityPreparation.class.getClassLoader());
+                return true;
+            } catch (ClassNotFoundException ignored) {
+                return false;
+            }
+        }
+        return false;
     }
 }

@@ -58,7 +58,7 @@ Ownership is by lease, not by thread name. `Thread.currentThread().getName()` is
 |---|---|---|---|---|
 | Entity ticks | Yes | 2.5–4.5× on 1024 mobs | C6 | Pinned classes/riding stacks stay serial |
 | Chunk random ticks | Yes | 1.15–1.27× | C6 | 100 % of dispatched chunks on workers after interior-rule lift |
-| Natural spawning | Yes | Slice 4.6 → 2.8–3.9 ms | Outside C6 | Requires fixed layout, spawn gates, caps |
+| Natural spawning | Yes | Slice 4.6 → 2.8–3.9 ms | Outside C6 | Requires `DYNAMIC_CLUSTER` or `FIXED_3X3`, spawn gates, caps |
 | POI | Yes | 2.1–3.4× queries | C6 | Snapshot may be one publication old |
 | Block entities | Yes | No whole-server gain claimed | C6 (bounded cohorts) | Hoppers/furnaces can be slower under light load |
 | Redstone/border | Yes | Same-tick convergence | C6 (fixed layouts) | Fixpoint with cascade budget |

@@ -29,7 +29,7 @@ prefix, `InvocationTicket`, region guard/permit, physical join and ordered effec
 | Natural-spawn preparation | `NATURAL_SPAWN_PREPARATION`, `..._PLAN_PREPARATION`, `..._CLAIMS`, `ORDERED_SPAWN_FINALIZATION` | Pure snapshots, optional claim + ordered finalization | Spawn body on worker with frozen rules | Medium | [guide](../api/natural-spawn-preparation.en.md) |
 | v1 BE tick predicate | `BLOCK_ENTITY_TICK_ADMISSION` | Per-invocation `Decision` | Refusal gate; canonical path not granted by the predicate alone | Low | [guide](../api/block-entity-ticks.en.md) |
 | Audited original ticker | `AUDITED_BLOCK_ENTITY_TICKS` | Manifest + READ/WRITE footprint | Original ticker on a worker in the canonical phase | High | [guide](../api/block-entity-ticks.en.md) |
-| C5 general/dedicated request | `GENERAL_BLOCK_ENTITY_ADAPTERS` | Descriptor, resources, dependencies | Diagnostics only; targets remain complete serial fences | Medium | [API ref §4.8](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/API-REFERENCE.md) |
+| Original ticker execution adapter | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | Manifest + `Mode` + footprint + dependency revisions | `REGION_OWNER` or `RESOURCE_SCOPED` original ticker execution | High | [guide](../api/block-entity-execution.en.md) |
 | Operations-only integration | `BLOCK_ENTITY_OPERATIONS` | Nothing registered; uses `blockEntities()` | Cross-region completion, no tick parallelism | Low | [guide](../api/block-entity-operations.en.md) |
 
 ## 3. Decision matrix

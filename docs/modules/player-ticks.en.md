@@ -2,7 +2,7 @@
 
 English | [中文](player-ticks.zh.md) · [Module map](README.en.md)
 
-Player ticks use the server thread by default. The restart-only `enableRegionThreadingPlayerTicks` switch permits bounded worker dispatch when the region engine, entity worker slice, supported layout and region-owned entity storage are active. The 32-player GameTest enables dynamic layout support in its fixture. [Configuration and diagnostics](observability.en.md)
+Player ticks use the server thread by default. The restart-only `enableRegionThreadingPlayerTicks` switch permits bounded worker dispatch when the region engine, entity worker slice, supported layout and region-owned entity storage are active. Under `FIXED_3X3`, the TOML switch alone is sufficient; under `DYNAMIC_CLUSTER`, **you must also pass the JVM flag `-Dforgia.dynamicPlayerSoak=true`** (as the 32-player GameTest fixture does), otherwise player ticks stay serial. [Configuration & tuning](../configuration.en.md) · [Diagnostics](observability.en.md)
 
 ## Execution order
 

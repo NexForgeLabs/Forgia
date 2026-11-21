@@ -15,9 +15,9 @@
 | 我想…… | 阅读 | 主要类型 |
 |---|---|---|
 | 了解 Forgia 是什么、哪些已认证 | [README](index.md)、[STATUS](status.zh.md) | — |
-| 先用 3D 动画过一遍执行流程 | [3D 架构动画流](visualizer/index.html)（6 步交互演示） | — |
+| 先用 3D 动画过一遍执行流程 | [3D 架构动画流](visualizer/index.html)（10 步全功能交互演示，支持 `DYNAMIC_CLUSTER` / `FIXED_3X3` 实时切换） | — |
 | 了解实验性玩家调度 | [玩家 Tick](modules/player-ticks.zh.md) | `ENTITY`、`CONNECTION`、`CONNECTION_BODY` |
-| 开启服务器 / 启用区域线程 | [观测与配置](modules/observability.zh.md) | `forgia.toml`、`/forgia` |
+| 开启服务器 / 调优 `config/forgia.toml` | [配置与硬件调优](configuration.zh.md)、[观测与配置](modules/observability.zh.md) | `forgia.toml`、`/forgia` |
 | 调用面向模组的 API | [API 总览](api/README.zh.md) | `ParallelApi` |
 | 在主线程准备刷怪数据、在 worker 执行正文 | [刷怪准备](api/natural-spawn-preparation.zh.md) | `NaturalSpawnPreparation`、`Ready`、`ServerRequired` |
 | 让我模组的方块实体原 ticker 在 worker 上运行 | [方块实体 tick 准入](api/block-entity-ticks.zh.md) | `BlockEntityTickAdapter`、`AuditedBlockEntityTickAdapter` |
@@ -33,13 +33,19 @@
 
 ```
 docs/
+├── index.{md,zh.md}                      站点首页
 ├── README.{en,zh}.md                     索引、约定、状态图例
+├── architecture.{en,zh}.md               原版 NeoForge vs Forgia 架构对比
+├── benchmarks.{en,zh}.md                 实测性能与耐久基准
+├── configuration.{en,zh}.md              全部 36 项 forgia.toml 配置与硬件调优指南
+├── status.{en,zh}.md                     工程状态与验收回执
 ├── visualizer/                           3D 架构动画页（单文件 HTML，非 MkDocs 页面）
 ├── api/                                  面向模组的公开合同
 │   ├── README.{en,zh}.md                 入口矩阵、生命周期、编译配置
 │   ├── parallel-api.{en,zh}.md           ParallelApi、Server、Capability、Phase、DataKey
 │   ├── natural-spawn-preparation.{en,zh}.md
 │   ├── block-entity-ticks.{en,zh}.md     v1 谓词 + 受审计原 ticker 合同
+│   ├── block-entity-execution.{en,zh}.md 资源作用域 BE 执行契约
 │   ├── block-entity-operations.{en,zh}.md
 │   └── schedulers-and-entity-interactions.{en,zh}.md
 ├── adapters/                             随仓库发布的适配器模组与编写指南
@@ -50,6 +56,7 @@ docs/
     ├── README.{en,zh}.md                 模块地图与状态矩阵
     ├── region-engine.{en,zh}.md
     ├── entity-ticks.{en,zh}.md
+    ├── player-ticks.{en,zh}.md
     ├── chunk-ticks.{en,zh}.md
     ├── natural-spawning-and-poi.{en,zh}.md
     ├── block-entities.{en,zh}.md

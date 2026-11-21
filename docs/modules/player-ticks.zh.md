@@ -2,7 +2,7 @@
 
 [English](player-ticks.en.md) | 中文 · [模块地图](README.zh.md)
 
-玩家默认在服务器线程执行 tick。区域引擎、实体 worker 切片、受支持的布局和区域所有的实体存储均已启用时，可通过重启生效的 `enableRegionThreadingPlayerTicks` 开关调度已准入的玩家调用。32 人 GameTest 在夹具中启用了动态布局支持。[配置与诊断](observability.zh.md)
+玩家默认在服务器线程执行 tick。区域引擎、实体 worker 切片、受支持的布局和区域所有的实体存储均已启用时，可通过重启生效的 `enableRegionThreadingPlayerTicks` 开关调度已准入的玩家调用。在 `FIXED_3X3` 模式下仅开启该 TOML 开关即可生效；在 `DYNAMIC_CLUSTER` 模式下**必须同时在 JVM 启动参数中传入 `-Dforgia.dynamicPlayerSoak=true`**（32 人 GameTest 夹具即通过该参数启用），否则玩家 tick 会保持主线程串行。[配置与调优](../configuration.zh.md) · [诊断](observability.zh.md)
 
 ## 执行顺序
 

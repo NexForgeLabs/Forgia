@@ -63,8 +63,6 @@ Phase currentPhase();
 List<AdapterStatus> adapters();
 List<BlockEntityTickAdapter.Status> blockEntityTickAdapters();
 List<AuditedBlockEntityTickAdapter.Status> auditedBlockEntityTicks();
-List<BlockEntityAdapters.Status> blockEntityAdapters();
-Optional<BlockEntityAdapters.PhaseSummary> lastBlockEntityAdapterPhase();
 BlockEntityOperations blockEntities();
 List<ScheduledTickStatus> scheduledTicks();
 ```
@@ -78,8 +76,6 @@ List<ScheduledTickStatus> scheduledTicks();
 | `adapters()` | Natural-spawn preparation registrants and cumulative results | counts | Reading counts as entities spawned |
 | `blockEntityTickAdapters()` | v1 predicate adapters: checks, refusals, native completions, timings | counts/nanos | Equating `checks` with completions |
 | `auditedBlockEntityTicks()` | Audited adapters: reference/revision, `verified`, reason | records | Treating `verified` as runtime proof |
-| `blockEntityAdapters()` | C5 conservative request diagnostics | records | Expecting C5 to enable workers |
-| `lastBlockEntityAdapterPhase()` | Last closed C5 session, declaration-only waves | `Optional` | Reading it as an execution plan |
 | `blockEntities()` | Two-owner operation service | service | Assuming cross-region parallelism |
 | `scheduledTicks()` | Block/fluid scheduled phase snapshot | list | Inferring slice state from emptiness |
 
@@ -159,8 +155,6 @@ void registerBlockEntityTicks(int apiMajorVersion, ResourceLocation id,
         Set<ResourceLocation> types, BlockEntityTickAdapter adapter);
 void registerBlockEntityExecutionAdapter(int protocolVersion, ResourceLocation id,
         Set<ResourceLocation> types, BlockEntityExecutionAdapter adapter);
-BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
-        BlockEntityAdapters.Descriptor descriptor, BlockEntityAdapter adapter);
 ```
 
 | Method | Required arguments | Transaction rules | Grants |
@@ -169,7 +163,6 @@ BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
 | `claimNaturalSpawning` | already-registered key, non-blank `modId`, `verified` true at startup | No duplicate claim; missing key fails | Replaces *that mod's* spawn restriction only |
 | `registerBlockEntityTicks` | major `1`, unique id, 1..128 types, adapter | Shares the 128 budget/id space; overlapping types rejected | Per-invocation admission checks ([ticks](block-entity-ticks.en.md)) |
 | `registerBlockEntityExecutionAdapter` | protocol `1`, unique id/types, complete audited execution adapter | Shared budget and id/type conflict rules | Original region/resource execution ([protocol](block-entity-execution.en.md)) |
-| `registerBlockEntityAdapter` | protocol `1`, descriptor, adapter | Same budget; C5 id/type space | Conservative C5 request diagnostics, serial fences |
 
 Registration is only valid inside `RegisterParallelAdaptersEvent`, on the server thread. A caught nested
 failure still invalidates the transaction — you cannot "swallow" a bad registration.

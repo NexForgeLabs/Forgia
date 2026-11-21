@@ -432,21 +432,17 @@
          p_8713_.clearAllBlockEntities();
          p_8713_.unregisterTickContainerFromLevel(this);
      }
-@@ -936,4 +_,16 @@
+@@ -936,4 +_,12 @@
      @Override
      public void destroyBlockProgress(int p_8612_, BlockPos p_8613_, int p_8614_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
 +            final BlockPos immutablePos = p_8613_.immutable();
 +            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
 +                    "ServerLevel.destroyBlockProgress",
-+                    () -> this.sendBlockProgress(p_8612_, immutablePos, p_8614_))) {
++                    () -> this.destroyBlockProgress(p_8612_, immutablePos, p_8614_))) {
 +                return;
 +            }
 +        }
-+        this.sendBlockProgress(p_8612_, p_8613_, p_8614_);
-+    }
-+
-+    private void sendBlockProgress(int p_8612_, BlockPos p_8613_, int p_8614_) {
          for (ServerPlayer serverplayer : this.server.getPlayerList().getPlayers()) {
              if (serverplayer != null && serverplayer.level() == this && serverplayer.getId() != p_8612_) {
 @@ -960,7 +_,11 @@
@@ -510,17 +506,13 @@
 +            final BlockPos immutablePos = p_8812_.immutable();
 +            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
 +                    "ServerLevel.globalLevelEvent",
-+                    () -> this.sendGlobalLevelEvent(p_8811_, immutablePos, p_8813_))) {
++                    () -> this.globalLevelEvent(p_8811_, immutablePos, p_8813_))) {
 +                return;
 +            }
 +        }
-+        this.sendGlobalLevelEvent(p_8811_, p_8812_, p_8813_);
-+    }
-+
-+    private void sendGlobalLevelEvent(int p_8811_, BlockPos p_8812_, int p_8813_) {
          if (this.getGameRules().getBoolean(GameRules.RULE_GLOBAL_SOUND_EVENTS)) {
              this.server.getPlayerList().broadcastAll(new ClientboundLevelEventPacket(p_8811_, p_8812_, p_8813_, true));
-@@ -1001,4 +_,17 @@
+@@ -1001,4 +_,13 @@
      @Override
      public void levelEvent(@Nullable Player p_8684_, int p_8685_, BlockPos p_8686_, int p_8687_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
@@ -528,14 +520,10 @@
 +            final BlockPos immutablePos = p_8686_.immutable();
 +            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
 +                    "ServerLevel.levelEvent",
-+                    () -> this.sendLocalLevelEvent(p_8684_, p_8685_, immutablePos, p_8687_))) {
++                    () -> this.levelEvent(p_8684_, p_8685_, immutablePos, p_8687_))) {
 +                return;
 +            }
 +        }
-+        this.sendLocalLevelEvent(p_8684_, p_8685_, p_8686_, p_8687_);
-+    }
-+
-+    private void sendLocalLevelEvent(@Nullable Player p_8684_, int p_8685_, BlockPos p_8686_, int p_8687_) {
          this.server
              .getPlayerList()
 @@ -1019,11 +_,20 @@

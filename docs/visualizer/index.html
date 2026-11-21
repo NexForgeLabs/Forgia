@@ -1,138 +1,204 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="Forgia 区域化执行引擎的 3D 动画解说：GLOBAL / REGION 阶段交替、空间租约、屏障 join、跨区 seqlock 与邮箱、Canonical 方块实体串行围栏。" />
-<title>Forgia · 3D 架构动画流</title>
-<link rel="icon" href="../assets/forgia-mark.svg" />
+<title>Forgia · 3D Full-Pipeline Architecture Visualizer</title>
 <style>
   :root{
-    --paper:#f3f2ed; --panel:#e9e8e1; --ink:#202628; --muted:#626d70; --faint:#8b9491;
-    --line:#d2d2c9; --orange:#b94b2c; --bright:#ed7950; --green:#718d62; --green-deep:#4d6d43;
-    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
-    --sans:Inter,"Segoe UI","Helvetica Neue",Arial,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;
+    --paper:#f3f2ed;
+    --panel:rgba(243,242,237,.86);
+    --panel-solid:#e9e8e1;
+    --ink:#202628;
+    --mid:#495356;
+    --muted:#626d70;
+    --faint:#949b99;
+    --line:#d5d6ce;
+    --orange:#b94b2c;
+    --orange-bright:#ed7950;
+    --green:#4d6d43;
+    --teal:#256f7c;
+    --gold:#a87a22;
+    --violet:#6b4e8d;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
-  *{box-sizing:border-box}
-  html,body{margin:0;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
   #scene,#labels{position:fixed;inset:0}
-  #scene canvas{display:block}
-  #labels{pointer-events:none;overflow:hidden}
+  #labels{pointer-events:none;overflow:hidden;z-index:2}
 
-  /* ---------- 3D 标签 ---------- */
-  .tag{
-    font-family:var(--mono);font-size:9px;line-height:1;letter-spacing:.1em;text-transform:uppercase;
-    color:#3d4749;background:rgba(243,242,237,.8);border:1px solid rgba(32,38,40,.16);
-    padding:4px 6px;white-space:nowrap;backdrop-filter:blur(3px);transition:opacity .35s;
-  }
-  .tag.orange{color:#a84227;border-color:rgba(185,75,44,.42);background:rgba(243,242,237,.86)}
-  .tag.green{color:var(--green-deep);border-color:rgba(77,109,67,.42);background:rgba(243,242,237,.86)}
-  .tag.bright{color:#a84227;border-color:rgba(185,75,44,.6);background:rgba(237,121,80,.16)}
-  .tag.ink{background:rgba(32,38,40,.9);color:#f3f2ed;border-color:#202628}
-  .tag.dim{opacity:.45}
-
-  /* ---------- 顶栏 ---------- */
+  /* 顶部栏 */
   .topbar{
-    position:fixed;top:0;left:0;right:0;height:54px;z-index:20;display:flex;align-items:center;
-    justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--line);
-    background:rgba(243,242,237,.84);backdrop-filter:blur(10px);
+    position:fixed;top:0;left:0;right:0;z-index:10;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 22px;pointer-events:none;
+    background:linear-gradient(to bottom,rgba(243,242,237,.95),rgba(243,242,237,0));
   }
-  .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--muted)}
-  .brand .mark{width:9px;height:9px;background:var(--orange);transform:rotate(45deg)}
-  .brand b{color:var(--ink);font-weight:600;letter-spacing:.24em}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;pointer-events:auto}
+  .brand .mark{width:8px;height:8px;background:var(--orange);display:inline-block}
+  .brand b{font-weight:700;color:var(--ink)}
   .brand .sep{color:var(--faint)}
-  .chips{display:flex;gap:7px;align-items:center}
+  .chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;pointer-events:auto}
   .chip{
-    font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
-    padding:5px 8px;border:1px solid var(--line);color:var(--muted);background:rgba(233,232,225,.5);
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    padding:4px 9px;border:1px solid var(--line);background:var(--panel);
+    color:var(--mid);backdrop-filter:blur(8px);
   }
-  .chip--phase{color:var(--orange);border-color:rgba(185,75,44,.45);background:rgba(237,121,80,.14);min-width:96px;text-align:center}
+  .chip--phase{border-color:var(--orange);color:var(--orange);font-weight:700}
+  .chip-btn{
+    cursor:pointer;transition:all .15s ease;font-family:var(--mono);font-size:10px;
+    letter-spacing:.08em;padding:4px 9px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    backdrop-filter:blur(8px);
+  }
+  .chip-btn:hover{border-color:var(--ink);background:#fff}
+  .chip-btn.active{border-color:var(--teal);background:var(--teal);color:#fff}
 
-  /* ---------- 面板 ---------- */
-  .panel{position:fixed;z-index:15;font-family:var(--mono)}
-  #steps{left:24px;top:78px;width:236px}
-  #telemetry{right:24px;top:78px;width:212px}
+  /* 通用悬浮面板 */
+  .panel{
+    position:fixed;z-index:10;background:var(--panel);backdrop-filter:blur(10px);
+    border:1px solid var(--line);padding:12px 13px;
+  }
   .panel-title{
-    display:flex;justify-content:space-between;font-size:9px;letter-spacing:.18em;
-    color:var(--faint);text-transform:uppercase;margin-bottom:12px;
+    font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;
   }
+
+  /* 左侧步骤列表 */
+  #steps{left:20px;top:64px;width:252px;max-height:calc(100vh - 210px);overflow-y:auto}
   .step{
-    display:flex;gap:11px;width:100%;padding:10px 10px 10px 11px;border:0;border-left:2px solid transparent;
-    background:none;cursor:pointer;text-align:left;color:var(--muted);font-family:inherit;
-    transition:background .2s,color .2s,border-color .2s;
+    display:flex;align-items:flex-start;gap:9px;padding:6px 7px;cursor:pointer;
+    border-left:2px solid transparent;transition:all .16s ease;
+    color:var(--muted);background:transparent;border-top:0;border-right:0;border-bottom:0;
+    width:100%;text-align:left;font-family:inherit;
   }
-  .step:hover{background:rgba(233,232,225,.7);color:var(--ink)}
-  .step.active{background:rgba(233,232,225,.95);border-left-color:var(--orange);color:var(--ink)}
-  .step-n{font-size:9px;color:var(--faint);padding-top:3px;min-width:15px}
-  .step.active .step-n{color:var(--orange)}
-  .step-t{display:flex;flex-direction:column;gap:4px;font-size:12px;line-height:1.35;font-family:var(--sans);letter-spacing:0}
-  .step-en{font-family:var(--mono);font-size:8px;letter-spacing:.16em;color:var(--faint)}
-  .step.active .step-en{color:rgba(185,75,44,.75)}
+  .step:hover{background:rgba(233,232,225,.75);color:var(--ink)}
+  .step.active{background:rgba(233,232,225,.98);border-left-color:var(--orange);color:var(--ink)}
+  .step-n{font-family:var(--mono);font-size:9px;color:var(--faint);padding-top:2px;min-width:16px}
+  .step.active .step-n{color:var(--orange);font-weight:700}
+  .step-t{display:flex;flex-direction:column;gap:2px;font-size:11.5px;line-height:1.28}
+  .step-en{font-family:var(--mono);font-size:8px;letter-spacing:.13em;color:var(--faint)}
+  .step.active .step-en{color:rgba(185,75,44,.8)}
 
-  .trow{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:7px 0;border-bottom:1px solid rgba(210,210,201,.8);font-size:9.5px}
-  .trow span:first-child{color:var(--faint);letter-spacing:.1em;text-transform:uppercase}
-  .trow span:last-child{color:var(--ink);font-weight:600;letter-spacing:.04em}
-  .trow span.pos{color:var(--orange)}
-  .bar{height:2px;background:var(--line);margin-top:9px;position:relative;overflow:hidden}
-  .bar i{position:absolute;inset:0;background:var(--orange);transform:scaleX(0);transform-origin:left;transition:transform .5s}
-  .legend{display:flex;flex-direction:column;gap:6px;margin-top:16px;font-size:9px;color:var(--muted);letter-spacing:.06em}
-  .legend i{width:8px;height:8px;display:inline-block;margin-right:7px;vertical-align:0}
-  .legend .l-lease{background:var(--bright)}
-  .legend .l-global{background:var(--ink)}
-  .legend .l-proven{background:var(--green)}
-  .legend .l-fence{background:var(--orange);opacity:.55}
-  .tel-note{margin-top:14px;font-size:8px;line-height:1.7;color:var(--faint);letter-spacing:.04em}
-  .tel-link{display:inline-block;margin-top:12px;font-size:8.5px;letter-spacing:.1em;color:var(--orange);text-decoration:none;border-bottom:1px solid rgba(185,75,44,.4);padding-bottom:3px}
-  .tel-link:hover{color:var(--ink);border-color:var(--ink)}
+  /* 右侧状态 + 全功能面板 */
+  #right-col{
+    position:fixed;right:20px;top:64px;width:262px;z-index:10;
+    display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 150px);overflow-y:auto;
+  }
+  #right-col .panel{position:static;width:100%}
+  .trow{
+    display:flex;justify-content:space-between;align-items:baseline;
+    padding:3.5px 0;border-bottom:1px solid rgba(213,214,206,.65);
+    font-family:var(--mono);font-size:10px;
+  }
+  .trow:last-of-type{border-bottom:0}
+  .trow span:first-child{color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .trow span:last-child{color:var(--ink);font-weight:600}
+  .trow .pos{color:var(--orange)}
+  .bar{height:3px;background:var(--line);margin-top:6px;position:relative;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--orange);width:100%;transform-origin:left;transform:scaleX(0);transition:transform .25s ease}
 
-  /* ---------- 字幕 ---------- */
-  #caption{position:fixed;left:24px;bottom:26px;width:min(432px,40vw);z-index:15;padding-top:13px;border-top:1px solid var(--ink)}
-  .cap-index{font-family:var(--mono);font-size:9px;letter-spacing:.18em;color:var(--orange);text-transform:uppercase}
-  #cap-title{font-size:21px;font-weight:550;letter-spacing:-.025em;line-height:1.3;margin:9px 0 11px}
-  #cap-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+  /* 全功能矩阵 */
+  .feat-list{display:flex;flex-direction:column;gap:3px}
+  .feat-item{
+    display:flex;align-items:center;justify-content:space-between;gap:6px;
+    padding:4px 6px;border:1px solid transparent;cursor:pointer;
+    font-size:10.5px;color:var(--mid);background:transparent;width:100%;text-align:left;
+    font-family:inherit;transition:all .14s ease;
+  }
+  .feat-item:hover{background:rgba(233,232,225,.75);color:var(--ink);border-color:var(--line)}
+  .feat-item.active{background:rgba(233,232,225,.98);color:var(--ink);border-color:var(--orange)}
+  .feat-name{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fdot{width:6px;height:6px;flex:0 0 6px;display:inline-block}
+  .fbadge{
+    font-family:var(--mono);font-size:8px;letter-spacing:.06em;padding:1px 4px;
+    border:1px solid var(--line);color:var(--muted);white-space:nowrap;flex:0 0 auto;
+  }
+  .fbadge.on{border-color:var(--green);color:var(--green)}
+  .fbadge.warn{border-color:var(--gold);color:var(--gold)}
+  .fbadge.off{border-color:var(--faint);color:var(--faint)}
+
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-family:var(--mono);font-size:8.5px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .legend i{width:7px;height:7px;display:inline-block;flex:0 0 7px}
+  .tel-links{display:flex;justify-content:space-between;margin-top:8px;padding-top:7px;border-top:1px solid var(--line)}
+  .tel-link{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--orange);text-decoration:none}
+  .tel-link:hover{text-decoration:underline}
+
+  /* 底部解说字幕 */
+  #caption{
+    position:fixed;left:20px;bottom:18px;z-index:10;
+    width:min(620px,calc(100vw - 360px));
+    background:var(--panel);backdrop-filter:blur(10px);
+    border:1px solid var(--line);padding:14px 18px 13px;
+  }
+  .cap-index{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--orange);margin-bottom:4px;display:flex;justify-content:space-between;gap:10px}
+  #cap-title{font-size:18px;font-weight:600;letter-spacing:-.02em;line-height:1.25;margin-bottom:7px;color:var(--ink)}
+  #cap-list{list-style:none;display:flex;flex-direction:column;gap:4px}
   #cap-list li{
-    position:relative;padding-left:14px;font-size:11.5px;line-height:1.65;color:var(--muted);
-    opacity:0;transform:translateY(4px);transition:opacity .5s ease,transform .5s ease;
+    position:relative;padding-left:13px;font-size:12px;line-height:1.5;color:var(--mid);
+    opacity:0;transform:translateY(4px);transition:opacity .35s ease,transform .35s ease;
   }
-  #cap-list li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:1px;background:var(--orange)}
   #cap-list li.on{opacity:1;transform:none}
-  #cap-list code{font-family:var(--mono);font-size:10px;background:rgba(32,38,40,.07);padding:1px 4px;border-radius:2px;color:#2c3638}
-  .cap-progress{margin-top:13px;height:2px;background:var(--line);overflow:hidden}
-  .cap-progress i{display:block;height:100%;background:var(--orange);transform:scaleX(0);transform-origin:left}
+  #cap-list li::before{content:"";position:absolute;left:0;top:.62em;width:5px;height:1px;background:var(--orange)}
+  #cap-list code{font-family:var(--mono);font-size:10.5px;color:var(--ink);background:rgba(32,38,40,.07);padding:1px 4px}
+  .cap-progress{height:2px;background:var(--line);margin-top:9px;overflow:hidden}
+  .cap-progress i{display:block;height:100%;background:var(--orange);width:100%;transform-origin:left;transform:scaleX(0)}
 
-  /* ---------- 控制 ---------- */
-  .hint{position:fixed;right:24px;bottom:60px;z-index:15;font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;color:var(--faint);text-align:right;line-height:1.8}
-  #controls{position:fixed;right:24px;bottom:26px;z-index:15;display:flex;gap:5px;font-family:var(--mono);font-size:9px}
+  /* 右下播放控制 */
+  #controls{
+    position:fixed;right:20px;bottom:18px;z-index:10;
+    display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end;
+  }
   .btn{
-    padding:7px 9px;border:1px solid var(--line);background:rgba(243,242,237,.9);color:var(--muted);
-    cursor:pointer;letter-spacing:.1em;font-family:var(--mono);font-size:9px;transition:color .2s,border-color .2s,background .2s;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+    padding:7px 10px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink);cursor:pointer;backdrop-filter:blur(8px);transition:all .15s ease;
   }
-  .btn:hover{color:var(--ink);border-color:var(--ink)}
-  .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-  .btn.on{background:var(--orange);border-color:var(--orange);color:#fff}
-  .btn.primary:hover{background:#111617}
+  .btn:hover{border-color:var(--ink);background:#fff}
+  .btn.primary{border-color:var(--orange);color:var(--orange);font-weight:700}
+  .btn.primary:hover{background:var(--orange);color:#fff}
+  .btn.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .hint{
+    position:fixed;right:20px;bottom:56px;z-index:10;
+    font-family:var(--mono);font-size:9px;letter-spacing:.07em;color:var(--faint);
+    text-align:right;pointer-events:none;
+  }
 
-  /* ---------- 启动遮罩 ---------- */
+  /* 3D 锚定标签 */
+  .tag{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    padding:3px 7px;background:rgba(243,242,237,.92);color:var(--ink);
+    border:1px solid rgba(32,38,40,.22);white-space:nowrap;
+    box-shadow:0 2px 8px rgba(32,38,40,.06);
+  }
+  .tag.orange{border-color:var(--orange);color:var(--orange);font-weight:700}
+  .tag.bright{border-color:var(--orange-bright);background:rgba(185,75,44,.94);color:#fff;font-weight:700}
+  .tag.green{border-color:var(--green);color:var(--green);font-weight:700}
+  .tag.teal{border-color:var(--teal);color:var(--teal);font-weight:700}
+  .tag.gold{border-color:var(--gold);color:var(--gold);font-weight:700}
+  .tag.violet{border-color:var(--violet);color:var(--violet);font-weight:700}
+  .tag.ink{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
+  .tag.dim{color:var(--muted);border-color:var(--line);font-size:8.5px}
+
   #boot{
-    position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;gap:12px;
-    background:var(--paper);font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--muted);
-    transition:opacity .6s;text-transform:uppercase;
+    position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;gap:10px;
+    background:var(--paper);font-family:var(--mono);font-size:11px;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--muted);transition:opacity .45s ease,visibility .45s;
   }
-  #boot .mark{width:9px;height:9px;background:var(--orange);transform:rotate(45deg);animation:spin 1.6s linear infinite}
-  @keyframes spin{to{transform:rotate(405deg)}}
-  body.ready #boot{opacity:0;pointer-events:none}
+  #boot .mark{width:9px;height:9px;background:var(--orange);animation:blink 1s infinite}
+  body.ready #boot{opacity:0;visibility:hidden}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
 
-  @media (max-width:560px){
-    #btn-cam{display:none}
-    .btn{padding:7px 7px;letter-spacing:.06em}
-    #cap-title{font-size:18px}
+  @media (max-width:1024px){
+    #steps{width:205px}
+    #right-col{width:225px}
+    #caption{width:min(460px,calc(100vw - 260px))}
   }
-  @media (max-width:1080px){
-    #steps,#telemetry,.hint{display:none}
-    #caption{left:16px;right:16px;width:auto;bottom:82px}
-    #controls{right:16px;bottom:20px}
-    .brand{font-size:9px}
-    .chip:nth-child(1),.chip:nth-child(2){display:none}
+  @media (max-width:780px){
+    #steps,#right-col,.hint{display:none}
+    #caption{left:12px;right:12px;width:auto;bottom:62px}
+    #controls{left:12px;right:12px;bottom:12px;justify-content:center}
   }
 </style>
 <script type="importmap">
@@ -145,9 +211,8 @@
 </script>
 </head>
 <body>
-<div id="boot"><span class="mark"></span><span id="boot-text">Loading 3D scene</span></div>
+<div id="boot"><span class="mark"></span><span id="boot-text">Loading Forgia 3D Pipeline</span></div>
 <script>
-  /* three.js 从 CDN 加载；12 秒仍未就绪时给出可读的错误提示 */
   setTimeout(function () {
     if (document.body.classList.contains('ready')) return;
     var t = document.getElementById('boot-text');
@@ -161,52 +226,66 @@
 <div id="labels"></div>
 
 <header class="topbar">
-  <div class="brand"><span class="mark"></span><b>FORGIA</b><span class="sep">/</span><span>ARCHITECTURE FLOW</span></div>
+  <div class="brand"><span class="mark"></span><b>FORGIA</b><span class="sep">/</span><span id="brand-sub">3D PARALLEL PIPELINE</span></div>
   <div class="chips">
     <span class="chip">NEOFORGE 1.21.1</span>
-    <span class="chip">C6 · FIXED_3X3</span>
+    <button class="chip-btn active" id="btn-mode-dyn" title="Switch to DYNAMIC_CLUSTER loaded-island layout">DYNAMIC_CLUSTER (8×8)</button>
+    <button class="chip-btn" id="btn-mode-fix" title="Switch to FIXED_3X3 static grid baseline">FIXED_3X3 (3×3)</button>
+    <button class="chip-btn" id="btn-lang">EN / 中</button>
     <span class="chip chip--phase" id="phase-chip">GLOBAL</span>
   </div>
 </header>
 
 <aside class="panel" id="steps">
-  <div class="panel-title"><span>执行流程</span><span>01—06</span></div>
+  <div class="panel-title"><span id="lbl-steps">并行流水线</span><span>01—10</span></div>
   <div id="step-list"></div>
 </aside>
 
-<aside class="panel" id="telemetry">
-  <div class="panel-title"><span>运行时状态</span><span>LIVE</span></div>
-  <div class="trow"><span>Tick</span><span id="t-tick">000000</span></div>
-  <div class="trow"><span>Phase</span><span id="t-phase" class="pos">GLOBAL</span></div>
-  <div class="trow"><span>Leases</span><span id="t-lease">0 / 4</span></div>
-  <div class="trow"><span>Workers</span><span id="t-workers">0 / 4</span></div>
-  <div class="trow"><span>Barrier</span><span id="t-barrier">—</span></div>
-  <div class="trow"><span>Stale reads</span><span id="t-stale">0</span></div>
-  <div class="bar"><i id="t-lease-bar"></i></div>
-  <div class="legend">
-    <span><i class="l-lease"></i>区域租约 / REGION 写入</span>
-    <span><i class="l-global"></i>GLOBAL 阶段独占</span>
-    <span><i class="l-proven"></i>已证明前缀（可派发）</span>
-    <span><i class="l-fence"></i>Fail-closed 串行围栏</span>
-  </div>
-  <p class="tel-note">状态为流程示意，非实测数据。真实测量见 docs/benchmarks。</p>
-  <a class="tel-link" href="../architecture.zh/">← 架构文档 / ARCHITECTURE</a>
-</aside>
+<div id="right-col">
+  <aside class="panel" id="telemetry">
+    <div class="panel-title"><span id="lbl-tel">运行时状态</span><span>LIVE</span></div>
+    <div class="trow"><span>Tick</span><span id="t-tick">000000</span></div>
+    <div class="trow"><span>Layout</span><span id="t-layout">DYNAMIC_CLUSTER</span></div>
+    <div class="trow"><span>Phase</span><span id="t-phase" class="pos">GLOBAL</span></div>
+    <div class="trow"><span>Leases</span><span id="t-lease">0 / 4</span></div>
+    <div class="trow"><span>Workers</span><span id="t-workers">0 / 4</span></div>
+    <div class="trow"><span>Barrier</span><span id="t-barrier">—</span></div>
+    <div class="trow"><span>Fallback / Guard</span><span id="t-guard">0</span></div>
+    <div class="bar"><i id="t-lease-bar"></i></div>
+  </aside>
+
+  <aside class="panel" id="features">
+    <div class="panel-title"><span id="lbl-feat">全功能模块（点击跳转）</span><span>12</span></div>
+    <div class="feat-list" id="feat-list"></div>
+    <div class="legend">
+      <span><i style="background:var(--orange)"></i><em id="lg-lease" style="font-style:normal">租约/REGION</em></span>
+      <span><i style="background:var(--ink)"></i><em id="lg-global" style="font-style:normal">GLOBAL/串行</em></span>
+      <span><i style="background:var(--teal)"></i><em id="lg-dyn" style="font-style:normal">动态岛/玩家</em></span>
+      <span><i style="background:var(--green)"></i><em id="lg-proven" style="font-style:normal">已证明并行</em></span>
+      <span><i style="background:var(--gold)"></i><em id="lg-poi" style="font-style:normal">刷怪/POI</em></span>
+      <span><i style="background:var(--violet)"></i><em id="lg-evt" style="font-style:normal">事件/计划刻</em></span>
+    </div>
+    <div class="tel-links">
+      <a class="tel-link" href="../configuration.zh/" id="lnk-cfg">配置指南 →</a>
+      <a class="tel-link" href="../architecture.zh/" id="lnk-arch">架构文档 →</a>
+    </div>
+  </aside>
+</div>
 
 <footer id="caption">
-  <div class="cap-index" id="cap-index">STEP 01 / 06 · OVERVIEW</div>
-  <h1 id="cap-title">一个世界，四个区域</h1>
+  <div class="cap-index"><span id="cap-index">STEP 01 / 10 · OVERVIEW</span><span id="cap-cfg-key">forgia.toml</span></div>
+  <h1 id="cap-title">全景架构：双布局与交替阶段流水线</h1>
   <ul id="cap-list"></ul>
   <div class="cap-progress"><i id="cap-bar"></i></div>
 </footer>
 
-<div class="hint">拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停</div>
+<div class="hint" id="hint-text">拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停 · M 切换布局</div>
 <div id="controls">
   <button class="btn" id="btn-prev">‹ PREV</button>
   <button class="btn primary" id="btn-play">❚❚ PAUSE</button>
   <button class="btn" id="btn-next">NEXT ›</button>
   <button class="btn" id="btn-speed">×1</button>
-  <button class="btn" id="btn-auto">AUTO ↻</button>
+  <button class="btn on" id="btn-auto">AUTO ↻</button>
   <button class="btn" id="btn-cam">RESET CAM</button>
 </div>
 
@@ -216,18 +295,22 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
 /* =====================================================================
-   0. 基础工具
+   0. 色彩与工具
    ===================================================================== */
 const C = {
   paper: 0xf3f2ed, panel: 0xe9e8e1, ink: 0x202628, mid: 0x495356, muted: 0x626d70,
-  line: 0xcfd0c7, orange: 0xb94b2c, bright: 0xed7950, green: 0x718d62, greenDeep: 0x4d6d43,
-  dark: 0x30383a, tile: 0xdeddd3
+  line: 0xcfd0c7, orange: 0xb94b2c, bright: 0xed7950, green: 0x628654, greenDeep: 0x4d6d43,
+  teal: 0x256f7c, tealLight: 0x4ca6b5, gold: 0xb88628, goldLight: 0xdfb14c,
+  violet: 0x6b4e8d, violetLight: 0x9c7bc2, dark: 0x30383a, tile: 0xdeddd3
 };
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const easeOut = t => 1 - Math.pow(1 - t, 3);
 const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const pulse = t => Math.sin(t * Math.PI * 2) * 0.5 + 0.5;
+
+let layoutMode = 'DYNAMIC_CLUSTER'; // 'DYNAMIC_CLUSTER' | 'FIXED_3X3'
+let lang = 'zh'; // 'zh' | 'en'
 
 /* =====================================================================
    1. 渲染器 / 场景 / 相机
@@ -243,52 +326,50 @@ document.getElementById('scene').appendChild(renderer.domElement);
 const labelRenderer = new CSS2DRenderer();
 labelRenderer.setSize(window.innerWidth, window.innerHeight);
 labelRenderer.domElement.style.position = 'absolute';
-labelRenderer.domElement.style.top = '0';
-labelRenderer.domElement.style.left = '0';
+labelRenderer.domElement.style.inset = '0';
 document.getElementById('labels').appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(C.paper);
-scene.fog = new THREE.Fog(C.paper, 210, 400);
+scene.fog = new THREE.Fog(C.paper, 230, 440);
 
-const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.5, 700);
-camera.position.set(106, 86, 178);
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.5, 800);
+camera.position.set(82, 66, 138);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(-4, 4, 4);
+controls.target.set(0, 6, 4);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
-controls.minDistance = 34;
-controls.maxDistance = 235;
+controls.minDistance = 28;
+controls.maxDistance = 260;
 controls.minPolarAngle = 0.12;
 controls.maxPolarAngle = Math.PI * 0.475;
 controls.rotateSpeed = 0.65;
-controls.zoomSpeed = 0.8;
+controls.zoomSpeed = 0.85;
 controls.panSpeed = 0.6;
 
-/* 灯光：柔和棚拍 */
-scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d8cf, 0.58));
-const key = new THREE.DirectionalLight(0xffffff, 1.75);
-key.position.set(48, 86, 44);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left = -95;
-key.shadow.camera.right = 95;
-key.shadow.camera.top = 95;
-key.shadow.camera.bottom = -95;
-key.shadow.camera.near = 1;
-key.shadow.camera.far = 260;
-key.shadow.bias = -0.0007;
-scene.add(key);
-const fill = new THREE.DirectionalLight(0xffffff, 0.26);
-fill.position.set(-70, 46, -50);
-scene.add(fill);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d8cf, 0.62));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.7);
+keyLight.position.set(55, 95, 50);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -110;
+keyLight.shadow.camera.right = 110;
+keyLight.shadow.camera.top = 110;
+keyLight.shadow.camera.bottom = -110;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 290;
+keyLight.shadow.bias = -0.0006;
+scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.28);
+fillLight.position.set(-75, 48, -55);
+scene.add(fillLight);
 
 /* =====================================================================
-   2. 材质 / 标签辅助
+   2. 材质与辅助构造
    ===================================================================== */
 const mat = (color, extra = {}) =>
-  new THREE.MeshStandardMaterial({ color, roughness: 0.93, metalness: 0.02, ...extra });
+  new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.03, ...extra });
 
 function makeTag(text, cls = '') {
   const el = document.createElement('div');
@@ -297,771 +378,1054 @@ function makeTag(text, cls = '') {
   return new CSS2DObject(el);
 }
 
+function makeToken(color, r = 0.42) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(r, 14, 14),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.42, roughness: 0.35 })
+  );
+  m.castShadow = true;
+  m.visible = false;
+  return m;
+}
+
 const world = new THREE.Group();
 scene.add(world);
 const gRegions = new THREE.Group();
 const gOrch = new THREE.Group();
+const gEntities = new THREE.Group();
+const gSpawnPoi = new THREE.Group();
 const gCross = new THREE.Group();
 const gBe = new THREE.Group();
-world.add(gRegions, gOrch, gCross, gBe);
+const gPlayers = new THREE.Group();
+const gSchedGuard = new THREE.Group();
+world.add(gRegions, gOrch, gEntities, gSpawnPoi, gCross, gBe, gPlayers, gSchedGuard);
 
-/* =====================================================================
-   3. 世界地面
-   ===================================================================== */
+/* 地面与网格 */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(240, 240),
+  new THREE.PlaneGeometry(280, 280),
   new THREE.MeshStandardMaterial({ color: 0xf1f0ea, roughness: 1, metalness: 0 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 world.add(ground);
 
-const grid = new THREE.GridHelper(240, 60, 0xc9c9bf, 0xdedcd3);
+const grid = new THREE.GridHelper(280, 70, 0xc9c9bf, 0xe0ded5);
 grid.position.y = 0.02;
-grid.material.transparent = true;
-grid.material.opacity = 0.72;
 world.add(grid);
 
 /* =====================================================================
-   4. 区域：2×2 区域（左列 R0/R1，右列 R2/R3，与 W0..W3 一一对应无交叉）
+   3. 下层世界：4 个区域（支持 DYNAMIC_CLUSTER 加载岛合并 vs FIXED_3X3）
    ===================================================================== */
-const REGION_CENTERS = [
-  new THREE.Vector3(-17, 0, -17),
-  new THREE.Vector3(-17, 0, 17),
-  new THREE.Vector3(17, 0, -17),
-  new THREE.Vector3(17, 0, 17)
+const REGIONS = [
+  { id: 'R(0,0)', island: 'ISLAND A', cx: -17, cz: -17 },
+  { id: 'R(1,0)', island: 'ISLAND A', cx:  17, cz: -17 },
+  { id: 'R(0,1)', island: 'ISLAND B', cx: -17, cz:  17 },
+  { id: 'R(1,1)', island: 'ISLAND C', cx:  17, cz:  17 }
 ];
-const CH = 9.75, GAP = 0.5, FOOT = 3 * CH + 2 * GAP; // 30.25
+
 const chunkTiles = [];
-const REGION_NAMES = ['R0', 'R1', 'R2', 'R3'];
-
-const tileGeo = new THREE.BoxGeometry(CH, 1.15, CH);
+const leaseRings = [];
 const regionLabels = [];
+const regionPlinths = [];
 
-REGION_CENTERS.forEach((center, r) => {
+REGIONS.forEach((r, ri) => {
+  const plinth = new THREE.Mesh(
+    new THREE.BoxGeometry(22.4, 0.7, 22.4),
+    mat(0xe6e5dc)
+  );
+  plinth.position.set(r.cx, 0.35, r.cz);
+  plinth.receiveShadow = true;
+  plinth.castShadow = true;
+  gRegions.add(plinth);
+  regionPlinths.push(plinth);
+
+  /* 3×3 chunk tiles inside each region */
   const tiles = [];
-  for (let cx = 0; cx < 3; cx++) {
-    for (let cz = 0; cz < 3; cz++) {
-      const m = mat(C.tile, { emissive: C.orange, emissiveIntensity: 0 });
-      const mesh = new THREE.Mesh(tileGeo, m);
-      mesh.position.set(
-        center.x + (cx - 1) * (CH + GAP),
-        0.575,
-        center.z + (cz - 1) * (CH + GAP)
-      );
+  for (let gx = -1; gx <= 1; gx++) {
+    for (let gz = -1; gz <= 1; gz++) {
+      const m = new THREE.MeshStandardMaterial({
+        color: C.tile, roughness: 0.88, metalness: 0.02,
+        emissive: C.orange, emissiveIntensity: 0
+      });
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.45, 6.4), m);
+      const base = new THREE.Vector3(r.cx + gx * 7.0, 0.92, r.cz + gz * 7.0);
+      mesh.position.copy(base);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       gRegions.add(mesh);
-      const seam = new THREE.LineSegments(
-        new THREE.EdgesGeometry(tileGeo),
-        new THREE.LineBasicMaterial({ color: C.ink, transparent: true, opacity: 0.16 })
-      );
-      seam.position.copy(mesh.position);
-      gRegions.add(seam);
-      tiles.push({ mesh, m, base: mesh.position.clone() });
+      tiles.push({ mesh, m, base, gx, gz });
     }
   }
   chunkTiles.push(tiles);
 
-  const outline = new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(FOOT + 0.6, 1.3, FOOT + 0.6)),
-    new THREE.LineBasicMaterial({ color: C.mid, transparent: true, opacity: 0.72 })
+  /* 租约环 */
+  const lg = new THREE.Group();
+  const frame = new THREE.Mesh(
+    new THREE.RingGeometry(11.7, 12.25, 4),
+    new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.88, side: THREE.DoubleSide })
   );
-  outline.position.set(center.x, 0.65, center.z);
-  gRegions.add(outline);
+  frame.rotation.x = -Math.PI / 2;
+  frame.rotation.z = Math.PI / 4;
+  frame.scale.setScalar(1.38);
+  lg.add(frame);
+  lg.position.set(r.cx, 1.32, r.cz);
+  lg.visible = false;
+  gRegions.add(lg);
 
-  const tag = makeTag(`${REGION_NAMES[r]} · 3×3 CHUNKS`, 'dim');
-  tag.position.set(center.x, 2.3, center.z);
-  gRegions.add(tag);
-  regionLabels.push(tag);
+  const ltag = makeTag(`${r.id} · LEASE`, 'orange');
+  ltag.position.set(r.cx, 3.3, r.cz - 11.8);
+  ltag.visible = false;
+  gRegions.add(ltag);
+  leaseRings.push({ g: lg, frame, tag: ltag });
+
+  const rtag = makeTag(r.id, 'dim');
+  rtag.position.set(r.cx, 2.2, r.cz + 12.2);
+  gRegions.add(rtag);
+  regionLabels.push(rtag);
 });
 
-/* 租约环 */
-const leaseRings = REGION_CENTERS.map((center, i) => {
-  const g = new THREE.Group();
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(9.6, 0.22, 8, 72),
-    new THREE.MeshBasicMaterial({ color: C.bright, transparent: true, opacity: 0.9 })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  g.add(ring);
-  const inner = new THREE.Mesh(
-    new THREE.TorusGeometry(8.5, 0.05, 6, 64),
-    new THREE.MeshBasicMaterial({ color: C.bright, transparent: true, opacity: 0.4 })
-  );
-  inner.rotation.x = -Math.PI / 2;
-  inner.position.y = 0.05;
-  g.add(inner);
-  g.position.set(center.x, 4.2, center.z);
-  g.visible = false;
-  g.scale.setScalar(0.001);
-  gRegions.add(g);
+/* DYNAMIC_CLUSTER 加载岛合并桥 & 1-Section 空缓冲区可视化 */
+const gDynamicOverlay = new THREE.Group();
+gRegions.add(gDynamicOverlay);
 
-  const tag = makeTag(`LEASE ${REGION_NAMES[i]} · GRANTED`, 'orange');
-  tag.position.set(center.x, 5.9, center.z);
-  tag.visible = false;
-  gRegions.add(tag);
-  return { g, ring, inner, tag };
-});
+const islandBridge = new THREE.Mesh(
+  new THREE.BoxGeometry(12.2, 0.5, 19.6),
+  new THREE.MeshStandardMaterial({ color: C.teal, transparent: true, opacity: 0.28, roughness: 0.6 })
+);
+islandBridge.position.set(0, 0.68, -17);
+gDynamicOverlay.add(islandBridge);
+
+const islandAFrame = new THREE.LineLoop(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-29.2, 1.4, -29.2),
+    new THREE.Vector3( 29.2, 1.4, -29.2),
+    new THREE.Vector3( 29.2, 1.4,  -4.8),
+    new THREE.Vector3(-29.2, 1.4,  -4.8)
+  ]),
+  new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.9 })
+);
+gDynamicOverlay.add(islandAFrame);
+
+const bufferZonePlane = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 9.2),
+  new THREE.MeshBasicMaterial({ color: C.tealLight, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
+);
+bufferZonePlane.rotation.x = -Math.PI / 2;
+bufferZonePlane.position.set(0, 0.16, 0);
+gDynamicOverlay.add(bufferZonePlane);
+
+const islandATag = makeTag('DYNAMIC ISLAND A (MERGED 2 SECTIONS)', 'teal');
+islandATag.position.set(0, 3.6, -29.6);
+gDynamicOverlay.add(islandATag);
+
+const bufferTag = makeTag('1-SECTION EMPTY BUFFER ZONE (ISOLATION)', 'teal');
+bufferTag.position.set(0, 1.5, 0);
+gDynamicOverlay.add(bufferTag);
+
+/* FIXED_3X3 RegionLeasePack 打包框 */
+const gPackOverlay = new THREE.Group();
+gRegions.add(gPackOverlay);
+const packFrame = new THREE.LineLoop(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-29.5, 1.5, -29.5),
+    new THREE.Vector3( 29.5, 1.5, -29.5),
+    new THREE.Vector3( 29.5, 1.5,  29.5),
+    new THREE.Vector3(-29.5, 1.5,  29.5)
+  ]),
+  new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0.7 })
+);
+gPackOverlay.add(packFrame);
+const packTag = makeTag('RegionLeasePack (FIXED_3X3 ONLY · ≤16 REGIONS)', 'orange');
+packTag.position.set(0, 3.8, -30.5);
+gPackOverlay.add(packTag);
+gPackOverlay.visible = false;
 
 /* =====================================================================
-   5. 编排层：Worker、GLOBAL 节点、阶段轨道、屏障
+   4. 上层编排：Server 主线程 (GLOBAL) + 持久化 Work-Stealing Worker 池
    ===================================================================== */
-const WORKER_POS = [-27, -9, 9, 27].map(x => new THREE.Vector3(x, 17, -28));
+const SERVER_POS = new THREE.Vector3(0, 24, -18);
+const serverGroup = new THREE.Group();
+serverGroup.position.copy(SERVER_POS);
+gOrch.add(serverGroup);
 
-const workerGeos = {
-  base: new THREE.CylinderGeometry(2.3, 2.3, 0.52, 6),
-  ring: new THREE.TorusGeometry(2.58, 0.13, 8, 48),
-  core: new THREE.IcosahedronGeometry(0.86, 1),
-  stem: new THREE.CylinderGeometry(0.07, 0.07, 1.15, 8)
-};
+const gCoreMat = new THREE.MeshStandardMaterial({
+  color: C.ink, emissive: C.orange, emissiveIntensity: 0.3, roughness: 0.45, metalness: 0.2
+});
+const gCore = new THREE.Mesh(new THREE.OctahedronGeometry(2.6, 0), gCoreMat);
+gCore.castShadow = true;
+serverGroup.add(gCore);
+
+const gRing = new THREE.Mesh(
+  new THREE.TorusGeometry(4.4, 0.11, 10, 48),
+  new THREE.MeshBasicMaterial({ color: C.ink, transparent: true, opacity: 0.45 })
+);
+gRing.rotation.x = Math.PI / 2;
+serverGroup.add(gRing);
+
+/* 6 个全局独占状态位 */
+const GLOBAL_NAMES = ['TIME', 'WEATHER', 'BORDER', 'SCORE', 'PLAYERS', 'CHUNKS'];
+const globalMarks = GLOBAL_NAMES.map((name, i) => {
+  const a = (i / 6) * Math.PI * 2;
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(0.95, 0.95, 0.95),
+    new THREE.MeshStandardMaterial({ color: C.muted, emissive: C.orange, emissiveIntensity: 0, roughness: 0.5 })
+  );
+  m.position.set(Math.cos(a) * 5.8, 0, Math.sin(a) * 5.8);
+  serverGroup.add(m);
+  return m;
+});
+
+const globalTag = makeTag('SERVER THREAD · GLOBAL SAFE POINT', 'ink');
+globalTag.position.set(0, 28.4, -18);
+gOrch.add(globalTag);
+
+/* 4 个 Worker + Per-Worker Deque（Work-Stealing） */
+const WORKER_POS = [
+  new THREE.Vector3(-22, 16.5, -6),
+  new THREE.Vector3( 22, 16.5, -6),
+  new THREE.Vector3(-22, 16.5, 16),
+  new THREE.Vector3( 22, 16.5, 16)
+];
 
 const workers = WORKER_POS.map((p, i) => {
   const g = new THREE.Group();
   g.position.copy(p);
-
-  const base = new THREE.Mesh(workerGeos.base, mat(C.dark, { roughness: 0.66, metalness: 0.18 }));
-  base.castShadow = true;
-  base.receiveShadow = true;
-  g.add(base);
-
-  const ring = new THREE.Mesh(
-    workerGeos.ring,
-    new THREE.MeshBasicMaterial({ color: C.bright, transparent: true, opacity: 0.85 })
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.2, 2.5, 1.1, 6),
+    mat(C.dark, { roughness: 0.55, metalness: 0.15 })
   );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.33;
-  g.add(ring);
-
-  const stem = new THREE.Mesh(workerGeos.stem, mat(0x9aa19c, { metalness: 0.3, roughness: 0.5 }));
-  stem.position.y = 0.75;
-  g.add(stem);
+  body.castShadow = true;
+  g.add(body);
 
   const coreMat = new THREE.MeshStandardMaterial({
-    color: C.bright, emissive: C.bright, emissiveIntensity: 0.25, roughness: 0.42, metalness: 0.05
+    color: C.bright, emissive: C.orange, emissiveIntensity: 0.25, roughness: 0.3
   });
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.0, 1), coreMat);
-  core.position.y = 1.42;
-  core.castShadow = true;
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.95, 0), coreMat);
+  core.position.y = 1.25;
   g.add(core);
 
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(2.7, 0.08, 8, 36),
+    new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.8 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  g.add(ring);
+
+  /* 每 Worker 的任务 Deque 槽位 */
+  const dequeSlots = [];
+  for (let d = 0; d < 4; d++) {
+    const slot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.75, 0.35, 0.75),
+      new THREE.MeshStandardMaterial({ color: C.green, emissive: C.green, emissiveIntensity: 0.15, roughness: 0.45 })
+    );
+    slot.position.set(-1.35 + d * 0.9, -1.05, 0);
+    slot.visible = false;
+    g.add(slot);
+    dequeSlots.push(slot);
+  }
+
   gOrch.add(g);
-
-  const tag = makeTag(`W${i}`, 'dim');
-  tag.position.set(p.x, p.y - 2.9, p.z);
+  const tag = makeTag(`WORKER ${i} · DEQUE`, 'dim');
+  tag.position.set(p.x, p.y + 3.0, p.z);
   gOrch.add(tag);
-
-  /* 落地虚线，给悬浮平台一个垂直参照 */
-  const drop = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(p.x, p.y - 0.3, p.z),
-      new THREE.Vector3(p.x, 0.05, p.z)
-    ]),
-    new THREE.LineDashedMaterial({ color: 0xb4b8ae, transparent: true, opacity: 0.6, dashSize: 0.7, gapSize: 0.6 })
-  );
-  drop.computeLineDistances();
-  gOrch.add(drop);
-
-  return { g, core, coreMat, ring, tag };
+  return { g, core, coreMat, ring, tag, dequeSlots };
 });
 
-/* GLOBAL 节点（居中位于 4 个区域的交汇中心 (0, 0) 上方） */
-const GLOBAL_POS = new THREE.Vector3(0, 17, 0);
-const gNode = new THREE.Group();
-gNode.position.copy(GLOBAL_POS);
-gOrch.add(gNode);
-
-const hex = new THREE.Mesh(
-  new THREE.CylinderGeometry(3.35, 3.35, 0.72, 6),
-  mat(C.ink, { roughness: 0.55, metalness: 0.22 })
+/* Work-stealing 窃取弧线（Worker 1 从 Worker 0 的 Deque 窃取半段任务） */
+const stealCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-20.5, 15.4, -6),
+  new THREE.Vector3(0, 19.2, -6),
+  new THREE.Vector3(20.5, 15.4, -6)
+]);
+const stealLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(stealCurve.getPoints(32)),
+  new THREE.LineDashedMaterial({ color: C.green, dashSize: 0.9, gapSize: 0.5, transparent: true, opacity: 0.85 })
 );
-hex.castShadow = true;
-hex.receiveShadow = true;
-gNode.add(hex);
+stealLine.computeLineDistances();
+stealLine.visible = false;
+gOrch.add(stealLine);
+const stealToken = makeToken(C.green, 0.48);
+gOrch.add(stealToken);
+const stealTag = makeTag('WORK-STEALING · HALF-RANGE STEAL', 'green');
+stealTag.position.set(0, 20.5, -6);
+stealTag.visible = false;
+gOrch.add(stealTag);
 
-const hexEdge = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.CylinderGeometry(3.35, 3.35, 0.72, 6)),
-  new THREE.LineBasicMaterial({ color: 0x5d6868, transparent: true, opacity: 0.8 })
-);
-gNode.add(hexEdge);
+/* 派发弧线、返回弧线、投射光束、屏障平面 */
+const dispatchCurves = WORKER_POS.map(wp => new THREE.CatmullRomCurve3([
+  SERVER_POS.clone(),
+  new THREE.Vector3(wp.x * 0.55, 22.8, lerp(SERVER_POS.z, wp.z, 0.5)),
+  wp.clone().add(new THREE.Vector3(0, 1.3, 0))
+]));
+const returnCurves = WORKER_POS.map(wp => new THREE.CatmullRomCurve3([
+  wp.clone().add(new THREE.Vector3(0, 1.3, 0)),
+  new THREE.Vector3(wp.x * 0.45, 25.5, lerp(wp.z, SERVER_POS.z, 0.5)),
+  SERVER_POS.clone()
+]));
+const dispatchTokens = WORKER_POS.map(() => { const t = makeToken(C.orange, 0.44); gOrch.add(t); return t; });
+const returnTokens = WORKER_POS.map(() => { const t = makeToken(C.green, 0.42); gOrch.add(t); return t; });
 
-const gCoreMat = new THREE.MeshStandardMaterial({
-  color: C.bright, emissive: C.bright, emissiveIntensity: 0.35, roughness: 0.45
+const beams = WORKER_POS.map((wp, i) => {
+  const r = REGIONS[i];
+  const pts = [new THREE.Vector3(wp.x, wp.y - 0.6, wp.z), new THREE.Vector3(r.cx, 1.5, r.cz)];
+  const l = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0 })
+  );
+  gOrch.add(l);
+  return l;
 });
-const gCore = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 0.86, 6), gCoreMat);
-gCore.position.y = 0.03;
-gCore.castShadow = true;
-gNode.add(gCore);
-
-/* 支撑柱只从地面连到邮箱底部，不穿过邮箱 */
-const pylon = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.14, 0.14, 5.85, 10),
-  mat(0x9aa19c, { transparent: true, opacity: 0.55, roughness: 0.5 })
-);
-pylon.position.set(0, 2.95, 0);
-gOrch.add(pylon);
-
-const globalTag = makeTag('SERVER THREAD · GLOBAL', 'ink');
-globalTag.position.set(0, 23.4, 0);
-gOrch.add(globalTag);
-
-const globalMarks = [];
-for (let i = 0; i < 6; i++) {
-  const a = (i / 6) * Math.PI * 2;
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(0.42, 0.42, 0.42),
-    new THREE.MeshStandardMaterial({ color: C.muted, emissive: C.bright, emissiveIntensity: 0, roughness: 0.6 })
-  );
-  m.position.set(Math.cos(a) * 4.3, 0, Math.sin(a) * 4.3);
-  gNode.add(m);
-  globalMarks.push(m);
-}
-
-/* 阶段轨道 GLOBAL ↔ REGION */
-const phaseRail = new THREE.Group();
-phaseRail.position.set(0, 21.8, 0);
-gOrch.add(phaseRail);
-const segs = [];
-for (let i = 0; i < 8; i++) {
-  const isGlobal = i % 2 === 0;
-  const m = new THREE.Mesh(
-    new THREE.BoxGeometry(2.0, 0.14, 0.7),
-    new THREE.MeshStandardMaterial({
-      color: isGlobal ? C.ink : C.bright,
-      emissive: isGlobal ? 0x000000 : C.bright,
-      emissiveIntensity: isGlobal ? 0 : 0.18,
-      roughness: 0.6
-    })
-  );
-  m.position.x = (i - 3.5) * 2.16;
-  phaseRail.add(m);
-  segs.push({ m, isGlobal });
-}
-const playhead = new THREE.Mesh(
-  new THREE.BoxGeometry(0.13, 1.15, 1.15),
-  new THREE.MeshBasicMaterial({ color: C.orange })
-);
-phaseRail.add(playhead);
-
-
-/* 屏障 / JOIN（宽度 60 完整覆盖 4 个 Worker） */
-const barrier = new THREE.Group();
-barrier.position.set(0, 17, -14);
-gOrch.add(barrier);
+const beamPulses = WORKER_POS.map(() => { const t = makeToken(C.bright, 0.36); gOrch.add(t); return t; });
 
 const barrierPlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(60, 8.6),
-  new THREE.MeshBasicMaterial({
-    color: C.bright, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false
-  })
+  new THREE.PlaneGeometry(66, 56),
+  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.04, side: THREE.DoubleSide, depthWrite: false })
 );
-barrier.add(barrierPlane);
-
-const rungPts = [];
-for (let i = 0; i <= 15; i++) {
-  const x = -30 + i * 4;
-  rungPts.push(new THREE.Vector3(x, -4.3, 0), new THREE.Vector3(x, 4.3, 0));
-}
-const rungs = new THREE.LineSegments(
-  new THREE.BufferGeometry().setFromPoints(rungPts),
-  new THREE.LineBasicMaterial({ color: C.line, transparent: true, opacity: 0.75 })
-);
-barrier.add(rungs);
-
-const framePts = [
-  new THREE.Vector3(-30, -4.3, 0), new THREE.Vector3(30, -4.3, 0),
-  new THREE.Vector3(30, 4.3, 0), new THREE.Vector3(-30, 4.3, 0)
-];
-const frame = new THREE.LineLoop(
-  new THREE.BufferGeometry().setFromPoints(framePts),
-  new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0.55 })
-);
-barrier.add(frame);
-
-const barrierTag = makeTag('TICK BARRIER · JOIN', 'orange dim');
-barrierTag.position.set(0, 22.3, -14);
+barrierPlane.rotation.x = -Math.PI / 2;
+barrierPlane.position.set(0, 11.2, 2);
+gOrch.add(barrierPlane);
+const barrierTag = makeTag('REGION TICK BARRIER · JOIN & HANDOFF', 'orange');
+barrierTag.position.set(-28, 12.2, -24);
 gOrch.add(barrierTag);
 
-/* =====================================================================
-   6. 流转曲线与令牌
-   ===================================================================== */
-const dispatchCurves = [];
-const returnCurves = [];
-const beamCurves = [];
-
-workers.forEach((w, i) => {
-  const p = WORKER_POS[i];
-  dispatchCurves.push(new THREE.CatmullRomCurve3([
-    GLOBAL_POS.clone().add(new THREE.Vector3(0, 0.9, 0)),
-    new THREE.Vector3(p.x * 0.55, 21.8, -6),
-    new THREE.Vector3(p.x * 0.88, 19.6, -19),
-    p.clone().add(new THREE.Vector3(0, 0.9, 0))
-  ]));
-  returnCurves.push(new THREE.CatmullRomCurve3([
-    p.clone().add(new THREE.Vector3(0, 0.9, 0)),
-    new THREE.Vector3(p.x * 0.72, 20.8, -16),
-    new THREE.Vector3(p.x * 0.26, 19.8, -2),
-    GLOBAL_POS.clone().add(new THREE.Vector3(0, 0.9, 0))
-  ]));
-  const rc = REGION_CENTERS[i].clone().setY(3.4);
-  beamCurves.push(new THREE.CatmullRomCurve3([
-    p.clone().add(new THREE.Vector3(0, -0.4, 0)),
-    new THREE.Vector3(lerp(p.x, rc.x, 0.4), 12, lerp(p.z, rc.z, 0.4)),
-    new THREE.Vector3(lerp(p.x, rc.x, 0.8), 6.5, lerp(p.z, rc.z, 0.8)),
-    rc
-  ]));
-});
-
-/* 曲线路径（极淡的导线） */
-dispatchCurves.forEach(c => {
-  const pts = c.getPoints(64);
-  const line = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(pts),
-    new THREE.LineBasicMaterial({ color: C.muted, transparent: true, opacity: 0.16 })
-  );
-  gOrch.add(line);
-});
-
-function makeToken(color, r = 0.42) {
+/* 顶部时间轴（8 个交替阶段） */
+const SEG_LABELS = ['GLOBAL', 'ENTITY', 'PLAYER', 'SPAWN/POI', 'CHUNK', 'SCHED', 'BE/OPS', 'GLOBAL'];
+const segs = SEG_LABELS.map((lbl, i) => {
+  const isGlobal = i === 0 || i === 7;
+  const x = -28 + i * 8;
   const m = new THREE.Mesh(
-    new THREE.SphereGeometry(r, 16, 12),
-    new THREE.MeshBasicMaterial({ color })
+    new THREE.BoxGeometry(6.8, 0.5, 1.1),
+    new THREE.MeshStandardMaterial({
+      color: isGlobal ? C.ink : C.bright,
+      emissive: C.orange, emissiveIntensity: isGlobal ? 0 : 0.15, roughness: 0.5
+    })
   );
-  m.visible = false;
-  return m;
-}
-
-function placeStreak(tok, curve, u) {
-  const p = curve.getPointAt(clamp(u));
-  const tan = curve.getTangentAt(clamp(u));
-  tok.position.copy(p);
-  tok.lookAt(p.x + tan.x, p.y + tan.y, p.z + tan.z);
-  tok.scale.set(0.72, 0.72, 1.95);
-}
-
-const dispatchTokens = dispatchCurves.map(() => {
-  const t = makeToken(C.bright, 0.5);
-  gOrch.add(t);
-  return t;
+  m.position.set(x, 30.8, -32);
+  gOrch.add(m);
+  return { m, isGlobal, lbl };
 });
-const returnTokens = returnCurves.map(() => {
-  const t = makeToken(C.green, 0.5);
-  gOrch.add(t);
-  return t;
-});
-
-/* 区域↔Worker 光束 */
-const beams = beamCurves.map(c => {
-  const line = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(c.getPoints(48)),
-    new THREE.LineBasicMaterial({ color: C.bright, transparent: true, opacity: 0 })
-  );
-  gOrch.add(line);
-  return line;
-});
-const beamPulses = beamCurves.map(() => {
-  const t = makeToken(C.bright, 0.34);
-  gOrch.add(t);
-  return t;
-});
+const playhead = new THREE.Mesh(
+  new THREE.ConeGeometry(0.7, 1.5, 4),
+  new THREE.MeshBasicMaterial({ color: C.orange })
+);
+playhead.rotation.x = Math.PI;
+playhead.position.set(-28, 32.5, -32);
+gOrch.add(playhead);
 
 /* =====================================================================
-   7. 跨区：Seqlock 读 + 有界邮箱
+   5. 实体并行 + 玩家快照 + 跨区转移日志 (Step 04)
    ===================================================================== */
-const SEQ_A = new THREE.Vector3(-17, 2.6, -17);
-const SEQ_B = new THREE.Vector3(17, 2.6, -17);
+const entityCapsules = [];
+REGIONS.forEach((r, ri) => {
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + ri * 0.5;
+    const cap = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.45, 0.9, 6, 10),
+      new THREE.MeshStandardMaterial({ color: C.green, emissive: C.green, emissiveIntensity: 0.2, roughness: 0.4 })
+    );
+    const base = new THREE.Vector3(r.cx + Math.cos(a) * 5.2, 2.1, r.cz + Math.sin(a) * 5.2);
+    cap.position.copy(base);
+    cap.castShadow = true;
+    gEntities.add(cap);
+    entityCapsules.push({ mesh: cap, base, ri, k });
+  }
+});
 
-const seqLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints([SEQ_A, SEQ_B]),
-  new THREE.LineDashedMaterial({ color: C.greenDeep, transparent: true, opacity: 0.7, dashSize: 1.4, gapSize: 0.9 })
+/* 跨区实体交接弧线 (RegionEntityTransferJournal) */
+const transferCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-10, 2.6, -15),
+  new THREE.Vector3(0, 7.8, -15),
+  new THREE.Vector3(10, 2.6, -15)
+]);
+const transferLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(transferCurve.getPoints(30)),
+  new THREE.LineDashedMaterial({ color: C.teal, dashSize: 0.7, gapSize: 0.45 })
 );
-seqLine.computeLineDistances();
+transferLine.computeLineDistances();
+gEntities.add(transferLine);
+const transferToken = makeToken(C.teal, 0.52);
+gEntities.add(transferToken);
+const transferTag = makeTag('RegionEntityTransferJournal · HANDOFF', 'teal');
+transferTag.position.set(0, 8.9, -15);
+gEntities.add(transferTag);
+
+const snapTag = makeTag('RegionPlayerSnapshots · IMMUTABLE TICK-HEAD VIEW', 'ink');
+snapTag.position.set(0, 14.2, -16);
+gEntities.add(snapTag);
+
+const pinnedTag = makeTag('PINNED / RIDING → SERIAL FALLBACK', 'orange');
+pinnedTag.position.set(17, 4.5, 24);
+gEntities.add(pinnedTag);
+
+/* =====================================================================
+   6. 自然刷怪 (LevelSpawnCapCounter + Ordered Barrier) & POI 分区 (Step 05)
+   ===================================================================== */
+const capTower = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.7, 2.0, 4.2, 8),
+  new THREE.MeshStandardMaterial({ color: C.gold, emissive: C.gold, emissiveIntensity: 0.25, roughness: 0.35 })
+);
+capTower.position.set(0, 4.2, 0);
+capTower.castShadow = true;
+gSpawnPoi.add(capTower);
+const capTowerTag = makeTag('LevelSpawnCapCounter · ATOMIC CHECK-AND-RESERVE', 'gold');
+capTowerTag.position.set(0, 7.6, 0);
+gSpawnPoi.add(capTowerTag);
+
+const poiCrystals = [];
+const spawnCurves = [];
+const spawnTokens = [];
+REGIONS.forEach((r, i) => {
+  /* POI 水晶节点 */
+  const cry = new THREE.Mesh(
+    new THREE.OctahedronGeometry(1.3, 0),
+    new THREE.MeshStandardMaterial({ color: C.goldLight, emissive: C.gold, emissiveIntensity: 0.35, roughness: 0.3 })
+  );
+  cry.position.set(r.cx + (i % 2 === 0 ? -4.5 : 4.5), 3.4, r.cz + (i < 2 ? -4.5 : 4.5));
+  gSpawnPoi.add(cry);
+  poiCrystals.push(cry);
+
+  /* 刷怪名额预留脉冲 */
+  const c = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(r.cx, 2.4, r.cz),
+    new THREE.Vector3(r.cx * 0.5, 7.2, r.cz * 0.5),
+    new THREE.Vector3(0, 5.8, 0)
+  ]);
+  spawnCurves.push(c);
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(c.getPoints(24)),
+    new THREE.LineBasicMaterial({ color: C.gold, transparent: true, opacity: 0.45 })
+  );
+  gSpawnPoi.add(line);
+  const tok = makeToken(C.goldLight, 0.42);
+  gSpawnPoi.add(tok);
+  spawnTokens.push(tok);
+});
+
+const poiTag = makeTag('RegionPoiStorage · PUBLISHED SNAPSHOT + LIVE TICKETS', 'gold');
+poiTag.position.set(-17, 6.2, -23);
+gSpawnPoi.add(poiTag);
+const orderedTag = makeTag('RegionSpawnAdmissionBarrier (MSC ORDERED FINALIZE)', 'ink');
+orderedTag.position.set(17, 6.2, 23);
+gSpawnPoi.add(orderedTag);
+
+/* =====================================================================
+   7. 跨区：红石边界定点数传播 + GameEvent (Sculk) + Seqlock + Mailbox (Step 06)
+   ===================================================================== */
+const borderCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-8, 2.0, 14),
+  new THREE.Vector3(0, 5.2, 14),
+  new THREE.Vector3(8, 2.0, 14)
+]);
+const borderLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(borderCurve.getPoints(28)),
+  new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0.85 })
+);
+gCross.add(borderLine);
+const borderToken = makeToken(C.bright, 0.48);
+gCross.add(borderToken);
+const borderTag = makeTag('RegionBorderUpdates · SAME-TICK FIXPOINT', 'orange');
+borderTag.position.set(0, 6.4, 14);
+gCross.add(borderTag);
+
+/* GameEvent / Sculk 振动波 */
+const sculkRing = new THREE.Mesh(
+  new THREE.RingGeometry(1.2, 1.7, 36),
+  new THREE.MeshBasicMaterial({ color: C.violetLight, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
+);
+sculkRing.rotation.x = -Math.PI / 2;
+sculkRing.position.set(-14, 1.5, 14);
+gCross.add(sculkRing);
+const sculkCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-14, 1.9, 14),
+  new THREE.Vector3(-14, 6.4, 0),
+  new THREE.Vector3(-14, 1.9, -14)
+]);
+const sculkLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(sculkCurve.getPoints(28)),
+  new THREE.LineDashedMaterial({ color: C.violet, dashSize: 0.7, gapSize: 0.45 })
+);
+sculkLine.computeLineDistances();
+gCross.add(sculkLine);
+const sculkToken = makeToken(C.violetLight, 0.45);
+gCross.add(sculkToken);
+const sculkTag = makeTag('RegionBorderGameEvents · SCULK COLUMN REPLAY', 'violet');
+sculkTag.position.set(-16, 7.6, 0);
+gCross.add(sculkTag);
+
+/* Seqlock 跨区读 + RegionMailbox */
+const seqCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-14, 2.2, -16),
+  new THREE.Vector3(0, 5.0, -21),
+  new THREE.Vector3(14, 2.2, -16)
+]);
+const seqLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(seqCurve.getPoints(28)),
+  new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.7 })
+);
 gCross.add(seqLine);
-
-const seqToken = makeToken(C.greenDeep, 0.4);
+const seqToken = makeToken(C.teal, 0.42);
 gCross.add(seqToken);
-
-const seqTag = makeTag('SEQLOCK CROSS-REGION READ', 'green');
-seqTag.position.set(0, 4.6, -17);
+const seqTag = makeTag('SEQLOCK CROSS-REGION READ (STALE → RERUN)', 'teal');
+seqTag.position.set(0, 6.5, -22);
 gCross.add(seqTag);
 
-const staleTag = makeTag('STALE READ → RERUN REGION', 'bright');
-staleTag.position.set(0, 9.2, -17);
-staleTag.visible = false;
-gCross.add(staleTag);
-
-/* 邮箱（位于中央交汇柱上，与 GLOBAL 节点同轴 (0, y, 0)） */
-const mailbox = new THREE.Group();
-mailbox.position.set(0, 6.6, 0);
-gCross.add(mailbox);
-const mbox = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.35, 2.1), mat(C.dark, { roughness: 0.6, metalness: 0.12 }));
-mbox.castShadow = true;
-mbox.receiveShadow = true;
-mailbox.add(mbox);
-const mboxEdge = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.BoxGeometry(2.1, 1.35, 2.1)),
-  new THREE.LineBasicMaterial({ color: C.bright, transparent: true, opacity: 0.8 })
-);
-mailbox.add(mboxEdge);
-const mboxCore = new THREE.Mesh(
-  new THREE.BoxGeometry(0.5, 0.5, 0.5),
-  new THREE.MeshStandardMaterial({ color: C.bright, emissive: C.bright, emissiveIntensity: 0.2, roughness: 0.5 })
-);
-mailbox.add(mboxCore);
-
-const mailTag = makeTag('REGION MAILBOX · BOUNDED', 'orange');
-mailTag.position.set(0, 8.6, 0);
-gCross.add(mailTag);
-
 const mailCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-17, 2.8, -17),
-  new THREE.Vector3(-9, 5.2, -9),
-  new THREE.Vector3(0, 6.9, 0),
-  new THREE.Vector3(9, 5.2, 9),
-  new THREE.Vector3(17, 2.8, 17)
+  new THREE.Vector3(14, 2.4, 10),
+  new THREE.Vector3(8, 15.0, -2),
+  SERVER_POS.clone()
 ]);
 const mailLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(mailCurve.getPoints(90)),
-  new THREE.LineDashedMaterial({ color: C.orange, transparent: true, opacity: 0.42, dashSize: 1.1, gapSize: 0.8 })
+  new THREE.BufferGeometry().setFromPoints(mailCurve.getPoints(28)),
+  new THREE.LineDashedMaterial({ color: C.ink, dashSize: 0.8, gapSize: 0.5 })
 );
 mailLine.computeLineDistances();
 gCross.add(mailLine);
-
-const mailToken = new THREE.Mesh(
-  new THREE.BoxGeometry(0.62, 0.44, 0.42),
-  new THREE.MeshBasicMaterial({ color: C.orange })
-);
-mailToken.visible = false;
+const mailToken = makeToken(C.ink, 0.42);
 gCross.add(mailToken);
-
-/* 邮箱到 GLOBAL 的竖直连线 */
-const mailUp = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 7.3, 0), new THREE.Vector3(0, 16.6, 0)]),
-  new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0.38 })
-);
-gCross.add(mailUp);
+const mailTag = makeTag('RegionMailbox → GLOBAL DRAIN', 'ink');
+mailTag.position.set(11, 15.8, -2);
+gCross.add(mailTag);
 
 /* =====================================================================
-   8. Canonical 方块实体流水线（置于区域前方 z=44，与 2×2 区域不重叠）
+   8. Canonical BE 流水线 + 熔炉波次/资源 + 串行围栏 + 双 Owner 操作 (Step 07)
    ===================================================================== */
-const BE = { z: 44, y: 3.0, x0: -26, dx: 4, count: 14, serialFrom: 7, serialTo: 10 };
-const beX = i => BE.x0 + i * BE.dx;
+const BE = { count: 14, z: 44, y: 1.8, step: 4.1, serialFrom: 6, serialTo: 9 };
+const beX = i => (i - (BE.count - 1) / 2) * BE.step;
 
-const beRail = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(beX(-1) - 2, 1.9, BE.z),
-    new THREE.Vector3(beX(BE.count) + 2, 1.9, BE.z)
-  ]),
-  new THREE.LineBasicMaterial({ color: C.mid, transparent: true, opacity: 0.45 })
+const beTrack = new THREE.Mesh(
+  new THREE.BoxGeometry(BE.count * BE.step + 4, 0.55, 4.2),
+  mat(0xe4e3db)
 );
-gBe.add(beRail);
+beTrack.position.set(0, BE.y - 0.3, BE.z);
+beTrack.receiveShadow = true;
+gBe.add(beTrack);
 
 const beUnits = [];
-const unitGeo = new THREE.BoxGeometry(1.75, 1.75, 1.75);
 for (let i = 0; i < BE.count; i++) {
+  const isSerial = i >= BE.serialFrom && i < BE.serialTo;
+  const isCreate = i === 3 || i === 4;
   const m = new THREE.MeshStandardMaterial({
-    color: 0xe4e3db, emissive: C.orange, emissiveIntensity: 0.02, roughness: 0.9, metalness: 0.02
+    color: 0xe4e3db, roughness: 0.65, metalness: 0.05,
+    emissive: isSerial ? C.orange : isCreate ? C.teal : C.green, emissiveIntensity: 0.05
   });
-  const mesh = new THREE.Mesh(unitGeo, m);
-  mesh.position.set(beX(i), BE.y, BE.z);
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.4, isSerial ? 3.2 : 2.1, 2.4), m);
+  mesh.position.set(beX(i), BE.y + (isSerial ? 1.6 : 1.05), BE.z);
   mesh.castShadow = true;
-  mesh.receiveShadow = true;
   gBe.add(mesh);
-
-  const base = new THREE.LineSegments(
-    new THREE.EdgesGeometry(unitGeo),
-    new THREE.LineBasicMaterial({ color: 0x7d8686, transparent: true, opacity: 0.5 })
-  );
-  mesh.add(base);
-
-  beUnits.push({ mesh, m, base });
+  beUnits.push({ mesh, m, isSerial, isCreate });
 }
 
-/* 游标：底边落在轨道 y=1.8 之上，不切入地面 */
-const beCursor = new THREE.Group();
-const cursorPlate = new THREE.Mesh(
-  new THREE.BoxGeometry(0.12, 6.2, 3.4),
-  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+const beCursor = new THREE.Mesh(
+  new THREE.BoxGeometry(0.16, 6.4, 3.6),
+  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.55 })
 );
-cursorPlate.position.y = 1.9;
-beCursor.add(cursorPlate);
-const cursorTop = new THREE.Mesh(
-  new THREE.BoxGeometry(0.42, 0.2, 0.2),
-  new THREE.MeshBasicMaterial({ color: C.orange })
-);
-cursorTop.position.y = 5.2;
-beCursor.add(cursorTop);
-beCursor.position.set(beX(-1) - 1, BE.y, BE.z);
-beCursor.visible = false;
+beCursor.position.set(beX(0), BE.y + 3.2, BE.z);
 gBe.add(beCursor);
 
-const cursorTag = makeTag('CANONICAL BE CURSOR', 'orange');
-cursorTag.position.set(beX(-1) - 1, 0.5, BE.z + 1.4);
-cursorTag.visible = false;
+const cursorTag = makeTag('CanonicalBlockEntityCoordinator CURSOR', 'orange');
+cursorTag.position.set(beX(0), 0.7, BE.z + 2.5);
 gBe.add(cursorTag);
 
-const provenTag = makeTag('PROVEN PREFIX → WORKER', 'green');
-provenTag.position.set(beX(2.5), 6.6, BE.z);
-provenTag.visible = false;
-gBe.add(provenTag);
-
-/* 串行围栏：锚定在轨道 y=1.8，总高 14.4 直达主线程旁路通道 */
-const FENCE_X = beX(BE.serialFrom) - 2;
-const FENCE_END_X = beX(BE.serialTo - 1) + 2;
-const fence = new THREE.Group();
-const fencePanel = new THREE.Mesh(
-  new THREE.PlaneGeometry(11, 14.4),
-  new THREE.MeshBasicMaterial({
-    color: C.bright, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false
-  })
+const FENCE_X = beX(BE.serialFrom) - 2.0;
+const FENCE_END_X = beX(BE.serialTo - 1) + 2.0;
+const fence = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 13.5),
+  new THREE.MeshBasicMaterial({ color: C.bright, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })
 );
-fencePanel.rotation.y = Math.PI / 2;
-fencePanel.position.y = 7.2;
-fence.add(fencePanel);
-const fp = [];
-for (let i = 0; i <= 10; i++) {
-  const z = -5.5 + i * 1.1;
-  fp.push(new THREE.Vector3(0, 0, z), new THREE.Vector3(0, 14.4, z));
-}
-fence.add(new THREE.LineSegments(
-  new THREE.BufferGeometry().setFromPoints(fp),
-  new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0.42 })
-));
-fence.position.set(FENCE_X, 1.8, BE.z);
-fence.visible = false;
+fence.rotation.y = Math.PI / 2;
+fence.position.set(FENCE_X, BE.y + 6.75, BE.z);
 gBe.add(fence);
 
-const fenceTag = makeTag('SERIAL FENCE · FAIL-CLOSED', 'bright');
-fenceTag.position.set(FENCE_X - 3.5, 17.8, BE.z);
-fenceTag.visible = false;
+const fenceTag = makeTag('SERIAL FENCE · UNKNOWN MOD / MIXIN (FAIL-CLOSED)', 'bright');
+fenceTag.position.set(FENCE_X - 2, 16.5, BE.z);
 gBe.add(fenceTag);
 
-/* Worker 车道（并行执行位）与服务器串行车道 */
-const lanePads = [-21, -7, 7, 21].map((x, i) => {
-  const g = new THREE.Group();
-  g.position.set(x, 10.4, BE.z);
-  const pad = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.9, 1.9, 0.34, 6),
-    mat(C.dark, { roughness: 0.6, metalness: 0.15 })
-  );
-  pad.castShadow = true;
-  g.add(pad);
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(2.1, 0.07, 8, 40),
-    new THREE.MeshBasicMaterial({ color: C.bright, transparent: true, opacity: 0.7 })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.22;
-  g.add(ring);
-  const tag = makeTag(`LANE ${i}`, 'dim');
-  tag.position.set(x, 12.4, BE.z);
-  gBe.add(g);
-  gBe.add(tag);
-  return { g, ring, tag };
-});
+const provenTag = makeTag('PROVEN PREFIX (HOPPER / FURNACE / CREATE ADAPTER) → WORKERS', 'green');
+provenTag.position.set(beX(2), 7.2, BE.z);
+gBe.add(provenTag);
 
-const PREFIX_SRC = [1, 2, 4, 5];
-const SUFFIX_SRC = [10, 11, 12, 13];
-const makeLaneCurves = indices => lanePads.map((pad, i) => new THREE.CatmullRomCurve3([
-  new THREE.Vector3(beX(indices[i]), BE.y + 1.1, BE.z),
-  new THREE.Vector3(lerp(beX(indices[i]), pad.g.position.x, 0.5), BE.y + 5.2, BE.z - 0.5),
-  new THREE.Vector3(pad.g.position.x, 11.4, BE.z),
-  new THREE.Vector3(pad.g.position.x, 10.9, BE.z)
-]));
-const laneCurvesPrefix = makeLaneCurves(PREFIX_SRC);
-const laneCurvesSuffix = makeLaneCurves(SUFFIX_SRC);
+const opsTag = makeTag('BlockEntityOperations · TWO-OWNER SERIAL COMPLETION', 'teal');
+opsTag.position.set(beX(11), 7.2, BE.z);
+gBe.add(opsTag);
 
-const laneTokens = lanePads.map(() => {
-  const t = makeToken(C.green, 0.34);
-  gBe.add(t);
-  return t;
-});
-
-/* 服务器串行旁路严格覆盖 serialFrom..serialTo-1 (units 7..9) */
 const serverLane = new THREE.Line(
   new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(FENCE_X, 4.4, BE.z),
-    new THREE.Vector3(FENCE_X, 15.6, BE.z),
-    new THREE.Vector3(FENCE_END_X, 15.6, BE.z),
-    new THREE.Vector3(FENCE_END_X, 4.4, BE.z)
+    new THREE.Vector3(FENCE_X, 4.5, BE.z),
+    new THREE.Vector3(FENCE_X, 14.5, BE.z),
+    new THREE.Vector3(FENCE_END_X, 14.5, BE.z),
+    new THREE.Vector3(FENCE_END_X, 4.5, BE.z)
   ]),
-  new THREE.LineDashedMaterial({ color: C.ink, transparent: true, opacity: 0.55, dashSize: 0.8, gapSize: 0.5 })
+  new THREE.LineDashedMaterial({ color: C.ink, dashSize: 0.8, gapSize: 0.5 })
 );
 serverLane.computeLineDistances();
 gBe.add(serverLane);
-
-const serverToken = makeToken(C.ink, 0.45);
+const serverToken = makeToken(C.ink, 0.48);
 gBe.add(serverToken);
 
-const serverTag = makeTag('SERVER THREAD · STRICT ORDER', 'ink');
-serverTag.position.set(beX(9) + 3, 17.1, BE.z);
-serverTag.visible = false;
-gBe.add(serverTag);
+const lanePads = [-18, -6, 6, 18].map((x, i) => {
+  const pad = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.7, 1.7, 0.36, 6),
+    mat(C.dark, { roughness: 0.55 })
+  );
+  pad.position.set(x, 10.6, BE.z);
+  gBe.add(pad);
+  const tag = makeTag(`WAVE LANE ${i}`, 'dim');
+  tag.position.set(x, 12.4, BE.z);
+  gBe.add(tag);
+  return { pad, tag, x };
+});
+const laneTokens = lanePads.map(() => { const t = makeToken(C.green, 0.38); gBe.add(t); return t; });
 
 /* =====================================================================
-   9. 步骤定义
+   9. 实验性玩家并行 + 网络门 (Step 08)
+   ===================================================================== */
+const playerMeshes = [];
+const netGateCurves = [];
+const netGateTokens = [];
+REGIONS.forEach((r, i) => {
+  const pm = new THREE.Mesh(
+    new THREE.BoxGeometry(1.2, 2.4, 1.2),
+    new THREE.MeshStandardMaterial({ color: C.teal, emissive: C.tealLight, emissiveIntensity: 0.25, roughness: 0.35 })
+  );
+  pm.position.set(r.cx, 2.5, r.cz);
+  pm.castShadow = true;
+  gPlayers.add(pm);
+  playerMeshes.push(pm);
+
+  /* CONNECTION_BODY 同步发包交回 Server Thread */
+  const c = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(r.cx, 3.8, r.cz),
+    new THREE.Vector3(r.cx * 0.55, 16.5, lerp(r.cz, SERVER_POS.z, 0.5)),
+    SERVER_POS.clone()
+  ]);
+  netGateCurves.push(c);
+  const l = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(c.getPoints(26)),
+    new THREE.LineDashedMaterial({ color: C.tealLight, dashSize: 0.7, gapSize: 0.45 })
+  );
+  l.computeLineDistances();
+  gPlayers.add(l);
+  const tok = makeToken(C.tealLight, 0.42);
+  gPlayers.add(tok);
+  netGateTokens.push(tok);
+});
+
+const playerPhaseTag = makeTag('ENTITY (WORKERS) → CONNECTION (SERVER) → CONNECTION_BODY (WORKER + NET GATE)', 'teal');
+playerPhaseTag.position.set(0, 29.8, 0);
+gPlayers.add(playerPhaseTag);
+const playerFlagTag = makeTag('DYNAMIC_CLUSTER REQUIRES -Dforgia.dynamicPlayerSoak=true', 'orange');
+playerFlagTag.position.set(0, 12.2, 22);
+gPlayers.add(playerFlagTag);
+
+/* =====================================================================
+   10. Scheduled Ticks (红石灯半径2足迹) & 边界守卫回退 (Step 09)
+   ===================================================================== */
+const lampCube = new THREE.Mesh(
+  new THREE.BoxGeometry(5.6, 5.6, 5.6),
+  new THREE.MeshBasicMaterial({ color: C.violetLight, transparent: true, opacity: 0.18, wireframe: false })
+);
+lampCube.position.set(-17, 4.1, -17);
+gSchedGuard.add(lampCube);
+const lampWire = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(5.6, 5.6, 5.6)),
+  new THREE.LineBasicMaterial({ color: C.violet })
+);
+lampWire.position.copy(lampCube.position);
+gSchedGuard.add(lampWire);
+const lampCore = new THREE.Mesh(
+  new THREE.BoxGeometry(1.4, 1.4, 1.4),
+  new THREE.MeshStandardMaterial({ color: C.goldLight, emissive: C.gold, emissiveIntensity: 0.6 })
+);
+lampCore.position.copy(lampCube.position);
+gSchedGuard.add(lampCore);
+
+const lampTag = makeTag('RegionScheduledTickAdmission · RADIUS-2 INERT LAMP FOOTPRINT', 'violet');
+lampTag.position.set(-17, 8.2, -17);
+gSchedGuard.add(lampTag);
+
+const guardCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(17, 2.4, 17),
+  new THREE.Vector3(12, 16.0, 2),
+  SERVER_POS.clone()
+]);
+const guardLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(guardCurve.getPoints(28)),
+  new THREE.LineBasicMaterial({ color: C.bright, transparent: true, opacity: 0.9 })
+);
+gSchedGuard.add(guardLine);
+const guardToken = makeToken(C.bright, 0.5);
+gSchedGuard.add(guardToken);
+const guardTag = makeTag('RegionWorkerBoundaryException → FAIL-CLOSED SERVER FALLBACK', 'bright');
+guardTag.position.set(15, 16.8, 6);
+gSchedGuard.add(guardTag);
+
+/* =====================================================================
+   11. 10 步全功能流水线定义（中英双语）
    ===================================================================== */
 const STEPS = [
   {
-    key: 'overview', title: '一个世界，四个区域', en: 'OVERVIEW',
-    dur: 9, seg: 0, phase: 'GLOBAL',
-    cam: { pos: [71.1, 58.4, 123.2], target: [-4, 4, 4] },
-    hud: { phase: 'GLOBAL', lease: '0 / 4', workers: '0 / 4', barrier: '—', stale: '0', leaseBar: 0 },
-    bullets: [
-      '世界被切分为持有 <code>RegionState</code> 租约的区域；每个区域独占自己的区块、实体、方块实体与 POI。',
-      '上层是编排层：主协调线程、Worker 池与阶段轨道；下层是被分区占用的世界状态。',
-      '关键约束：<code>GLOBAL</code> 与 <code>REGION</code> 阶段严格交替，同一维度同一时刻只有一个区域批次在飞。'
-    ]
+    key: 'overview', seg: 0, phase: 'GLOBAL', dur: 10,
+    cfg: 'regionThreadingMode · enableRegionThreadingBridge',
+    cam: { pos: [78, 64, 132], target: [0, 6, 4] },
+    hud: { phase: 'GLOBAL', lease: '0 / 4', workers: '0 / 4', barrier: 'IDLE', guard: '0', bar: 0 },
+    zh: {
+      title: '全景架构：双布局与交替阶段流水线',
+      en: 'OVERVIEW & LAYOUT',
+      bullets: [
+        'Forgia 将原版单线程 <code>ServerLevel.tick</code> 拆分为严格交替的 <code>GLOBAL</code> 与 <code>REGION</code> 阶段，同一维度同一时刻仅有一个区域批次在飞。',
+        '支持两种分区模式：推荐 <code>DYNAMIC_CLUSTER</code>（8×8 Section 加载岛动态合并/拆分，独立岛间保留 1-Section 空缓冲区）与 C6 基线 <code>FIXED_3X3</code> 静态网格。',
+        '所有并行开关均位于 <code>config/forgia.toml</code> 且默认关闭；点击右上角按钮可实时切换布局观察差异。'
+      ]
+    },
+    enText: {
+      title: 'Architecture Overview: Dual Layouts & Alternating Phases',
+      en: 'OVERVIEW & LAYOUT',
+      bullets: [
+        'Forgia splits stock single-threaded <code>ServerLevel.tick</code> into alternating <code>GLOBAL</code> and <code>REGION</code> phases; at most one region batch per level is in flight.',
+        'Supports <code>DYNAMIC_CLUSTER</code> (recommended 8×8 section loaded-island merge/split with a 1-section empty buffer) and <code>FIXED_3X3</code> (C6 static grid baseline).',
+        'All parallel switches live in <code>config/forgia.toml</code> and default to <code>false</code>. Toggle layout modes in the top bar to compare.'
+      ]
+    }
   },
   {
-    key: 'global', title: 'GLOBAL 阶段：唯一写入者', en: 'GLOBAL PHASE',
-    dur: 10, seg: 0, phase: 'GLOBAL',
-    cam: { pos: [27.9, 42.4, 49.8], target: [2, 17.5, -8] },
-    hud: { phase: 'GLOBAL', lease: '0 / 4', workers: 'IDLE', barrier: '—', stale: '0', leaseBar: 0 },
-    bullets: [
-      '时间、天气、世界边界、区块源、玩家快照与跨区提交都在主协调线程完成（节点周围的六个状态位）。',
-      'Worker 在 <code>GLOBAL</code> 段必须空闲：任何区域写入都是所有权违规，会被计数或直接抛错。',
-      '此阶段持有 level 级状态，因此模组代码可以像原版一样直接运行。'
-    ]
+    key: 'global', seg: 0, phase: 'GLOBAL', dur: 10,
+    cfg: 'LevelTickPhase · GlobalRegionState',
+    cam: { pos: [26, 42, 46], target: [0, 22, -16] },
+    hud: { phase: 'GLOBAL', lease: '0 / 4', workers: 'IDLE', barrier: 'QUIESCENT', guard: 'ASSERTED', bar: 0 },
+    zh: {
+      title: 'GLOBAL 阶段：全局状态唯一写入者',
+      en: 'GLOBAL SAFE POINT',
+      bullets: [
+        '时间、天气、世界边界、计分板、玩家列表与区块源（节点周围 6 个状态位）只在 <code>GLOBAL</code> 安全点由主线程独占写入。',
+        '<code>LevelTickPhase</code> 显式追踪阶段状态：任何 Worker 在 <code>REGION</code> 阶段写入时间/天气或未租出存储均触发所有权断言。',
+        '<code>DynamicRegionTopology</code> 的加载岛合并/延迟拆分与 <code>RegionMailbox</code> 排空也在全局安全点完成。'
+      ]
+    },
+    enText: {
+      title: 'GLOBAL Phase: Exclusive Level-Wide Writer',
+      en: 'GLOBAL SAFE POINT',
+      bullets: [
+        'Time, weather, world border, scoreboard, player list and chunk source (the 6 orbiting cubes) are written exclusively at <code>GLOBAL</code> safe points.',
+        '<code>LevelTickPhase</code> enforces phase transitions: any worker write to time/weather or unleased storage triggers an ownership assertion.',
+        '<code>DynamicRegionTopology</code> island merges/delayed splits and <code>RegionMailbox</code> drains also commit here.'
+      ]
+    }
   },
   {
-    key: 'dispatch', title: '派发：显式空间租约', en: 'DISPATCH & LEASES',
-    dur: 12, seg: 1, phase: 'DISPATCH',
-    cam: { pos: [56.6, 54.1, 110.6], target: [-4, 5, -2] },
-    hud: { phase: 'DISPATCH', lease: '4 / 4', workers: '0 / 4', barrier: 'ARMED', stale: '0', leaseBar: 1 },
-    bullets: [
-      '租约从 <code>RegionState</code> 授予 Worker；<code>RegionLeasePack</code> 支持最多 16 个区域的全有或全无获取。',
-      '任务按区域成批提交，绝不把单个区域拆到两个线程；租约授予前会 <code>preWake</code> 预唤醒持久 Worker。',
-      '若某个 tick 触到租约未覆盖的区块：截断一次，该类工作整体退回服务器线程。'
-    ]
+    key: 'dispatch', seg: 1, phase: 'DISPATCH', dur: 11,
+    cfg: 'PersistentWorkers · PackedRegionLeases',
+    cam: { pos: [58, 52, 102], target: [0, 10, 0] },
+    hud: { phase: 'DISPATCH', lease: '4 / 4', workers: '4 / 4', barrier: 'ARMED', guard: '0', bar: 1 },
+    zh: {
+      title: '派发与工作窃取：空间租约与持久 Deque',
+      en: 'LEASES & WORK-STEALING',
+      bullets: [
+        '<code>RegionWorkStealingDispatcher</code> 为每个持久 Worker 维护独立 Deque；批次提交前 <code>preWake</code> 唤醒线程，空闲 Worker 自动窃取忙碌 Worker 一半未开始任务区段。',
+        '在 <code>DYNAMIC_CLUSTER</code> 下使用加权岛内合包（保留每 Section 独立租约），并自动绕过 <code>PackedRegionLeases</code>。',
+        '在 <code>FIXED_3X3</code> 下可开启 <code>enableRegionThreadingPackedRegionLeases</code>，每任务全有或全无打包获取最多 16 个区域租约。'
+      ]
+    },
+    enText: {
+      title: 'Dispatch & Work-Stealing: Leases & Persistent Deques',
+      en: 'LEASES & WORK-STEALING',
+      bullets: [
+        '<code>RegionWorkStealingDispatcher</code> maintains per-worker deques, <code>preWake</code>s persistent threads, and lets idle workers steal half of another runner\'s unstarted range.',
+        'Under <code>DYNAMIC_CLUSTER</code>, weighted island coalescing runs automatically and <code>PackedRegionLeases</code> is bypassed.',
+        'Under <code>FIXED_3X3</code>, <code>enableRegionThreadingPackedRegionLeases</code> acquires up to 16 regions all-or-none per task.'
+      ]
+    }
   },
   {
-    key: 'region', title: 'REGION 阶段：并行 Tick 与屏障', en: 'PARALLEL TICK',
-    dur: 13, seg: 3, phase: 'REGION',
-    cam: { pos: [68.2, 59.2, 106.3], target: [-4, 5, -2] },
-    hud: { phase: 'REGION', lease: '4 / 4', workers: '4 / 4', barrier: 'JOIN', stale: '0', leaseBar: 1 },
-    bullets: [
-      '四个区域并行执行随机刻、实体、POI 与计划任务；每个 chunk tile 的闪烁代表本批次落地的区域工作。',
-      '批次结束在屏障处 <code>join</code>，结果不在 Worker 上继续构建，而是回到主线程发布。',
-      '这就是「阶段交替 + 屏障」而不是一把大锁：并行窗口显式，写入边界也显式。'
-    ]
+    key: 'entities', seg: 1, phase: 'ENTITY', dur: 11,
+    cfg: 'enableRegionThreadingEntityTicks',
+    cam: { pos: [52, 38, 72], target: [0, 4, -2] },
+    hud: { phase: 'ENTITY', lease: '4 / 4', workers: '4 / 4', barrier: 'JOIN', guard: '0', bar: 1 },
+    zh: {
+      title: '实体并行：分区存储、玩家快照与跨区交接',
+      en: 'ENTITY TICKS & STORAGE',
+      bullets: [
+        '<code>DYNAMIC_CLUSTER</code> 与 <code>FIXED_3X3</code> 均启用 <code>REGION_OWNED</code> 实体存储（<code>FixedEntitySectionPartitions</code>），Worker 仅读写本区 bucket。',
+        'tick 头部发布不可变 <code>RegionPlayerSnapshots</code> 供 Worker 查询最近玩家；跨区移动通过 <code>RegionEntityTransferJournal</code> 在屏障处统一交接。',
+        '被固定类型（如史莱姆分裂、鱼钩）与骑乘栈保持主线程串行；实体切片自动隐含开启区域 POI 存储。'
+      ]
+    },
+    enText: {
+      title: 'Entity Ticks: Partitioned Storage, Snapshots & Handoff',
+      en: 'ENTITY TICKS & STORAGE',
+      bullets: [
+        'Both <code>DYNAMIC_CLUSTER</code> and <code>FIXED_3X3</code> enable <code>REGION_OWNED</code> storage (<code>FixedEntitySectionPartitions</code>); workers query only their leased bucket.',
+        'Immutable <code>RegionPlayerSnapshots</code> answer player queries; cross-region entity moves commit via <code>RegionEntityTransferJournal</code> at the barrier.',
+        'Pinned classes and riding stacks stay serial; enabling Entity Ticks implicitly enables region-partitioned POI storage.'
+      ]
+    }
   },
   {
-    key: 'cross', title: '跨区：Seqlock 读 + 有界邮箱', en: 'CROSS-REGION',
-    dur: 13, seg: 4, phase: 'GLOBAL',
-    cam: { pos: [14.2, 33.3, 61.6], target: [-4, 5, -1] },
-    hud: { phase: 'GLOBAL', lease: '2 / 4', workers: '4 / 4', barrier: 'DRAIN', stale: '1 retry', leaseBar: 0.5 },
-    bullets: [
-      '跨区读走 <code>seqlock</code> 版本校验：拿到撕裂/过期快照即判定 stale，并重跑发起方区域。',
-      '跨区写不直接穿透，而是进入有界 <code>RegionMailbox</code>，在下一个 <code>GLOBAL</code> 段 drain。',
-      '这是「允许读全局、禁止写全局」的具体实现：通道有限、时序确定、可观测。'
-    ]
+    key: 'spawnpoi', seg: 3, phase: 'SPAWN / POI', dur: 11,
+    cfg: 'enableRegionThreadingSpawning · Poi',
+    cam: { pos: [54, 42, 74], target: [0, 5, 0] },
+    hud: { phase: 'SPAWN/POI', lease: '4 / 4', workers: '4 / 4', barrier: 'ATOMIC CAP', guard: '0', bar: 1 },
+    zh: {
+      title: '自然刷怪与兴趣点：原子 Mob Cap 与分区 POI',
+      en: 'SPAWNING & POI',
+      bullets: [
+        '各区域 Worker 并行执行刷怪选点，向中央 <code>LevelSpawnCapCounter</code> 执行原子 check-and-reserve，确保全维度生物上限绝不双拿名额。',
+        '支持 <code>RegionSpawnAdmissionBarrier</code> 有序最终化（供 MobSpawnController 适配器在主线程安全完成规则裁决）。',
+        '<code>RegionPoiStorage</code> 按区域分区存储村民/铁傀儡/蜜蜂 POI，跨区查询读取已发布快照 + 实时 ticket 检查（实测 2.1–3.4×）。'
+      ]
+    },
+    enText: {
+      title: 'Natural Spawning & POI: Atomic Mob Cap & Partitioned POI',
+      en: 'SPAWNING & POI',
+      bullets: [
+        'Workers run per-region spawn selection against the central atomic <code>LevelSpawnCapCounter</code> (check-and-reserve), preventing double-takes on the level-wide mob cap.',
+        '<code>RegionSpawnAdmissionBarrier</code> supports ordered finalization on the server thread for adapters like MobSpawnController.',
+        '<code>RegionPoiStorage</code> partitions villager/golem/bee POIs per region using published snapshots + live ticket checks (2.1–3.4× measured).'
+      ]
+    }
   },
   {
-    key: 'be', title: 'Canonical 方块实体：前缀并行 + 串行围栏', en: 'BE PIPELINE',
-    dur: 16, seg: 5, phase: 'BE',
-    cam: { pos: [28, 36, 118], target: [0, 9, 44] },
-    hud: { phase: 'BE', lease: '1 / 4', workers: '4 / 4', barrier: 'SERIAL', stale: '0', leaseBar: 0.25 },
-    bullets: [
-      '单调 cursor 保持 <code>Level.tickBlockEntities</code> 的原版因果顺序，只把「已证明前缀」派发到 Worker。',
-      '遇到未知模组类或 Mixin 单元：fail-closed，立即物理 join，主线程完整执行一次原 ticker，不重放。',
-      '前缀之后重新证明后缀再继续并行——正确性是准入门，不是性能的副产品。'
-    ]
+    key: 'chunkborder', seg: 4, phase: 'CHUNK / BORDER', dur: 12,
+    cfg: 'RandomTicks · BorderUpdates · GameEvents',
+    cam: { pos: [44, 38, 66], target: [-2, 4, 2] },
+    hud: { phase: 'CHUNK', lease: '4 / 4', workers: '4 / 4', barrier: 'FIXPOINT', guard: '1 seqlock', bar: 1 },
+    zh: {
+      title: '区块刻、红石同 Tick 收敛与跨区 Game Event',
+      en: 'CHUNKS, BORDER & SCULK',
+      bullets: [
+        '<code>RegionChunkTickCoordinator</code> 并行执行随机刻、冰雪与雷击（每区块独立确定性 <code>RegionAwareRandomSource</code>），要求 3×3 邻域已加载。',
+        '跨区红石/方块邻居写入被 <code>RegionBorderUpdates</code> 捕获，在同一 tick 由目标区域 Worker 定点收敛（49 布局 5,880 tick 与原版一致）。',
+        '<code>RegionBorderGameEvents</code> 按列捕获跨区幽匿振动并按发布顺序投递；跨区读走 <code>Seqlock</code> 版本校验，过期则重跑发起方区域。'
+      ]
+    },
+    enText: {
+      title: 'Chunk Ticks, Same-Tick Redstone Fixpoint & Game Events',
+      en: 'CHUNKS, BORDER & SCULK',
+      bullets: [
+        '<code>RegionChunkTickCoordinator</code> runs random ticks, snow/ice and lightning in parallel with deterministic per-chunk RNG whenever the 3×3 neighborhood is loaded.',
+        'Cross-region neighbor updates are captured by <code>RegionBorderUpdates</code> and converged in the same tick via fixpoint (identical to vanilla across 49 redstone layouts).',
+        '<code>RegionBorderGameEvents</code> replays foreign sculk vibrations in posting order; cross-region reads verify <code>Seqlock</code> versions and rerun on stale reads.'
+      ]
+    }
+  },
+  {
+    key: 'be', seg: 6, phase: 'BE PIPELINE', dur: 14,
+    cfg: 'BlockEntityTicks · FurnaceWaves · Create Adapter',
+    cam: { pos: [26, 34, 114], target: [0, 8, 44] },
+    hud: { phase: 'BE / OPS', lease: '1 / 4', workers: '4 / 4', barrier: 'SERIAL FENCE', guard: 'FENCED', bar: 0.75 },
+    zh: {
+      title: 'Canonical 方块实体：前缀并行、熔炉波次与串行围栏',
+      en: 'BE PIPELINE & ADAPTERS',
+      bullets: [
+        '<code>CanonicalBlockEntityCoordinator</code> 用单调游标保持原版顺序：已证明前缀（原版漏斗/熔炉 + Create 6.0.10 受审计适配器）派发到并行车道。',
+        '仅在 <code>FIXED_3X3</code> 下可开启 <code>FurnaceWorkWaves</code> 与 <code>BlockEntityResources</code>（对象级 READ/WRITE 资源波次；<code>DYNAMIC_CLUSTER</code> 下自动忽略）。',
+        '遇未知模组/Mixin 立即触发 <b>Fail-Closed 串行围栏</b>：物理 join，主线程完整执行一次原 ticker 后重查后缀；批尾串行完成双 Owner <code>BlockEntityOperations</code>。'
+      ]
+    },
+    enText: {
+      title: 'Canonical Block Entities: Proven Prefix, Waves & Serial Fence',
+      en: 'BE PIPELINE & ADAPTERS',
+      bullets: [
+        '<code>CanonicalBlockEntityCoordinator</code> uses a monotonic cursor: proven prefixes (vanilla Hopper/Furnace + audited Create 6.0.10 adapter) dispatch to parallel wave lanes.',
+        '<code>FurnaceWorkWaves</code> & <code>BlockEntityResources</code> (READ/WRITE resource waves) apply to <code>FIXED_3X3</code> only (ignored in <code>DYNAMIC_CLUSTER</code>).',
+        'Unknown mods/Mixins hit a <b>Fail-Closed Serial Fence</b>: physical join, run once on Server Thread, re-inspect suffix; two-owner <code>BlockEntityOperations</code> finish at batch end.'
+      ]
+    }
+  },
+  {
+    key: 'players', seg: 2, phase: 'PLAYER', dur: 12,
+    cfg: 'enableRegionThreadingPlayerTicks',
+    cam: { pos: [54, 46, 86], target: [0, 12, 0] },
+    hud: { phase: 'PLAYER', lease: '4 / 4', workers: '4 / 4', barrier: 'NET GATE', guard: '0', bar: 1 },
+    zh: {
+      title: '实验性玩家并行：ENTITY / CONNECTION / 网络门',
+      en: 'PLAYER TICKS & NET GATE',
+      bullets: [
+        '玩家 tick 分为三段：<code>ENTITY</code>（<code>ServerPlayer.tick</code> 批次并行）、<code>CONNECTION</code>（主线程有序遍历连接）、<code>CONNECTION_BODY</code>（<code>doTick</code> 派发到 Worker）。',
+        '等待期间 <code>RegionPlayerNetworkGate</code> 将血量/经验/冷却同步发包与 <code>PacketDistributor</code> 广播交回主线程，并支持 <code>IRegionPayloadHandler</code>。',
+        '重要配置：<code>FIXED_3X3</code> 直接生效；<code>DYNAMIC_CLUSTER</code> 下必须同时传入 JVM 参数 <code>-Dforgia.dynamicPlayerSoak=true</code>，否则保持串行。'
+      ]
+    },
+    enText: {
+      title: 'Experimental Player Ticks: ENTITY / CONNECTION / Network Gate',
+      en: 'PLAYER TICKS & NET GATE',
+      bullets: [
+        'Three phases: <code>ENTITY</code> (<code>ServerPlayer.tick</code> in region batches), <code>CONNECTION</code> (server-thread traversal), and <code>CONNECTION_BODY</code> (<code>doTick</code> on workers).',
+        '<code>RegionPlayerNetworkGate</code> services synchronous health/XP/cooldown sends & <code>PacketDistributor</code> broadcasts on the server thread; supports <code>IRegionPayloadHandler</code>.',
+        'Prerequisite: works out of the box in <code>FIXED_3X3</code>; in <code>DYNAMIC_CLUSTER</code> you must also pass <code>-Dforgia.dynamicPlayerSoak=true</code>.'
+      ]
+    }
+  },
+  {
+    key: 'schedguard', seg: 5, phase: 'SCHED / GUARD', dur: 11,
+    cfg: 'ScheduledTicks · Boundary Guards',
+    cam: { pos: [50, 40, 76], target: [0, 8, -2] },
+    hud: { phase: 'SCHED', lease: '2 / 4', workers: '2 / 4', barrier: 'GUARDED', guard: 'FALLBACK', bar: 0.5 },
+    zh: {
+      title: '计划刻准入、边界守卫与至多一次容错',
+      en: 'SCHEDULED & FAIL-CLOSED',
+      bullets: [
+        '<code>enableRegionThreadingScheduledTicks</code>（支持 <code>DYNAMIC_CLUSTER</code>/<code>FIXED_3X3</code>）仅准入单区域内半径 2 惰性足迹的红石灯阶段，流体/混合回调保留原 <code>LevelTicks</code> 串行队列。',
+        'Worker 越界访问 <code>BlockCapabilityCache</code>、Attachment 或 <code>SavedData</code> 时，<code>RegionWorkerBoundaryException</code> 立即截断并 fail-closed 回退主线程。',
+        '严格坚持「至多一次、绝不重放」：正文启动后抛出的异常在物理 join 后由主线程报告；卸载/停服时物理等待所有已受理工作完成。'
+      ]
+    },
+    enText: {
+      title: 'Scheduled Ticks, Boundary Guards & At-Most-Once Recovery',
+      en: 'SCHEDULED & FAIL-CLOSED',
+      bullets: [
+        '<code>enableRegionThreadingScheduledTicks</code> (<code>DYNAMIC_CLUSTER</code>/<code>FIXED_3X3</code>) admits only single-region radius-2 inert redstone-lamp phases; others stay in serial <code>LevelTicks</code>.',
+        'Off-region <code>BlockCapabilityCache</code>, Attachment or <code>SavedData</code> access raises <code>RegionWorkerBoundaryException</code> for fail-closed server fallback.',
+        'Strict at-most-once semantics (no replay): started failures report on the server thread after join; unload/shutdown physically awaits accepted work.'
+      ]
+    }
+  },
+  {
+    key: 'observability', seg: 7, phase: 'OBSERVABILITY', dur: 12,
+    cfg: '/forgia · /neoforge regionthreading',
+    cam: { pos: [92, 72, 148], target: [0, 8, 8] },
+    hud: { phase: 'FULL TICK', lease: '4 / 4', workers: '4 / 4', barrier: '0 VIOLATIONS', guard: 'OK', bar: 1 },
+    zh: {
+      title: '全链路观测与硬件调优（/forgia & forgia.toml）',
+      en: 'OBSERVABILITY & TUNING',
+      bullets: [
+        '内置零磁盘开销监控：<code>/forgia performance</code>（12,000 tick 原生 MSPT 环与 JVM 采样）、<code>/forgia regions</code>（动态岛数/合包节省）、<code>/forgia workers</code> 与 <code>/neoforge regionthreading compat</code>。',
+        '硬件调优原则：推荐 <code>DYNAMIC_CLUSTER</code>（<code>shift=3</code>），Worker 数显式固定为 <code>物理核数 - 1~2</code>（给主线程留足 1 个完整物理核）。',
+        '一键回滚：将 <code>enableRegionThreadingBridge = false</code> 并重启 JVM 即可 100% 退回原版串行路径。'
+      ]
+    },
+    enText: {
+      title: 'End-to-End Observability & Hardware Tuning (/forgia)',
+      en: 'OBSERVABILITY & TUNING',
+      bullets: [
+        'Zero-disk telemetry: <code>/forgia performance</code> (12,000-tick native MSPT ring & JVM sampling), <code>/forgia regions</code> (islands & submissionsSaved), <code>/forgia workers</code>, and <code>compat</code>.',
+        'Tuning rule: prefer <code>DYNAMIC_CLUSTER</code> (<code>shift=3</code>) and pin <code>regionThreadingWorkerThreads</code> to <code>physicalCores - 1..2</code> (reserve ≥1 core for Server Thread).',
+        'Instant rollback: set <code>enableRegionThreadingBridge = false</code> and restart JVM to return 100% to vanilla serial execution.'
+      ]
+    }
   }
 ];
 
 /* =====================================================================
-   10. 相机补间
+   12. 12 项全功能模块清单（随布局模式动态更新状态徽章）
+   ===================================================================== */
+const FEATURES = [
+  { step: 0, color: '#256f7c', zh: '动态加载岛拓扑 (DYNAMIC_CLUSTER)', en: 'Dynamic Island Topology', modeRule: m => m === 'DYNAMIC_CLUSTER' ? ['ACTIVE', 'on'] : ['FIXED GRID', 'off'] },
+  { step: 1, color: '#202628', zh: 'GLOBAL/REGION 阶段断言', en: 'GLOBAL/REGION Phase Guard', modeRule: () => ['ALWAYS', 'on'] },
+  { step: 2, color: '#4d6d43', zh: '持久 Work-Stealing 派发器', en: 'Work-Stealing Dispatcher', modeRule: () => ['BOTH', 'on'] },
+  { step: 2, color: '#b94b2c', zh: '租约打包 (PackedRegionLeases)', en: 'Packed Region Leases', modeRule: m => m === 'FIXED_3X3' ? ['FIXED ONLY', 'on'] : ['BYPASSED', 'off'] },
+  { step: 3, color: '#628654', zh: '实体并行 + 分区存储', en: 'Entity Ticks + Storage', modeRule: () => ['BOTH', 'on'] },
+  { step: 4, color: '#a87a22', zh: '自然刷怪 + 原子 Mob Cap', en: 'Spawning + Atomic Cap', modeRule: () => ['BOTH', 'on'] },
+  { step: 4, color: '#dfb14c', zh: '区域分区 POI 快照', en: 'Region POI Snapshots', modeRule: () => ['BOTH', 'on'] },
+  { step: 5, color: '#ed7950', zh: '区块刻 + 红石边界收敛 + 幽匿', en: 'Chunks + Border + Sculk', modeRule: () => ['BOTH', 'on'] },
+  { step: 6, color: '#4d6d43', zh: 'BE 游标 + Create 适配器 + 围栏', en: 'BE Cursor + Create + Fence', modeRule: () => ['BOTH', 'on'] },
+  { step: 6, color: '#b94b2c', zh: '熔炉资源波次 (FurnaceWaves)', en: 'Furnace Resource Waves', modeRule: m => m === 'FIXED_3X3' ? ['FIXED ONLY', 'on'] : ['IGNORED', 'off'] },
+  { step: 7, color: '#256f7c', zh: '实验性玩家并行 + 网络门', en: 'Player Ticks + Net Gate', modeRule: m => m === 'DYNAMIC_CLUSTER' ? ['JVM FLAG', 'warn'] : ['FIXED OK', 'on'] },
+  { step: 8, color: '#6b4e8d', zh: '计划刻 + 边界守卫 + /forgia', en: 'Scheduled + Guards + /forgia', modeRule: () => ['BOTH', 'on'] }
+];
+
+/* =====================================================================
+   13. 相机补间 & UI 控制
    ===================================================================== */
 let camTween = null;
-
-function tweenCamera(pos, target, dur = 1.25) {
+function tweenCamera(pos, target, dur = 1.15) {
   camTween = {
     t: 0, dur,
-    fromPos: camera.position.clone(),
-    toPos: new THREE.Vector3().fromArray(pos),
-    fromTarget: controls.target.clone(),
-    toTarget: new THREE.Vector3().fromArray(target)
+    p0: camera.position.clone(), p1: new THREE.Vector3(...pos),
+    t0: controls.target.clone(), t1: new THREE.Vector3(...target)
   };
-}
-function updateCameraTween(dt) {
-  if (!camTween) return;
-  camTween.t = Math.min(1, camTween.t + dt / camTween.dur);
-  const e = easeInOut(camTween.t);
-  camera.position.lerpVectors(camTween.fromPos, camTween.toPos, e);
-  controls.target.lerpVectors(camTween.fromTarget, camTween.toTarget, e);
-  if (camTween.t >= 1) camTween = null;
 }
 controls.addEventListener('start', () => { camTween = null; });
 
-/* =====================================================================
-   11. 状态与 HUD
-   ===================================================================== */
-let stepIndex = 0;
-let stepTime = 0;
-let paused = false;
-let speed = 1;
-let auto = true;
-let tickCount = 0;
-let tickAccum = 0;
+let stepIndex = 0, stepTime = 0, paused = false, speed = 1, auto = true, tickCount = 0, tickAccum = 0;
 
 const el = {
   phaseChip: document.getElementById('phase-chip'),
   stepList: document.getElementById('step-list'),
+  featList: document.getElementById('feat-list'),
   capIndex: document.getElementById('cap-index'),
+  capCfgKey: document.getElementById('cap-cfg-key'),
   capTitle: document.getElementById('cap-title'),
   capList: document.getElementById('cap-list'),
   capBar: document.getElementById('cap-bar'),
   tick: document.getElementById('t-tick'),
+  layout: document.getElementById('t-layout'),
   phase: document.getElementById('t-phase'),
   lease: document.getElementById('t-lease'),
   workers: document.getElementById('t-workers'),
   barrier: document.getElementById('t-barrier'),
-  stale: document.getElementById('t-stale'),
+  guard: document.getElementById('t-guard'),
   leaseBar: document.getElementById('t-lease-bar'),
-  play: document.getElementById('btn-play')
+  play: document.getElementById('btn-play'),
+  btnDyn: document.getElementById('btn-mode-dyn'),
+  btnFix: document.getElementById('btn-mode-fix')
 };
 
-/* 步骤列表 */
-STEPS.forEach((s, i) => {
-  const b = document.createElement('button');
-  b.className = 'step' + (i === 0 ? ' active' : '');
-  b.innerHTML = `<span class="step-n">${String(i + 1).padStart(2, '0')}</span>
-    <span class="step-t">${s.title.split('：')[0]}<span class="step-en">${s.en}</span></span>`;
-  b.addEventListener('click', () => { auto = false; goToStep(i); });
-  el.stepList.appendChild(b);
-});
+function rebuildSidebar() {
+  el.stepList.innerHTML = '';
+  STEPS.forEach((s, i) => {
+    const txt = lang === 'zh' ? s.zh : s.enText;
+    const b = document.createElement('button');
+    b.className = 'step' + (i === stepIndex ? ' active' : '');
+    b.innerHTML = `<span class="step-n">${String(i + 1).padStart(2, '0')}</span>
+      <span class="step-t">${txt.title.split('：')[0].split(':')[0]}<span class="step-en">${txt.en}</span></span>`;
+    b.addEventListener('click', () => { auto = false; syncAutoBtn(); goToStep(i); });
+    el.stepList.appendChild(b);
+  });
 
-function syncStepList() {
-  [...el.stepList.children].forEach((b, i) => b.classList.toggle('active', i === stepIndex));
+  el.featList.innerHTML = '';
+  FEATURES.forEach(f => {
+    const [badgeText, badgeCls] = f.modeRule(layoutMode);
+    const b = document.createElement('button');
+    b.className = 'feat-item' + (f.step === stepIndex ? ' active' : '');
+    b.innerHTML = `<span class="feat-name"><i class="fdot" style="background:${f.color}"></i>${lang === 'zh' ? f.zh : f.en}</span>
+      <span class="fbadge ${badgeCls}">${badgeText}</span>`;
+    b.addEventListener('click', () => { auto = false; syncAutoBtn(); goToStep(f.step); });
+    el.featList.appendChild(b);
+  });
+
+  document.getElementById('lbl-steps').textContent = lang === 'zh' ? '并行流水线' : 'PIPELINE STAGES';
+  document.getElementById('lbl-tel').textContent = lang === 'zh' ? '运行时状态' : 'RUNTIME TELEMETRY';
+  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '全功能模块（点击跳转）' : 'ALL FEATURES (CLICK)';
+  document.getElementById('lnk-cfg').href = lang === 'zh' ? '../configuration.zh/' : '../configuration.en/';
+  document.getElementById('lnk-cfg').textContent = lang === 'zh' ? '配置指南 →' : 'CONFIG GUIDE →';
+  document.getElementById('lnk-arch').href = lang === 'zh' ? '../architecture.zh/' : '../architecture.en/';
+  document.getElementById('lnk-arch').textContent = lang === 'zh' ? '架构文档 →' : 'ARCHITECTURE →';
+  document.getElementById('hint-text').innerHTML = lang === 'zh'
+    ? '拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停 · M 切换布局'
+    : 'Drag orbit · Scroll zoom · Right-drag pan<br />← → Step · Space pause · M toggle layout';
 }
 
-function renderCaption(force = false) {
+function syncActiveHighlights() {
+  [...el.stepList.children].forEach((b, i) => b.classList.toggle('active', i === stepIndex));
+  [...el.featList.children].forEach((b, i) => b.classList.toggle('active', FEATURES[i].step === stepIndex));
+}
+
+function renderCaption() {
   const s = STEPS[stepIndex];
-  el.capIndex.textContent = `STEP ${String(stepIndex + 1).padStart(2, '0')} / 06 · ${s.en}`;
-  el.capTitle.textContent = s.title;
-  if (force) {
-    el.capList.innerHTML = s.bullets.map(b => `<li>${b}</li>`).join('');
-  }
+  const txt = lang === 'zh' ? s.zh : s.enText;
+  el.capIndex.textContent = `STEP ${String(stepIndex + 1).padStart(2, '0')} / ${STEPS.length} · ${txt.en}`;
+  el.capCfgKey.textContent = s.cfg;
+  el.capTitle.textContent = txt.title;
+  el.capList.innerHTML = txt.bullets.map(b => `<li>${b}</li>`).join('');
 }
 
 function updateHud(t) {
   const s = STEPS[stepIndex];
   const h = s.hud;
   el.tick.textContent = String(tickCount).padStart(6, '0');
+  el.layout.textContent = layoutMode;
   el.phase.textContent = h.phase;
   el.lease.textContent = h.lease;
   el.workers.textContent = h.workers;
   el.barrier.textContent = h.barrier;
-  el.stale.textContent = h.stale;
-  el.leaseBar.style.transform = `scaleX(${h.leaseBar})`;
+  el.guard.textContent = h.guard;
+  el.leaseBar.style.transform = `scaleX(${h.bar})`;
   el.phaseChip.textContent = s.phase;
 
-  /* 字幕逐条淡入 */
   const items = el.capList.children;
-  const delays = [0.04, 0.22, 0.4];
+  const delays = [0.03, 0.18, 0.34];
   for (let i = 0; i < items.length; i++) {
-    items[i].classList.toggle('on', t > delays[i] || s.dur * t > i * 1.1 + 0.2);
+    items[i].classList.toggle('on', t > delays[i] || s.dur * t > i * 0.9 + 0.15);
   }
   el.capBar.style.transform = `scaleX(${clamp(t)})`;
 }
@@ -1071,412 +1435,356 @@ function goToStep(i) {
   stepTime = 0;
   const s = STEPS[stepIndex];
   tweenCamera(s.cam.pos, s.cam.target);
-  syncStepList();
-  renderCaption(true);
+  syncActiveHighlights();
+  renderCaption();
   updateHud(0);
 }
 
+function setLayoutMode(mode) {
+  layoutMode = mode;
+  el.btnDyn.classList.toggle('active', mode === 'DYNAMIC_CLUSTER');
+  el.btnFix.classList.toggle('active', mode === 'FIXED_3X3');
+  rebuildSidebar();
+  updateHud(stepTime / STEPS[stepIndex].dur);
+}
+
+function syncAutoBtn() {
+  document.getElementById('btn-auto').classList.toggle('on', auto);
+}
+
 /* =====================================================================
-   12. 每帧：重置 → 分步动画
+   14. 每帧动画编排（10 个阶段完整驱动）
    ===================================================================== */
 function resetVisuals() {
-  leaseRings.forEach(l => {
-    l.g.visible = false;
-    l.tag.visible = false;
-    l.tag.element.style.opacity = '1';
-  });
+  leaseRings.forEach(l => { l.g.visible = false; l.tag.visible = false; });
   dispatchTokens.forEach(t => (t.visible = false));
   returnTokens.forEach(t => (t.visible = false));
   beamPulses.forEach(t => (t.visible = false));
   beams.forEach(b => (b.material.opacity = 0));
-  seqToken.visible = false;
-  mailToken.visible = false;
-  staleTag.visible = false;
-  beCursor.visible = false;
-  cursorTag.visible = false;
-  provenTag.visible = false;
-  fence.visible = false;
-  fenceTag.visible = false;
-  serverToken.visible = false;
-  serverTag.visible = false;
-  laneTokens.forEach(t => (t.visible = false));
-  beUnits.forEach(u => {
-    u.m.color.setHex(0xe4e3db);
-    u.m.emissiveIntensity = 0.02;
-    u.m.emissive.setHex(C.orange);
-    u.mesh.scale.setScalar(1);
+  workers.forEach(w => {
+    w.coreMat.emissiveIntensity = 0.2;
+    w.dequeSlots.forEach(s => (s.visible = false));
   });
+  stealLine.visible = false; stealToken.visible = false; stealTag.visible = false;
+
+  gEntities.visible = false; transferToken.visible = false;
+  gSpawnPoi.visible = false; spawnTokens.forEach(t => (t.visible = false));
+  gCross.visible = false; borderToken.visible = false; sculkToken.visible = false; seqToken.visible = false; mailToken.visible = false;
+  gBe.visible = false; serverToken.visible = false; laneTokens.forEach(t => (t.visible = false));
+  gPlayers.visible = false; netGateTokens.forEach(t => (t.visible = false));
+  gSchedGuard.visible = false; guardToken.visible = false;
+
   chunkTiles.forEach(tiles => tiles.forEach(tile => {
     tile.m.emissiveIntensity = 0;
     tile.mesh.position.y = tile.base.y;
   }));
-  globalMarks.forEach(m => {
-    m.material.emissiveIntensity = 0;
-    m.material.color.setHex(C.muted);
-  });
-  barrierPlane.material.opacity = 0.05;
-  gCoreMat.emissiveIntensity = 0.3;
-  workers.forEach(w => {
-    w.coreMat.emissiveIntensity = 0.22;
-    w.core.scale.setScalar(1);
-    w.ring.material.opacity = 0.85;
-  });
-  beCursor.position.x = beX(-1) - 1;
-  cursorTag.position.x = beX(-1) - 1;
-  serverToken.position.set(beX(BE.serialFrom) - 1.5, 15.6, BE.z);
+  globalMarks.forEach(m => { m.material.emissiveIntensity = 0; m.material.color.setHex(C.muted); });
+  barrierPlane.material.opacity = 0.03;
+  gCoreMat.emissiveIntensity = 0.25;
 }
 
-function highlightPhase(index) {
-  segs.forEach((s, i) => {
-    const active = i === index;
-    const isGlobal = s.isGlobal;
-    s.m.material.color.setHex(active ? C.orange : isGlobal ? C.ink : C.bright);
-    s.m.material.emissiveIntensity = active ? 0.35 : isGlobal ? 0 : 0.18;
-    s.m.scale.y = active ? 1.9 : 1;
-  });
-  playhead.position.x = segs[index].m.position.x;
-}
-
-function setAct(step) {
-  regionLabels.forEach(l => (l.visible = step === 0));
-  workers.forEach(w => (w.tag.visible = step === 2 || step === 3));
-  globalTag.visible = step === 0 || step === 1 || step === 4;
-  barrierTag.visible = step === 1 || step === 2 || step === 3;
-  seqTag.visible = step === 4;
-  mailTag.visible = step === 4;
-  mailLine.visible = step === 4;
-  seqLine.visible = step === 4;
-  mailUp.visible = step === 4;
-  lanePads.forEach(p => { p.g.visible = step === 5; p.tag.visible = step === 5; });
-}
-
-function updateScene(dt, t, time) {
+function updateScene(t, time) {
   resetVisuals();
-  const step = stepIndex;
-  setAct(step);
-  highlightPhase(STEPS[step].seg);
+  const s = STEPS[stepIndex];
 
-  /* 全局常驻动效 */
-  const b = 0.22 + 0.16 * pulse(time * 0.55);
-  workers.forEach((w, i) => {
-    w.g.position.y = WORKER_POS[i].y + Math.sin(time * 1.15 + i * 1.7) * 0.1;
+  /* 布局叠加层 */
+  const isDyn = layoutMode === 'DYNAMIC_CLUSTER';
+  gDynamicOverlay.visible = isDyn && (stepIndex === 0 || stepIndex === 2 || stepIndex === 9);
+  gPackOverlay.visible = !isDyn && (stepIndex === 0 || stepIndex === 2 || stepIndex === 9);
+  islandATag.visible = gDynamicOverlay.visible;
+  bufferTag.visible = gDynamicOverlay.visible;
+  packTag.visible = gPackOverlay.visible;
+
+  /* 时间轴高亮 */
+  segs.forEach((seg, i) => {
+    const active = i === s.seg;
+    seg.m.material.color.setHex(active ? C.orange : seg.isGlobal ? C.ink : C.bright);
+    seg.m.material.emissiveIntensity = active ? 0.45 : seg.isGlobal ? 0 : 0.15;
+    seg.m.scale.y = active ? 2.1 : 1;
   });
+  playhead.position.x = segs[s.seg].m.position.x;
 
-  if (step === 0) {
-    gCoreMat.emissiveIntensity = 0.28 + 0.22 * pulse(time * 0.5);
+  /* Worker 常驻轻微悬浮 */
+  workers.forEach((w, i) => {
+    w.g.position.y = WORKER_POS[i].y + Math.sin(time * 1.2 + i * 1.5) * 0.12;
+    w.tag.visible = stepIndex === 0 || stepIndex === 2 || stepIndex === 9;
+  });
+  regionLabels.forEach(l => (l.visible = stepIndex === 0 || stepIndex === 9));
+  globalTag.visible = stepIndex <= 2 || stepIndex === 7 || stepIndex === 8 || stepIndex === 9;
+  barrierTag.visible = stepIndex === 2 || stepIndex === 3 || stepIndex === 9;
+
+  /* Step 0: 全景 */
+  if (stepIndex === 0) {
+    gCoreMat.emissiveIntensity = 0.35 + 0.25 * pulse(time * 0.5);
     chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
-      tile.m.emissiveIntensity = (0.5 + 0.5 * Math.sin(time * 0.85 + k * 0.62 + r)) * 0.055;
+      tile.m.emissiveIntensity = (0.5 + 0.5 * Math.sin(time * 0.9 + k * 0.5 + r)) * 0.08;
     }));
-    workers.forEach(w => (w.coreMat.emissiveIntensity = 0.18));
   }
 
-  else if (step === 1) {
-    gCoreMat.emissiveIntensity = b + 0.35;
-    /* 六个全局状态位依次点亮 */
-    const ph = ((time * 0.62) % 1) * 6;
+  /* Step 1: GLOBAL 阶段 */
+  else if (stepIndex === 1) {
+    gCoreMat.emissiveIntensity = 0.75;
+    const ph = ((time * 0.65) % 1) * 6;
     globalMarks.forEach((m, i) => {
       const d = Math.abs(((ph - i + 6) % 6 + 6) % 6);
-      const v = Math.max(0, 1 - Math.min(d, 6 - d) * 1.5);
-      m.material.emissiveIntensity = v;
-      m.material.color.setHex(v > 0.35 ? C.bright : C.muted);
+      const v = Math.max(0, 1 - Math.min(d, 6 - d) * 1.4);
+      m.material.emissiveIntensity = v * 0.95;
+      m.material.color.setHex(v > 0.3 ? C.orange : C.ink);
+      m.scale.setScalar(1 + v * 0.45);
     });
-    workers.forEach((w, i) => (w.ring.material.opacity = 0.35 + 0.12 * Math.sin(time * 2 + i)));
-    /* 轨道在 GLOBAL 段停驻 */
-    playhead.position.x = segs[0].m.position.x;
   }
 
-  else if (step === 2) {
-    leaseRings.forEach((l, i) => {
-      const u = clamp((t - 0.05 - i * 0.06) / 0.34);
-      const s = easeOut(u);
-      l.g.visible = u > 0;
-      l.g.scale.setScalar(Math.max(0.001, s));
-      l.g.rotation.y = (1 - u) * 1.9;
-      l.tag.visible = u > 0.62;
-      l.tag.element.style.opacity = String(clamp((u - 0.62) / 0.3));
-      l.ring.material.opacity = 0.55 + 0.35 * Math.sin(time * 3 + i);
-    });
-
-    dispatchTokens.forEach((tok, i) => {
-      const u = clamp((t - 0.18 - i * 0.055) / 0.48);
-      tok.visible = u > 0 && u < 1;
-      if (tok.visible) {
-        placeStreak(tok, dispatchCurves[i], u);
-        tok.scale.multiplyScalar(0.9 + 0.1 * Math.sin(time * 14 + i));
-      }
-    });
-
+  /* Step 2: 派发 + 租约 + Work-Stealing */
+  else if (stepIndex === 2) {
+    barrierPlane.material.opacity = 0.08;
     workers.forEach((w, i) => {
-      const u = clamp((t - 0.56 - i * 0.05) / 0.3);
-      w.coreMat.emissiveIntensity = 0.2 + u * 0.85;
-      w.core.scale.setScalar(1 + u * 0.28);
-      w.core.rotation.y += dt * (1 + u * 3);
+      w.coreMat.emissiveIntensity = 0.65;
+      leaseRings[i].g.visible = true;
+      leaseRings[i].tag.visible = true;
+      const p = (time * 0.55 + i * 0.18) % 1;
+      dispatchTokens[i].visible = true;
+      dispatchTokens[i].position.copy(dispatchCurves[i].getPoint(p));
+      beams[i].material.opacity = 0.45;
+      beamPulses[i].visible = true;
+      beamPulses[i].position.lerpVectors(
+        new THREE.Vector3(WORKER_POS[i].x, WORKER_POS[i].y - 0.6, WORKER_POS[i].z),
+        new THREE.Vector3(REGIONS[i].cx, 1.5, REGIONS[i].cz),
+        p
+      );
+      /* Deque 展示：Worker 0 满载 4 个，Worker 1 空闲来窃取 */
+      w.dequeSlots.forEach((slot, d) => {
+        slot.visible = (i === 0 && d < 4) || (i === 1 && d < 2 && t > 0.45) || (i >= 2 && d < 2);
+      });
     });
-
-    const bo = clamp((t - 0.62) / 0.28) * 0.4;
-    beams.forEach(line => (line.material.opacity = bo));
-    beamPulses.forEach((p, i) => {
-      p.visible = t > 0.68;
-      if (p.visible) p.position.copy(beamCurves[i].getPointAt((time * 0.75 + i * 0.22) % 1));
-    });
-    chunkTiles.forEach(tiles => tiles.forEach(tile => (tile.m.emissiveIntensity = bo * 0.12)));
+    stealLine.visible = true;
+    stealTag.visible = true;
+    stealToken.visible = true;
+    stealToken.position.copy(stealCurve.getPoint((time * 0.6) % 1));
   }
 
-  else if (step === 3) {
-    gCoreMat.emissiveIntensity = t > 0.86 ? 0.9 : b + 0.1;
-    leaseRings.forEach((l, i) => {
-      l.g.visible = true;
-      l.g.scale.setScalar(1);
-      l.g.rotation.y = 0;
-      l.tag.visible = true;
-      l.ring.material.opacity = 0.55 + 0.35 * Math.sin(time * 3 + i);
+  /* Step 3: 实体并行 + 分区存储 + 跨区交接 */
+  else if (stepIndex === 3) {
+    gEntities.visible = true;
+    barrierPlane.material.opacity = 0.06;
+    leaseRings.forEach(l => (l.g.visible = true));
+    entityCapsules.forEach(ec => {
+      ec.mesh.position.y = ec.base.y + Math.abs(Math.sin(time * 2.6 + ec.ri + ec.k)) * 0.85;
+      ec.mesh.rotation.y = time * 1.4 + ec.k;
     });
-
-    chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
-      const ph = (time * 1.95 + k * 0.42 + r * 0.27) % 1;
-      const v = Math.pow(Math.max(0, Math.sin(ph * Math.PI)), 1.6);
-      tile.m.emissiveIntensity = v * 0.72;
-      tile.mesh.position.y = tile.base.y + v * 0.16;
-    }));
-
+    transferToken.visible = true;
+    transferToken.position.copy(transferCurve.getPoint((time * 0.5) % 1));
     workers.forEach((w, i) => {
-      w.coreMat.emissiveIntensity = 0.75 + 0.25 * Math.sin(time * 4 + i);
-      w.core.rotation.y += dt * 7;
-      w.core.rotation.z += dt * 2.4;
-      w.ring.material.opacity = 0.6 + 0.4 * Math.sin(time * 5 + i);
+      w.coreMat.emissiveIntensity = 0.6;
+      beams[i].material.opacity = 0.25;
+      returnTokens[i].visible = t > 0.6;
+      if (returnTokens[i].visible) returnTokens[i].position.copy(returnCurves[i].getPoint((t - 0.6) / 0.4));
     });
-
-    returnTokens.forEach((tok, i) => {
-      const u = clamp((t - 0.56 - i * 0.015) / 0.36);
-      tok.visible = u > 0 && u < 1;
-      if (tok.visible) {
-        placeStreak(tok, returnCurves[i], u);
-        tok.scale.multiplyScalar(0.9 + 0.1 * Math.sin(time * 16 + i));
-      }
-    });
-
-    const flash = t > 0.55
-      ? Math.pow(clamp((t - 0.55) / 0.18), 2) * (1 - clamp((t - 0.86) / 0.14))
-      : 0;
-    barrierPlane.material.opacity = 0.05 + flash * 0.24;
-    frame.material.opacity = 0.45 + flash * 0.5;
   }
 
-  else if (step === 4) {
-    gCoreMat.emissiveIntensity = b + 0.2;
-    leaseRings.forEach((l, i) => {
-      const on = i === 0 || i === 2;
-      l.g.visible = on;
-      l.g.scale.setScalar(1);
-      l.tag.visible = false;
-      l.ring.material.opacity = on ? 0.5 + 0.2 * Math.sin(time * 2.4 + i) : 0;
+  /* Step 4: 自然刷怪 + 原子 Mob Cap + 分区 POI */
+  else if (stepIndex === 4) {
+    gSpawnPoi.visible = true;
+    capTower.scale.y = 1 + 0.14 * pulse(time * 1.4);
+    poiCrystals.forEach((cry, i) => {
+      cry.rotation.y = time * 1.6 + i;
+      cry.position.y = 3.4 + Math.sin(time * 2.0 + i) * 0.45;
     });
-    chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
-      tile.m.emissiveIntensity = 0.04 + 0.05 * (0.5 + 0.5 * Math.sin(time * 1.4 + k * 0.7 + r));
-    }));
+    spawnTokens.forEach((tok, i) => {
+      tok.visible = true;
+      tok.position.copy(spawnCurves[i].getPoint((time * 0.58 + i * 0.22) % 1));
+    });
+    leaseRings.forEach(l => (l.g.visible = true));
+  }
 
-    /* Seqlock：尝试 → stale → 重跑 */
-    const cyc = (t * 1.08) % 1;
-    let u;
-    if (cyc < 0.4) u = cyc / 0.4;
-    else if (cyc < 0.53) u = 1;
-    else if (cyc < 0.6) u = 1 - (cyc - 0.53) / 0.07;
-    else u = (cyc - 0.6) / 0.4;
-    const stale = cyc >= 0.4 && cyc < 0.6;
+  /* Step 5: 区块随机刻 + 红石边界收敛 + 幽匿 GameEvent + Seqlock + Mailbox */
+  else if (stepIndex === 5) {
+    gCross.visible = true;
+    chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
+      const wave = 0.5 + 0.5 * Math.sin(time * 3.1 + k * 0.8 + r * 1.4);
+      tile.m.emissiveIntensity = wave * 0.32;
+      tile.mesh.position.y = tile.base.y + wave * 0.22;
+    }));
+    borderToken.visible = true;
+    borderToken.position.copy(borderCurve.getPoint((time * 0.7) % 1));
+    sculkToken.visible = true;
+    sculkToken.position.copy(sculkCurve.getPoint((time * 0.55) % 1));
+    const sc = 1 + ((time * 0.9) % 1) * 4.5;
+    sculkRing.scale.setScalar(sc);
+    sculkRing.material.opacity = clamp(1 - (sc - 1) / 4.5, 0, 0.85);
     seqToken.visible = true;
-    seqToken.position.lerpVectors(SEQ_A, SEQ_B, clamp(u));
-    seqToken.material.color.setHex(stale ? C.orange : C.greenDeep);
-    seqLine.material.color.setHex(stale ? C.orange : C.greenDeep);
-    staleTag.visible = stale;
-
-    /* Mailbox：区域 → 邮箱 → 区域 */
-    const mu = clamp((t - 0.28) / 0.55);
-    mailToken.visible = mu > 0 && mu < 1;
-    if (mailToken.visible) {
-      mailToken.position.copy(mailCurve.getPointAt(mu));
-      mailToken.rotation.y = mu * Math.PI * 2;
-      mailToken.rotation.x = Math.sin(mu * Math.PI) * 0.6;
-    }
-    mboxCore.material.emissiveIntensity = 0.2 + (mu > 0 ? 0.9 * Math.sin(mu * Math.PI) : 0);
-    mboxCore.scale.setScalar(1 + (mu > 0 ? 0.25 * Math.sin(mu * Math.PI) : 0));
+    seqToken.position.copy(seqCurve.getPoint((time * 0.5) % 1));
+    mailToken.visible = true;
+    mailToken.position.copy(mailCurve.getPoint((time * 0.45) % 1));
   }
 
-  else if (step === 5) {
-    gCoreMat.emissiveIntensity = b + 0.15;
-    const sweep = clamp((t - 0.03) / 0.82);
-    const idx = sweep * BE.count;
-
-    beCursor.visible = true;
-    beCursor.position.x = lerp(beX(-1) - 1, beX(BE.count - 1) + 1.2, sweep);
-    cursorTag.visible = true;
-    cursorTag.position.x = beCursor.position.x;
-    cursorPlate.material.opacity = 0.28 + 0.26 * Math.sin(time * 6);
-    cursorTop.position.y = 5.2 + Math.sin(time * 3) * 0.1;
-
-    const serialActive = idx >= BE.serialFrom + 0.2 && idx < BE.serialTo + 0.6;
+  /* Step 6: Canonical BE 流水线 + 熔炉波次 + 串行围栏 + 双 Owner 操作 */
+  else if (stepIndex === 6) {
+    gBe.visible = true;
+    const prog = (time * 0.14) % 1;
+    const curUnit = Math.min(BE.count - 1, Math.floor(prog * BE.count));
+    beCursor.position.x = beX(curUnit);
+    cursorTag.position.x = beX(curUnit);
 
     beUnits.forEach((u, i) => {
-      const lit = i < idx;
-      const isSerial = i >= BE.serialFrom && i < BE.serialTo;
-      if (lit) {
-        u.m.emissive.setHex(isSerial ? C.bright : C.greenDeep);
-        u.m.emissiveIntensity = isSerial ? 0.42 : 0.3;
-        u.m.color.setHex(isSerial ? 0xf6e3d8 : 0xe9ece2);
-        u.mesh.scale.setScalar(1.07);
-      }
-      /* 围栏处的单元原地排队等待主线程 */
-      if (isSerial && serialActive) {
-        u.m.emissive.setHex(C.bright);
-        u.m.emissiveIntensity = 0.25 + 0.25 * pulse(time * 2);
+      const done = i <= curUnit;
+      if (u.isSerial) {
+        u.m.color.setHex(done ? C.ink : 0xd5d4cc);
+        u.m.emissiveIntensity = done ? 0.55 : 0.08;
+      } else if (u.isCreate) {
+        u.m.color.setHex(done ? C.teal : 0xe4e3db);
+        u.m.emissiveIntensity = done ? 0.4 : 0.05;
+      } else {
+        u.m.color.setHex(done ? C.green : 0xe4e3db);
+        u.m.emissiveIntensity = done ? 0.35 : 0.04;
       }
     });
 
-    /* 已证明前缀 / 后缀派发到 4 条并行车道 */
-    const suffixPhase = idx > BE.serialTo + 0.6;
-    provenTag.visible = (idx > 1 && idx < BE.serialFrom) || suffixPhase;
-    const lanesActive = (idx > 1.2 && idx < BE.serialFrom) || suffixPhase;
-    const curves = suffixPhase ? laneCurvesSuffix : laneCurvesPrefix;
-    laneTokens.forEach((tok, i) => {
-      tok.visible = lanesActive;
-      if (lanesActive) {
-        const u = (time * 1.05 + i * 0.24) % 1;
-        tok.position.copy(curves[i].getPointAt(u));
-        tok.material.color.setHex(C.greenDeep);
-      }
-      lanePads[i].ring.material.opacity = lanesActive ? 0.55 + 0.35 * Math.sin(time * 5 + i) : 0.25;
+    /* 并行车道粒子 */
+    laneTokens.forEach((lt, i) => {
+      lt.visible = true;
+      const p = (time * 0.7 + i * 0.23) % 1;
+      lt.position.set(lanePads[i].x, lerp(BE.y + 1.5, 10.8, Math.sin(p * Math.PI)), BE.z);
     });
 
-    /* 围栏：从上方落下到轨道 y=1.8 → 主线程串行执行 → 抬起放行后缀 */
-    const k = clamp((idx - (BE.serialFrom - 0.9)) / 0.9);
-    const up = clamp((idx - (BE.serialTo + 0.4)) / 0.8);
-    const fs = clamp(k - up);
-    fence.visible = fs > 0.01;
-    fence.scale.y = Math.max(0.15, fs);
-    fence.position.y = 1.8 + (1 - fs) * 6.5;
-    fencePanel.material.opacity = 0.12 + 0.12 * (0.5 + 0.5 * Math.sin(time * 5));
-    fenceTag.visible = fs > 0.4;
+    /* 主线程串行旁路 */
+    serverToken.visible = true;
+    const sp = (time * 0.45) % 1;
+    serverToken.position.set(lerp(FENCE_X, FENCE_END_X, sp), 14.5, BE.z);
+  }
 
-    /* 主线程严格顺序执行（严格停在 serialFrom..serialTo-1 上方） */
-    const sOn = idx >= BE.serialFrom - 0.2 && idx <= BE.serialTo + 0.2;
-    serverToken.visible = sOn;
-    serverTag.visible = sOn;
-    if (sOn) {
-      serverToken.position.x = lerp(FENCE_X + 0.8, FENCE_END_X - 0.8, clamp((idx - BE.serialFrom) / (BE.serialTo - BE.serialFrom)));
-      serverToken.scale.setScalar(0.9 + 0.16 * Math.sin(time * 12));
-    }
-    serverLane.material.opacity = fs > 0.2 ? 0.68 : 0.18;
+  /* Step 7: 实验性玩家并行 + 网络门 */
+  else if (stepIndex === 7) {
+    gPlayers.visible = true;
+    playerFlagTag.visible = isDyn;
+    leaseRings.forEach(l => (l.g.visible = true));
+    playerMeshes.forEach((pm, i) => {
+      pm.position.y = 2.5 + Math.sin(time * 2.5 + i) * 0.4;
+      pm.rotation.y = time * 1.1 + i;
+    });
+    netGateTokens.forEach((tok, i) => {
+      tok.visible = true;
+      tok.position.copy(netGateCurves[i].getPoint((time * 0.6 + i * 0.24) % 1));
+    });
+    gCoreMat.emissiveIntensity = 0.6;
+  }
 
-    /* 收尾：后缀重新证明并恢复并行 */
-    if (suffixPhase) {
-      provenTag.position.set(beX(11), 6.6, BE.z);
-      provenTag.element.textContent = 'SUFFIX REPROVEN → RESUME PARALLEL';
-    } else {
-      provenTag.position.set(beX(2.5), 6.6, BE.z);
-      provenTag.element.textContent = 'PROVEN PREFIX → WORKER';
-    }
+  /* Step 8: Scheduled Ticks + 边界守卫回退 */
+  else if (stepIndex === 8) {
+    gSchedGuard.visible = true;
+    lampCore.material.emissiveIntensity = 0.35 + 0.65 * pulse(time * 1.2);
+    leaseRings[0].g.visible = true;
+    guardToken.visible = true;
+    guardToken.position.copy(guardCurve.getPoint((time * 0.55) % 1));
+    gCoreMat.emissiveIntensity = 0.65;
+  }
+
+  /* Step 9: 全景观测（全流水线同屏跃动） */
+  else if (stepIndex === 9) {
+    gEntities.visible = true;
+    gSpawnPoi.visible = true;
+    gBe.visible = true;
+    barrierPlane.material.opacity = 0.06;
+    leaseRings.forEach(l => (l.g.visible = true));
+    workers.forEach((w, i) => {
+      w.coreMat.emissiveIntensity = 0.6;
+      beams[i].material.opacity = 0.32;
+      dispatchTokens[i].visible = true;
+      dispatchTokens[i].position.copy(dispatchCurves[i].getPoint((time * 0.5 + i * 0.2) % 1));
+    });
+    entityCapsules.forEach(ec => { ec.mesh.position.y = ec.base.y + Math.abs(Math.sin(time * 2.2 + ec.k)) * 0.5; });
+    poiCrystals.forEach((cry, i) => { cry.rotation.y = time * 1.5 + i; });
+    chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
+      tile.m.emissiveIntensity = (0.5 + 0.5 * Math.sin(time * 1.8 + k + r)) * 0.14;
+    }));
   }
 }
 
 /* =====================================================================
-   13. 主循环
+   15. 交互绑定与主循环
    ===================================================================== */
-const clock = new THREE.Clock();
-let elapsed = 0;
-
-function loop() {
-  const dtRaw = Math.min(clock.getDelta(), 0.05);
-  const dt = dtRaw * (paused ? 0 : speed);
-  elapsed += dtRaw;
-  stepTime += dt;
-
-  const s = STEPS[stepIndex];
-  if (auto && !paused && stepTime > s.dur) {
-    goToStep(stepIndex + 1);
-  }
-
-  const t = clamp(stepTime / s.dur);
-
-  tickAccum += dt;
-  if (tickAccum > 1.05) {
-    tickAccum = 0;
-    tickCount = (tickCount + 1) % 1000000;
-  }
-
-  updateScene(dt, t, elapsed);
-  updateCameraTween(dtRaw);
-  controls.update();
-  updateHud(t);
-
-  renderer.render(scene, camera);
-  labelRenderer.render(scene, camera);
-  requestAnimationFrame(loop);
-}
-
-/* =====================================================================
-   14. 交互
-   ===================================================================== */
-const btnAuto = document.getElementById('btn-auto');
-function setAuto(on) {
-  auto = on;
-  btnAuto.classList.toggle('on', on);
-}
-btnAuto.addEventListener('click', () => {
-  setAuto(!auto);
-  if (auto) stepTime = 0;
-});
-document.getElementById('btn-prev').addEventListener('click', () => { setAuto(false); goToStep(stepIndex - 1); });
-document.getElementById('btn-next').addEventListener('click', () => { setAuto(false); goToStep(stepIndex + 1); });
+document.getElementById('btn-prev').addEventListener('click', () => { auto = false; syncAutoBtn(); goToStep(stepIndex - 1); });
+document.getElementById('btn-next').addEventListener('click', () => { auto = false; syncAutoBtn(); goToStep(stepIndex + 1); });
 el.play.addEventListener('click', () => {
   paused = !paused;
   el.play.textContent = paused ? '▶ PLAY' : '❚❚ PAUSE';
 });
-const speeds = [1, 1.6, 0.5];
-let speedIdx = 0;
 document.getElementById('btn-speed').addEventListener('click', e => {
-  speedIdx = (speedIdx + 1) % speeds.length;
-  speed = speeds[speedIdx];
-  e.currentTarget.textContent = '×' + speed;
+  speed = speed === 1 ? 1.75 : speed === 1.75 ? 0.5 : 1;
+  e.target.textContent = `×${speed}`;
 });
+document.getElementById('btn-auto').addEventListener('click', () => { auto = !auto; syncAutoBtn(); });
 document.getElementById('btn-cam').addEventListener('click', () => {
   const s = STEPS[stepIndex];
-  tweenCamera(s.cam.pos, s.cam.target, 0.9);
+  tweenCamera(s.cam.pos, s.cam.target, 0.8);
+});
+el.btnDyn.addEventListener('click', () => setLayoutMode('DYNAMIC_CLUSTER'));
+el.btnFix.addEventListener('click', () => setLayoutMode('FIXED_3X3'));
+document.getElementById('btn-lang').addEventListener('click', () => {
+  lang = lang === 'zh' ? 'en' : 'zh';
+  rebuildSidebar();
+  renderCaption();
+  updateHud(stepTime / STEPS[stepIndex].dur);
 });
 
 window.addEventListener('keydown', e => {
-  if (e.key === 'ArrowRight') { setAuto(false); goToStep(stepIndex + 1); }
-  else if (e.key === 'ArrowLeft') { setAuto(false); goToStep(stepIndex - 1); }
+  if (e.code === 'ArrowRight') { auto = false; syncAutoBtn(); goToStep(stepIndex + 1); }
+  else if (e.code === 'ArrowLeft') { auto = false; syncAutoBtn(); goToStep(stepIndex - 1); }
   else if (e.code === 'Space') { e.preventDefault(); el.play.click(); }
+  else if (e.key === 'm' || e.key === 'M') { setLayoutMode(layoutMode === 'DYNAMIC_CLUSTER' ? 'FIXED_3X3' : 'DYNAMIC_CLUSTER'); }
 });
 
-function fitCamera() {
-  const aspect = window.innerWidth / window.innerHeight;
-  camera.aspect = aspect;
-  /* 窄屏 / 竖屏时放宽视场，保证整块场景仍在画面内 */
-  const fit = Math.sqrt(1.6 / Math.max(aspect, 0.45));
-  camera.fov = Math.min(78, 40 * Math.max(1, fit));
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
-}
-window.addEventListener('resize', fitCamera);
-fitCamera();
+});
 
-/* =====================================================================
-   15. 启动
-   ===================================================================== */
-renderCaption(true);
+/* 初始化 */
+rebuildSidebar();
+renderCaption();
 updateHud(0);
-setAuto(true);
-tweenCamera(STEPS[0].cam.pos, STEPS[0].cam.target, 2.6);
-/* 只读调试入口：便于截图与自动化校验 */
-window.forgiaViewer = {
-  camera, controls, scene, steps: STEPS, goToStep,
-  setProgress(seconds) { stepTime = seconds; },
-  get state() { return { step: stepIndex, t: stepTime, paused, speed, auto }; }
-};
-loop();
+document.body.classList.add('ready');
 
-requestAnimationFrame(() => document.body.classList.add('ready'));
+let last = performance.now();
+let totalTime = 0;
+
+function animate(now) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  if (!paused) {
+    totalTime += dt * speed;
+    stepTime += dt * speed;
+    tickAccum += dt * speed * 20;
+    if (tickAccum >= 1) {
+      tickCount += Math.floor(tickAccum);
+      tickAccum %= 1;
+    }
+    const dur = STEPS[stepIndex].dur;
+    if (stepTime >= dur) {
+      if (auto) goToStep(stepIndex + 1);
+      else stepTime %= dur;
+    }
+  }
+
+  if (camTween) {
+    camTween.t += dt / camTween.dur;
+    const k = easeInOut(clamp(camTween.t));
+    camera.position.lerpVectors(camTween.p0, camTween.p1, k);
+    controls.target.lerpVectors(camTween.t0, camTween.t1, k);
+    if (camTween.t >= 1) camTween = null;
+  }
+
+  controls.update();
+  const normT = clamp(stepTime / STEPS[stepIndex].dur);
+  updateScene(normT, totalTime);
+  updateHud(normT);
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+requestAnimationFrame(animate);
 </script>
 </body>
 </html>

@@ -50,7 +50,7 @@ Only one entity batch per level is in flight; the barrier is paid once per slice
 
 | Gate | Detail |
 |---|---|
-| Fixed layout + region-owned storage | Required; `DYNAMIC` is not certified |
+| Section-partitioned layout + region-owned storage | Required (`DYNAMIC_CLUSTER` or `FIXED_3X3`); legacy `DYNAMIC` is not supported |
 | Inactive vanilla profiler | Active profiler keeps entities inline |
 | Not pinned | Pinned classes/types and riding stacks stay serial |
 | Pre-body footprint available | Otherwise the entity stays serial |
@@ -96,19 +96,20 @@ propagation); a destination without a live region drops the update **with a coun
 
 | Key | Default | Notes |
 |---|---|---|
-| `enableRegionThreadingEntityTicks` | `false` | Requires fixed layout, region-owned storage, inactive profiler; implies POI storage |
+| `enableRegionThreadingEntityTicks` | `false` | Requires `DYNAMIC_CLUSTER` or `FIXED_3X3`, region-owned storage, inactive profiler; implies POI storage |
 | `enableRegionThreadingPoi` | `false` | Also implied by entity ticks even when false |
-| `regionThreadingMode` / `regionThreadingFixedRegionChunks` | `FIXED_3X3` / `3` | Entity ticks require fixed |
+| `regionThreadingMode` | `FIXED_3X3` | `DYNAMIC_CLUSTER` (recommended) or `FIXED_3X3` (C6 baseline); legacy `DYNAMIC` stays serial |
+| `regionThreadingDynamicSectionShift` / `regionThreadingFixedRegionChunks` | `3` / `3` | Section shift for `DYNAMIC_CLUSTER` (`3` = 8×8) or fixed grid edge length for `FIXED_3X3` |
 | `regionThreadingWorkerThreads` | `0` | Pin for reproducible measurements |
 | `regionThreadingOwnershipViolationMode` | `WARN` | Advisory assertions only; storage guards still reject |
 
 ```toml
-# config/forgia.toml — minimal entity tick slice
+# config/forgia.toml — minimal entity tick slice (DYNAMIC_CLUSTER recommended; FIXED_3X3 is the C6 baseline)
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true          # implies POI storage
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"
+regionThreadingDynamicSectionShift = 3
 regionThreadingWorkerThreads = 4
 ```
 
@@ -146,7 +147,7 @@ These are bounded fixtures, not a modpack claim.
 
 | Limit | Detail |
 |---|---|
-| Players | Server thread; bounded handoff tests only, no multiplayer certification |
+| Players | Server thread by default; opt-in experimental dispatch via `enableRegionThreadingPlayerTicks` (see [player-ticks](player-ticks.en.md)) |
 | Mod AI | Arbitrary mod tick bodies are not closure-certified by C6 |
 | Structures/contraptions | Entity-like contraptions are not region-aware |
 | Query surface | Only the documented entry points are answered; others refuse |

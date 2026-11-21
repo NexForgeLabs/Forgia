@@ -139,7 +139,7 @@ final class CoreModPreparation {
                         && (region == null || !region.isRunning());
             }
             if (!write && BlockEntityExecutionEngine.isAdmissionRead(level, root)) return true;
-            if (FurnaceWorkScope.active() && BlockEntityExecutionEngine.currentMode() == net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode.RESOURCE_SCOPED) {
+            if (FurnaceWorkScope.active() && BlockEntityExecutionEngine.currentMode() == net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode.RESOURCE_SCOPED) {
                 if (!write && root instanceof LevelChunk loaded && FurnaceWorkScope.checkChunk(loaded, false)) return true;
                 if (!write && root instanceof BlockPos position) {
                     FurnaceWorkScope.checkReference(level, position);

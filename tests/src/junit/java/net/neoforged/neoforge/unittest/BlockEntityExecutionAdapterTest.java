@@ -32,7 +32,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.server.threading.ParallelAdapterRuntime;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode;
 import net.neoforged.neoforge.server.threading.api.ParallelApi;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;

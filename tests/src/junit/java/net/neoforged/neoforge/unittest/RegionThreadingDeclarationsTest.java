@@ -274,6 +274,21 @@ class RegionThreadingDeclarationsTest {
     }
 
     @Test
+    void persistLearnedBlockEntityDemotionWritesDedupedNarrowingEntries() {
+        final Path learned = this.tempDir.resolve(RegionThreadingDeclarations.LEARNED_FILE_NAME);
+        assertTrue(RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(learned, "testmod:crusher", "worker_boundary_violation"));
+        assertFalse(RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(learned, "testmod:crusher", "worker_boundary_violation"),
+                "duplicate learned demotion for the same type is not rewritten");
+        assertTrue(RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(learned, "testmod:press", "worker_boundary_violation"));
+
+        final RegionThreadingDeclarations.Report report = RegionThreadingDeclarations.parse(
+                List.of(new RegionThreadingDeclarations.Source("config/" + RegionThreadingDeclarations.LEARNED_FILE_NAME, learned)),
+                new BlockEntityTypeLookup("testmod:crusher", "testmod:press"));
+        assertEquals(2, report.blockEntities().size());
+        assertTrue(report.ignored().isEmpty());
+    }
+
+    @Test
     void unknownTypeIsReportedAndIgnored() throws IOException {
         final Path file = this.write("unknown.json", """
                 {"entities": [{"type": "testmod:ghost", "reason": "test: no such type"}],
@@ -450,12 +465,12 @@ class RegionThreadingDeclarationsTest {
         }
     }
 
-    /** A lookup that knows one block-entity type id and no entity type. */
+    /** A lookup that knows one or more block-entity type ids and no entity type. */
     private static class BlockEntityTypeLookup implements RegionThreadingDeclarations.TypeLookup {
-        private final String blockEntityType;
+        private final java.util.Set<String> blockEntityTypes;
 
-        BlockEntityTypeLookup(String blockEntityType) {
-            this.blockEntityType = blockEntityType;
+        BlockEntityTypeLookup(String... blockEntityTypes) {
+            this.blockEntityTypes = java.util.Set.of(blockEntityTypes);
         }
 
         @Override
@@ -465,7 +480,7 @@ class RegionThreadingDeclarationsTest {
 
         @Override
         public boolean hasBlockEntityType(ResourceLocation id) {
-            return id.toString().equals(this.blockEntityType);
+            return this.blockEntityTypes.contains(id.toString());
         }
     }
 }

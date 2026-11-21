@@ -636,6 +636,15 @@ final class CanonicalBlockEntityTestSupport implements AutoCloseable {
         return (Map) get(LevelChunk.class, chunk, "tickersInLevel");
     }
 
+    static Object call(Object target, String name, Object... args) {
+        final var methods = java.util.Arrays.stream(target.getClass().getDeclaredMethods())
+                .filter(m -> m.getName().equals(name) && m.getParameterCount() == args.length).toList();
+        assertEquals(1, methods.size(), name);
+        final var method = methods.getFirst();
+        method.setAccessible(true);
+        return invoke(method, target, args);
+    }
+
     record Event(int index, String id, String action, String thread, boolean worker, String mode) {}
 
     /** Defers delivery but retains the real pool's worker creation, registration, scope and shutdown. */

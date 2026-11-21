@@ -25,7 +25,7 @@ public final class CoreModWorkScope implements AutoCloseable {
 
     private CoreModWorkScope(BoundBlockEntityInvocation manifest) {
         if (CURRENT.get() != null || !BlockEntityResourceOwnership.Scope.active()
-                || BlockEntityExecutionEngine.currentMode() != net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode.RESOURCE_SCOPED)
+                || BlockEntityExecutionEngine.currentMode() != net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode.RESOURCE_SCOPED)
             throw new IllegalStateException("Invalid Mod resource scope");
         this.manifest = manifest;
         CURRENT.set(this);

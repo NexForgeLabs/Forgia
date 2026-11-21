@@ -57,8 +57,6 @@ Phase currentPhase();
 List<AdapterStatus> adapters();
 List<BlockEntityTickAdapter.Status> blockEntityTickAdapters();
 List<AuditedBlockEntityTickAdapter.Status> auditedBlockEntityTicks();
-List<BlockEntityAdapters.Status> blockEntityAdapters();
-Optional<BlockEntityAdapters.PhaseSummary> lastBlockEntityAdapterPhase();
 BlockEntityOperations blockEntities();
 List<ScheduledTickStatus> scheduledTicks();
 ```
@@ -72,8 +70,6 @@ List<ScheduledTickStatus> scheduledTicks();
 | `adapters()` | 刷怪准备注册者及累计结果 | 计数 | 把计数当生成实体数 |
 | `blockEntityTickAdapters()` | v1 谓词适配器：检查、拒绝、原生完成、耗时 | 计数/纳秒 | 把 `checks` 当完成数 |
 | `auditedBlockEntityTicks()` | 受审计适配器：出处/revision、`verified`、reason | 记录 | 把 `verified` 当运行期证明 |
-| `blockEntityAdapters()` | C5 保守申请诊断 | 记录 | 以为 C5 会启用 worker |
-| `lastBlockEntityAdapterPhase()` | 最近关闭的 C5 会话，仅声明波次 | `Optional` | 当成执行计划 |
 | `blockEntities()` | 双 owner 操作服务 | 服务 | 以为跨区并行 |
 | `scheduledTicks()` | block/fluid scheduled 阶段快照 | 列表 | 用空列表推断切片状态 |
 
@@ -152,8 +148,6 @@ void registerBlockEntityTicks(int apiMajorVersion, ResourceLocation id,
         Set<ResourceLocation> types, BlockEntityTickAdapter adapter);
 void registerBlockEntityExecutionAdapter(int protocolVersion, ResourceLocation id,
         Set<ResourceLocation> types, BlockEntityExecutionAdapter adapter);
-BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
-        BlockEntityAdapters.Descriptor descriptor, BlockEntityAdapter adapter);
 ```
 
 | 方法 | 必需参数 | 事务规则 | 授予什么 |
@@ -162,7 +156,6 @@ BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocolVersion,
 | `claimNaturalSpawning` | 已注册 key、非空 `modId`、启动时 `verified` 为 true | 不可重复 claim；key 不存在即失败 | **仅**替代该模组的刷怪限制 |
 | `registerBlockEntityTicks` | major `1`、唯一 id、1..128 个 type、adapter | 共用 128 预算/id 空间；type 重叠被拒 | 逐次准入检查（[tick](block-entity-ticks.zh.md)） |
 | `registerBlockEntityExecutionAdapter` | protocol `1`、唯一 id/type、完整 audited execution adapter | 同一预算/id/type 冲突规则 | 区域或资源 Scope 原 tick 执行（[协议](block-entity-execution.zh.md)） |
-| `registerBlockEntityAdapter` | protocol `1`、descriptor、adapter | 同一预算；C5 id/type 空间 | C5 保守申请诊断、串行 fence |
 
 注册只在 `RegisterParallelAdaptersEvent` 内、服务器线程上有效。即使捕获嵌套失败，事务仍然无效——不能“吞掉”坏注册。
 

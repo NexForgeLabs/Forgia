@@ -18,9 +18,9 @@ claim.
 | I want to… | Read | Primary types |
 |---|---|---|
 | Understand what Forgia is and what is certified | [README](index.md), [STATUS](status.en.md) ([中文](status.zh.md)) | — |
-| See the execution flow as a 3D animation first | [3D architecture walkthrough](visualizer/index.html) (6 interactive steps) | — |
+| See the execution flow as a 3D animation first | [3D architecture walkthrough](visualizer/index.html) (10 interactive steps, all features, `DYNAMIC_CLUSTER` / `FIXED_3X3` live toggle) | — |
 | Understand experimental player dispatch | [Player ticks](modules/player-ticks.en.md) | `ENTITY`, `CONNECTION`, `CONNECTION_BODY` |
-| Start a server / enable region threading | [Observability & configuration](modules/observability.en.md) | `forgia.toml`, `/forgia` |
+| Start a server / tune `config/forgia.toml` | [Configuration & hardware tuning](configuration.en.md), [Observability](modules/observability.en.md) | `forgia.toml`, `/forgia` |
 | Call a mod-facing API | [API overview](api/README.en.md) | `ParallelApi` |
 | Prepare natural-spawn data on the server, run the body on a worker | [Natural-spawn preparation](api/natural-spawn-preparation.en.md) | `NaturalSpawnPreparation`, `Ready`, `ServerRequired` |
 | Admit my block entity's original ticker on a worker | [Block-entity tick admission](api/block-entity-ticks.en.md) | `BlockEntityTickAdapter`, `AuditedBlockEntityTickAdapter` |
@@ -36,13 +36,19 @@ claim.
 
 ```
 docs/
+├── index.{md,zh.md}                      project site home
 ├── README.{en,zh}.md                     index, conventions, status legend
+├── architecture.{en,zh}.md               Stock NeoForge vs. Forgia architecture comparison
+├── benchmarks.{en,zh}.md                 measured performance & soak benchmarks
+├── configuration.{en,zh}.md              all 36 forgia.toml keys & hardware tuning profiles
+├── status.{en,zh}.md                     engineering status & acceptance receipts
 ├── visualizer/                           single-file 3D architecture walkthrough (not a MkDocs page)
 ├── api/                                  public mod-facing contracts
 │   ├── README.{en,zh}.md                 entry matrix, lifecycle, compile setup
 │   ├── parallel-api.{en,zh}.md           ParallelApi, Server, Capability, Phase, DataKey
 │   ├── natural-spawn-preparation.{en,zh}.md
 │   ├── block-entity-ticks.{en,zh}.md     v1 predicate + audited original-ticker contract
+│   ├── block-entity-execution.{en,zh}.md resource-scoped BE execution contract
 │   ├── block-entity-operations.{en,zh}.md
 │   └── schedulers-and-entity-interactions.{en,zh}.md
 ├── adapters/                             shipped adapter mods and how to write one
@@ -53,6 +59,7 @@ docs/
     ├── README.{en,zh}.md                 module map and status matrix
     ├── region-engine.{en,zh}.md
     ├── entity-ticks.{en,zh}.md
+    ├── player-ticks.{en,zh}.md
     ├── chunk-ticks.{en,zh}.md
     ├── natural-spawning-and-poi.{en,zh}.md
     ├── block-entities.{en,zh}.md

@@ -33,7 +33,6 @@
 | `BlockEntityExecutionEngine` / `...Batch` | ticket/permit 绑定、一次性正文启动、join、效果 |
 | `ExecutionBlockEntityPreparation` | 资源作用域 `BlockEntityExecutionAdapter` 准备、修订号校验与同区域波次分组 |
 | `AuditedBlockEntityPreparation` | 清单校验、足迹检查、波次拆分 |
-| `BlockEntityAdapterRegistry` / `BlockEntityAdapterPhase` | C5 保守申请协议（串行 fence） |
 | `RegionBlockEntityWorkGraph` / `RegionBlockEntityTickAttribution` | 观察图与计时 |
 | `RegionBlockEntityTickFailure` | 失败载体，不重放 |
 
@@ -77,7 +76,6 @@
 | 熔炉波次 | 仅新鲜已燃烧熔炉正文 | 区域内定向波次 | `...FurnaceWorkWaves` | 实验性，C6 有界队列 |
 | 资源 | 对象身份 READ/WRITE claim、一次性 scope | 熔炉前缀 | `...BlockEntityResources` | 实验性 |
 | 模组受审计 | 适配器清单 + 足迹 | 连续前缀 | `...BlockEntityTicks` + 适配器 | 实验性 |
-| C5 通用 | 保守 descriptor + validator | **无**（串行 fence） | `...BlockEntityTicks` | 仅诊断 |
 | 未知 | — | 完整原 tick | — | 始终可用 |
 
 ## 6. 预算与限制
@@ -97,12 +95,12 @@
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `enableRegionThreadingBlockEntityTicks` | `false` | 请求实际 canonical 阶段 |
-| `enableRegionThreadingFurnaceWorkWaves` | `false` | 需要 BE 切片与固定布局 |
-| `enableRegionThreadingBlockEntityResources` | `false` | 为熔炉前缀增加 claim/lease/scope；也门控 C6 模组准入 |
+| `enableRegionThreadingBlockEntityTicks` | `false` | 请求实际 canonical 阶段（支持 `DYNAMIC_CLUSTER` 与 `FIXED_3X3`） |
+| `enableRegionThreadingFurnaceWorkWaves` | `false` | 需要 BE 切片且**仅 `FIXED_3X3` 生效**（`DYNAMIC_CLUSTER` 下自动忽略） |
+| `enableRegionThreadingBlockEntityResources` | `false` | 为熔炉前缀增加 claim/lease/scope（**仅 `FIXED_3X3` 生效**）；也门控 C6 模组准入 |
 | `enableRegionThreadingBorderUpdates` | `false` | 熔炉边界准入必需 |
-| `enableRegionThreadingPackedRegionLeases` | `false` | 16 区域打包 |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | 固定布局 |
+| `enableRegionThreadingPackedRegionLeases` | `false` | 16 区域打包（**仅 `FIXED_3X3` 生效**；`DYNAMIC_CLUSTER` 下自动绕过） |
+| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | 常规 BE tick 支持 `DYNAMIC_CLUSTER`；**熔炉波次/资源与打包租约必须使用 `FIXED_3X3`** |
 
 ```toml
 # config/forgia.toml —— 最小方块实体切片
@@ -110,9 +108,9 @@ enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingBorderUpdates = true        # 熔炉族边界准入需要
-# enableRegionThreadingFurnaceWorkWaves = true     # 实验性
-# enableRegionThreadingBlockEntityResources = true # 实验性
-regionThreadingMode = "FIXED_3X3"
+# enableRegionThreadingFurnaceWorkWaves = true     # 实验性，仅 FIXED_3X3 生效
+# enableRegionThreadingBlockEntityResources = true # 实验性，仅 FIXED_3X3 生效
+regionThreadingMode = "FIXED_3X3"                # 测试熔炉波次/资源时需用 FIXED_3X3；常规 BE tick 支持 DYNAMIC_CLUSTER
 regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 4
 ```

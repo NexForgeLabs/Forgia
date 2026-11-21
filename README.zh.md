@@ -89,6 +89,7 @@ Forgia 不是完成态的 Folia 替代品。诚实的清单：
 | 从这里开始 | English | 中文 |
 |---|---|---|
 | 站点首页 / Home | [Home](docs/index.md) | [首页](docs/index.zh.md) |
+| 配置与硬件调优 | [Configuration](docs/configuration.en.md) | [配置与硬件调优](docs/configuration.zh.md) |
 | 架构对比：原版 vs Forgia | [Architecture](docs/architecture.en.md) | [架构对比](docs/architecture.zh.md) |
 | 实测性能基准 | [Benchmarks](docs/benchmarks.en.md) | [性能基准](docs/benchmarks.zh.md) |
 | 工程状态与测试回执 | [Status](docs/status.en.md) | [工程状态](docs/status.zh.md) |
@@ -125,21 +126,21 @@ SERVER 配置规则覆盖实例文件。迁移不修改 legacy 源文件。若�
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true            # 选择 region-owned 实体存储
-enableRegionThreadingPlayerTicks = true
+enableRegionThreadingPlayerTicks = true            # DYNAMIC_CLUSTER 下需配合 JVM 参数 -Dforgia.dynamicPlayerSoak=true
 enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingSpawning = true
 enableRegionThreadingPoi = true                    # 由实体 tick 隐含
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = true
+enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
 regionThreadingMode = "DYNAMIC_CLUSTER"            # 推荐区域模式（FIXED_3X3 保留为历史 C6 基线）
 regionThreadingDynamicSectionShift = 3             # 8x8 chunks（128x128 格）动态 section
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 4
 ```
 
-`regionThreadingWorkerThreads = 0` 表示“CPU 数减一”。实体 tick、刷怪与 POI 要求 `DYNAMIC_CLUSTER` 或 `FIXED_3X3` 布局；其他项在缺少前置条件时退化到原版路径。
+`regionThreadingWorkerThreads = 0` 表示“CPU 数减一”。实体 tick、刷怪、POI 与 scheduled tick 要求 `DYNAMIC_CLUSTER` 或 `FIXED_3X3` 布局；玩家 worker tick 要求 `FIXED_3X3`（或在 `DYNAMIC_CLUSTER` 下附加 JVM 参数 `-Dforgia.dynamicPlayerSoak=true`）；`enableRegionThreadingFurnaceWorkWaves`、`enableRegionThreadingBlockEntityResources` 与 `enableRegionThreadingPackedRegionLeases` 仅在 `FIXED_3X3` 下生效（`DYNAMIC_CLUSTER` 下会被忽略或自动绕过）；其他项在缺少前置条件时退化到原版路径。
 全部 36 项 `config/forgia.toml` 配置键说明与分硬件调优模板（4 核 / 8 核 / 16+ 核与 JVM 参数）见[配置与硬件调优指南](docs/configuration.zh.md)。
 
 另有默认关闭的 `enableRegionThreadingFurnaceWorkWaves` 实验，按资源波次执行已验证的燃烧原版熔炉族正文，
@@ -287,8 +288,9 @@ C6 可选原生服务 profile 以 G1 与压缩指针验收；复现该证据时�
 
 ## 一页架构
 
-- **区域**是固定、不重叠的 N×N chunk 网格（`regionThreadingFixedRegionChunks`）。每个区域有一个 lease；
-  只有 lease 持有者可以 tick 其 chunk、实体、方块实体、刷怪与 POI。
+- **区域**支持基于 `(1 << regionThreadingDynamicSectionShift)`-chunk Section 动态合并/拆分的 `DYNAMIC_CLUSTER`
+  加载岛（推荐，默认 `8×8` chunk），或固定、不重叠的 `FIXED_3X3` N×N chunk 网格（`regionThreadingFixedRegionChunks`）。
+  每个区域有一个 lease；只有 lease 持有者可以 tick 其 chunk、实体、方块实体、刷怪与 POI。
 - **服务器线程**构建计划、租出每个区域、每区域提交一个任务、在屏障等待并运行 handoff：延迟 section 更新、
   移除、准入、方块更新、传送门转换、边界更新与传播 fixpoint。
 - **Worker** 在任务期间拥有其区域，自行枚举自己的实体、ticker、chunk 与 POI，而不是接收逐单元列表。

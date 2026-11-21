@@ -76,6 +76,8 @@ import org.jetbrains.annotations.Nullable;
 public final class RegionThreadingDeclarations {
     /** The declaration file a pack author writes into the instance's config directory. */
     public static final String CONFIG_FILE_NAME = "regionthreading-declarations.json";
+    /** The learned demotion file written automatically when a worker boundary violation occurs. */
+    public static final String LEARNED_FILE_NAME = "regionthreading-learned.json";
     /** The mod metadata element naming a declaration file inside the mod's own jar. */
     public static final String MOD_FILE_ELEMENT = "regionThreadingDeclarations";
     /** JSON member of the entity declarations. */
@@ -98,6 +100,8 @@ public final class RegionThreadingDeclarations {
     private static final String REASON = "reason";
     /** Source name of the pack-author file, relative to the instance directory. */
     private static final String CONFIG_SOURCE = "config/" + CONFIG_FILE_NAME;
+    /** Source name of the learned demotion file, relative to the instance directory. */
+    private static final String LEARNED_SOURCE = "config/" + LEARNED_FILE_NAME;
 
     private RegionThreadingDeclarations() {}
 
@@ -261,6 +265,10 @@ public final class RegionThreadingDeclarations {
         if (Files.isRegularFile(configFile)) {
             sources.add(new Source(CONFIG_SOURCE, configFile));
         }
+        final Path learnedFile = configFile.resolveSibling(LEARNED_FILE_NAME);
+        if (Files.isRegularFile(learnedFile)) {
+            sources.add(new Source(LEARNED_SOURCE, learnedFile));
+        }
         for (final IModInfo mod : ModList.get().getMods()) {
             final String declared = mod.getConfig().<String>getConfigElement(MOD_FILE_ELEMENT).orElse(null);
             if (declared == null) {
@@ -281,6 +289,70 @@ public final class RegionThreadingDeclarations {
         final List<String> allIgnored = new ArrayList<>(ignored);
         allIgnored.addAll(parsed.ignored());
         return new Report(parsed.entities(), parsed.blockEntities(), parsed.admittedBlockEntities(), allIgnored);
+    }
+
+    /**
+     * Persists a learned server-thread-only block-entity demotion to {@code config/regionthreading-learned.json}.
+     * Best-effort and fail-safe: if the config directory is unavailable in unit tests, this is a no-op.
+     */
+    public static void persistLearnedBlockEntityDemotion(String type, String reason) {
+        final Path learnedFile;
+        try {
+            learnedFile = FMLPaths.CONFIGDIR.get().resolve(LEARNED_FILE_NAME);
+        } catch (RuntimeException unavailable) {
+            return;
+        }
+        persistLearnedBlockEntityDemotion(learnedFile, type, reason);
+    }
+
+    /**
+     * Persists a learned server-thread-only block-entity demotion to {@code learnedFile}.
+     * Only ever writes narrowing {@code block_entities} entries.
+     */
+    public static synchronized boolean persistLearnedBlockEntityDemotion(Path learnedFile, String type, String reason) {
+        if (learnedFile == null || type == null || type.isBlank() || reason == null || reason.isBlank()) {
+            return false;
+        }
+        try {
+            JsonObject root = new JsonObject();
+            if (Files.isRegularFile(learnedFile)) {
+                try {
+                    final JsonElement parsed = JsonParser.parseString(Files.readString(learnedFile));
+                    if (parsed != null && parsed.isJsonObject()) {
+                        root = parsed.getAsJsonObject();
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
+            JsonArray blockEntities;
+            final JsonElement existing = root.get(BLOCK_ENTITIES);
+            if (existing != null && existing.isJsonArray()) {
+                blockEntities = existing.getAsJsonArray();
+            } else {
+                blockEntities = new JsonArray();
+                root.add(BLOCK_ENTITIES, blockEntities);
+            }
+            for (final JsonElement elem : blockEntities) {
+                if (elem.isJsonObject()) {
+                    final String existingType = string(elem.getAsJsonObject(), TYPE);
+                    if (type.equals(existingType)) {
+                        return false;
+                    }
+                }
+            }
+            final JsonObject entry = new JsonObject();
+            entry.addProperty(TYPE, type);
+            entry.addProperty(REASON, reason);
+            blockEntities.add(entry);
+            final Path parent = learnedFile.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(learnedFile, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(root) + "\n");
+            return true;
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
     }
 
     /**

@@ -94,7 +94,6 @@ dependencies {
 | `ORDERED_SPAWN_FINALIZATION` | worker 选择 + 其他 worker 停驻后的主线程最终化 | 不承诺与原版 RNG/顺序逐位一致 |
 | `BLOCK_ENTITY_TICK_ADMISSION` | 原 ticker 的逐次准入 | 不是类型白名单，也不是切片开关 |
 | `BLOCK_ENTITY_OPERATIONS` | 双 owner 操作与容器搬运 | 不是并行跨区 lease |
-| `GENERAL_BLOCK_ENTITY_ADAPTERS` | C5 保守申请/校验协议 | 申请不产生执行权限；目标仍是完整串行 fence |
 | `AUDITED_BLOCK_ENTITY_TICKS` | 带 READ/WRITE 足迹的完整原 ticker 分支审计 | 哈希 ≠ 语义证明 |
 | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | [完整原 ticker 的区域/资源 Scope 执行](block-entity-execution.zh.md) | 需要完整 adapter 审计，不能自动认证未知代码 |
 | `SCHEDULED_TICK_DIAGNOSTICS` | scheduled 阶段计数/延迟 | 列表为空不能证明切片关闭 |

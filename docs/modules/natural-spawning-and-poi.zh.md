@@ -37,7 +37,7 @@
 |---|---|---|
 | 1 | 服务器 | 原版 cap/state 构造前执行适配器 `preparePlan` |
 | 2 | 服务器 | 构建计划；`PerUnit` 才会逐 chunk `prepare` |
-| 3 | 服务器 | 校验门：固定存储、chunk/player/spawn 门、已加载邻域、预算 |
+| 3 | 服务器 | 校验门：分区实体存储（`DYNAMIC_CLUSTER` 或 `FIXED_3X3`）、chunk/player/spawn 门、已加载邻域、预算 |
 | 4 | Worker | 运行刷怪正文；区域状态划分 level 计数 |
 | 5 | Worker | 原子 check-and-reserve 预留 cap；附近数量限制 |
 | 6 | 服务器 | 有序最终化时：停驻 peer、发布延迟效果、执行原生 finalize/admission/afterSpawn |
@@ -47,7 +47,7 @@
 
 | 门 | 说明 |
 |---|---|
-| 固定实体存储 | 需要 region-owned 实体存储 |
+| 分区实体存储 | 需要 region-owned 实体存储（`DYNAMIC_CLUSTER` 或 `FIXED_3X3`） |
 | Chunk/玩家/刷怪门 | 既有 level 门 + 玩家快照 |
 | 邻域已加载 | 候选位置可离开源 chunk；邻域必须已加载 |
 | 预算 | 延迟更新/刷怪预算 |
@@ -72,7 +72,7 @@
 |---|---|
 | 查询结果 | 与原版 `PoiManager` 一致（对真实单线程管理器验证） |
 | 快照年龄 | 回答可能落后一次发布；live ticket 检查仍生效 |
-| 存储转换 | 无受支持的 live 转换；固定布局安装分区存储 |
+| 存储转换 | 无受支持的 live 转换；`DYNAMIC_CLUSTER` 与 `FIXED_3X3` 在世界启动时安装分区存储 |
 | 保存/重载 | 记录、顺序、空闲 ticket 数等价（已测试） |
 | 实体 tick 隐含 | 开启实体 tick 同时安装 POI 存储 |
 
@@ -80,20 +80,20 @@
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `enableRegionThreadingSpawning` | `false` | 需要固定存储、门、邻域、预算 |
-| `enableRegionThreadingPoi` | `false` | 即使为 false 也会被实体 tick 隐含 |
+| `enableRegionThreadingSpawning` | `false` | 需要 `DYNAMIC_CLUSTER` 或 `FIXED_3X3`、region-owned 存储、门、邻域、预算 |
+| `enableRegionThreadingPoi` | `false` | 即使为 false 也会被实体 tick 隐含；需要 `DYNAMIC_CLUSTER` 或 `FIXED_3X3` |
 | `enableRegionThreadingEntityTicks` | `false` | 安装区域 POI 存储 |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | 固定布局 |
+| `regionThreadingMode` | `FIXED_3X3` | `DYNAMIC_CLUSTER`（推荐）或 `FIXED_3X3`（C6 基线） |
 | `enableRegionThreadingWorkers` | `false` | 刷怪正文在 region worker 上运行 |
 
 ```toml
-# config/forgia.toml —— 开启 POI，刷怪保持串行
+# config/forgia.toml —— 开启 POI，刷怪按需开启
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingPoi = true
-# enableRegionThreadingSpawning = true   # 实验性，需要已审计适配器 + canary
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+# enableRegionThreadingSpawning = true   # 实验性，C6 之外
+regionThreadingMode = "DYNAMIC_CLUSTER"  # 推荐（FIXED_3X3 为 C6 基线）
+regionThreadingDynamicSectionShift = 3
 ```
 
 ## 8. 实测负载（历史）

@@ -96,10 +96,10 @@
 
 | 事实 | 说明 |
 |---|---|
-| 文件 | `config/forgia.toml`，SERVER 配置；世界覆盖 `serverconfig/forgia.toml` 整体替换 |
+| 文件 | `config/forgia.toml`，SERVER 配置；世界覆盖 `serverconfig/forgia.toml` 整体替换。全部 36 项键与布局前置条件见[配置与硬件调优指南](../configuration.zh.md) |
 | 迁移 | 加载前：`forgia.toml` 优先，否则 `neoforge-server.toml`，再 `neoforge-server.forgia.toml` |
 | 删除 `forgia.toml` | 可能重新激活旧的启用设置；回滚要写显式 `false` |
-| 仅重启 | 引擎/布局/存储/切片/服务开关（全部默认 `false`，包括实验性的 `enableRegionThreadingPlayerTicks`、`enableRegionThreadingPersistentWorkers`、`enableRegionThreadingPackedRegionLeases` 与 `DYNAMIC_CLUSTER` 布局） |
+| 仅重启 | 引擎/布局/存储/切片/服务开关（全部默认 `false`，包括 `enableRegionThreadingPlayerTicks`、`enableRegionThreadingPersistentWorkers`、`enableRegionThreadingPackedRegionLeases` 与 `DYNAMIC_CLUSTER` 布局）。注意：`DYNAMIC_CLUSTER` 下 `enableRegionThreadingPlayerTicks` 需配合 `-Dforgia.dynamicPlayerSoak=true`，而 `FurnaceWorkWaves`、`BlockEntityResources` 与 `PackedRegionLeases` 仅在 `FIXED_3X3` 下生效 |
 | 实时读取 | 告警/drain/所有权设置（canary 期间请固定） |
 | 非法值 | spec 修正越界值；直接布局构造会拒绝 |
 

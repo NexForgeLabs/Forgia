@@ -206,6 +206,12 @@ final class CreateFixture implements AutoCloseable {
         TorquePropagatorAccessor.forgia$networks().get(this.level).put(be.network, network);
     }
 
+    void steadySmart(SmartBlockEntity be) {
+        be.setLevel(this.level);
+        set(SmartBlockEntity.class, be, "initialized", true);
+        set(SmartBlockEntity.class, be, "lazyTickCounter", 1000);
+    }
+
     LevelChunk attach(BlockEntity be) {
         final BlockPos pos = be.getBlockPos();
         final long key = ChunkPos.asLong(pos);
