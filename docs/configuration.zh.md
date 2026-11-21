@@ -130,6 +130,10 @@ regionThreadingWorkerThreads = 6                   # 8 物理核甜点（重度�
 | `enableRegionThreadingGameEvents` | `false` | `Bridge` | 捕获跨区 Game Event（如幽匿感测体振动）并在同 tick 按发布顺序交由目标区域 Worker 投递 |
 | `enableRegionThreadingPersistentWorkers` | `false` | `Bridge` | 使用持久化 Worker 线程 + 工作窃取（Work Stealing）派发器替代普通固定线程池，大幅降低批次提交与唤醒开销 |
 | `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` + **仅 `FIXED_3X3`**（非 `DYNAMIC_CLUSTER`） | 允许单个 Worker 任务打包持有多个区域租约（最多 16 个，全有或全无），减少微任务提交开销；`DYNAMIC_CLUSTER` 下自动绕过 |
+| `enableRegionThreadingCallerRuns` | `false` | `Bridge` + `PersistentWorkers` | 允许主线程在等待屏障期间（泵送主线程 handoff 间隙）从持久化工作窃取队列中窃取并执行单个未启动区域组，降低屏障空等 |
+| `enableRegionThreadingParallelBorderFixpoint` | `false` | `Bridge` | 在跨区边界更新定点传播首轮使用 8-邻域图着色，让不相邻目标区域在 Worker 上并行传播 |
+| `enableCanonicalFenceTail` | `false` | `Bridge` | 实验性（放宽严格顺序）：将未验证的串行栅栏方块实体延后至并行 BE 波次汇合后的单次串行尾阶段，合并多轮屏障 |
+| `enableRegionThreadingFusedSlices` | `false` | `Bridge` | **P3 切片融合**：将同一区域的 `CHUNK_TICK` 与自驱动 `ENTITY_TICK` 融合成单次 Worker 任务、单次屏障与单次边界传播；遇到块事件/存档/外部读失效自动回退 |
 
 ### 3.2 区域布局、线程池与安全/预算控制（11 项）
 
@@ -161,9 +165,29 @@ regionThreadingWorkerThreads = 6                   # 8 物理核甜点（重度�
 | `runtimeMainCpuPercent` | `90` | `1..100` | 主线程单核 CPU 占用触发 `MAIN_THREAD_BOTTLENECK` 的百分比阈值 |
 | `runtimeHighServerMspt` | `50` | `1..10000` | 服务端均值 MSPT 触发 `MAIN_THREAD_BOTTLENECK` 的毫秒阈值 |
 
+### 3.4 区域过载隔离与多区域掉落物清理（15 项）
+
+| 配置键 | 默认值 | 取值范围 / 说明 | 需重启 | 说明 |
+|---|---|---|---:|---|
+| `enableRegionOverloadGovernor` | `false` | bool | 是 | 启用每区域过载隔离（仅 `DYNAMIC_CLUSTER`）；高耗时区域降频为 `1/N` 调度，不拖累全服 TPS |
+| `regionOverloadBudgetNanos` | `15000000` | `1_000_000..1_000_000_000` | 是 | 单区域 EWMA 耗时预算（纳秒，默认 15ms） |
+| `regionOverloadEnterTicks` | `20` | `1..1200` | 是 | 连续超预算 tick 数达到后进入 `THROTTLED` |
+| `regionOverloadExitTicks` | `100` | `1..6000` | 是 | 低于退出阈值累积恢复 tick 数后返回 `NORMAL` |
+| `regionOverloadExitRatio` | `0.6` | `0.1..0.95` | 是 | 退出阈值占 `regionOverloadBudgetNanos` 的比例 |
+| `regionOverloadMaxPeriod` | `8` | `2..64` | 是 | 过载区域最大降频周期（`1/N`） |
+| `regionOverloadThrottlePlayerRegions` | `false` | bool | 是 | 是否对包含在线玩家的区域启用过载降频；设为 `false` 可避免玩家周围实体/机器降频（`ServerPlayer` 自身始终保底 20 TPS） |
+| `regionOverloadMaxCatchUpScheduledTicks` | `65536` | `1..1_000_000` | 是 | 被跳过 tick 的计划刻最大顺延重排上限 |
+| `enableItemCleanup` | `false` | bool | 否 | 启用多区域感知的掉落物定时清理与单区域紧急上限 |
+| `itemCleanupIntervalSeconds` | `300` | `0..86400` | 否 | 定时清理周期（秒）；`0` 仅保留单区域紧急上限 |
+| `itemCleanupMinAgeSeconds` | `60` | `0..3600` | 否 | 仅清理落地时间达到该秒数的掉落物；刚掉落物品不会被误清 |
+| `itemCleanupWarningSeconds` | `15` | `0..300` | 否 | 定时清理前全服倒计时预警秒数；`0` 关闭预警 |
+| `itemCleanupMaxPerRegion` | `256` | `0..100000` | 否 | 单区域掉落物紧急上限；超限时仅清理该超标区域内最旧的合格掉落物 |
+| `itemCleanupIgnoreNamedItems` | `true` | bool | 否 | 保留自定义命名物品（如铁砧重命名装备） |
+| `itemCleanupWhitelist` | `[]` | 物品注册表 ID 列表 | 否 | 永不清理的物品白名单（如 `["minecraft:nether_star"]`） |
+
 ---
 
-## 4. 完整全开配置模板（含全部 36 项注释参考）
+## 4. 完整全开配置模板
 
 可直接复制保存为 `config/forgia.toml`，再根据本机物理核数调整 `regionThreadingWorkerThreads`：
 
@@ -199,6 +223,9 @@ enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
 enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
+enableRegionThreadingCallerRuns = true
+enableRegionThreadingParallelBorderFixpoint = true
+enableRegionThreadingFusedSlices = true
 
 # --- 区域布局与线程池 [重启] ---
 regionThreadingMode = "DYNAMIC_CLUSTER"
@@ -206,6 +233,25 @@ regionThreadingDynamicSectionShift = 3
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 6                  # 按物理核数调整：4核设3~4，8核设5~6，16核设10~12
+
+# --- 区域过载隔离 [重启] ---
+enableRegionOverloadGovernor = true
+regionOverloadBudgetNanos = 15000000
+regionOverloadEnterTicks = 20
+regionOverloadExitTicks = 100
+regionOverloadExitRatio = 0.6
+regionOverloadMaxPeriod = 8
+regionOverloadThrottlePlayerRegions = false
+regionOverloadMaxCatchUpScheduledTicks = 65536
+
+# --- 多区域掉落物清理（热生效）---
+enableItemCleanup = true
+itemCleanupIntervalSeconds = 120
+itemCleanupMinAgeSeconds = 120
+itemCleanupWarningSeconds = 15
+itemCleanupMaxPerRegion = 128
+itemCleanupIgnoreNamedItems = true
+itemCleanupWhitelist = []
 
 # --- 安全、兼容与预算 ---
 regionThreadingOwnershipViolationMode = "WARN"

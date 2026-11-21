@@ -130,6 +130,10 @@ Recommended JDK 21 JVM flags (32 GB RAM — leave ~half for OS page cache of `.m
 | `enableRegionThreadingGameEvents` | `false` | `Bridge` | Captures cross-region game events (e.g., sculk vibrations) and delivers them on target region workers in posting order |
 | `enableRegionThreadingPersistentWorkers` | `false` | `Bridge` | Uses persistent worker threads with work-stealing ranges instead of a fixed executor, cutting dispatch/wake overhead |
 | `enableRegionThreadingPackedRegionLeases` | `false` | `Bridge` + **`FIXED_3X3`** (non-`DYNAMIC_CLUSTER`) | Packs up to 16 regions per worker task (all-or-nothing lease) to reduce per-region submission overhead; automatically bypassed in `DYNAMIC_CLUSTER` |
+| `enableRegionThreadingCallerRuns` | `false` | `Bridge` + `PersistentWorkers` | Allows the server thread to steal and execute one unstarted region group at a time from persistent work-stealing batches while waiting at the barrier |
+| `enableRegionThreadingParallelBorderFixpoint` | `false` | `Bridge` | Uses 8-neighbor graph coloring on the first pass of cross-region border-update fixpoint propagation so non-adjacent target regions propagate in parallel |
+| `enableCanonicalFenceTail` | `false` | `Bridge` | Experimental (relaxes canonical BE order): defers unproven serial-fence block entities to a single serial tail after parallel BE waves join |
+| `enableRegionThreadingFusedSlices` | `false` | `Bridge` | **P3 slice fusion**: fuses eligible per-region `CHUNK_TICK` and self-driven `ENTITY_TICK` slices into a single worker task, single barrier, and single border fixpoint per tick |
 
 ### 3.2 Region Layout, Worker Pool & Safety/Budget Controls (11 keys)
 
@@ -161,9 +165,29 @@ Recommended JDK 21 JVM flags (32 GB RAM — leave ~half for OS page cache of `.m
 | `runtimeMainCpuPercent` | `90` | `1..100` | Main-thread single-core CPU % threshold for `MAIN_THREAD_BOTTLENECK` |
 | `runtimeHighServerMspt` | `50` | `1..10000` | Mean server MSPT threshold (ms) for `MAIN_THREAD_BOTTLENECK` |
 
+### 3.4 Overload Isolation & Multi-Region Item Cleanup (15 keys)
+
+| Key | Default | Range | Restart | Behavior |
+|---|---|---|---:|---|
+| `enableRegionOverloadGovernor` | `false` | bool | yes | Enables per-region overload throttling (`DYNAMIC_CLUSTER` only), isolating lagging regions to `1/N` tick rate |
+| `regionOverloadBudgetNanos` | `15000000` | `1_000_000..1_000_000_000` | yes | Per-region EWMA budget in nanoseconds (default 15ms) |
+| `regionOverloadEnterTicks` | `20` | `1..1200` | yes | Consecutive over-budget ticks before entering `THROTTLED` |
+| `regionOverloadExitTicks` | `100` | `1..6000` | yes | Recovery ticks below exit threshold before returning to `NORMAL` |
+| `regionOverloadExitRatio` | `0.6` | `0.1..0.95` | yes | Fraction of `regionOverloadBudgetNanos` for recovery credit |
+| `regionOverloadMaxPeriod` | `8` | `2..64` | yes | Maximum dispatch period (`1/N`) for throttled regions |
+| `regionOverloadThrottlePlayerRegions` | `false` | bool | yes | Whether regions containing players can enter `THROTTLED` (`ServerPlayer` ticks themselves are always preserved at 20 TPS) |
+| `regionOverloadMaxCatchUpScheduledTicks` | `65536` | `1..1_000_000` | yes | Max scheduled ticks rescheduled per skipped tick |
+| `enableItemCleanup` | `false` | bool | no | Enables multi-region aware dropped-item cleanup (scheduled sweeps + per-region emergency cap) |
+| `itemCleanupIntervalSeconds` | `300` | `0..86400` | no | Seconds between scheduled sweeps (`0` disables scheduled sweeps while keeping per-region cap active) |
+| `itemCleanupMinAgeSeconds` | `60` | `0..3600` | no | Minimum dropped age in seconds before an item is eligible for cleanup |
+| `itemCleanupWarningSeconds` | `15` | `0..300` | no | Countdown warning seconds before a scheduled sweep (`0` disables) |
+| `itemCleanupMaxPerRegion` | `256` | `0..100000` | no | Per-region emergency cap on dropped `ItemEntity` count (`0` disables) |
+| `itemCleanupIgnoreNamedItems` | `true` | bool | no | Preserves dropped items with custom names |
+| `itemCleanupWhitelist` | `[]` | item IDs | no | Item registry IDs never removed by cleanup (e.g. `["minecraft:nether_star"]`) |
+
 ---
 
-## 4. Full Template (All 36 Keys)
+## 4. Full Template
 
 Copy to `config/forgia.toml` and adjust `regionThreadingWorkerThreads` to match your physical core count:
 
@@ -199,6 +223,9 @@ enableRegionThreadingBorderUpdates = true
 enableRegionThreadingGameEvents = true
 enableRegionThreadingPersistentWorkers = true
 enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
+enableRegionThreadingCallerRuns = true
+enableRegionThreadingParallelBorderFixpoint = true
+enableRegionThreadingFusedSlices = true
 
 # --- Region Layout & Worker Pool [restart] ---
 regionThreadingMode = "DYNAMIC_CLUSTER"
@@ -206,6 +233,25 @@ regionThreadingDynamicSectionShift = 3
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 6                  # 4C -> 3..4, 8C -> 5..6, 16C -> 10..12
+
+# --- Region Overload Isolation [restart] ---
+enableRegionOverloadGovernor = true
+regionOverloadBudgetNanos = 15000000
+regionOverloadEnterTicks = 20
+regionOverloadExitTicks = 100
+regionOverloadExitRatio = 0.6
+regionOverloadMaxPeriod = 8
+regionOverloadThrottlePlayerRegions = false
+regionOverloadMaxCatchUpScheduledTicks = 65536
+
+# --- Multi-Region Item Cleanup (hot-configurable) ---
+enableItemCleanup = true
+itemCleanupIntervalSeconds = 120
+itemCleanupMinAgeSeconds = 120
+itemCleanupWarningSeconds = 15
+itemCleanupMaxPerRegion = 128
+itemCleanupIgnoreNamedItems = true
+itemCleanupWhitelist = []
 
 # --- Safety, Compatibility & Budgets ---
 regionThreadingOwnershipViolationMode = "WARN"

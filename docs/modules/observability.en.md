@@ -29,7 +29,11 @@ existing engine and native server tick ring.
 | `/forgia region <dimension> <x> <z>` | One region's timing/workload/lifecycle/coverage; x/z are **region** coordinates |
 | `/forgia region top <metric> [count]` | Descending rank, stable tie-break; default 10, max 100 |
 | `/forgia workers` | Configured/alive/busy/idle, queued/submitted/completed/rejected/failed, CPU/wall, shutdown/join; first 20 rows |
-| `/forgia scheduler` | Pool/regionizer and furnace/resource counters/timing |
+| `/forgia scheduler` | Pool/regionizer, furnace/resource counters, P3 fused slice counters, and BE adapter status |
+| `/forgia bottleneck` | Critical-path breakdown: slowest region share, `estMainOrSerial`, per-slice `critAvg/barrierAvg`, and main-thread phases (`beSerial`, `entityHandoff`, `entityFallbacks`, `borderFixpoint`) |
+| `/forgia fences` | Top sync-fence hotspots ranked by hit count and cost |
+| `/forgia overload` | Region overload governor configuration and currently `THROTTLED` regions |
+| `/forgia itemclear [status\|now [minAgeSeconds]]` | Show multi-region item cleanup stats or trigger an immediate sweep |
 | `/forgia performance` | Native 10-second MSPT + latest JVM sample |
 | `/forgia performance history [seconds]` | 1/10/60/300 s windows; requested 1..300 |
 | `/forgia performance json` | Versioned compact JSON, nulls for unavailable numbers |

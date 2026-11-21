@@ -28,7 +28,11 @@
 | `/forgia region <dimension> <x> <z>` | 单个区域的计时/负载/生命周期/覆盖；x/z 是**区域**坐标 |
 | `/forgia region top <metric> [count]` | 降序排名，稳定 tie-break；默认 10，最大 100 |
 | `/forgia workers` | configured/alive/busy/idle、queued/submitted/completed/rejected/failed、CPU/wall、shutdown/join；前 20 行 |
-| `/forgia scheduler` | 池/区域化器与熔炉/资源计数/计时 |
+| `/forgia scheduler` | 池/区域化器、熔炉/资源计数、P3 融合切片（`Fused slices`）与 BE 适配器状态 |
+| `/forgia bottleneck` | 关键路径剖析：最慢区域占比、`estMainOrSerial`、各切片 `critAvg/barrierAvg` 与主线程分段耗时（`beSerial`、`entityHandoff`、`entityFallbacks`、`borderFixpoint`） |
+| `/forgia fences` | 同步栅栏（sync fence）热点排名（按触发次数与耗时定位序列化瓶颈） |
+| `/forgia overload` | 区域过载隔离状态、预算与当前被降频（`THROTTLED`）区域列表 |
+| `/forgia itemclear [status\|now [minAgeSeconds]]` | 查看多区域掉落物清理状态，或立即手动触发一次掉落物清扫 |
 | `/forgia performance` | 原生 10 秒 MSPT + 最新 JVM 采样 |
 | `/forgia performance history [seconds]` | 1/10/60/300 秒窗口；可请求 1..300 |
 | `/forgia performance json` | 版本化紧凑 JSON，不可用数值为 null |
