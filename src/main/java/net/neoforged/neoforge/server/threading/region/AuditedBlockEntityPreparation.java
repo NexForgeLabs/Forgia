@@ -28,9 +28,14 @@ import org.spongepowered.asm.mixin.transformer.meta.MixinMerged;
  * The original batch/kernel/region owner remains the only execution authority.
  */
 final class AuditedBlockEntityPreparation {
-    private static final boolean CORE_CURRENT = coreMethodsUnmodified();
+    private static final String CORE_STATUS = inspectCoreMethods();
+    private static final boolean CORE_CURRENT = "ok".equals(CORE_STATUS);
 
     private AuditedBlockEntityPreparation() {}
+
+    static String coreStatus() {
+        return CORE_STATUS;
+    }
 
     /** Collection only selects frozen metadata; no adapter callback runs before batch publication. */
     static boolean hasCandidate(RegionBlockEntityTickAdmission admission) {
@@ -119,7 +124,7 @@ final class AuditedBlockEntityPreparation {
         }
     }
 
-    private static boolean coreMethodsUnmodified() {
+    private static String inspectCoreMethods() {
         try {
             final Map<Class<?>, Set<String>> reached = Map.of(
                     BlockEntity.class, Set.of("getLevel", "hasLevel", "isRemoved", "getBlockPos", "getType", "getBlockState"),
@@ -129,16 +134,26 @@ final class AuditedBlockEntityPreparation {
                     TimeTracker.class, Set.of("trackStart", "trackEnd", "isEnabled"));
             for (final var entry : reached.entrySet()) {
                 for (final var method : entry.getKey().getDeclaredMethods()) {
-                    if (entry.getValue().contains(method.getName()) && method.getAnnotation(MixinMerged.class) != null) return false;
+                    if (entry.getValue().contains(method.getName())) {
+                        final MixinMerged merged = method.getAnnotation(MixinMerged.class);
+                        if (merged != null) {
+                            return "blocked(" + entry.getKey().getSimpleName() + "#" + method.getName() + " by " + merged.mixin() + ")";
+                        }
+                    }
                 }
             }
             for (final Class<?> nested : LevelChunk.class.getDeclaredClasses()) {
                 if (!Set.of("BoundTickingBlockEntity", "RebindableTickingBlockEntityWrapper").contains(nested.getSimpleName())) continue;
-                for (final var method : nested.getDeclaredMethods()) if (method.getAnnotation(MixinMerged.class) != null) return false;
+                for (final var method : nested.getDeclaredMethods()) {
+                    final MixinMerged merged = method.getAnnotation(MixinMerged.class);
+                    if (merged != null) {
+                        return "blocked(" + nested.getSimpleName() + "#" + method.getName() + " by " + merged.mixin() + ")";
+                    }
+                }
             }
-            return true;
+            return "ok";
         } catch (RuntimeException | LinkageError unavailable) {
-            return false;
+            return "error(" + unavailable.getClass().getSimpleName() + ")";
         }
     }
 }

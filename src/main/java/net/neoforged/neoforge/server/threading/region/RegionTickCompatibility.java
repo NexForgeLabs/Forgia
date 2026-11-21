@@ -238,7 +238,8 @@ public final class RegionTickCompatibility {
     public static RegionBlockEntityTickAdmission.Decision decideBlockEntityTick(ServerLevel level, @Nullable String type,
             boolean interiorChunk, boolean borderUpdatesEnabled) {
         if (type != null && !serverThreadOnlyTypes.containsKey(type) && ParallelAdapterRuntime.hasBlockEntityTickAdapter(level, type)) {
-            return interiorChunk ? RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
+            return (interiorChunk || ParallelAdapterRuntime.isResourceScopedBlockEntityTickAdapter(level, type))
+                    ? RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
                     : RegionBlockEntityTickAdmission.Decision.NOT_INTERIOR_CHUNK;
         }
         return decideBlockEntityTick(type, interiorChunk, borderUpdatesEnabled);

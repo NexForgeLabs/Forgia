@@ -270,6 +270,17 @@ public final class ForgiaCommand {
                 slicesArray.add(s);
             }
             output.add("sliceCriticalPaths", slicesArray);
+            final var mainPhasesArray = new com.google.gson.JsonArray();
+            for (final var phase : engine.mainThreadPhaseSnapshots()) {
+                final var p = new com.google.gson.JsonObject();
+                p.addProperty("phase", phase.phase().label());
+                p.addProperty("calls", phase.calls());
+                jsonNumber(p, "avgMs", phase.avgPerCallMs());
+                jsonNumber(p, "maxMs", phase.maxMs());
+                jsonNumber(p, "totalMs", phase.totalMs());
+                mainPhasesArray.add(p);
+            }
+            output.add("mainThreadPhases", mainPhasesArray);
             line(source, new GsonBuilder().serializeNulls().create().toJson(output));
             return 1;
         }
@@ -296,6 +307,11 @@ public final class ForgiaCommand {
                     + " critAvg=" + number(slice.avgCriticalPathMs()) + "ms critMax=" + number(slice.maxCriticalPathMs())
                     + "ms meanRegion=" + number(slice.avgMeanRegionMs()) + "ms barrierAvg=" + number(slice.avgBarrierWaitMs())
                     + "ms slowest=" + (slice.slowestRegionId() == null ? "N/A" : slice.slowestRegionId()));
+        }
+        for (final var phase : engine.mainThreadPhaseSnapshots()) {
+            line(source, "  main " + phase.phase().label() + ": calls=" + phase.calls()
+                    + " avg=" + number(phase.avgPerCallMs()) + "ms max=" + number(phase.maxMs())
+                    + "ms total=" + number(phase.totalMs()) + "ms");
         }
         return 1;
     }
@@ -437,6 +453,8 @@ public final class ForgiaCommand {
                 + " budgetFallbacks=" + fused.budgetFallbacks()
                 + " foreignReadFallbacks=" + fused.foreignReadFallbacks()
                 + " cooldownRegions=" + fused.activeCooldownRegions());
+        line(source, "BE adapters: core=" + engine.auditedBlockEntityCoreStatus()
+                + " registered=" + net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.blockEntityAdapterSummary(source.getServer()));
         return 1;
     }
 

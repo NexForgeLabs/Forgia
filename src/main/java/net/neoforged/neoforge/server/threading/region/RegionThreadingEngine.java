@@ -199,6 +199,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final RegionDiagnosticsCollector diagnosticsCollector;
     private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
     private final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
+    private final RegionMainThreadPhaseMetrics mainThreadPhaseMetrics = new RegionMainThreadPhaseMetrics();
     private final RegionOverloadGovernor.Config overloadConfig;
     @Nullable
     private final RegionOverloadGovernor overloadGovernor;
@@ -210,6 +211,10 @@ public final class RegionThreadingEngine implements RegionThreading {
     private volatile boolean activeFusedBatch;
     @Nullable
     private it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> activeCanonicalBeRegionCosts;
+    @Nullable
+    private String activeCanonicalBeDimensionId;
+    @Nullable
+    private it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState> activeCanonicalBeChunkRegions;
     private volatile boolean spawnWorkerExecutionEnabled;
     /**
      * Whether a slice leases several regions into one worker task. Off means one task per region, exactly like
@@ -2142,6 +2147,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             failure = throwable;
         } finally {
             try {
+                final long fixpointStart = System.nanoTime();
                 // The worker phase of the batch is over: no worker holds a lease anymore, so the server thread
                 // can hand the captured cross-region updates to their target regions and repeat until the
                 // circuit stops changing or the vanilla chained-update bound is reached. A failure of the batch
@@ -2159,6 +2165,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.runCrossRegionGameEvents(level);
                 } catch (Throwable throwable) {
                     failure = accumulateFailure(failure, throwable);
+                } finally {
+                    this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.BORDER_FIXPOINT,
+                            System.nanoTime() - fixpointStart);
                 }
             } finally {
                 this.endRegionPhase(level);
@@ -3860,7 +3869,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 }
             }
         } finally {
-            final long handoffStart = attribution ? System.nanoTime() : 0L;
+            final long handoffStart = System.nanoTime();
+            long fallbackDuration = 0L;
             try {
                 // The portal transition of a worker-ticked entity runs first: it is the earliest level effect
                 // of the tick it belongs to, and the destination search may read the POI manager of the
@@ -3890,12 +3900,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                     });
                     failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(completedFused.regionTickMutations()));
                 }
-                final long fallbackStart = attribution ? System.nanoTime() : 0L;
+                final long fallbackStart = System.nanoTime();
                 try {
                     failure = runBatchCompletion(failure, () -> this.tickSelfDrivenFallbacks(batch));
                 } finally {
+                    fallbackDuration = System.nanoTime() - fallbackStart;
+                    this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.ENTITY_FALLBACKS, fallbackDuration);
                     if (attribution) {
-                        RegionEntityTickAttribution.recordFallbacks(System.nanoTime() - fallbackStart);
+                        RegionEntityTickAttribution.recordFallbacks(fallbackDuration);
                     }
                 }
                 final long deferredTasksStart = attribution ? System.nanoTime() : 0L;
@@ -3918,8 +3930,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.activeTickBatches.remove(batch);
                 batch.clearExecutingOnCurrentThread();
             } finally {
+                final long totalHandoff = System.nanoTime() - handoffStart;
+                this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.ENTITY_HANDOFF,
+                        Math.max(0L, totalHandoff - fallbackDuration));
                 if (attribution) {
-                    RegionEntityTickAttribution.recordHandoff(System.nanoTime() - handoffStart);
+                    RegionEntityTickAttribution.recordHandoff(totalHandoff);
                 }
             }
         }
@@ -4478,6 +4493,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (this.regionizer.isLevelClosed(level)) {
             // The level identity is retired; spawn inline like vanilla instead of publishing a batch for region
             // state that no longer exists.
+            return null;
+        }
+        this.flushStagedFusedChunks(level);
+        if (!this.isQuiescentForParallelApi()) {
             return null;
         }
         final var preparedPlan = net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.preparePlan(level);
@@ -6605,6 +6624,16 @@ public final class RegionThreadingEngine implements RegionThreading {
         return this.fusedSession.snapshot();
     }
 
+    @ApiStatus.Internal
+    public List<RegionMainThreadPhaseMetrics.PhaseSnapshot> mainThreadPhaseSnapshots() {
+        return this.mainThreadPhaseMetrics.snapshots();
+    }
+
+    @ApiStatus.Internal
+    public String auditedBlockEntityCoreStatus() {
+        return AuditedBlockEntityPreparation.coreStatus();
+    }
+
     /**
      * Ticks {@code accepted} entities on their owning region workers and waits for the batch.
      * <p>
@@ -7903,6 +7932,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private static final Inspection SERIAL_FENCE_INSPECTION = Inspection.serialFence();
 
     private void tickCanonicalBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier) {
+        final long canonicalBeStart = System.nanoTime();
         this.enterCanonicalBoundary(level, barrier);
         RegionBlockEntityTickBatch batch = null;
         RegionBlockEntityWorkGraph.Phase graph = null;
@@ -7929,6 +7959,9 @@ public final class RegionThreadingEngine implements RegionThreading {
             } else {
                 published = true;
                 batch.markExecutingOnCurrentThread();
+                this.activeCanonicalBeDimensionId = level.dimension().location().toString();
+                final var chunkRegions = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState>(chunks.size());
+                this.activeCanonicalBeChunkRegions = chunkRegions;
                 if (this.layout.isDynamicCluster()) {
                     this.activeCanonicalBeRegionCosts = new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>();
                 }
@@ -7947,9 +7980,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                 for (int c = 0; c < chunks.size(); ++c) {
                     final RegionBlockEntityTickChunk chunk = chunks.get(c);
                     final List<RegionBlockEntityTickAdmission> admissions = chunk.admissions();
-                    if (this.overloadGovernor != null) {
-                        final RegionState chunkRegion = this.regionizer.get(chunk.region(this.layout, level));
-                        if (chunkRegion != null && !chunkRegion.isDead() && this.shouldSkipOverloadedRegion(level, chunkRegion)) {
+                    final RegionState chunkRegion = this.regionizer.get(chunk.region(this.layout, level));
+                    if (chunkRegion != null && !chunkRegion.isDead()) {
+                        chunkRegions.put(chunk.chunkKey(), chunkRegion);
+                        if (this.overloadGovernor != null && this.shouldSkipOverloadedRegion(level, chunkRegion)) {
                             this.skippedBlockEntityTicks.addAndGet(admissions.size());
                             continue;
                         }
@@ -8251,6 +8285,8 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
             final var beCosts = this.activeCanonicalBeRegionCosts;
             this.activeCanonicalBeRegionCosts = null;
+            this.activeCanonicalBeDimensionId = null;
+            this.activeCanonicalBeChunkRegions = null;
             if (beCosts != null && published) {
                 this.flushCanonicalBlockEntityRegionCosts(level, beCosts);
             }
@@ -8259,6 +8295,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.blockEntityResourceMetrics.prepared(furnaceCandidates[0], furnacePreparationNanos[0]);
                 this.blockEntityResourceMetrics.finished(System.nanoTime() - resourcePhaseStart);
             }
+            this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL,
+                    System.nanoTime() - canonicalBeStart);
             this.regionWorkAdmission.exit();
         }
         if (failure != null) throwUnchecked(failure);
@@ -9891,21 +9929,33 @@ public final class RegionThreadingEngine implements RegionThreading {
             permit.succeeded();
         } finally {
             if (canonical) {
+                final long elapsed = System.nanoTime() - fenceStart;
                 final BlockPos pos = admission.ticker().getPos();
-                final RegionCoordinate coord = this.layout.regionAt(batch.level(), pos);
+                final var chunkRegions = this.activeCanonicalBeChunkRegions;
+                RegionState region = chunkRegions != null ? chunkRegions.get(ChunkPos.asLong(pos)) : null;
+                final int regionX;
+                final int regionZ;
+                if (region != null && !region.isDead()) {
+                    final RegionCoordinate coord = region.coordinate();
+                    regionX = coord.regionX();
+                    regionZ = coord.regionZ();
+                } else {
+                    final RegionCoordinate coord = this.layout.regionAt(batch.level(), pos);
+                    regionX = coord.regionX();
+                    regionZ = coord.regionZ();
+                    region = this.regionizer.get(coord);
+                }
+                final String dimId = this.activeCanonicalBeDimensionId != null
+                        ? this.activeCanonicalBeDimensionId
+                        : batch.level().dimension().location().toString();
                 final String typeName = admission.ticker().getType();
                 final String tickerClass = (typeName != null && !typeName.isEmpty())
                         ? typeName
                         : admission.ticker().getClass().getName();
-                final long elapsed = System.nanoTime() - fenceStart;
-                this.fenceMetrics.recordFence(batch.level().dimension().location().toString(), coord.regionX(), coord.regionZ(), tickerClass,
-                        elapsed);
+                this.fenceMetrics.recordFence(dimId, regionX, regionZ, tickerClass, elapsed);
                 final var beCosts = this.activeCanonicalBeRegionCosts;
-                if (beCosts != null) {
-                    final RegionState region = this.regionizer.get(coord);
-                    if (region != null && !region.isDead()) {
-                        beCosts.addTo(region, elapsed);
-                    }
+                if (beCosts != null && region != null && !region.isDead()) {
+                    beCosts.addTo(region, elapsed);
                 }
             }
         }

@@ -27,14 +27,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.server.threading.api.AuditedBlockEntityTickAdapter;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.AdapterDescriptor;
-import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionContract.Mode;
+import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter.Mode;
 import net.neoforged.neoforge.server.threading.api.BlockEntityOperations;
 import net.neoforged.neoforge.server.threading.api.BlockEntityTickAdapter;
 import net.neoforged.neoforge.server.threading.api.ParallelApi;
 import net.neoforged.neoforge.server.threading.api.ScheduledTickStatus;
-import net.neoforged.neoforge.server.threading.api.adapter.BlockEntityAdapter;
-import net.neoforged.neoforge.server.threading.api.adapter.BlockEntityAdapters;
+import net.neoforged.neoforge.server.threading.region.BlockEntityExecutionContract.AdapterDescriptor;
 import net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickAdmission;
 import net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickScope;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
@@ -50,7 +48,6 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
     private static final int MAX_ADAPTERS = 128;
     private final MinecraftServer server;
     private final BlockEntityOperationRuntime blockEntities;
-    private final BlockEntityAdapterRegistry blockEntityAdapters = new BlockEntityAdapterRegistry();
     private volatile Map<ResourceLocation, Entry<?>> entries = new TreeMap<>();
     private volatile Map<ResourceLocation, TickEntry> tickEntries = new TreeMap<>();
     private volatile Map<ResourceLocation, TickEntry> tickTypes = new TreeMap<>();
@@ -89,7 +86,6 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 runtime.tickTypes.forEach((key, entry) -> byName.put(key.toString(), entry));
                 runtime.tickTypesByName = Collections.unmodifiableMap(byName);
             }
-            runtime.blockEntityAdapters.freeze();
             runtime.frozen = true;
         } catch (RuntimeException | Error failure) {
             close(server);
@@ -109,7 +105,6 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             final ParallelAdapterRuntime runtime = SERVERS.remove(server);
             if (runtime != null) {
                 runtime.open = false;
-                runtime.blockEntityAdapters.close();
                 runtime.entries = Map.of();
                 runtime.tickEntries = Map.of();
                 runtime.tickTypes = Map.of();
@@ -143,8 +138,8 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             if (major != ParallelApi.MAJOR_VERSION) {
                 throw new IllegalArgumentException("Unsupported parallel API major version: " + major);
             }
-            if (this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() >= MAX_ADAPTERS || this.entries.containsKey(key.id())
-                    || this.tickEntries.containsKey(key.id()) || this.blockEntityAdapters.containsId(key.id().toString())) {
+            if (this.entries.size() + this.tickEntries.size() >= MAX_ADAPTERS || this.entries.containsKey(key.id())
+                    || this.tickEntries.containsKey(key.id())) {
                 throw new IllegalArgumentException("Duplicate adapter id or adapter limit reached: " + key.id());
             }
             this.entries.put(key.id(), new Entry<>(key, preparation));
@@ -174,18 +169,18 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 throw new IllegalArgumentException("Execution adapters require their explicit registration protocol");
             final Set<ResourceLocation> registered = Set.copyOf(types);
             if (major != (execution ? BlockEntityExecutionAdapter.PROTOCOL_VERSION : ParallelApi.MAJOR_VERSION) || registered.isEmpty() || registered.size() > 128
-                    || this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() >= MAX_ADAPTERS
-                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id) || this.blockEntityAdapters.containsId(id.toString())
-                    || registered.stream().anyMatch(type -> this.tickTypes.containsKey(type) || this.blockEntityAdapters.containsType(type.toString()))) {
+                    || this.entries.size() + this.tickEntries.size() >= MAX_ADAPTERS
+                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id)
+                    || registered.stream().anyMatch(this.tickTypes::containsKey)) {
                 throw new IllegalArgumentException("Invalid/duplicate block-entity adapter, types or API version: " + id);
             }
             final TickEntry entry = new TickEntry(id, registered, adapter);
             // An audited adapter supplies metadata through a callback. Recheck the shared transaction
             // after it returns, just like general adapter registration; nested failures cannot publish.
             this.requireServerThread();
-            if (this.invalid || this.frozen || this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() >= MAX_ADAPTERS
-                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id) || this.blockEntityAdapters.containsId(id.toString())
-                    || registered.stream().anyMatch(type -> this.tickTypes.containsKey(type) || this.blockEntityAdapters.containsType(type.toString())))
+            if (this.invalid || this.frozen || this.entries.size() + this.tickEntries.size() >= MAX_ADAPTERS
+                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id)
+                    || registered.stream().anyMatch(this.tickTypes::containsKey))
                 throw new IllegalArgumentException("Reentrant audited adapter registration conflicts or exceeds the shared limit");
             this.tickEntries.put(id, entry);
             registered.forEach(type -> this.tickTypes.put(type, entry));
@@ -193,56 +188,6 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             this.invalid = true;
             throw failure;
         }
-    }
-
-    @Override
-    public BlockEntityAdapters.Registration registerBlockEntityAdapter(int protocol, BlockEntityAdapters.Descriptor descriptor, BlockEntityAdapter adapter) {
-        this.requireServerThread();
-        if (this.frozen) throw new IllegalStateException("Parallel adapter registration is frozen");
-        try {
-            Objects.requireNonNull(descriptor);
-            final var id = ResourceLocation.parse(descriptor.id());
-            if (this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() >= MAX_ADAPTERS
-                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id)
-                    || descriptor.types().stream().map(ResourceLocation::parse).anyMatch(this.tickTypes::containsKey))
-                throw new IllegalArgumentException("Duplicate block-entity adapter id/types or adapter limit reached");
-            final var registration = this.blockEntityAdapters.register(protocol, descriptor, adapter);
-            // A dedicated audit may reenter any registration protocol. Validate the shared transaction
-            // again afterwards; caught nested errors must never leave a publishable partial service.
-            this.requireServerThread();
-            if (this.entries.size() + this.tickEntries.size() + this.blockEntityAdapters.size() > MAX_ADAPTERS
-                    || this.entries.containsKey(id) || this.tickEntries.containsKey(id)
-                    || descriptor.types().stream().map(ResourceLocation::parse).anyMatch(this.tickTypes::containsKey))
-                throw new IllegalArgumentException("Reentrant adapter registration conflicts or exceeds the shared limit");
-            return registration;
-        } catch (RuntimeException | Error failure) {
-            this.invalid = true;
-            throw failure;
-        }
-    }
-
-    @Override
-    public List<BlockEntityAdapters.Status> blockEntityAdapters() {
-        this.requireOpen();
-        return this.blockEntityAdapters.statuses();
-    }
-
-    @Override
-    public Optional<BlockEntityAdapters.PhaseSummary> lastBlockEntityAdapterPhase() {
-        this.requireOpen();
-        return this.blockEntityAdapters.lastPhase();
-    }
-
-    /** One request session is attached only to the already published canonical batch. */
-    @Nullable
-    public static BlockEntityAdapterRegistry.Session beginBlockEntityAdapters(ServerLevel level) {
-        final ParallelAdapterRuntime runtime;
-        synchronized (SERVERS) {
-            runtime = SERVERS.get(level.getServer());
-        }
-        if (runtime == null || !runtime.open || !runtime.frozen) return null;
-        runtime.requireServerThread();
-        return runtime.blockEntityAdapters.begin(level.dimension().location().toString(), level.getGameTime());
     }
 
     @Override
@@ -311,6 +256,43 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
     /** Cached type candidacy is not invocation admission. No registration survives server shutdown. */
     public static boolean hasBlockEntityTickAdapter(ServerLevel level, @Nullable String type) {
         return tickEntry(level, type) != null;
+    }
+
+    /**
+     * {@return true when {@code type} is covered by a verified {@link BlockEntityExecutionAdapter}
+     * running in {@link BlockEntityExecutionAdapter.Mode#RESOURCE_SCOPED}, whose object-level storage
+     * proof does not require an interior chunk}
+     */
+    public static boolean isResourceScopedBlockEntityTickAdapter(ServerLevel level, @Nullable String type) {
+        final TickEntry entry = tickEntry(level, type);
+        return entry != null
+                && entry.adapter instanceof BlockEntityExecutionAdapter execution
+                && execution.executionMode() == BlockEntityExecutionAdapter.Mode.RESOURCE_SCOPED;
+    }
+
+    /** Concise diagnostic summary of registered BE tick adapters for {@code /forgia scheduler}. */
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static String blockEntityAdapterSummary(MinecraftServer server) {
+        final ParallelAdapterRuntime runtime;
+        synchronized (SERVERS) {
+            runtime = SERVERS.get(server);
+        }
+        if (runtime == null || !runtime.open || !runtime.frozen || runtime.tickEntries.isEmpty()) {
+            return "none";
+        }
+        final StringBuilder sb = new StringBuilder();
+        for (final TickEntry entry : runtime.tickEntries.values()) {
+            if (!sb.isEmpty()) sb.append("; ");
+            sb.append(entry.descriptor.id()).append("(types=").append(entry.types.size());
+            if (entry.audited != null) {
+                sb.append(",verified=").append(entry.audited.verified());
+                if (!entry.audited.verified() && entry.audited.reason() != null && !entry.audited.reason().isEmpty()) {
+                    sb.append(",reason=").append(entry.audited.reason());
+                }
+            }
+            sb.append(",checks=").append(entry.checks.sum()).append(",refusals=").append(entry.refusals.sum()).append(')');
+        }
+        return sb.toString();
     }
 
     @Nullable
@@ -453,7 +435,7 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 ParallelApi.Capability.NATURAL_SPAWN_PLAN_PREPARATION, ParallelApi.Capability.NATURAL_SPAWN_CLAIMS,
                 ParallelApi.Capability.ORDERED_SPAWN_FINALIZATION, ParallelApi.Capability.BLOCK_ENTITY_OPERATIONS,
                 ParallelApi.Capability.BLOCK_ENTITY_TICK_ADMISSION, ParallelApi.Capability.SCHEDULED_TICK_DIAGNOSTICS,
-                ParallelApi.Capability.GENERAL_BLOCK_ENTITY_ADAPTERS, ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS,
+                ParallelApi.Capability.AUDITED_BLOCK_ENTITY_TICKS,
                 ParallelApi.Capability.BLOCK_ENTITY_EXECUTION_ADAPTERS);
     }
 

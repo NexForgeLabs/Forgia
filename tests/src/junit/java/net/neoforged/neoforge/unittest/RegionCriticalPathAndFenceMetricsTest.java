@@ -54,4 +54,23 @@ class RegionCriticalPathAndFenceMetricsTest {
         assertEquals(RegionFenceMetrics.MAX_ENTRIES, fullSnap.topEntries().size());
         assertEquals(22L, fullSnap.overflowEntries());
     }
+
+    @Test
+    void mainThreadPhaseMetricsTracksCallsAvgAndMax() {
+        final var phases = new RegionMainThreadPhaseMetrics();
+        phases.record(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL, 10_000_000L);
+        phases.record(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL, 14_000_000L);
+        phases.record(RegionMainThreadPhaseMetrics.Phase.ENTITY_HANDOFF, 3_000_000L);
+
+        final var snapshots = phases.snapshots();
+        assertEquals(2, snapshots.size());
+        assertEquals(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL, snapshots.get(0).phase());
+        assertEquals(2L, snapshots.get(0).calls());
+        assertEquals(12.0, snapshots.get(0).avgPerCallMs(), 1e-6);
+        assertEquals(14.0, snapshots.get(0).maxMs(), 1e-6);
+        assertEquals(24.0, snapshots.get(0).totalMs(), 1e-6);
+        assertEquals(RegionMainThreadPhaseMetrics.Phase.ENTITY_HANDOFF, snapshots.get(1).phase());
+        assertEquals(1L, snapshots.get(1).calls());
+        assertEquals(3.0, snapshots.get(1).avgPerCallMs(), 1e-6);
+    }
 }

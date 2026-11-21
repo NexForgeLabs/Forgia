@@ -48,7 +48,101 @@ public final class RegionFenceMetrics {
             long overflowEntries,
             List<Entry> topEntries) {}
 
-    private record Key(String dimension, int regionX, int regionZ, String tickerClass) {}
+    private static final class ImmutableKey {
+        final String dimension;
+        final int regionX;
+        final int regionZ;
+        final String tickerClass;
+        final int hash;
+
+        ImmutableKey(String dimension, int regionX, int regionZ, String tickerClass) {
+            this.dimension = dimension;
+            this.regionX = regionX;
+            this.regionZ = regionZ;
+            this.tickerClass = tickerClass;
+            this.hash = computeHash(dimension, regionX, regionZ, tickerClass);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj instanceof ImmutableKey other) {
+                return this.hash == other.hash
+                        && this.regionX == other.regionX
+                        && this.regionZ == other.regionZ
+                        && this.dimension.equals(other.dimension)
+                        && this.tickerClass.equals(other.tickerClass);
+            }
+            if (obj instanceof LookupKey other) {
+                return this.hash == other.hash
+                        && this.regionX == other.regionX
+                        && this.regionZ == other.regionZ
+                        && this.dimension.equals(other.dimension)
+                        && this.tickerClass.equals(other.tickerClass);
+            }
+            return false;
+        }
+    }
+
+    private static final class LookupKey {
+        String dimension;
+        int regionX;
+        int regionZ;
+        String tickerClass;
+        int hash;
+
+        LookupKey set(String dimension, int regionX, int regionZ, String tickerClass) {
+            this.dimension = dimension;
+            this.regionX = regionX;
+            this.regionZ = regionZ;
+            this.tickerClass = tickerClass;
+            this.hash = computeHash(dimension, regionX, regionZ, tickerClass);
+            return this;
+        }
+
+        void clear() {
+            this.dimension = null;
+            this.tickerClass = null;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj instanceof ImmutableKey other) {
+                return this.hash == other.hash
+                        && this.regionX == other.regionX
+                        && this.regionZ == other.regionZ
+                        && this.dimension.equals(other.dimension)
+                        && this.tickerClass.equals(other.tickerClass);
+            }
+            if (obj instanceof LookupKey other) {
+                return this.hash == other.hash
+                        && this.regionX == other.regionX
+                        && this.regionZ == other.regionZ
+                        && this.dimension.equals(other.dimension)
+                        && this.tickerClass.equals(other.tickerClass);
+            }
+            return false;
+        }
+    }
+
+    private static int computeHash(String dimension, int regionX, int regionZ, String tickerClass) {
+        int h = dimension.hashCode();
+        h = 31 * h + regionX;
+        h = 31 * h + regionZ;
+        h = 31 * h + tickerClass.hashCode();
+        return h;
+    }
 
     private static final class Counter {
         final LongAdder count = new LongAdder();
@@ -69,7 +163,8 @@ public final class RegionFenceMetrics {
         }
     }
 
-    private final ConcurrentHashMap<Key, Counter> entries = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Object, Counter> entries = new ConcurrentHashMap<>();
+    private final ThreadLocal<LookupKey> lookupKey = ThreadLocal.withInitial(LookupKey::new);
     private final LongAdder totalFences = new LongAdder();
     private final LongAdder totalNanos = new LongAdder();
     private final LongAdder overflowEntries = new LongAdder();
@@ -78,14 +173,16 @@ public final class RegionFenceMetrics {
         final long clamped = Math.max(0L, nanos);
         this.totalFences.increment();
         this.totalNanos.add(clamped);
-        final Key key = new Key(dimension, regionX, regionZ, tickerClass);
-        Counter counter = this.entries.get(key);
+        final LookupKey lookup = this.lookupKey.get().set(dimension, regionX, regionZ, tickerClass);
+        Counter counter = this.entries.get(lookup);
+        lookup.clear();
         if (counter == null) {
             if (this.entries.size() >= MAX_ENTRIES) {
                 this.overflowEntries.increment();
                 return;
             }
-            counter = this.entries.computeIfAbsent(key, ignored -> new Counter());
+            final ImmutableKey immutable = new ImmutableKey(dimension, regionX, regionZ, tickerClass);
+            counter = this.entries.computeIfAbsent(immutable, ignored -> new Counter());
         }
         counter.record(clamped);
     }
@@ -94,9 +191,9 @@ public final class RegionFenceMetrics {
         final int clampedLimit = Math.max(0, limit);
         final List<Entry> all = new ArrayList<>(this.entries.size());
         for (final var pair : this.entries.entrySet()) {
-            final Key k = pair.getKey();
+            final ImmutableKey k = (ImmutableKey) pair.getKey();
             final Counter c = pair.getValue();
-            all.add(new Entry(k.dimension(), k.regionX(), k.regionZ(), k.tickerClass(),
+            all.add(new Entry(k.dimension, k.regionX, k.regionZ, k.tickerClass,
                     c.count.sum(), c.totalNanos.sum(), c.maxNanos.get()));
         }
         all.sort(Comparator.comparingLong(Entry::totalNanos).reversed()
