@@ -88,9 +88,9 @@ final class CanonicalBlockEntityCoordinator {
         // waves join, collapsing N+1 barrier rounds into minimal waves at the cost of canonical ordering
         // between fenced and unfenced block entities.
         final List<Unit> prefix = new ArrayList<>();
-        final List<Integer> prefixIndices = new ArrayList<>();
-        final List<Integer> deferredFences = new ArrayList<>();
         final int total = this.ordered.size();
+        final it.unimi.dsi.fastutil.ints.IntArrayList prefixIndices = new it.unimi.dsi.fastutil.ints.IntArrayList();
+        final it.unimi.dsi.fastutil.ints.IntArrayList deferredFences = new it.unimi.dsi.fastutil.ints.IntArrayList(total);
         while (this.cursor < total) {
             final var first = driver.prepare(this.cursor);
             if (first == null) {
@@ -126,16 +126,16 @@ final class CanonicalBlockEntityCoordinator {
             } else {
                 // Refused partway through the prefix: execute the refused unit serially and roll back any
                 // deferred fences recorded after it so they are re-evaluated cleanly from fresh state.
-                final int refusedIndex = prefixIndices.get(admitted);
-                while (!deferredFences.isEmpty() && deferredFences.getLast() > refusedIndex) {
-                    deferredFences.removeLast();
+                final int refusedIndex = prefixIndices.getInt(admitted);
+                while (!deferredFences.isEmpty() && deferredFences.getInt(deferredFences.size() - 1) > refusedIndex) {
+                    deferredFences.popInt();
                 }
                 driver.serial(refusedIndex);
                 this.cursor = refusedIndex + 1;
             }
         }
         for (int i = 0, size = deferredFences.size(); i < size; ++i) {
-            driver.serial(deferredFences.get(i));
+            driver.serial(deferredFences.getInt(i));
         }
     }
 }

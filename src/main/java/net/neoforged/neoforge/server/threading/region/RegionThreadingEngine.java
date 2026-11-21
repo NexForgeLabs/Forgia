@@ -7934,11 +7934,34 @@ public final class RegionThreadingEngine implements RegionThreading {
     private void tickCanonicalBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier) {
         final long canonicalBeStart = System.nanoTime();
         this.enterCanonicalBoundary(level, barrier);
+        final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isFixed();
+        boolean hasWorkerCandidate = this.coreModPreparation != null && this.blockEntityResourcesEnabled && CoreModRuntimeIntegrity.verify();
+        if (!hasWorkerCandidate) {
+            final boolean coreAdaptersUsable = AuditedBlockEntityPreparation.isCoreCurrent();
+            outer:
+            for (int c = 0; c < chunks.size(); ++c) {
+                final List<RegionBlockEntityTickAdmission> admissions = chunks.get(c).admissions();
+                for (int a = 0; a < admissions.size(); ++a) {
+                    final RegionBlockEntityTickAdmission adm = admissions.get(a);
+                    final var decision = adm.decision();
+                    if (decision == RegionBlockEntityTickAdmission.Decision.ADMITTED
+                            || decision == RegionBlockEntityTickAdmission.Decision.ADMITTED_WITH_BORDER_UPDATES
+                            || (decision == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED && coreAdaptersUsable)
+                            || (furnaces && LevelChunk.furnaceWorkSource(adm.ticker()) != null)) {
+                        hasWorkerCandidate = true;
+                        break outer;
+                    }
+                }
+            }
+        }
+        if (!hasWorkerCandidate) {
+            this.tickCanonicalBlockEntitiesPureSerial(level, chunks, canonicalBeStart, furnaces);
+            return;
+        }
         RegionBlockEntityTickBatch batch = null;
         RegionBlockEntityWorkGraph.Phase graph = null;
         boolean published = false;
         final List<BlockEntityExecutionAdapter> executionCleanup = new ArrayList<>();
-        final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isFixed();
         final long resourcePhaseStart = furnaces && this.blockEntityResourcesEnabled ? System.nanoTime() : 0L;
         final int[] furnaceCandidates = { 0 };
         final long[] furnacePreparationNanos = { 0L };
@@ -8300,6 +8323,114 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.regionWorkAdmission.exit();
         }
         if (failure != null) throwUnchecked(failure);
+    }
+
+    /**
+     * Zero-wrapper pure-serial fast path for {@link #tickCanonicalBlockEntities} when no block entity
+     * in {@code chunks} is eligible for worker execution. Bypasses {@link BlockEntityExecutionEngine},
+     * per-BE {@code InvocationTicket}/{@code Permit} allocations and monitors, {@code blockEntityWorkGraph},
+     * and {@link CanonicalBlockEntityCoordinator} while preserving canonical sequence order, overload
+     * governor throttling, {@code /forgia fences} accounting, and per-region cost feedback.
+     */
+    private void tickCanonicalBlockEntitiesPureSerial(
+            ServerLevel level,
+            List<RegionBlockEntityTickChunk> chunks,
+            long canonicalBeStart,
+            boolean furnaces) {
+        final it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> beCosts =
+                this.layout.isDynamicCluster() ? new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>() : null;
+        boolean levelActive = false;
+        long executed = 0L;
+        try {
+            if (this.regionizer.isLevelClosed(level)) {
+                this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
+                return;
+            }
+            levelActive = true;
+            final String dimId = level.dimension().location().toString();
+            final var chunkRegions = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState>(chunks.size());
+            final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
+            boolean orderedMonotonic = true;
+            long lastSeq = -1L;
+            for (int c = 0; c < chunks.size(); ++c) {
+                final RegionBlockEntityTickChunk chunk = chunks.get(c);
+                final List<RegionBlockEntityTickAdmission> admissions = chunk.admissions();
+                final RegionState chunkRegion = this.regionizer.get(chunk.region(this.layout, level));
+                if (chunkRegion != null && !chunkRegion.isDead()) {
+                    chunkRegions.put(chunk.chunkKey(), chunkRegion);
+                    if (this.overloadGovernor != null && this.shouldSkipOverloadedRegion(level, chunkRegion)) {
+                        this.skippedBlockEntityTicks.addAndGet(admissions.size());
+                        continue;
+                    }
+                }
+                for (int a = 0; a < admissions.size(); ++a) {
+                    final RegionBlockEntityTickAdmission adm = admissions.get(a);
+                    final long seq = adm.sequence();
+                    if (seq <= lastSeq) orderedMonotonic = false;
+                    lastSeq = seq;
+                    ordered.add(adm);
+                }
+            }
+            if (!orderedMonotonic) {
+                ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
+            }
+            for (int i = 0, size = ordered.size(); i < size; ++i) {
+                final RegionBlockEntityTickAdmission admission = ordered.get(i);
+                ++executed;
+                if (furnaces) this.furnaceWorkMetrics.serial();
+                final TickingBlockEntity ticker = admission.ticker();
+                if (ticker.isRemoved()) {
+                    level.removeCollectedBlockEntityTickers(List.of(ticker));
+                    continue;
+                }
+                if (this.regionizer.isLevelClosed(level)) {
+                    this.skippedBlockEntityTicks.incrementAndGet();
+                    continue;
+                }
+                final BlockPos pos = ticker.getPos();
+                final long chunkKey = ChunkPos.asLong(pos);
+                if (!level.shouldTickBlocksAt(pos) || !level.areEntitiesLoaded(chunkKey)) {
+                    continue;
+                }
+                final long fenceStart = System.nanoTime();
+                try {
+                    this.runBlockEntityBody(ticker, null, false);
+                } finally {
+                    final long elapsed = System.nanoTime() - fenceStart;
+                    RegionState region = chunkRegions.get(chunkKey);
+                    final int regionX;
+                    final int regionZ;
+                    if (region != null && !region.isDead()) {
+                        final RegionCoordinate coord = region.coordinate();
+                        regionX = coord.regionX();
+                        regionZ = coord.regionZ();
+                    } else {
+                        final RegionCoordinate coord = this.layout.regionAt(level, pos);
+                        regionX = coord.regionX();
+                        regionZ = coord.regionZ();
+                        region = this.regionizer.get(coord);
+                    }
+                    final String typeName = ticker.getType();
+                    final String tickerClass = (typeName != null && !typeName.isEmpty())
+                            ? typeName
+                            : ticker.getClass().getName();
+                    this.fenceMetrics.recordFence(dimId, regionX, regionZ, tickerClass, elapsed);
+                    if (beCosts != null && region != null && !region.isDead()) {
+                        beCosts.addTo(region, elapsed);
+                    }
+                }
+            }
+        } finally {
+            if (executed > 0L) {
+                this.fallbackBlockEntityTicks.addAndGet(executed);
+            }
+            if (beCosts != null && levelActive) {
+                this.flushCanonicalBlockEntityRegionCosts(level, beCosts);
+            }
+            this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL,
+                    System.nanoTime() - canonicalBeStart);
+            this.regionWorkAdmission.exit();
+        }
     }
 
     private void flushCanonicalBlockEntityRegionCosts(

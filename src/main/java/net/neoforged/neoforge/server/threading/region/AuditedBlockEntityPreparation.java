@@ -37,6 +37,10 @@ final class AuditedBlockEntityPreparation {
         return CORE_STATUS;
     }
 
+    static boolean isCoreCurrent() {
+        return CORE_CURRENT;
+    }
+
     /** Collection only selects frozen metadata; no adapter callback runs before batch publication. */
     static boolean hasCandidate(RegionBlockEntityTickAdmission admission) {
         if (!CORE_CURRENT || admission.decision() != RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
