@@ -3741,7 +3741,8 @@ public final class RegionThreadingEngine implements RegionThreading {
         final List<RegionEntityTickActivation> activations = new ArrayList<>(regions.size());
         for (final RegionState region : regions) {
             if (this.shouldSkipOverloadedRegion(level, region)) {
-                this.skippedEntityTicks.addAndGet(region.tickingEntityCount());
+                final int preservedPlayers = this.collectSkippedRegionPlayers(batch, region);
+                this.skippedEntityTicks.addAndGet(Math.max(0, region.tickingEntityCount() - preservedPlayers));
                 continue;
             }
             if (!hasMailbox && this.collectServerThreadOnlyRegion(batch, region)) {
@@ -4106,6 +4107,27 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.serverThreadOnlyEntityTicks.addAndGet(added);
         }
         return true;
+    }
+
+    /**
+     * Hands off any ticking {@link ServerPlayer} inside an overload-throttled region to the server-thread
+     * fallback so player movement, packet handling, and {@code ServerPlayerGameMode.tick()} block-breaking
+     * progress never fall behind client ticks.
+     */
+    private int collectSkippedRegionPlayers(RegionEntityTickBatch batch, RegionState region) {
+        final List<RegionEntityTickEntry> entries = region.entityTickEntries();
+        int playersAdded = 0;
+        for (int i = 0, size = entries.size(); i < size; ++i) {
+            final RegionEntityTickEntry entry = entries.get(i);
+            if (entry.ticking() && entry.entity() instanceof ServerPlayer) {
+                batch.addSelfDrivenFallback(entry.entity());
+                ++playersAdded;
+            }
+        }
+        if (playersAdded > 0) {
+            this.serverThreadOnlyEntityTicks.addAndGet(playersAdded);
+        }
+        return playersAdded;
     }
 
     /**

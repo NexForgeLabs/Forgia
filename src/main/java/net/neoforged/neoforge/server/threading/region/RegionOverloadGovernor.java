@@ -42,7 +42,7 @@ public final class RegionOverloadGovernor {
         public static final int DEFAULT_EXIT_TICKS = 100;
         public static final double DEFAULT_EXIT_RATIO = 0.6;
         public static final int DEFAULT_MAX_PERIOD = 8;
-        public static final boolean DEFAULT_THROTTLE_PLAYER_REGIONS = true;
+        public static final boolean DEFAULT_THROTTLE_PLAYER_REGIONS = false;
         public static final int DEFAULT_MAX_CATCH_UP_SCHEDULED_TICKS = 65_536;
 
         public static Config disabled() {
