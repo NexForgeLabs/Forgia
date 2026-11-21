@@ -216,6 +216,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private String activeCanonicalBeDimensionId;
     @Nullable
     private it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState> activeCanonicalBeChunkRegions;
+    private boolean activeCanonicalPureSerial;
     private volatile boolean spawnWorkerExecutionEnabled;
     /**
      * Whether a slice leases several regions into one worker task. Off means one task per region, exactly like
@@ -3490,7 +3491,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public boolean queueServerTaskInCurrentBatch(Runnable task) {
-        if (BlockEntityExecutionEngine.isCanonicalSerialInvocation()) return false;
+        if (this.activeCanonicalPureSerial || BlockEntityExecutionEngine.isCanonicalSerialInvocation()) return false;
         if (RegionWorkerScope.isNativeWorkerThread() && BlockEntityExecutionEngine.captureInvocationTask(task)) return true;
         return this.queueLevelEndServerTaskInCurrentBatch(task);
     }
@@ -7948,7 +7949,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         final long canonicalBeStart = System.nanoTime();
         this.enterCanonicalBoundary(level, barrier);
         final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isFixed();
-        boolean hasWorkerCandidate = this.coreModPreparation != null && this.blockEntityResourcesEnabled && CoreModRuntimeIntegrity.verify();
+        boolean hasWorkerCandidate = this.coreModPreparation != null
+                && this.blockEntityResourcesEnabled
+                && CoreModTickerVerifier.available()
+                && CoreModRuntimeIntegrity.verify();
         if (!hasWorkerCandidate) {
             final boolean coreAdaptersUsable = AuditedBlockEntityPreparation.isCoreCurrent();
             outer:
@@ -8354,6 +8358,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.layout.isDynamicCluster() ? new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>() : null;
         boolean levelActive = false;
         long executed = 0L;
+        this.activeCanonicalPureSerial = true;
         try {
             if (this.regionizer.isLevelClosed(level)) {
                 this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
@@ -8434,6 +8439,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 }
             }
         } finally {
+            this.activeCanonicalPureSerial = false;
             if (executed > 0L) {
                 this.fallbackBlockEntityTicks.addAndGet(executed);
             }
@@ -11393,7 +11399,8 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @ApiStatus.Internal
     public void runInBlockRegion(ServerLevel level, BlockPos pos, Runnable task) {
-        if (this.regionWorkAdmission.isOwner() && BlockEntityExecutionEngine.isCanonicalSerialInvocation()) {
+        if (this.regionWorkAdmission.isOwner()
+                && (this.activeCanonicalPureSerial || BlockEntityExecutionEngine.isCanonicalSerialInvocation())) {
             // This is the complete original server ticker inside a server-wide participating boundary.
             // A cleanup may hold the lifecycle write gate awaiting this very phase: never reacquire it,
             // queue half a ticker for later, or borrow a coarse/fine Worker grant for the serial body.
