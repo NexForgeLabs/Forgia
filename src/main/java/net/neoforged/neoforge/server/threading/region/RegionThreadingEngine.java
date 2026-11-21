@@ -1116,6 +1116,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         final RegionThreadingOptions.Workers workers = options.workers();
         final RegionThreadingOptions.TickSlices ticks = options.ticks();
         this.layout = options.layout();
+        this.entityTickPolicy.setLayout(this.layout);
         this.regionizer = new ThreadedRegionizer(this.layout, this.regionWorkAdmission);
         this.workerPool = new RegionWorkerPool(workers.threads() > 0 ? workers.threads() : Math.max(1, Runtime.getRuntime().availableProcessors() - 1), workers.persistent());
         this.workerExecutionEnabled = workers.regionTasks();

@@ -72,6 +72,12 @@ final class RegionEntityTickPolicy {
     private final Map<String, AtomicLong> serverThreadOnlyTicks = new ConcurrentHashMap<>();
     private volatile long declarationVersion;
     private volatile boolean builtInPlayerRidingDeclaration;
+    @Nullable
+    private volatile RegionLayout layout;
+
+    void setLayout(@Nullable RegionLayout layout) {
+        this.layout = layout;
+    }
 
     void declarePlayerRidingStack() {
         this.serverThreadOnly(net.minecraft.world.entity.player.Player.class, "player_riding_stack");
@@ -157,11 +163,12 @@ final class RegionEntityTickPolicy {
             return reason;
         }
         // Original ItemEntity.tick can merge on a 2-tick (moving) or 40-tick (stationary)
-        // cadence after tickNonPassenger increments tickCount. Its complete query can return
-        // a stored non-ticking item absent from this batch's mutation membership. Keep every
-        // potentially merging invocation on the publisher BEFORE either stack is modified;
-        // do not clamp the query, skip the merge, widen discard permission, or replay a tick.
-        if (entity instanceof net.minecraft.world.entity.item.ItemEntity item && requiresItemMergeFence(item))
+        // cadence after tickNonPassenger increments tickCount. When the item is strictly
+        // interior to its region (move + 0.5-block merge box cannot cross a region border),
+        // the owning worker holds exclusive ownership of all items in that region and can
+        // safely execute the tick and merge in parallel. Border-adjacent, void, or expiring
+        // items retain the server-thread sync fence.
+        if (entity instanceof net.minecraft.world.entity.item.ItemEntity item && this.requiresItemMergeFence(item))
             return "item_merge_sync_fence";
         if (entity instanceof net.minecraft.world.entity.item.PrimedTnt tnt && requiresPrimedTntExplosionFence(tnt))
             return "primed_tnt_explode_fence";
@@ -174,7 +181,7 @@ final class RegionEntityTickPolicy {
         return null;
     }
 
-    private static boolean requiresItemMergeFence(net.minecraft.world.entity.item.ItemEntity item) {
+    private boolean requiresItemMergeFence(net.minecraft.world.entity.item.ItemEntity item) {
         final int nextTick = item.tickCount + 1;
         final net.minecraft.world.item.ItemStack stack = item.getItem();
         if (stack == null) {
@@ -191,6 +198,10 @@ final class RegionEntityTickPolicy {
         if (stack.getCount() >= stack.getMaxStackSize()
                 || item.getAge() == -32768
                 || item.getAge() >= 6000) {
+            return false;
+        }
+        final RegionLayout activeLayout = this.layout;
+        if (activeLayout != null && isStrictlyInteriorForItemMerge(activeLayout, item)) {
             return false;
         }
         if (nextTick % 40 == 0) {
@@ -211,6 +222,25 @@ final class RegionEntityTickPolicy {
             return false;
         }
         return true;
+    }
+
+    static boolean isStrictlyInteriorForItemMerge(RegionLayout layout, net.minecraft.world.entity.item.ItemEntity item) {
+        final net.minecraft.world.phys.Vec3 delta = item.getDeltaMovement();
+        final double dx = delta != null ? Math.abs(delta.x) : 0.0;
+        final double dz = delta != null ? Math.abs(delta.z) : 0.0;
+        if (dx > 14.0 || dz > 14.0 || !Double.isFinite(dx) || !Double.isFinite(dz)) {
+            return false;
+        }
+        final int marginX = (int) Math.ceil(dx + 1.5);
+        final int marginZ = (int) Math.ceil(dz + 1.5);
+        final int blockX = item.getBlockX();
+        final int blockZ = item.getBlockZ();
+        final int minChunkX = (blockX - marginX) >> 4;
+        final int maxChunkX = (blockX + marginX) >> 4;
+        final int minChunkZ = (blockZ - marginZ) >> 4;
+        final int maxChunkZ = (blockZ + marginZ) >> 4;
+        return layout.regionX(minChunkX) == layout.regionX(maxChunkX)
+                && layout.regionZ(minChunkZ) == layout.regionZ(maxChunkZ);
     }
 
     private static boolean requiresPrimedTntExplosionFence(net.minecraft.world.entity.item.PrimedTnt tnt) {

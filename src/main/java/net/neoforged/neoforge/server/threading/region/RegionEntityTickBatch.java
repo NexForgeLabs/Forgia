@@ -280,6 +280,11 @@ sealed class RegionEntityTickBatch extends RegionTickBatch permits FusedRegionTi
         if (group.members().contains(entity)) {
             return true;
         }
+        if (entity instanceof net.minecraft.world.entity.item.ItemEntity
+                && entity.level() == this.level()
+                && RegionEntityOwnershipScope.isInsideRegion(group.region().coordinate(), this.level(), entity.blockPosition())) {
+            return true;
+        }
         Entity passenger = entity;
         Entity vehicle = entity.getVehicle();
         while (vehicle != null && vehicle.hasPassenger(passenger)) {
