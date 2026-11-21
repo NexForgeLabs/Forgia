@@ -76,6 +76,11 @@ public final class ForgiaCommand {
                         .then(Commands.literal("top").executes(context -> fences(context.getSource(), PAGE_SIZE, false))
                                 .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
                                         .executes(context -> fences(context.getSource(), IntegerArgumentType.getInteger(context, "count"), false)))))
+                .then(Commands.literal("itemclear").executes(context -> itemClearStatus(context.getSource()))
+                        .then(Commands.literal("status").executes(context -> itemClearStatus(context.getSource())))
+                        .then(Commands.literal("now").executes(context -> itemClearNow(context.getSource(), null))
+                                .then(Commands.argument("minAgeSeconds", IntegerArgumentType.integer(0, 3600))
+                                        .executes(context -> itemClearNow(context.getSource(), IntegerArgumentType.getInteger(context, "minAgeSeconds"))))))
                 .then(Commands.literal("diagnostics").executes(context -> {
                     final var source = context.getSource();
                     performance(source, 10, false);
@@ -455,6 +460,37 @@ public final class ForgiaCommand {
                 + " cooldownRegions=" + fused.activeCooldownRegions());
         line(source, "BE adapters: core=" + engine.auditedBlockEntityCoreStatus()
                 + " registered=" + net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.blockEntityAdapterSummary(source.getServer()));
+        return 1;
+    }
+
+    private static int itemClearStatus(CommandSourceStack source) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) return noEngine(source);
+        final var snap = engine.itemCleanupSnapshot(source.getServer());
+        line(source, "Item cleanup: enabled=" + snap.enabled()
+                + " interval=" + snap.intervalSeconds() + "s"
+                + " minAge=" + snap.minAgeSeconds() + "s"
+                + " warning=" + snap.warningSeconds() + "s"
+                + " maxPerRegion=" + snap.maxPerRegion()
+                + " ignoreNamed=" + snap.ignoreNamedItems()
+                + " whitelist=" + snap.whitelistSize());
+        line(source, "  nextSweep=" + (snap.nextSweepSeconds() < 0 ? "N/A" : snap.nextSweepSeconds() + "s")
+                + " scheduledSweeps=" + snap.scheduledSweeps()
+                + " regionCapSweeps=" + snap.regionCapSweeps()
+                + " manualSweeps=" + snap.manualSweeps()
+                + " totalCleared=" + snap.totalClearedItems()
+                + " lastCleared=" + snap.lastSweepClearedItems());
+        return 1;
+    }
+
+    private static int itemClearNow(CommandSourceStack source, @org.jetbrains.annotations.Nullable Integer overrideMinAgeSeconds) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) return noEngine(source);
+        final int minAge = overrideMinAgeSeconds != null
+                ? overrideMinAgeSeconds.intValue()
+                : ForgiaConfig.SERVER.itemCleanupMinAgeSeconds.get();
+        final var result = engine.sweepItemsNow(source.getServer(), minAge);
+        line(source, "Item cleanup [now]: cleared=" + result.clearedItems()
+                + " affectedRegions=" + result.affectedRegions()
+                + " minAge=" + minAge + "s");
         return 1;
     }
 

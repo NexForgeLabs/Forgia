@@ -200,6 +200,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
     private final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
     private final RegionMainThreadPhaseMetrics mainThreadPhaseMetrics = new RegionMainThreadPhaseMetrics();
+    private final RegionItemCleanupManager itemCleanupManager = new RegionItemCleanupManager();
     private final RegionOverloadGovernor.Config overloadConfig;
     @Nullable
     private final RegionOverloadGovernor overloadGovernor;
@@ -1956,6 +1957,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             state.endGlobalPhase();
         }
         this.drainWorkerServerTasks(level);
+        this.itemCleanupManager.onEndLevelTick(level, this.regionizer.regions());
     }
 
     /**
@@ -6633,6 +6635,16 @@ public final class RegionThreadingEngine implements RegionThreading {
     @ApiStatus.Internal
     public String auditedBlockEntityCoreStatus() {
         return AuditedBlockEntityPreparation.coreStatus();
+    }
+
+    @ApiStatus.Internal
+    public RegionItemCleanupManager.Snapshot itemCleanupSnapshot(net.minecraft.server.MinecraftServer server) {
+        return this.itemCleanupManager.snapshot(server);
+    }
+
+    @ApiStatus.Internal
+    public RegionItemCleanupManager.SweepResult sweepItemsNow(net.minecraft.server.MinecraftServer server, int minAgeSeconds) {
+        return this.itemCleanupManager.sweepNow(server, this.regionizer.regions(), minAgeSeconds);
     }
 
     /**

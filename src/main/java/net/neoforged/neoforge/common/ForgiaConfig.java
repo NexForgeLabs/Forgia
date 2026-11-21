@@ -5,7 +5,9 @@
 
 package net.neoforged.neoforge.common;
 
+import java.util.List;
 import net.neoforged.neoforge.common.ModConfigSpec.BooleanValue;
+import net.neoforged.neoforge.common.ModConfigSpec.ConfigValue;
 import net.neoforged.neoforge.common.ModConfigSpec.DoubleValue;
 import net.neoforged.neoforge.common.ModConfigSpec.IntValue;
 import net.neoforged.neoforge.common.ModConfigSpec.LongValue;
@@ -128,6 +130,20 @@ public final class ForgiaConfig {
         public final BooleanValue enableCanonicalFenceTail;
 
         public final BooleanValue enableRegionThreadingFusedSlices;
+
+        public final BooleanValue enableItemCleanup;
+
+        public final IntValue itemCleanupIntervalSeconds;
+
+        public final IntValue itemCleanupMinAgeSeconds;
+
+        public final IntValue itemCleanupWarningSeconds;
+
+        public final IntValue itemCleanupMaxPerRegion;
+
+        public final BooleanValue itemCleanupIgnoreNamedItems;
+
+        public final ConfigValue<List<? extends String>> itemCleanupWhitelist;
 
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
@@ -378,6 +394,41 @@ public final class ForgiaConfig {
                     .comment("EXPERIMENTAL (P3 slice fusion): Fuses eligible per-region CHUNK_TICK and self-driven ENTITY_TICK slices into a single worker task, single barrier, and single border-update fixpoint per tick when no block events intervene. Automatically flushes fail-closed before block events, saves, or end-of-tick, and falls back per-region on Seqlock foreign-read invalidation or deferred-update budget overflow. Default off.")
                     .translation("neoforge.configgui.enableRegionThreadingFusedSlices")
                     .define("enableRegionThreadingFusedSlices", false);
+
+            enableItemCleanup = builder
+                    .comment("Enables Forgia's multi-region aware dropped-item cleanup (scheduled sweeps and per-region emergency caps). Runs strictly on the server thread at quiescent tick boundaries with zero worker contention. Only clears items whose dropped age >= itemCleanupMinAgeSeconds and never clears persistent (age == -32768) items. Default off.")
+                    .translation("neoforge.configgui.enableItemCleanup")
+                    .define("enableItemCleanup", false);
+
+            itemCleanupIntervalSeconds = builder
+                    .comment("Interval in seconds between scheduled multi-region dropped-item sweeps (0 disables scheduled sweeps while keeping per-region cap active). Default 300.")
+                    .translation("neoforge.configgui.itemCleanupIntervalSeconds")
+                    .defineInRange("itemCleanupIntervalSeconds", 300, 0, 86400);
+
+            itemCleanupMinAgeSeconds = builder
+                    .comment("Minimum age in seconds an item must have been dropped on the ground before it is eligible for cleanup. Fresh drops younger than this threshold are never removed. Default 60.")
+                    .translation("neoforge.configgui.itemCleanupMinAgeSeconds")
+                    .defineInRange("itemCleanupMinAgeSeconds", 60, 0, 3600);
+
+            itemCleanupWarningSeconds = builder
+                    .comment("Seconds before a scheduled sweep to broadcast a countdown warning to players (0 disables warnings). Default 15.")
+                    .translation("neoforge.configgui.itemCleanupWarningSeconds")
+                    .defineInRange("itemCleanupWarningSeconds", 15, 0, 300);
+
+            itemCleanupMaxPerRegion = builder
+                    .comment("Per-region emergency cap on dropped ItemEntity count (0 disables). Checked once per second per level; when a single region exceeds this count, oldest eligible items (>= itemCleanupMinAgeSeconds) in that region only are removed until back under the cap. Default 256.")
+                    .translation("neoforge.configgui.itemCleanupMaxPerRegion")
+                    .defineInRange("itemCleanupMaxPerRegion", 256, 0, 100000);
+
+            itemCleanupIgnoreNamedItems = builder
+                    .comment("When true, dropped items with a custom name (e.g. anvil-renamed tools/weapons) are never cleared. Default true.")
+                    .translation("neoforge.configgui.itemCleanupIgnoreNamedItems")
+                    .define("itemCleanupIgnoreNamedItems", true);
+
+            itemCleanupWhitelist = builder
+                    .comment("List of item registry IDs (e.g. [\"minecraft:nether_star\", \"minecraft:elytra\"]) that are never removed by item cleanup.")
+                    .translation("neoforge.configgui.itemCleanupWhitelist")
+                    .defineListAllowEmpty("itemCleanupWhitelist", List::of, () -> "", element -> element instanceof String s && !s.isBlank());
         }
     }
 }
