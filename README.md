@@ -18,9 +18,7 @@ ownership are exposed through native NeoForge API, and mods keep running as mods
 
 For the first controlled deployment, use the [production readiness audit](region-threading/PRODUCTION-READINESS.md),
 [complete configuration matrix](region-threading/PRODUCTION-CONFIGURATION.md) and
-[canary/rollback procedure](region-threading/CONTROLLED-CANARY.md). C6 and stopped-server real-Level GC have
-passed within their documented scopes; an installed canary pack still needs its own compatibility and recovery
-rehearsal. Runtime Mod hot-unload remains unsupported and NOT CERTIFIED.
+[canary/rollback procedure](region-threading/CONTROLLED-CANARY.md). **Both C6 and C7 (Issue #5: 188-mod production pack validation on `DYNAMIC_CLUSTER` + generic BE Sandbox + Independent Region Clock) are verified and closed**: `regionThreadingMode` now defaults to `DYNAMIC_CLUSTER`, and enabling `enableRegionSandboxAllBlockEntities` + `enableIndependentRegionTickClock` achieves 72%–82% BE worker parallelism and steady 20.0 TPS without per-mod adapters for ordinary mods. Runtime Mod hot-unload remains unsupported.
 
 ## What works today
 

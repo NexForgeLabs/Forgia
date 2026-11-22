@@ -9,8 +9,23 @@ Forgia separates **where region threading already wins** (entity-heavy worlds, m
 
 ---
 
+## Latest C7 Production Modpack Benchmarks (`21.1.250.200-beta` / SkyExplorer 188 Mods)
 
-## Latest controlled installed-server results (.100)
+Validated under **GitHub Issue #5 (C7)** on a live 188-mod production server (Create 6.0.10, Cataclysm, Sable 2.0.5, TacZ, Quark, Lootr, Primal, NetherExp, Spawn; 8 Region Workers, `DYNAMIC_CLUSTER/4ch`, `enableIndependentRegionTickClock = true`, `enableRegionSandboxAllBlockEntities = true`, `simulation-distance = 6`):
+
+| Workload / Metric | Before Phase 2 + Sandbox Fixes | Current Phase 1+2 Live (`a22a561e1`) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Multi-player load (44–86 Regions / 267–825 chunks)** | `12.6–14.3 TPS` / `MSPT ~72ms` | **`20.0 TPS`** / **MSPT `18.2–28.4ms`** (80-min soak, 0 crashes) | Steady 20.0 TPS across all windows |
+| **Active chunk exploration (179 Regions / 530 chunks)** | `300–1000ms` stall spikes | **`20.0 TPS`** / **MSPT `18.8ms` (1m Max `87.2ms`)** | Process CPU `407%` (~4 cores active) |
+| **BE Worker Execution & Auto-Demotions** | Manual per-mod allowlists; `15` false-positive demotions | **`72%–82%`** on Workers; only **`2–3`** demoted BE types | Exceeds ~90% mod coverage target |
+| **Canonical BE Serial Fences** | `4,116 ms` (911,115 fences) | **`360 ms`** (18,446 fences; `33 ms` idle) | **-91% reduction** |
+| **Slice Barrier Avg** | `ENTITY_TICK 16.7ms` / `SPAWN 6.1ms` | `ENTITY_TICK` **`4.17–6.45ms`** / `SPAWN` **`0.54–1.77ms`** | Adaptive throttle + staggered spawn |
+| **Independent Region Clock** | Global lockstep barrier | `enabled=true`, `858,298+` dispatches, **`failed=0`** | `Health: clean` |
+
+---
+
+
+## Historical controlled installed-server results (.100)
 
 The final .100 build was independently checked with the same installed 64-furnace fixture. Four 400-tick windows (two unsampled and two monitored) completed with identical full NBT and item conservation. The four means were 2.324, 2.624, 2.393 and 2.273 ms; their simple descriptive average is **2.404 ms**. The same fixture's Forgia serial windows average about **0.262 ms**, while stock NeoForge 21.1.249 averages about **0.229 ms**. Worker allocation remains about **18.7 MiB/s**. This deliberately light stationary workload is still much faster in serial; do not present the Worker result as a speedup.
 

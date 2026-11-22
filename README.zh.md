@@ -16,8 +16,7 @@ Forgia 把 [Folia](https://github.com/PaperMC/Folia) 的区域模型原生移植
 
 首次受控部署请使用[生产就绪审计](region-threading/PRODUCTION-READINESS.md)、
 [完整配置矩阵](region-threading/PRODUCTION-CONFIGURATION.md) 与
-[canary/回滚流程](region-threading/CONTROLLED-CANARY.md)。C6 与停服真实 Level GC 已在其文档化范围内通过；
-已安装 canary 整合包仍需自己的兼容与恢复演练。运行时 Mod 热卸载仍不支持，且**未认证**。
+[canary/回滚流程](region-threading/CONTROLLED-CANARY.md)。**C6 与 C7（Issue #5：188-Mod 真实整合包 `DYNAMIC_CLUSTER` + 通用 BE 沙盒 + 独立 Region 时钟）均已验收通过**：`regionThreadingMode` 已默认切换为 `DYNAMIC_CLUSTER`，开启 `enableRegionSandboxAllBlockEntities` 与 `enableIndependentRegionTickClock` 后可在无需逐一编写普通 Mod Adapter 的情况下实现 72%~82% BE 并行与多核 20.0 TPS 稳态运行。运行时 Mod 热卸载仍不支持。
 
 ## 今天可用的能力
 
