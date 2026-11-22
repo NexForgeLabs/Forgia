@@ -40,53 +40,19 @@ thread; a refusal or failure after effects begin is reported without replaying t
 Correctness is the acceptance criterion throughout: the POI manager, the redstone components and the chunk
 random tick are compared against **real vanilla implementations**, tick by tick, not against expectations.
 
-## What is not done yet
+## Current development boundaries
 
-Forgia is not a finished Folia replacement. The honest list:
+C7 is a production validation milestone, not a blanket compatibility certification:
 
-- **Light loads do not win yet.** A 2048-hopper line runs at 3.7–4.0 ms against 3.3 ms inline and 4096
-  furnaces at 2.7–3.3 ms against 2.6 ms. The worker body itself costs about 2.5× the inline cost per ticker,
-  and the persistent pool remains off by default pending the complete workload matrix. The
-  [work-stealing dispatcher](region-threading/WORK-STEALING-DISPATCHER.md) now batches submissions and
-  steals unstarted task ranges; its dispatch-only measurements do not establish a whole-server speedup.
-- **The production soak is at parity, not ahead.** With everything on it lands at or below the inline mspt
-  (median ratio 0.983, p50 5.60 ms against 6.22 ms), but a realistic world does not have enough parallel work
-  to gain more than that at 3-chunk regions.
-- **Hoppers and pack-admitted machines still require the interior rule**: they can read and mutate live
-  neighboring containers. Furnace-family boundary chunks can now run with border propagation enabled and
-  loaded neighbors; mixed chunks still keep whole-chunk fallback. See the
-  [block entity implementation and next steps](region-threading/BLOCK-ENTITY-PARALLELISM.md).
-- **Structures are not region-aware.** A piston that moves blocks across a border, and Create-style
-  contraptions, still run on the server thread.
-- **Cross-region game-event capture (sculk) is implemented and off by default.** The inline baseline with
-  worker callbacks can reach foreign listeners; validate the target configuration explicitly.
-- **Players tick on the server thread by default.** With `enableRegionThreadingPlayerTicks`, admitted entity calls
-  and the original `ServerPlayer.doTick()` body can run on region workers. The server thread owns the complete
-  connection traversal and joins each dispatched body before continuing. [Player tick execution and validation](docs/modules/player-ticks.en.md)
-- **Long-run and multiplayer acceptance remain open.** A 10-minute 32-fake-player soak (`FullParallelSoakGameTests`,
-  `DYNAMIC_CLUSTER`, 7 workers) achieved `0` ownership violations and lower P50 (`-7.1%`) and GC pause (`-48.8%`),
-  while mean/P95/P99 trailed serial due to coordination overhead and fallback rates; arbitrary C6 canary packs still require their own validation.
-- **Region size is static in the accepted fixed layout.** `DYNAMIC_CLUSTER` loaded-island coalescing is
-  available experimentally outside C6 scope; continuous region ticking was investigated and rejected under the current ordering contract.
+- `DYNAMIC_CLUSTER` is the default region policy; loaded sections dynamically coalesce into connected regions.
+- Ordinary modded block entities can use the generic Region Sandbox without individual adapters. Sandbox guards, runtime demotion and serial fallback remain necessary; arbitrary mod code is not assumed thread-safe.
+- Complex shared-state mods such as Create retain dedicated compatibility handling. Moving contraptions and unsupported callbacks remain serial unless explicitly admitted.
+- The Independent Region Clock was enabled in the C7 validation profile. It decouples region scheduling but does not create an independent world-time timeline; global state and cross-region commits still require coordination.
+- Full fluid simulation has not yet been documented as a generally worker-owned subsystem; fluid parallelization remains ongoing work.
+- Runtime Mod hot-unload remains unsupported.
+- C20 is the planned Forgia 1.21.1 release target. This repository is not declaring a stable release yet.
 
-The full remaining plan is in [region-threading/STATUS.md](region-threading/STATUS.md#roadmap).
-The complete Forgia API inventory, including public types, method signatures, schedulers, operation handles,
-compatibility declarations and configuration fields, is in [the API reference](region-threading/API-REFERENCE.md).
-The experimental public mod integration API and compile-only facade are described in
-[the parallel API guide](region-threading/MOD-PARALLEL-API.md). Complete cross-region operations and
-scheduled callback admission/metrics are documented in [the operation guide](region-threading/CROSS-REGION-OPERATIONS.md). Broader preparation and parallel-spawn filter
-contracts are proposed in [the API RFC](region-threading/MOD-PARALLEL-API-RFC.md); those later stages are not yet implemented.
-An [experimental MobSpawnController adapter](docs/adapters/mobspawncontroller-adapter.en.md) provides frozen rules and
-verified admission for 1.2.3. The ordered nearby/chance experiment is **opt-in and off by default**:
-local pack validation found truncated work and no proven speedup. Default natural spawning stays serial;
-unsupported world filters, multipliers and unverified native hooks also retain the complete serial plan.
-The [experimental Create 6.0.10 adapter](docs/adapters/create-adapter.en.md) now uses the generic
-[audited original-tick API](region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md) for stable transmission parts,
-clutches and gearshifts in the canonical Level path. All Create implementation/state/footprint knowledge
-lives in the adapter; Core validates the shared contract, binding, lifecycle and ownership. The adapter is
-an explicit reviewed trust contract, not automatic proof from a type/hash. Water-wheel/millstone v1 checks
-remain historical explicit-driver coverage; moving contraptions and unknown callbacks stay serial. No
-whole-server performance or installed-modpack compatibility claim follows from this extension.
+See [C7 benchmarks](docs/benchmarks.en.md), [engineering status](docs/status.en.md) and the [evidence archive](region-threading/STATUS.md).
 
 ## Documentation
 
