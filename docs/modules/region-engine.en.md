@@ -4,8 +4,7 @@ English | [中文](region-engine.zh.md) · [Module map](README.en.md)
 Source: [`RegionThreadingEngine`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java), [`RegionLayout`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java), [`LevelTickPhase`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java), [`RegionWorkerPool`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
 Evidence: [FOLIA-REFERENCE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/FOLIA-REFERENCE.md), [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
-Status: **Certified within C6 scope** for the fixed layout, four workers, documented switches. All switches
-default to `false`. `DYNAMIC_CLUSTER` is experimental and falls outside the C6 certification scope.
+Status: **C6 acceptance covers its documented fixed-layout profile.** Separately, `DYNAMIC_CLUSTER` is now the default region policy and has completed the C7 188-mod production validation documented on the [benchmarks page](../benchmarks.en.md). Parallel execution switches still default to `false`; the C7 result applies only to its recorded build, modpack and configuration.
 
 ---
 
