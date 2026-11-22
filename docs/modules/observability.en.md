@@ -164,3 +164,4 @@ measurement).
 | Why so much N/A | Honest gaps beat plausible-looking zeros; coverage requires instrumentation work |
 | Why collect natively | A correct MSPT must match Minecraft's own tallying boundary |
 | Why bounded labels | Unbounded reasons would leak positions and explode memory |
+| `/forgia async` | Inspect Phase 2 `RegionIndependentTickScheduler` status (`trackedRegions`, `inFlight`, `submitted/completed/skippedBusy/failed`, and per-region TPS/EWMA) |

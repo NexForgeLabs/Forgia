@@ -228,11 +228,22 @@ enableRegionThreadingParallelBorderFixpoint = true
 enableRegionThreadingFusedSlices = true
 
 # --- 区域布局与线程池 [重启] ---
-regionThreadingMode = "DYNAMIC_CLUSTER"
-regionThreadingDynamicSectionShift = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"          # 默认架构：动态聚簇（FIXED_3X3 / DYNAMIC 仅作兼容保留）
+regionThreadingDynamicSectionShift = 2
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingFixedRegionChunks = 3
-regionThreadingWorkerThreads = 6                  # 按物理核数调整：4核设3~4，8核设5~6，16核设10~12
+regionThreadingWorkerThreads = 0                  # 0 表示自动按物理核数计算；也可显式指定
+
+# --- Phase 2: 独立 Region 异步时钟与全服 BE 沙盒 [重启] ---
+enableIndependentRegionTickClock = true           # 启用 Folia 式 per-region 异步时钟（消除 BE 全局 Barrier）
+independentRegionTickIntervalNanos = 50000000     # 目标周期 50ms (20 TPS)
+independentRegionMaxCatchUpTicks = 4              # 滞后时最大追帧上限
+enableRegionSandboxAllBlockEntities = true        # 默认把全服所有非移动活塞/非黑名单 BE 丢进 Region Worker 沙盒
+
+# --- 自适应寻路节流 ---
+enableMobPathfindingThrottle = true               # 开启后自动学习：单次寻路 >3ms 冷却 10t，>8ms 冷却 20t
+mobPathfindingCooldowns = ["primal:shark=40", "minecraft:zombie_villager=20"]
+mobPathfindingDefaultCooldownTicks = 0
 
 # --- 区域过载隔离 [重启] ---
 enableRegionOverloadGovernor = true

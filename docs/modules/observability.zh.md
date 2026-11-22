@@ -161,3 +161,4 @@ N/A 就报告为 N/A，而不是伪造的零（例如 `blockentities` 排名会�
 | 为什么这么多 N/A | 诚实的空白胜过看似合理的零；覆盖需要插桩工作 |
 | 为什么原生采集 | 正确的 MSPT 必须与 Minecraft 自己的记账边界一致 |
 | 为什么标签有界 | 无界 reason 会泄漏位置并爆内存 |
+| `/forgia async` | 查看 Phase 2 独立 Region 异步时钟状态（`trackedRegions`、`inFlight`、`submitted/completed/skippedBusy/failed` 及最慢 Region 的独立 TPS 与 EWMA） |

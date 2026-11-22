@@ -109,7 +109,25 @@ Key architectural mechanisms in the block entity pipeline:
 
 ---
 
-## 4. Deep-Dive Module Documentation
+## 4. Phase 1 + Phase 2: Region Sandbox, Independent Clock & Broadcast Adapter
+
+With `DYNAMIC_CLUSTER` as the default region policy, Forgia introduces a Folia-style **Region Sandbox + Broadcast Adapter (`RegionAdapterApi`)** and **Independent Per-Region Tick Clock (`RegionIndependentTickScheduler`)**, allowing ordinary modded Block Entities to parallelize without per-mod adapters (verified in C7 / Issue #5 across a 188-mod pack):
+
+1. **Generic BE Sandbox (`enableRegionSandboxAllBlockEntities`)**:
+   - All non-piston, non-denylisted modded BEs execute in parallel on region workers via the zero-ticket sandbox fast path (`SANDBOX_NATIVE_INSPECTION`).
+   - Any incompatible boundary call or runtime exception fails closed, demotes the BE type to the server thread without crashing, and persists it in `config/regionthreading-learned.json`.
+2. **Sandbox Isolation & Main-Thread Safe Routing**:
+   - `RegionSavedDataSandbox` isolates per-region `DimensionDataStorage` access and supports shared-ID mirroring (`shareSavedData`).
+   - Cross-region `BlockCapability` queries return `null`, `ServerLevel.players()` exposes a safe sandbox view, and worker `sendParticles` / cross-thread `blockEvents` / advancements route safely to the server thread via `RegionAdapterApi.postGlobal` / `enqueueCommit` and synchronized guards.
+3. **Independent Region Clock & Long-Tail Isolation (`RegionIndependentTickScheduler`)**:
+   - Each active region maintains an independent 50ms async clock with an atomic `inFlight` guard so BE waves run without blocking on a global barrier.
+   - `ENTITY_TICK` throttles only hotspot regions (`ewma > 12ms` / `24ms`, keeping players and random ticks at full rate), `SPAWN` staggers across ticks, and `MobPathfindingThrottle` auto-learns slow pathfinding mobs (`>3ms -> 10t`, `>8ms -> 20t`).
+4. **Role of Dedicated Mod Adapters**:
+   - Ordinary mods require no adapter; dedicated adapters (e.g., `forgia-create-parallel-compat` for Create's global kinetic/logistics graphs and single-tick predicates, `forgia-cataclysm-compat` for per-dimension `CMWorldData`) are reserved for mods with intricate global or cross-region state invariants.
+
+---
+
+## 5. Deep-Dive Module Documentation
 
 - [Region Engine & Ownership](modules/region-engine.en.md) — Phases, layouts (`FIXED_3X3`, `DYNAMIC_CLUSTER`), leases, worker pools
 - [Entity Ticks](modules/entity-ticks.en.md) — Section partitions, identity ledger, transfer journal, query guards

@@ -109,7 +109,27 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
 
 ---
 
-## 4. 模块内部文档
+## 4. Phase 1 + Phase 2: Region Sandbox、独立时钟与广播适配架构
+
+自 `DYNAMIC_CLUSTER` 成为默认区域策略后，Forgia 在核心执行层上新增了 Folia 风格的 **Region Sandbox + Broadcast Adapter（`RegionAdapterApi`）** 与 **独立 Region 异步时钟（`RegionIndependentTickScheduler`）**，使绝大多数普通模组无需逐一编写专属 Adapter 即可安全并行：
+
+1. **通用 BE 沙盒（`enableRegionSandboxAllBlockEntities`）**：
+   - 全服所有非移动活塞、非黑名单方块实体通过零票据沙盒快路径（`SANDBOX_NATIVE_INSPECTION`）在各自 Region Worker 上并行执行；
+   - 任何不兼容的边界操作或运行期异常都会自动截断、无崩服降级回主线程并持久化记录至 `config/regionthreading-learned.json`。
+2. **沙盒边界隔离与主线程安全投递**：
+   - `RegionSavedDataSandbox` 为各 Region 隔离 `DimensionDataStorage` 读取并提供 `shareSavedData` 全局镜像；
+   - 跨 Region `BlockCapability` 查询安全返回 `null`，`ServerLevel.players()` 返回沙盒保护视图；
+   - `ServerLevel.sendParticles`、`ServerLevel.blockEvents`、成就触发与实体生成通过 `RegionAdapterApi.postGlobal` / `enqueueCommit` / `synchronized` 安全路由回主线程，避免并发破坏或误杀拉黑。
+3. **独立 Region 异步时钟与长尾隔离（`RegionIndependentTickScheduler`）**：
+   - 每个活跃 Region 拥有独立 50ms 异步时钟与原子 `inFlight` 护栏，BE 批次脱离全局同步 Barrier，慢 Region 不会阻塞快 Region 或主线程；
+   - `ENTITY_TICK` 自动对长尾热点 Region（`ewma > 12ms` / `24ms`）进行 2/3 tick 步幅节流（玩家与随机刻不受影响），`SPAWN` 支持交错分帧调度；
+   - `MobPathfindingThrottle` 自适应学习慢寻路生物（`>3ms` 自动冷却 `10t`，`>8ms` 自动冷却 `20t`）。
+4. **Mod Adapter 的新定位**：
+   - 普通 Mod 无需编写 Adapter；仅 Create（跨区全局动力学/物流网并发容器 + 单 Tick 拓扑守卫）与 Cataclysm（按维度缓存 `CMWorldData`）等复杂 Mod 保留针对性 Adapter。
+
+---
+
+## 5. 模块内部文档
 
 - [区域引擎与所有权](modules/region-engine.zh.md) — 阶段交替、固定/动态布局、租约与线程池
 - [实体 Tick](modules/entity-ticks.zh.md) — 分区存储、身份账本、跨区迁移与查询护栏

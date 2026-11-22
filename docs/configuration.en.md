@@ -228,11 +228,22 @@ enableRegionThreadingParallelBorderFixpoint = true
 enableRegionThreadingFusedSlices = true
 
 # --- Region Layout & Worker Pool [restart] ---
-regionThreadingMode = "DYNAMIC_CLUSTER"
-regionThreadingDynamicSectionShift = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"          # Default architecture (FIXED_3X3 / DYNAMIC are legacy-only)
+regionThreadingDynamicSectionShift = 2
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingFixedRegionChunks = 3
-regionThreadingWorkerThreads = 6                  # 4C -> 3..4, 8C -> 5..6, 16C -> 10..12
+regionThreadingWorkerThreads = 0                  # 0 = auto; or explicit worker count
+
+# --- Phase 2: Independent Region Tick Clock & Generic BE Sandbox [restart] ---
+enableIndependentRegionTickClock = true           # Folia-style per-region async clock (removes BE global barrier)
+independentRegionTickIntervalNanos = 50000000     # 50ms target (20 TPS)
+independentRegionMaxCatchUpTicks = 4              # Max catch-up ticks on lag
+enableRegionSandboxAllBlockEntities = true        # Admit all non-piston, non-denylisted modded BEs into Region Sandbox
+
+# --- Adaptive Mob Pathfinding Throttle ---
+enableMobPathfindingThrottle = true               # Auto-learns slow pathfinding: >3ms -> 10t, >8ms -> 20t cooldown
+mobPathfindingCooldowns = ["primal:shark=40", "minecraft:zombie_villager=20"]
+mobPathfindingDefaultCooldownTicks = 0
 
 # --- Region Overload Isolation [restart] ---
 enableRegionOverloadGovernor = true
