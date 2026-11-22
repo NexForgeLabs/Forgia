@@ -29,7 +29,7 @@ thread; a refusal or failure after effects begin is reported without replaying t
 | **Chunk ticks** | Random ticks, ice/snow, thunder on the region that owns the chunk, including chunks on a region border | 1.24–1.27× (100 % of dispatched chunks on workers) |
 | **Natural spawning** | Per-region spawn bodies against the vanilla level-wide mob cap | spawn slice 4.6 → 2.8–3.9 ms |
 | **Points of interest** | Region-partitioned storage with published snapshots; queries identical to vanilla | villagers **2.1–2.4×**, zombies **3.4×** |
-| **Block entities** | One canonical phase: narrow original Hopper branches, verified burning Furnace prefixes and complete Unknown/Create Serial Fences | C7 production validation recorded 72%–82% BE worker execution share; light stationary BE workloads can still favor serial execution |
+| **Block entities** | One canonical phase: narrow original Hopper branches, generic Region Sandbox for ordinary modded BEs; dedicated compatibility adapters and serial fences for complex/shared-state mods | C7 production validation recorded 72%–82% BE worker execution share; light stationary BE workloads can still favor serial execution |
 | **Redstone** | Cross-region updates converge in the **same tick** through a fixpoint | 49 layouts run twice (on/off), 5 880 tick comparisons, identical to vanilla |
 | **Cross-region reads** | Seqlock chunk versions; a stale read re-runs the region that made it | 0 torn reads, 0 stale takes |
 | **Cross-region mod operations** | Public two-owner block entity operations, bounded sided Container transfers and explicit task outcomes | experimental; operations serialize after workers return |
@@ -112,7 +112,7 @@ enableRegionThreadingPoi = true                    # implied by entity ticks
 enableRegionThreadingBorderUpdates = true
 enableRegionThreadingPersistentWorkers = true
 enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
-regionThreadingMode = "DYNAMIC_CLUSTER"            # recommended mode (FIXED_3X3 remains the C6 baseline)
+regionThreadingMode = "DYNAMIC_CLUSTER"            # recommended mode (FIXED_3X3 remains available for legacy compatibility and controlled tests)
 regionThreadingDynamicSectionShift = 3             # 8x8 chunks (128x128 blocks) per dynamic section
 regionThreadingDynamicSplitDelayTicks = 40
 regionThreadingWorkerThreads = 4
