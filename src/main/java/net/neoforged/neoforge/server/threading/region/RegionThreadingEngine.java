@@ -1133,6 +1133,10 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.blockEntityResourcesEnabled = net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingBlockEntityResources.get();
             this.furnaceWorkWavesEnabled = net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingFurnaceWorkWaves.get();
         }
+        try {
+            org.apache.logging.log4j.core.config.Configurator.setLevel("tacz_aero_compat", org.apache.logging.log4j.Level.WARN);
+        } catch (Throwable ignored) {
+        }
         this.entityStorageMode = options.entityStorageMode();
         this.overloadConfig = options.overload();
         this.overloadGovernor = this.overloadConfig.enabled() && this.layout.isDynamicCluster()
