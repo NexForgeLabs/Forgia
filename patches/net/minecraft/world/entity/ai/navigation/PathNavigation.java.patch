@@ -1,5 +1,28 @@
 --- a/net/minecraft/world/entity/ai/navigation/PathNavigation.java
 +++ b/net/minecraft/world/entity/ai/navigation/PathNavigation.java
+@@ -52,6 +_,7 @@
+     private float maxVisitedNodesMultiplier = 1.0F;
+     private final PathFinder pathFinder;
+     private boolean isStuck;
++    private long forgiaLastPathfindTick = Long.MIN_VALUE;
+ 
+     public PathNavigation(Mob p_26515_, Level p_26516_) {
+         this.mob = p_26515_;
+@@ -138,6 +_,14 @@
+         } else if (this.path != null && !this.path.isDone() && p_148223_.contains(this.targetPos)) {
+             return this.path;
+         } else {
++            int forgiaCooldown = net.neoforged.neoforge.server.threading.region.MobPathfindingThrottle.cooldownTicksFor(this.mob);
++            if (forgiaCooldown > 0) {
++                long forgiaNow = this.level.getGameTime();
++                if (net.neoforged.neoforge.server.threading.region.MobPathfindingThrottle.shouldThrottle(this.forgiaLastPathfindTick, forgiaNow, forgiaCooldown)) {
++                    return this.path != null && !this.path.isDone() ? this.path : null;
++                }
++                this.forgiaLastPathfindTick = forgiaNow;
++            }
+             this.level.getProfiler().push("pathfind");
+             BlockPos blockpos = p_148225_ ? this.mob.blockPosition().above() : this.mob.blockPosition();
+             int i = (int)(p_148227_ + (float)p_148224_);
 @@ -232,10 +_,10 @@
          Vec3 vec3 = this.getTempMobPos();
          this.maxDistanceToWaypoint = this.mob.getBbWidth() > 0.75F ? this.mob.getBbWidth() / 2.0F : 0.75F - this.mob.getBbWidth() / 2.0F;

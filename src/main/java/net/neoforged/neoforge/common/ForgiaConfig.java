@@ -145,6 +145,12 @@ public final class ForgiaConfig {
 
         public final ConfigValue<List<? extends String>> itemCleanupWhitelist;
 
+        public final BooleanValue enableMobPathfindingThrottle;
+
+        public final ConfigValue<List<? extends String>> mobPathfindingCooldowns;
+
+        public final IntValue mobPathfindingDefaultCooldownTicks;
+
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
                     .define("runtimeDiagnosticsEnabled", true);
@@ -429,6 +435,22 @@ public final class ForgiaConfig {
                     .comment("List of item registry IDs (e.g. [\"minecraft:nether_star\", \"minecraft:elytra\"]) that are never removed by item cleanup.")
                     .translation("neoforge.configgui.itemCleanupWhitelist")
                     .defineListAllowEmpty("itemCleanupWhitelist", List::of, () -> "", element -> element instanceof String s && !s.isBlank());
+
+            enableMobPathfindingThrottle = builder
+                    .comment("Enables per-entity-type cooldown throttling on PathNavigation.createPath to prevent expensive 3D/long-range A* pathfinding mobs (such as primal:shark) from stalling region workers. Reuses active paths during cooldown. Default off.")
+                    .translation("neoforge.configgui.enableMobPathfindingThrottle")
+                    .define("enableMobPathfindingThrottle", false);
+
+            mobPathfindingCooldowns = builder
+                    .comment("Per-entity-type minimum tick interval between full pathfinding computations, formatted as \"namespace:entity_id=ticks\" (e.g. [\"primal:shark=40\", \"minecraft:zombie_villager=20\"]).")
+                    .translation("neoforge.configgui.mobPathfindingCooldowns")
+                    .defineListAllowEmpty("mobPathfindingCooldowns", () -> List.of("primal:shark=40"), () -> "primal:shark=40",
+                            net.neoforged.neoforge.server.threading.region.MobPathfindingThrottle::isValidEntry);
+
+            mobPathfindingDefaultCooldownTicks = builder
+                    .comment("Optional default minimum tick interval between full pathfinding computations for mobs not listed in mobPathfindingCooldowns (0 disables global throttling). Default 0.")
+                    .translation("neoforge.configgui.mobPathfindingDefaultCooldownTicks")
+                    .defineInRange("mobPathfindingDefaultCooldownTicks", 0, 0, 200);
         }
     }
 }
