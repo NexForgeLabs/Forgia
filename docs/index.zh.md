@@ -1,195 +1,110 @@
 <div class="hero" markdown>
   <div class="hero-copy">
-    <p class="eyebrow"><span class="eyebrow-mark"></span> NexForge Labs <span class="eyebrow-sep">/</span> NeoForge 1.21.1 运行时</p>
-    <h1>面向模组世界的<br><em>区域化并发执行引擎。</em></h1>
-    <p class="hero-lede">Forgia 将原版 Forge / NeoForge 的单线程服务端主循环改造为交替执行的 <code>GLOBAL</code> 与 <code>REGION</code> 阶段——结合显式空间租约、工作线程池并行以及面向未审计模组回调的 Fail-Closed 串行围栏（Serial Fence）。</p>
+    <p class="eyebrow"><span class="eyebrow-mark"></span> NexForge Labs <span class="eyebrow-sep">/</span> NeoForge 1.21.1</p>
+    <h1>让模组世界<br><em>真正用上多核。</em></h1>
+    <p class="hero-lede">Forgia 是面向 NeoForge 的区域化服务端运行时。它将已加载世界划分为动态合并的 Region，把符合条件的实体、方块实体与世界 Tick 工作交给 Worker 并行执行，同时通过显式所有权边界和 Fail-Closed 回退机制控制并发风险。</p>
     <div class="hero-actions">
-      <a class="action-primary" href="../architecture.zh/">架构对比：原版 vs Forgia <span>↗</span></a>
-      <a class="action-secondary" href="../benchmarks.zh/">实测性能数据 <span>↗</span></a>
+      <a class="action-primary" href="../architecture.zh/">了解架构 <span>↗</span></a>
+      <a class="action-secondary" href="../benchmarks.zh/">C7 生产实测 <span>↗</span></a>
       <a class="action-secondary" href="../">English Home <span>↗</span></a>
     </div>
-    <p class="hero-footnote"><span class="status-dot"></span> C6 认证范围（固定布局） <span class="hero-footnote-divider">·</span> 所有实验开关默认关闭</p>
+    <p class="hero-footnote"><span class="status-dot"></span> C7 生产验证已完成 <span class="hero-footnote-divider">·</span> NeoForge 1.21.1</p>
   </div>
   <figure class="hero-visual">
-    <div class="visual-topline"><span>原版 NeoForge vs Forgia</span><span>架构蓝图 / 01</span></div>
-    <img src="../assets/arch-stock-vs-forgia.zh.svg" alt="对比原版 Forge/NeoForge 单线程执行模型与 Forgia 交替 GLOBAL/REGION 工作线程模型的架构图。" />
-    <figcaption class="visual-caption"><span>单服务端主线程 → 显式区域租约</span><span>保留 Fail-Closed 串行围栏</span></figcaption>
+    <div class="visual-topline"><span>Forgia / 区域化运行时</span><span>架构 / 01</span></div>
+    <img src="../assets/arch-region-hierarchy.zh.svg" alt="动态区域拓扑与并行 Worker 执行结构图。" />
+    <figcaption class="visual-caption"><span>动态加载岛 Region</span><span>显式所有权 · Fail-Closed 兼容边界</span></figcaption>
   </figure>
 </div>
 
 <div class="spec-strip">
-  <div><span class="spec-label">基线目标</span><strong>NeoForge <b>1.21.1</b></strong></div>
-  <div><span class="spec-label">实体并行度</span><strong>最高 <b>4.5×</b>（1024 只牛）</strong></div>
-  <div><span class="spec-label">32 玩家规模</span><strong><b>3.97 ms</b>（较串行 -6.4%）</strong></div>
-  <div><span class="spec-label">64 熔炉 · .100</span><strong><b>2.40 ms</b> Worker · <b>0.26 ms</b> 串行</strong></div>
+  <div><span class="spec-label">目标平台</span><strong>NeoForge <b>1.21.1</b></strong></div>
+  <div><span class="spec-label">生产整合包</span><strong><b>188</b> 个启用 Mod</strong></div>
+  <div><span class="spec-label">多人耐久测试</span><strong><b>20 TPS</b> · 80 分钟</strong></div>
+  <div><span class="spec-label">高速跑图测试</span><strong><b>179</b> 个活跃 Region</strong></div>
 </div>
 
 <section class="arch-section-home">
   <div class="section-heading">
-    <div>
-      <div class="section-index">01 <span>— 架构对比</span></div>
-      <h2>单线程全局共享 vs<br><em>显式所有权分区。</em></h2>
-    </div>
-    <p class="status-lede">原版 Forge 在单一服务端线程的共享内存中顺序执行每个 tick 切片；Forgia 在保留原版因果顺序的同时，将合格工作切分至持有租约的 Worker 区域并行执行。</p>
+    <div><div class="section-index">01 <span>— Forgia 是什么</span></div><h2>区域化并发执行，<br><em>不只是多开几个线程。</em></h2></div>
+    <p class="status-lede">Minecraft 世界和模组回调中存在大量共享状态与单线程假设。Forgia 显式管理资源所有权，让相互独立的 Region 并发执行；无法证明兼容的工作仍留在服务端线程。</p>
   </div>
-
   <div class="compare-grid">
     <div class="compare-card compare-card--stock">
-      <div class="compare-card-head">
-        <h3>原版 Forge / NeoForge</h3>
-        <span class="compare-badge">单服务端线程</span>
-      </div>
+      <div class="compare-card-head"><h3>原版 NeoForge</h3><span class="compare-badge">顺序 Tick</span></div>
       <div class="compare-card-body">
-        <p class="compare-lead">全部世界模拟——区块、实体、方块实体、红石与玩家——竞争同一个 50 ms 串行主循环。</p>
+        <p class="compare-lead">大部分世界模拟都竞争服务端线程的 50ms Tick 预算。</p>
         <ul class="compare-steps">
-          <li><span class="compare-step-key">执行模型</span><span><code>ServerLevel.tick</code> 在单核顺序运行；异步 Future 仅限于区块 IO 与生成。</span></li>
-          <li><span class="compare-step-key">所有权</span><span>隐式全局线程亲和性；模组可自由修改邻近区块或共享注册表。</span></li>
-          <li><span class="compare-step-key">方块实体</span><span>扁平的 <code>Level.tickBlockEntities</code> 循环串行执行每一个熔炉、漏斗与机器。</span></li>
-          <li><span class="compare-step-key">扩展瓶颈</span><span>高实体数量或分散的多人基地很快饱和单核 CPU。</span></li>
+          <li><span class="compare-step-key">世界模拟</span><span>实体、方块实体与大量世界更新沿单一 Tick 流程执行。</span></li>
+          <li><span class="compare-step-key">模组生态</span><span>模组通常依赖隐式的服务端线程访问共享世界状态。</span></li>
+          <li><span class="compare-step-key">扩展瓶颈</span><span>分散的玩家基地和高密度实体可能争抢同一个 CPU 核心。</span></li>
         </ul>
       </div>
     </div>
-
     <div class="compare-card compare-card--forgia">
-      <div class="compare-card-head">
-        <h3>Forgia 区域化核心</h3>
-        <span class="compare-badge">GLOBAL ↔ REGION</span>
-      </div>
+      <div class="compare-card-head"><h3>Forgia</h3><span class="compare-badge">GLOBAL ↔ REGION</span></div>
       <div class="compare-card-body">
-        <p class="compare-lead">在静默的 <code>GLOBAL</code> 协调边界与并行的 <code>REGION</code> Worker 批次间交替执行——绝不假设任意模组代码线程安全。</p>
+        <p class="compare-lead">独立 Region 在显式所有权租约保护下，将合格工作交给 Worker 并行执行。</p>
         <ul class="compare-steps">
-          <li><span class="compare-step-key">执行模型</span><span><code>RegionWorkerThread</code> 线程池基于直连线程字段与 <code>preWake</code> 并行执行已租约区域。</span></li>
-          <li><span class="compare-step-key">所有权</span><span><code>RegionState</code> 空间租约 + <code>BlockEntityResourceOwnership</code> 读写（READ/WRITE）作用域。</span></li>
-          <li><span class="compare-step-key">方块实体</span><span><code>CanonicalBlockEntityCoordinator</code> 派发已证明前缀；未知模组触发串行围栏。</span></li>
-          <li><span class="compare-step-key">安全边界</span><span>所有开关默认 <code>false</code>；至多执行一次（不重放），卸载时物理 join。</span></li>
+          <li><span class="compare-step-key">动态拓扑</span><span><code>DYNAMIC_CLUSTER</code> 将已加载 Section 动态合并、拆分为连通的 Region 岛屿。</span></li>
+          <li><span class="compare-step-key">通用沙盒</span><span>普通模组方块实体可进入通用 Region Sandbox，无需每个模组单独编写 Adapter。</span></li>
+          <li><span class="compare-step-key">安全边界</span><span>未知或不兼容回调 Fail-Closed 回退串行路径，不会盲目重放已产生副作用的代码。</span></li>
         </ul>
       </div>
     </div>
   </div>
-  <figure class="diagram-frame">
-    <img src="../assets/arch-region-hierarchy.zh.svg" alt="对比原版 Forge 单线程扁平队列与 Forgia 在独立 Worker 上并行运行已租约区域的执行层级图。" />
-    <figcaption class="diagram-caption">
-      <span>执行层级 // 独立区域并行</span>
-      <span>按区域租约 · 多核 WORKER · 屏障 JOIN</span>
-    </figcaption>
-  </figure>
-  <a class="text-link" href="../architecture.zh/">查看完整原版 vs Forgia 架构与子系统矩阵 <span>↗</span></a>
-</section>
-
-<section class="architecture-section">
-  <div class="section-heading">
-    <div class="section-index">02 <span>— 核心设计</span></div>
-    <h2>让并发<br><em>显式且可验证。</em></h2>
-  </div>
-  <figure class="diagram-frame">
-    <img src="../assets/arch-be-pipeline.zh.svg" alt="Forgia Canonical 方块实体执行管线：O(1) 前缀证明、租约与 preWake、零 ThreadLocal Worker 作用域、物理 join 与串行围栏回退。" />
-    <figcaption class="diagram-caption">
-      <span>CANONICAL 方块实体热路径（main @ 7efd88d）</span>
-      <span>O(1) 前缀证明 · 零 THREADLOCAL WORKER 作用域 · 完整串行围栏</span>
-    </figcaption>
-  </figure>
-  <div class="focus-grid">
-    <article class="focus-item">
-      <span class="focus-number">A / 01</span>
-      <h3>区域租约与工作线程</h3>
-      <p>将世界划分为动态合并/拆分的加载岛屿（<code>DYNAMIC_CLUSTER</code>，推荐）或 <code>FIXED_3X3</code>（3..32 区块）固定网格，由 Fixed 或 Persistent 窃取型 <code>RegionWorkerThread</code> 执行。</p>
-      <span class="focus-rule"></span>
-    </article>
-    <article class="focus-item">
-      <span class="focus-number">A / 02</span>
-      <h3>Canonical BE 与资源作用域</h3>
-      <p>以单调游标保持原版 ticker 顺序，结合 O(1) 增量前缀独立性、稀疏清理的 <code>ResourceTable</code> 与非阻塞波次租约。</p>
-      <span class="focus-rule"></span>
-    </article>
-    <article class="focus-item">
-      <span class="focus-number">A / 03</span>
-      <h3>Fail-Closed 兼容性</h3>
-      <p>未知模组回调、Mixin 改造方法或机械动力动态装置绝不会在后台线程投机执行——它们会物理 join Worker 并在主线程执行一次。</p>
-      <span class="focus-rule"></span>
-    </article>
-  </div>
+  <a class="text-link" href="../architecture.zh/">查看完整架构与安全模型 <span>↗</span></a>
 </section>
 
 <section class="perf-section">
   <div class="section-heading">
-    <div>
-      <div class="section-index">03 <span>— 实测性能</span></div>
-      <h2>Worker 在哪里显著领先，<br><em>以及哪里仍由串行占优。</em></h2>
-    </div>
-    <p class="status-lede">以下每项测量均验证完整的世界状态或 NBT 等价性。Forgia 在高实体与多人场景下提供显著加速，同时如实记录小型静态方块实体上的协调开销。</p>
+    <div><div class="section-index">02 <span>— 最新生产验证</span></div><h2>在真实的<br><em>188 Mod 整合包上测试。</em></h2></div>
+    <p class="status-lede">C7 使用 SkyExplorer 生产整合包，包含 Create、Cataclysm、Sable、TacZ 等模组。以下是特定负载下的观测结果，不代表所有整合包都能获得相同加速。</p>
   </div>
-
   <div class="perf-grid">
-    <div class="perf-card">
-      <div class="perf-card-top">
-        <h3>1024 实体（牛 / 村民）</h3>
-        <span class="perf-delta">2.1× – 4.5× 加速</span>
-      </div>
-      <p class="perf-sub">4 核/8 线程，JDK 21，ZGC，固定 3×3 区域，4 个 Worker（MSPT 越低越好）。</p>
-      <div class="bar-group">
-        <div class="bar-row"><span class="bar-label">1024 牛（关闭）</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:100%"></div></div><span class="bar-val">27.3 mspt</span></div>
-        <div class="bar-row"><span class="bar-label">1024 牛（开启）</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:22%"></div></div><span class="bar-val">6.0 mspt</span></div>
-        <div class="bar-row"><span class="bar-label">1024 村民（关闭）</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:100%"></div></div><span class="bar-val">54.5 mspt</span></div>
-        <div class="bar-row"><span class="bar-label">1024 村民（开启）</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:47%"></div></div><span class="bar-val">25.7 mspt</span></div>
-      </div>
-      <p class="perf-note">1024 僵尸：22.8 → 6.6 mspt（3.4×）。289 区块自然刷怪：4.13–4.62 → 2.79–3.93 ms（1.15–1.65×）。</p>
-    </div>
-
-    <div class="perf-card">
-      <div class="perf-card-top">
-        <h3>32 真实 TCP 玩家（n32-spread）</h3>
-        <span class="perf-delta">14.7× 对比 .154 · -6.4% 对比串行</span>
-      </div>
-      <p class="perf-sub">32 名分散在不同区域的在线玩家，Persistent Worker，10 秒预热 + 30 秒测量。</p>
-      <div class="bar-group">
-        <div class="bar-row"><span class="bar-label">.154 Persistent 开启</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">58.30 ms</span></div>
-        <div class="bar-row"><span class="bar-label">.221 串行（关闭）</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:14%"></div></div><span class="bar-val">4.24 ms</span></div>
-        <div class="bar-row"><span class="bar-label">.221 2 Workers 开启</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:14%"></div></div><span class="bar-val">4.22 ms</span></div>
-        <div class="bar-row"><span class="bar-label">.221 4 Workers 开启</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:12%"></div></div><span class="bar-val">3.97 ms</span></div>
-      </div>
-      <p class="perf-note">两阶段派发开销从 2.450 降至 0.918 ms/tick；Ping P99 从 314.11 降至 6.35 ms。</p>
-    </div>
-
-    <div class="perf-card"><div class="perf-card-top"><h3>64 个燃烧熔炉（最新 .100）</h3><span class="perf-delta perf-delta--neutral">Worker 路径仍较慢</span></div><p class="perf-sub">最终 .100 安装服务端独立确认，4 个 Worker、2 GiB G1；400 tick 预热 + 400 tick 测量窗口。完整 NBT 与物品守恒验证通过。</p><div class="bar-group"><div class="bar-row"><span class="bar-label">Forgia .100 Workers</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">2.40 ms</span></div><div class="bar-row"><span class="bar-label">Forgia 串行</span><div class="bar-track"><div class="bar-fill bar-fill--serial" style="width:11%"></div></div><span class="bar-val">0.26 ms</span></div><div class="bar-row"><span class="bar-label">原版 NeoForge 21.1.249</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:10%"></div></div><span class="bar-val">0.23 ms</span></div></div><p class="perf-note">Worker 分配速率约 18.7 MiB/s。该轻量静态原版 BE fixture 主要暴露协调开销；它不能代表整合包整体表现。</p></div>
-
-    <div class="perf-card"><div class="perf-card-top"><h3>6000 Tick 混合普通世界耐久（.100）</h3><span class="perf-delta perf-delta--neutral">尚未证明整体加速</span></div><p class="perf-sub">包含红石、POI、实体、自然刷怪与随机刻；同一 2 GiB/G1 测试配置。</p><div class="bar-group"><div class="bar-row"><span class="bar-label">.100 诊断开启</span><div class="bar-track"><div class="bar-fill bar-fill--before" style="width:100%"></div></div><span class="bar-val">均值 8.204 ms</span></div><div class="bar-row"><span class="bar-label">.100 采样关闭</span><div class="bar-track"><div class="bar-fill bar-fill--stock" style="width:95%"></div></div><span class="bar-val">均值 7.776 ms</span></div><div class="bar-row"><span class="bar-label">反向顺序开启（通过）</span><div class="bar-track"><div class="bar-fill bar-fill--forgia" style="width:98%"></div></div><span class="bar-val">均值 8.406 ms</span></div></div><p class="perf-note">通过的测量单元均满足 51/51 项不变量。开启/关闭的 P95 为 11.320 / 11.170 ms，P99 为 16.948 / 17.250 ms。反向顺序关闭单元未通过区域映射断言，已排除；因此不声称已确定诊断采样的因果开销上限。</p></div>
+    <div class="perf-card"><div class="perf-card-top"><h3>多人高负载</h3><span class="perf-delta">20.0 TPS</span></div><p class="perf-sub">44–86 个活跃 Region · 267–825 区块 · 80 分钟耐久测试</p><p><strong>18.2–28.4 ms MSPT</strong></p><p class="perf-note">记录的 80 分钟测试窗口内无崩溃。</p></div>
+    <div class="perf-card"><div class="perf-card-top"><h3>高速跑图</h3><span class="perf-delta">20.0 TPS</span></div><p class="perf-sub">179 个活跃 Region · 530 个区块</p><p><strong>平均 18.8 ms MSPT</strong></p><p class="perf-note">1 分钟 Max 为 87.2 ms；进程 CPU 峰值 407%（约 4 个逻辑核心忙碌）。</p></div>
+    <div class="perf-card"><div class="perf-card-top"><h3>方块实体执行</h3><span class="perf-delta">72–82%</span></div><p class="perf-sub">C7 负载中由 Worker 执行的 BE 工作占比。</p><p><strong>自动降级 2–3 种 BE 类型</strong></p><p class="perf-note">这是 Worker 执行占比，不代表 72–82% 的所有模组类型都已兼容。</p></div>
+    <div class="perf-card"><div class="perf-card-top"><h3>串行 Fence 开销</h3><span class="perf-delta">下降 91%</span></div><p class="perf-sub">与此前记录状态的对比。</p><p><strong>4,116 ms → 360 ms</strong></p><p class="perf-note">报告中的 Fence 次数从 911,115 降至 18,446。</p></div>
   </div>
-  <a class="text-link" href="../benchmarks.zh/">查看完整基准测试表格与方法论 <span>↗</span></a>
+  <a class="text-link" href="../benchmarks.zh/">查看测试条件、限制与历史基准 <span>↗</span></a>
+</section>
+
+<section class="architecture-section">
+  <div class="section-heading"><div><div class="section-index">03 <span>— 核心系统</span></div><h2>以资源所有权<br><em>约束并发。</em></h2></div></div>
+  <div class="focus-grid">
+    <article class="focus-item"><span class="focus-number">A / 01</span><h3>Dynamic Cluster</h3><p>已加载 Section 动态合并为连通 Region；拓扑变化后，空置 Section 会延迟拆分。这是默认区域策略。</p><span class="focus-rule"></span></article>
+    <article class="focus-item"><span class="focus-number">A / 02</span><h3>通用 Region Sandbox</h3><p>普通第三方方块实体无需逐模组编写 Adapter。越界访问和不安全行为会被隔离，并可降级回串行执行。</p><span class="focus-rule"></span></article>
+    <article class="focus-item"><span class="focus-number">A / 03</span><h3>独立 Region 时钟</h3><p>各 Region 可独立调度工作，不必等待所有 Region 在同一个全局 Tick Barrier 同步完成；全局世界状态仍通过协调边界处理。</p><span class="focus-rule"></span></article>
+    <article class="focus-item"><span class="focus-number">A / 04</span><h3>专用兼容层</h3><p>对于 Create 这类拥有全局网络或跨区不变量的复杂模组，可使用专用兼容 Adapter。大多数普通模组不需要 Adapter。</p><span class="focus-rule"></span></article>
+  </div>
 </section>
 
 <section class="status-section">
-  <div class="section-index">04 <span>— 状态与边界</span></div>
+  <div class="section-index">04 <span>— 项目状态</span></div>
   <div class="status-layout">
-    <div>
-      <h2>持续演进的<br><em>系统工程。</em></h2>
-      <p class="status-lede">Forgia 是活跃的系统研究项目——它不是 Folia 的简单平替，也不承诺任意整合包无需适配即可自动并行。</p>
-    </div>
+    <div><h2>已完成生产验证。<br><em>仍在持续开发。</em></h2><p class="status-lede">C7 已完成文档所述 188 Mod 负载的生产验证。Forgia 尚不宣称自己是所有模组包都能直接替换的通用稳定版。</p></div>
     <div class="status-details">
-      <div class="status-row"><span class="status-key">C6 验收</span><span>170/170 项必测 GameTest 在 Persistent 与 Fixed 两个配置上全部通过（另有 10 项跳过的基准/耐久测试）。</span></div>
-      <div class="status-row"><span class="status-key">生命周期与 GC</span><span>停服真实 Level GC 已认证（28/28 跟踪引用全部回收）；运行时 Mod 热卸载仍不支持。</span></div>
-      <div class="status-row"><span class="status-key">串行边界</span><span>结构/活塞、Create 动态装置及未审计模组回调保留在主线程；玩家区域 tick 为默认关闭的实验特性。</span></div>
-      <div class="status-row"><span class="status-key">生产默认值</span><span>全部 16+ 项区域线程与资源开关默认 <code>false</code>；请按具体负载显式评估开启。</span></div>
-      <a class="text-link" href="../status.zh/">阅读详细工程状态与测试回执 <span>↗</span></a>
+      <div class="status-row"><span class="status-key">平台</span><span>NeoForge 1.21.1；本网站描述当前 1.21.1 开发线。</span></div>
+      <div class="status-row"><span class="status-key">区域策略</span><span><code>DYNAMIC_CLUSTER</code> 为默认策略；旧布局仅用于兼容和特定测试。</span></div>
+      <div class="status-row"><span class="status-key">模组兼容</span><span>普通 BE 使用通用 Sandbox；复杂共享状态行为使用专用 Adapter 或串行围栏。</span></div>
+      <div class="status-row"><span class="status-key">正式发布</span><span>Forgia 1.21.1 Stable 仍是未来里程碑；当前计划以 C20 为目标。</span></div>
+      <a class="text-link" href="../status.zh/">查看工程状态与历史证据 <span>↗</span></a>
     </div>
   </div>
 </section>
 
 <section class="docs-section">
-  <div class="section-index">05 <span>— 文档导航</span></div>
-  <div class="docs-heading"><h2>深入阅读<br><em>代码与文档。</em></h2><span>完整中英双语技术参考</span></div>
+  <div class="section-index">05 <span>— 文档</span></div>
+  <div class="docs-heading"><h2>了解整个<br><em>项目。</em></h2><span>中英文双语参考文档</span></div>
   <div class="docs-links">
-    <a href="../architecture.zh/"><span class="docs-code">01</span><span><strong>架构对比：原版 vs Forgia</strong><small>执行模型、阶段交替、Canonical BE 管线与安全不变量</small></span><span class="docs-arrow">↗</span></a>
-    <a href="../benchmarks.zh/"><span class="docs-code">02</span><span><strong>实测性能基准</strong><small>1024 实体、32 玩家规模、64 熔炉热路径与 6000-tick / 10 分钟耐久数据</small></span><span class="docs-arrow">↗</span></a>
-    <a href="../api/README.zh/"><span class="docs-code">03</span><span><strong>并行 API 与模组适配器</strong><small>公开契约、受审计 BE 执行接口、Create 与 MSC 适配器</small></span><span class="docs-arrow">↗</span></a>
-    <a href="../modules/README.zh/"><span class="docs-code">04</span><span><strong>引擎内部实现</strong><small>区域引擎、实体存储、区块边界不动点与可观测性</small></span><span class="docs-arrow">↗</span></a>
-    <a href="../"><span class="docs-code">EN</span><span><strong>English Home &amp; Reference</strong><small>Switch to the English landing page and documentation index</small></span><span class="docs-arrow">↗</span></a>
+    <a href="../architecture.zh/"><span class="docs-code">01</span><span><strong>架构设计</strong><small>区域拓扑、执行阶段、资源所有权与安全模型</small></span><span class="docs-arrow">↗</span></a>
+    <a href="../benchmarks.zh/"><span class="docs-code">02</span><span><strong>性能基准</strong><small>C7 生产负载、受控测试与历史测量数据</small></span><span class="docs-arrow">↗</span></a>
+    <a href="../configuration.zh/"><span class="docs-code">03</span><span><strong>配置与调优</strong><small>运行时开关、Region Worker 与硬件配置</small></span><span class="docs-arrow">↗</span></a>
+    <a href="../api/README.zh/"><span class="docs-code">04</span><span><strong>并行 API 与 Adapter</strong><small>模组开发者接口与专用兼容层</small></span><span class="docs-arrow">↗</span></a>
+    <a href="../"><span class="docs-code">EN</span><span><strong>English documentation</strong><small>Architecture, benchmarks, configuration and engineering status</small></span><span class="docs-arrow">↗</span></a>
   </div>
 </section>
 
-<div class="closing-band">
-  <span>Open engineering · NexForge Labs</span>
-  <a href="https://github.com/NexForgeLabs/Forgia">在 GitHub 上关注开发进度 <span>↗</span></a>
-</div>
-
-<div class="site-disclaimer">Forgia 为实验性软件。测试前请务必备份存档与配置。兼容性与性能表现取决于具体整合包、配置参数与实际负载。</div>
-<div class="design-credit">Design approach adapted from <a href="https://github.com/heydamir/unslop">Unslop</a> by Damir Sokolovsky · CC BY 4.0</div>
+<div class="closing-band"><span>开放工程 · NexForge Labs</span><a href="https://github.com/NexForgeLabs/Forgia">在 GitHub 关注开发进度 <span>↗</span></a></div>
+<div class="site-disclaimer">Forgia 仍处于持续开发阶段。测试前请备份世界与配置。兼容性和性能取决于具体构建、整合包、配置及负载。除文档明确说明外，并行执行开关仍需用户主动启用。</div>
