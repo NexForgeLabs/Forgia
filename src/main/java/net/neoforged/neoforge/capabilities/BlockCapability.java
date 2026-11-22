@@ -198,7 +198,9 @@ public final class BlockCapability<T, C extends @Nullable Object> extends BaseCa
     public T getCapability(Level level, BlockPos pos, @Nullable BlockState state, @Nullable BlockEntity blockEntity, C context) {
         // Convert pos to immutable, it's easy to forget otherwise
         pos = pos.immutable();
-        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertBlockCapabilityAccess(level, pos, this.name().toString());
+        if (!net.neoforged.neoforge.server.threading.RegionThreadingHooks.canAccessBlockCapabilitySandboxed(level, pos, this.name().toString())) {
+            return null;
+        }
 
         // Get block state and block entity if they were not provided
         if (blockEntity == null) {

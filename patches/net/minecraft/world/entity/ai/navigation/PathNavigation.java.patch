@@ -8,7 +8,7 @@
  
      public PathNavigation(Mob p_26515_, Level p_26516_) {
          this.mob = p_26515_;
-@@ -138,6 +_,14 @@
+@@ -138,10 +_,12 @@
          } else if (this.path != null && !this.path.isDone() && p_148223_.contains(this.targetPos)) {
              return this.path;
          } else {
@@ -21,8 +21,13 @@
 +                this.forgiaLastPathfindTick = forgiaNow;
 +            }
              this.level.getProfiler().push("pathfind");
++            long forgiaPathStart = System.nanoTime();
              BlockPos blockpos = p_148225_ ? this.mob.blockPosition().above() : this.mob.blockPosition();
              int i = (int)(p_148227_ + (float)p_148224_);
+             PathNavigationRegion pathnavigationregion = new PathNavigationRegion(this.level, blockpos.offset(-i, -i, -i), blockpos.offset(i, i, i));
+             Path path = this.pathFinder.findPath(pathnavigationregion, this.mob, p_148223_, p_148227_, p_148226_, this.maxVisitedNodesMultiplier);
++            net.neoforged.neoforge.server.threading.region.MobPathfindingThrottle.recordPathfindingDuration(this.mob, System.nanoTime() - forgiaPathStart);
+             this.level.getProfiler().pop();
 @@ -232,10 +_,10 @@
          Vec3 vec3 = this.getTempMobPos();
          this.maxDistanceToWaypoint = this.mob.getBbWidth() > 0.75F ? this.mob.getBbWidth() / 2.0F : 0.75F - this.mob.getBbWidth() / 2.0F;

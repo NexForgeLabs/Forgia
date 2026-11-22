@@ -24,6 +24,10 @@ final class CanonicalBlockEntityCoordinator {
 
         boolean mayAppend(List<Unit> prefix, Unit next);
 
+        default boolean maySkipInFenceTail(List<Unit> prefix, Unit next) {
+            return next.getClass() != prefix.getFirst().getClass();
+        }
+
         default int prefixLimit(Unit first) {
             return RegionBlockEntityWorkGraph.MAX_UNITS;
         }
@@ -85,15 +89,27 @@ final class CanonicalBlockEntityCoordinator {
         }
 
         // Opt-in fence-tail mode: defer unproven serial-fence units to a single serial tail after parallel
-        // waves join, collapsing N+1 barrier rounds into minimal waves at the cost of canonical ordering
-        // between fenced and unfenced block entities.
+        // waves join, and coalesce interleaved parallel invocation kinds (e.g. ExecutionInvocation vs
+        // NativeInvocation) into separate full-width waves without breaking on every kind alternation.
         final List<Unit> prefix = new ArrayList<>();
         final int total = this.ordered.size();
+        final boolean[] completed = new boolean[total];
+        final Unit[] preparedUnits = new Unit[total];
         final it.unimi.dsi.fastutil.ints.IntArrayList prefixIndices = new it.unimi.dsi.fastutil.ints.IntArrayList();
         final it.unimi.dsi.fastutil.ints.IntArrayList deferredFences = new it.unimi.dsi.fastutil.ints.IntArrayList(total);
         while (this.cursor < total) {
-            final var first = driver.prepare(this.cursor);
+            if (completed[this.cursor]) {
+                ++this.cursor;
+                continue;
+            }
+            Unit first = preparedUnits[this.cursor];
+            if (first != null) {
+                preparedUnits[this.cursor] = null;
+            } else {
+                first = driver.prepare(this.cursor);
+            }
             if (first == null) {
+                completed[this.cursor] = true;
                 deferredFences.add(this.cursor);
                 ++this.cursor;
                 continue;
@@ -102,36 +118,65 @@ final class CanonicalBlockEntityCoordinator {
             prefixIndices.clear();
             prefix.add(first);
             prefixIndices.add(this.cursor);
+            final Class<?> waveUnitClass = first.getClass();
             final int limit = Math.min(RegionBlockEntityWorkGraph.MAX_UNITS, driver.prefixLimit(first));
             if (limit < 1) throw new IllegalStateException("Empty canonical planning window");
             int scan = this.cursor + 1;
             while (scan < total && prefix.size() < limit) {
-                final var next = driver.prepare(scan);
-                if (next == null) {
-                    deferredFences.add(scan);
+                if (completed[scan]) {
                     ++scan;
                     continue;
                 }
+                Unit next = preparedUnits[scan];
+                if (next == null) {
+                    next = driver.prepare(scan);
+                    if (next == null) {
+                        completed[scan] = true;
+                        deferredFences.add(scan);
+                        ++scan;
+                        continue;
+                    }
+                }
                 if (!driver.mayAppend(prefix, next)) {
+                    preparedUnits[scan] = next;
+                    if (driver.maySkipInFenceTail(prefix, next)) {
+                        ++scan;
+                        continue;
+                    }
                     break;
                 }
+                preparedUnits[scan] = null;
                 prefix.add(next);
                 prefixIndices.add(scan);
                 ++scan;
             }
             final int admitted = driver.executePrefix(prefix);
             if (admitted < 0 || admitted > prefix.size()) throw new IllegalStateException("Noncontiguous execution result");
+            for (int i = 0; i < admitted; ++i) {
+                completed[prefixIndices.getInt(i)] = true;
+            }
             if (admitted == prefix.size()) {
-                this.cursor = scan;
+                while (this.cursor < total && completed[this.cursor]) {
+                    ++this.cursor;
+                }
             } else {
                 // Refused partway through the prefix: execute the refused unit serially and roll back any
-                // deferred fences recorded after it so they are re-evaluated cleanly from fresh state.
+                // cached preparations or deferred fences recorded after it so they are re-evaluated cleanly.
                 final int refusedIndex = prefixIndices.getInt(admitted);
+                for (int i = refusedIndex; i < total; ++i) {
+                    preparedUnits[i] = null;
+                    if (i > refusedIndex) {
+                        completed[i] = false;
+                    }
+                }
                 while (!deferredFences.isEmpty() && deferredFences.getInt(deferredFences.size() - 1) > refusedIndex) {
                     deferredFences.popInt();
                 }
                 driver.serial(refusedIndex);
-                this.cursor = refusedIndex + 1;
+                completed[refusedIndex] = true;
+                while (this.cursor < total && completed[this.cursor]) {
+                    ++this.cursor;
+                }
             }
         }
         for (int i = 0, size = deferredFences.size(); i < size; ++i) {

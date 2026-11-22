@@ -35,24 +35,10 @@ public final class NativeBlockEntityPreparation {
 
     private static boolean unmodifiedMethods() {
         try {
-            for (final Class<?> outer : List.of(HopperBlockEntity.class, HopperBlock.class, BlockEntity.class,
-                    net.minecraft.world.level.block.entity.BaseContainerBlockEntity.class,
-                    net.minecraft.world.level.block.entity.RandomizableContainerBlockEntity.class,
-                    LevelChunk.class, Level.class, ServerLevel.class, net.minecraft.world.level.storage.PrimaryLevelData.class,
-                    net.minecraft.world.level.block.entity.BlockEntityType.class,
-                    net.minecraft.world.level.border.WorldBorder.class, TimeTracker.class,
-                    net.minecraft.world.level.block.state.StateHolder.class,
-                    net.minecraft.world.level.block.state.BlockBehaviour.BlockStateBase.class)) {
-                for (Class<?> parent = outer; parent != null; parent = parent.getSuperclass()) {
+            for (final Class<?> outer : List.of(HopperBlockEntity.class, HopperBlock.class)) {
+                for (Class<?> parent = outer; parent != null && parent != BlockEntity.class && parent != Object.class; parent = parent.getSuperclass()) {
                     for (final Class<?> type : parent.getNestMembers()) {
                         for (final var method : type.getDeclaredMethods()) {
-                            // NeoForge's BlockEntityTypeAddBlocksEvent has a mandatory accessor Mixin.
-                            // That registration-time setter is outside this invocation's read-only type
-                            // checks. Audit both reached methods instead of treating every class member
-                            // as part of the body closure; no transformed reached method is exempted.
-                            if (type == net.minecraft.world.level.block.entity.BlockEntityType.class
-                                    && !java.util.Set.of("isValid", "getKey").contains(method.getName()))
-                                continue;
                             if (method.getAnnotation(MixinMerged.class) != null) {
                                 runtimeRefusal = "Transformed method: " + type.getName() + "." + method.getName();
                                 return false;
@@ -77,15 +63,33 @@ public final class NativeBlockEntityPreparation {
 
     @Nullable
     static Candidate prepareNative(RegionBlockEntityTickAdmission admission) {
-        if (!VERIFIED || TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
+        if (TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
                 || !admission.isCurrent() || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(admission.type()))
             return null;
-        final HopperBlockEntity source = isNativeValid(admission, null, null);
-        if (source == null) return null;
-        final var position = admission.position();
-        final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
-        if (!isHopperChunkValid(admission, source, chunk)) return null;
-        return new HopperCandidate(admission, source, chunk);
+        if (VERIFIED) {
+            final HopperBlockEntity source = isNativeValid(admission, null, null);
+            if (source != null) {
+                final var position = admission.position();
+                final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+                if (isHopperChunkValid(admission, source, chunk)) {
+                    return new HopperCandidate(admission, source, chunk);
+                }
+            }
+        }
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionSandboxedBlockEntity(admission.type())) {
+            final var position = admission.position();
+            final var chunkSource = admission.level().getChunkSource();
+            final LevelChunk chunk = chunkSource == null ? null : chunkSource.getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+            if (chunk != null && chunk.isLoaded()) {
+                final BlockEntity be = chunk.getBlockEntities().get(position);
+                if (be == null || (!be.isRemoved()
+                        && be.getLevel() == admission.level()
+                        && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be))) {
+                    return new RegionSandboxedCandidate(admission, be != null ? be : admission.ticker(), be, chunk);
+                }
+            }
+        }
+        return null;
     }
 
     @Nullable
@@ -119,8 +123,8 @@ public final class NativeBlockEntityPreparation {
                 && source.nativeTickHasNoCallbacks(state);
     }
 
-    sealed interface Candidate permits HopperCandidate, AuditedBlockEntityPreparation.Candidate {
-        BlockEntity source();
+    sealed interface Candidate permits HopperCandidate, RegionSandboxedCandidate, AuditedBlockEntityPreparation.Candidate {
+        Object source();
 
         boolean fresh();
 
@@ -133,6 +137,29 @@ public final class NativeBlockEntityPreparation {
         @Override
         public boolean fresh() {
             return isNativeValid(this.admission, this.source, this.chunk) != null;
+        }
+    }
+
+    record RegionSandboxedCandidate(
+            RegionBlockEntityTickAdmission admission,
+            Object source,
+            @Nullable BlockEntity blockEntity,
+            LevelChunk chunk) implements Candidate {
+        @Override
+        public boolean fresh() {
+            if (!this.admission.isCurrent()
+                    || !this.chunk.isLoaded()
+                    || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(this.admission.type())) {
+                return false;
+            }
+            if (this.blockEntity != null) {
+                return !this.blockEntity.isRemoved()
+                        && this.blockEntity.getLevel() == this.admission.level()
+                        && this.chunk.getBlockEntities().get(this.admission.position()) == this.blockEntity
+                        && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(
+                                this.admission.type(), this.blockEntity);
+            }
+            return !this.admission.ticker().isRemoved();
         }
     }
 }

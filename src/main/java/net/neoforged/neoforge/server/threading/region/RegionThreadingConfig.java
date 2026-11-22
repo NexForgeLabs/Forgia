@@ -109,4 +109,34 @@ final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.enableRegionThreadingFusedSlices.get()
                 : ForgiaConfig.SERVER.enableRegionThreadingFusedSlices.getDefault();
     }
+
+    static boolean independentRegionTickClockEnabled() {
+        if (Boolean.getBoolean("neoforge.regionthreading.independentRegionTick")) {
+            return true;
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableIndependentRegionTickClock.get()
+                : ForgiaConfig.SERVER.enableIndependentRegionTickClock.getDefault();
+    }
+
+    static long independentRegionTickIntervalNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.independentRegionTickIntervalNanos.get()
+                : ForgiaConfig.SERVER.independentRegionTickIntervalNanos.getDefault();
+    }
+
+    static int independentRegionMaxCatchUpTicks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.independentRegionMaxCatchUpTicks.get()
+                : ForgiaConfig.SERVER.independentRegionMaxCatchUpTicks.getDefault();
+    }
+
+    public static boolean regionSandboxAllBlockEntitiesEnabled() {
+        if (Boolean.getBoolean("neoforge.regionthreading.sandboxAllBlockEntities")) {
+            return true;
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableRegionSandboxAllBlockEntities.get()
+                : ForgiaConfig.SERVER.enableRegionSandboxAllBlockEntities.getDefault();
+    }
 }

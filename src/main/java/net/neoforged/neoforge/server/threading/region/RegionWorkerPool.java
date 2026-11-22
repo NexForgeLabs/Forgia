@@ -62,6 +62,8 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
      * an idle worker parks after at most this many iterations and costs no CPU.
      */
     private static final int SPIN_ATTEMPTS = 256;
+    /** Brief user-space spin window after SPIN_ATTEMPTS to bridge back-to-back tick slices without OS futex wakeups. */
+    private static final long INTER_SLICE_SPIN_NANOS = 150_000L;
     /** Longest a parked worker sleeps before it re-checks its own and the other deques. */
     private static final long PARK_NANOS = 1_000_000L;
     /**
@@ -112,16 +114,16 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
     private final AtomicInteger admissions = new AtomicInteger();
     private final AtomicLong submissions = new AtomicLong();
     private final AtomicLong submitNanos = new AtomicLong();
-    private final AtomicLong wakeNanos = new AtomicLong();
-    private final AtomicLong idleWakeUps = new AtomicLong();
-    private final AtomicLong spinWakeUps = new AtomicLong();
-    private final AtomicLong parkWakeUps = new AtomicLong();
-    private final AtomicLong steals = new AtomicLong();
+    private final java.util.concurrent.atomic.LongAdder wakeNanos = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder idleWakeUps = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder spinWakeUps = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder parkWakeUps = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder steals = new java.util.concurrent.atomic.LongAdder();
     private final AtomicLong dispatchBatches = new AtomicLong();
     private final AtomicLong batchedTasks = new AtomicLong();
     private final AtomicLong batchRunners = new AtomicLong();
-    private final AtomicLong batchSteals = new AtomicLong();
-    private final AtomicLong batchStolenTasks = new AtomicLong();
+    private final java.util.concurrent.atomic.LongAdder batchSteals = new java.util.concurrent.atomic.LongAdder();
+    private final java.util.concurrent.atomic.LongAdder batchStolenTasks = new java.util.concurrent.atomic.LongAdder();
     private volatile boolean closed;
 
     /**
@@ -435,8 +437,8 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
     }
 
     void recordBatchSteal(int tasks) {
-        this.batchSteals.incrementAndGet();
-        this.batchStolenTasks.addAndGet(tasks);
+        this.batchSteals.increment();
+        this.batchStolenTasks.add(tasks);
     }
 
     /**
@@ -453,9 +455,9 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
      * balancing of the persistent path is observable without timing it.
      */
     DispatchSnapshot dispatchSnapshot() {
-        return new DispatchSnapshot(this.submissions.get(), this.submitNanos.get(), this.wakeNanos.get(),
-                this.idleWakeUps.get(), this.spinWakeUps.get(), this.parkWakeUps.get(), this.steals.get(),
-                this.dispatchBatches.get(), this.batchedTasks.get(), this.batchRunners.get(), this.batchSteals.get(), this.batchStolenTasks.get());
+        return new DispatchSnapshot(this.submissions.get(), this.submitNanos.get(), this.wakeNanos.sum(),
+                this.idleWakeUps.sum(), this.spinWakeUps.sum(), this.parkWakeUps.sum(), this.steals.sum(),
+                this.dispatchBatches.get(), this.batchedTasks.get(), this.batchRunners.get(), this.batchSteals.sum(), this.batchStolenTasks.sum());
     }
 
     /** {@return true when this pool dispatches through per-worker deques} */
@@ -602,6 +604,8 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
         private void run() {
             int spins = 0;
             int idleParks = 0;
+            long spinDeadlineNanos = 0L;
+            boolean wokeFromPark = false;
             while (true) {
                 SubmittedTask task = this.takeOwn();
                 if (task == null && (spins == 0 || spins >= SPIN_ATTEMPTS)) {
@@ -611,19 +615,21 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                 }
                 if (task != null) {
                     this.preWakeDeadlineNanos = 0L;
-                    if (spins < SPIN_ATTEMPTS) {
-                        RegionWorkerPool.this.spinWakeUps.incrementAndGet();
+                    if (!wokeFromPark) {
+                        RegionWorkerPool.this.spinWakeUps.increment();
                     } else {
-                        RegionWorkerPool.this.parkWakeUps.incrementAndGet();
+                        RegionWorkerPool.this.parkWakeUps.increment();
                     }
                     if (task.idleSubmission() && task.target() == this.index) {
                         // Only the worker the task was pushed to measures the handshake. A task a thief takes
                         // waited for the thief's own work first, which is not a wake-up.
-                        RegionWorkerPool.this.idleWakeUps.incrementAndGet();
-                        RegionWorkerPool.this.wakeNanos.addAndGet(System.nanoTime() - task.submittedNanos());
+                        RegionWorkerPool.this.idleWakeUps.increment();
+                        RegionWorkerPool.this.wakeNanos.add(System.nanoTime() - task.submittedNanos());
                     }
                     spins = 0;
                     idleParks = 0;
+                    spinDeadlineNanos = 0L;
+                    wokeFromPark = false;
                     this.runTask(task);
                     continue;
                 }
@@ -643,6 +649,16 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                     Thread.onSpinWait();
                     continue;
                 }
+                if (!wokeFromPark) {
+                    final long now = System.nanoTime();
+                    if (spinDeadlineNanos == 0L) {
+                        spinDeadlineNanos = now + INTER_SLICE_SPIN_NANOS;
+                    }
+                    if (now < spinDeadlineNanos) {
+                        Thread.onSpinWait();
+                        continue;
+                    }
+                }
                 final long wakeDeadline = this.preWakeDeadlineNanos;
                 if (wakeDeadline != 0L) {
                     if (System.nanoTime() < wakeDeadline) {
@@ -660,6 +676,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                     if (RegionWorkerPool.this.anyPending() || RegionWorkerPool.this.workEpoch.get() != epoch) {
                         continue;
                     }
+                    wokeFromPark = true;
                     if (idleParks < BOUNDED_PARKS) {
                         ++idleParks;
                         LockSupport.parkNanos(this, PARK_NANOS);
@@ -713,7 +730,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                 final SubmittedTask task = victim.tasks.pollFirst();
                 if (task != null) {
                     victim.taken.incrementAndGet();
-                    RegionWorkerPool.this.steals.incrementAndGet();
+                    RegionWorkerPool.this.steals.increment();
                     return task;
                 }
             }

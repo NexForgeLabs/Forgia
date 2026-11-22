@@ -158,6 +158,11 @@ public final class RegionMailbox {
         return PostResult.ACCEPTED;
     }
 
+    boolean hasPendingMessages(RegionCoordinate coordinate) {
+        final RegionQueue queue = this.regionQueues.get(coordinate);
+        return queue != null && !queue.messages.isEmpty();
+    }
+
     /**
      * Delivers the messages queued to the region {@code region} holds, in posting order.
      * <p>

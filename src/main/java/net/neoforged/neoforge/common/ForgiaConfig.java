@@ -151,6 +151,14 @@ public final class ForgiaConfig {
 
         public final IntValue mobPathfindingDefaultCooldownTicks;
 
+        public final BooleanValue enableIndependentRegionTickClock;
+
+        public final LongValue independentRegionTickIntervalNanos;
+
+        public final IntValue independentRegionMaxCatchUpTicks;
+
+        public final BooleanValue enableRegionSandboxAllBlockEntities;
+
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
                     .define("runtimeDiagnosticsEnabled", true);
@@ -451,6 +459,26 @@ public final class ForgiaConfig {
                     .comment("Optional default minimum tick interval between full pathfinding computations for mobs not listed in mobPathfindingCooldowns (0 disables global throttling). Default 0.")
                     .translation("neoforge.configgui.mobPathfindingDefaultCooldownTicks")
                     .defineInRange("mobPathfindingDefaultCooldownTicks", 0, 0, 200);
+
+            enableIndependentRegionTickClock = builder
+                    .comment("EXPERIMENTAL (Phase 2): Enables Folia-style independent per-region asynchronous tick clocks. Regions dispatch non-blockingly on their own 20 TPS schedule and commit deferred main-thread updates via an async commit queue, so a slow hotspot region no longer stalls fast regions or the server thread barrier. Default off.")
+                    .translation("neoforge.configgui.enableIndependentRegionTickClock")
+                    .define("enableIndependentRegionTickClock", false);
+
+            independentRegionTickIntervalNanos = builder
+                    .comment("Target tick interval in nanoseconds for each independent region clock (default 50000000 = 50ms / 20 TPS).")
+                    .translation("neoforge.configgui.independentRegionTickIntervalNanos")
+                    .defineInRange("independentRegionTickIntervalNanos", 50_000_000L, 1_000_000L, 1_000_000_000L);
+
+            independentRegionMaxCatchUpTicks = builder
+                    .comment("Maximum number of ticks a lagging independent region may catch up before its clock smoothly realigns. Default 4.")
+                    .translation("neoforge.configgui.independentRegionMaxCatchUpTicks")
+                    .defineInRange("independentRegionMaxCatchUpTicks", 4, 1, 100);
+
+            enableRegionSandboxAllBlockEntities = builder
+                    .comment("EXPERIMENTAL: Admits all block-entity types (except server-thread-only denylisted types) into Region Sandbox parallel execution on region workers. Any type that throws a boundary or runtime exception on a worker is automatically demoted to the server thread and persisted to regionthreading-learned.json without crashing. Default off.")
+                    .translation("neoforge.configgui.enableRegionSandboxAllBlockEntities")
+                    .define("enableRegionSandboxAllBlockEntities", false);
         }
     }
 }

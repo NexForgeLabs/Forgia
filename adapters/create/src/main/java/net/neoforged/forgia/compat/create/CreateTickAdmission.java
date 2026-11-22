@@ -5,23 +5,35 @@
 
 package net.neoforged.forgia.compat.create;
 
+import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.contraptions.actors.contraptionControls.ContraptionControlsBlockEntity;
 import com.simibubi.create.content.contraptions.actors.roller.RollerBlockEntity;
 import com.simibubi.create.content.contraptions.chassis.ChassisBlockEntity;
 import com.simibubi.create.content.decoration.bracket.BracketedBlockEntityBehaviour;
 import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity;
 import com.simibubi.create.content.decoration.slidingDoor.DoorControlBehaviour;
+import com.simibubi.create.content.fluids.FlowSource;
+import com.simibubi.create.content.fluids.FluidTransportBehaviour;
+import com.simibubi.create.content.fluids.PipeConnection;
+import com.simibubi.create.content.fluids.pipes.FluidPipeBlockEntity;
+import com.simibubi.create.content.fluids.pipes.StraightPipeBlockEntity;
+import com.simibubi.create.content.fluids.pump.PumpBlockEntity;
 import com.simibubi.create.content.fluids.transfer.FluidManipulationBehaviour;
 import com.simibubi.create.content.kinetics.KineticNetwork;
 import com.simibubi.create.content.kinetics.base.GeneratingKineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticEffectHandler;
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
+import com.simibubi.create.content.kinetics.belt.transport.BeltInventory;
 import com.simibubi.create.content.kinetics.belt.behaviour.BeltProcessingBehaviour;
 import com.simibubi.create.content.kinetics.belt.behaviour.DirectBeltInputBehaviour;
 import com.simibubi.create.content.kinetics.belt.behaviour.TransportedItemStackHandlerBehaviour;
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
 import com.simibubi.create.content.kinetics.crank.ValveHandleBlockEntity;
+import com.simibubi.create.content.kinetics.crafter.MechanicalCrafterBlockEntity;
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
+import com.simibubi.create.content.kinetics.fan.AirCurrent;
+import com.simibubi.create.content.kinetics.fan.EncasedFanBlockEntity;
 import com.simibubi.create.content.kinetics.flywheel.FlywheelBlockEntity;
 import com.simibubi.create.content.kinetics.gantry.GantryShaftBlockEntity;
 import com.simibubi.create.content.kinetics.gearbox.GearboxBlockEntity;
@@ -40,6 +52,11 @@ import com.simibubi.create.content.kinetics.waterwheel.LargeWaterWheelBlockEntit
 import com.simibubi.create.content.kinetics.waterwheel.WaterWheelBlockEntity;
 import com.simibubi.create.content.logistics.crate.CrateBlockEntity;
 import com.simibubi.create.content.logistics.crate.CreativeCrateBlockEntity;
+import com.simibubi.create.content.logistics.funnel.BeltFunnelBlock;
+import com.simibubi.create.content.logistics.funnel.FunnelBlock;
+import com.simibubi.create.content.logistics.funnel.FunnelBlockEntity;
+import com.simibubi.create.content.logistics.vault.ItemVaultBlockEntity;
+import com.simibubi.create.content.fluids.tank.FluidTankBlockEntity;
 import com.simibubi.create.content.logistics.itemHatch.ItemHatchBlockEntity;
 import com.simibubi.create.content.logistics.tableCloth.TableClothFilteringBehaviour;
 import com.simibubi.create.content.redstone.diodes.BrassDiodeScrollValueBehaviour;
@@ -49,12 +66,14 @@ import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntityTicker;
 import com.simibubi.create.foundation.blockEntity.behaviour.edgeInteraction.EdgeInteractionBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.filtering.FilteringBehaviour;
+import com.simibubi.create.foundation.blockEntity.behaviour.inventory.InvManipulationBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.inventory.VersionedInventoryTrackerBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.BulkScrollValueBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollOptionBehaviour;
 import com.simibubi.create.foundation.blockEntity.behaviour.scrollValue.ScrollValueBehaviour;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
 import java.lang.invoke.SerializedLambda;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -64,6 +83,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -75,11 +95,25 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.neoforged.forgia.compat.create.mixin.AirCurrentAccessor;
 import net.neoforged.forgia.compat.create.mixin.ArmBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.BeltBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.BeltInventoryAccessor;
+import net.neoforged.forgia.compat.create.mixin.CapManipulationBehaviourBaseAccessor;
 import net.neoforged.forgia.compat.create.mixin.DeployerBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.EncasedFanBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.FluidTankBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.FluidTransportBehaviourAccessor;
+import net.neoforged.forgia.compat.create.mixin.FunnelBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.ItemVaultBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.KineticBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.KineticEffectHandlerAccessor;
+import net.neoforged.forgia.compat.create.mixin.MechanicalCrafterBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.PipeConnectionAccessor;
+import net.neoforged.forgia.compat.create.mixin.PumpBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.SmartBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.TorquePropagatorAccessor;
 import net.neoforged.neoforge.items.ItemStackHandler;
@@ -96,6 +130,34 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
             GENERATING_VERIFIED && CreateAudit.isOptionalLeafVerified(WaterWheelBlockEntity.class);
     private static final boolean LARGE_WATER_WHEEL_VERIFIED =
             WATER_WHEEL_VERIFIED && CreateAudit.isOptionalLeafVerified(LargeWaterWheelBlockEntity.class);
+    private static final boolean FLUID_TANK_VERIFIED = CreateAudit.isOptionalLeafVerified(FluidTankBlockEntity.class);
+    private static final boolean ENCASED_FAN_VERIFIED = CreateAudit.isOptionalLeafVerified(EncasedFanBlockEntity.class);
+    private static final boolean AIR_CURRENT_VERIFIED =
+            ENCASED_FAN_VERIFIED && CreateAudit.isOptionalLeafVerified(AirCurrent.class);
+    private static final boolean BELT_VERIFIED = CreateAudit.isOptionalLeafVerified(BeltBlockEntity.class);
+    private static final boolean BELT_INVENTORY_VERIFIED =
+            BELT_VERIFIED && CreateAudit.isOptionalLeafVerified(BeltInventory.class);
+    private static final boolean FLUID_TRANSPORT_VERIFIED =
+            CreateAudit.isOptionalLeafVerified(FluidTransportBehaviour.class)
+                    && CreateAudit.isOptionalLeafVerified(PipeConnection.class)
+                    && CreateAudit.isOptionalLeafVerified(FlowSource.class)
+                    && CreateAudit.isOptionalLeafVerified(FlowSource.Blocked.class)
+                    && CreateAudit.isOptionalLeafVerified(FlowSource.OtherPipe.class)
+                    && CreateAudit.isOptionalLeafVerified(FlowSource.FluidHandler.class);
+    private static final boolean FLUID_PIPE_VERIFIED = FLUID_TRANSPORT_VERIFIED
+            && CreateAudit.isOptionalLeafVerified(FluidPipeBlockEntity.class)
+            && CreateAudit.isOptionalLeafVerified(CreateAudit.STANDARD_PIPE_FLUID_TRANSPORT_BEHAVIOUR);
+    private static final boolean STRAIGHT_PIPE_VERIFIED = FLUID_TRANSPORT_VERIFIED
+            && CreateAudit.isOptionalLeafVerified(StraightPipeBlockEntity.class)
+            && CreateAudit.isOptionalLeafVerified(StraightPipeBlockEntity.StraightPipeFluidTransportBehaviour.class);
+    private static final boolean PUMP_VERIFIED = FLUID_TRANSPORT_VERIFIED
+            && CreateAudit.isOptionalLeafVerified(PumpBlockEntity.class)
+            && CreateAudit.isOptionalLeafVerified(CreateAudit.PUMP_FLUID_TRANSFER_BEHAVIOUR);
+    private static final boolean FUNNEL_VERIFIED = CreateAudit.isOptionalLeafVerified(FunnelBlockEntity.class);
+    private static final Set<Class<?>> FLUID_TRANSPORT_BEHAVIOURS = Set.of(
+            CreateAudit.STANDARD_PIPE_FLUID_TRANSPORT_BEHAVIOUR,
+            StraightPipeBlockEntity.StraightPipeFluidTransportBehaviour.class,
+            CreateAudit.PUMP_FLUID_TRANSFER_BEHAVIOUR);
     public static final Set<ResourceLocation> TYPES;
     private static final Set<Class<?>> CORE_LOCAL_BODIES;
     private static final Set<Class<?>> CORE_CLASSES;
@@ -108,7 +170,8 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
                 type("powered_shaft"),
                 type("deployer"),
                 type("mechanical_roller"), type("chassis"), type("contraption_controls"),
-                type("copycat"), type("creative_crate"), type("item_hatch")));
+                type("copycat"), type("creative_crate"), type("item_hatch"),
+                type("item_vault"), type("mechanical_crafter")));
         final Set<Class<?>> localBodies = new java.util.LinkedHashSet<>(Set.of(
                 KineticBlockEntity.class, SimpleKineticBlockEntity.class,
                 BracketedKineticBlockEntity.class, GearboxBlockEntity.class,
@@ -119,7 +182,8 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
                 RollerBlockEntity.class,
                 ChassisBlockEntity.class, ContraptionControlsBlockEntity.class,
                 CopycatBlockEntity.class, CrateBlockEntity.class,
-                CreativeCrateBlockEntity.class, ItemHatchBlockEntity.class));
+                CreativeCrateBlockEntity.class, ItemHatchBlockEntity.class,
+                ItemVaultBlockEntity.class, MechanicalCrafterBlockEntity.class));
         final Set<Class<?>> coreClasses = new java.util.LinkedHashSet<>(Set.of(
                 KineticBlockEntity.class, SimpleKineticBlockEntity.class,
                 BracketedKineticBlockEntity.class, GearboxBlockEntity.class,
@@ -132,7 +196,44 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
                 RollerBlockEntity.class, ChassisBlockEntity.class,
                 ContraptionControlsBlockEntity.class, CopycatBlockEntity.class,
                 CrateBlockEntity.class, CreativeCrateBlockEntity.class,
-                ItemHatchBlockEntity.class));
+                ItemHatchBlockEntity.class,
+                ItemVaultBlockEntity.class, MechanicalCrafterBlockEntity.class));
+        if (BELT_VERIFIED) {
+            types.add(type("belt"));
+            localBodies.add(BeltBlockEntity.class);
+            coreClasses.add(BeltBlockEntity.class);
+        }
+        if (FLUID_PIPE_VERIFIED) {
+            types.add(type("fluid_pipe"));
+            types.add(type("encased_fluid_pipe"));
+            localBodies.add(FluidPipeBlockEntity.class);
+            coreClasses.add(FluidPipeBlockEntity.class);
+        }
+        if (STRAIGHT_PIPE_VERIFIED) {
+            types.add(type("glass_fluid_pipe"));
+            localBodies.add(StraightPipeBlockEntity.class);
+            coreClasses.add(StraightPipeBlockEntity.class);
+        }
+        if (PUMP_VERIFIED) {
+            types.add(type("mechanical_pump"));
+            localBodies.add(PumpBlockEntity.class);
+            coreClasses.add(PumpBlockEntity.class);
+        }
+        if (FUNNEL_VERIFIED) {
+            types.add(type("funnel"));
+            localBodies.add(FunnelBlockEntity.class);
+            coreClasses.add(FunnelBlockEntity.class);
+        }
+        if (FLUID_TANK_VERIFIED) {
+            types.add(type("fluid_tank"));
+            localBodies.add(FluidTankBlockEntity.class);
+            coreClasses.add(FluidTankBlockEntity.class);
+        }
+        if (ENCASED_FAN_VERIFIED) {
+            types.add(type("encased_fan"));
+            localBodies.add(EncasedFanBlockEntity.class);
+            coreClasses.add(EncasedFanBlockEntity.class);
+        }
         if (WATER_WHEEL_VERIFIED) {
             types.add(type("water_wheel"));
             coreClasses.add(WaterWheelBlockEntity.class);
@@ -160,6 +261,7 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
             DoorControlBehaviour.class,
             FluidManipulationBehaviour.class,
             BeltProcessingBehaviour.class,
+            DirectBeltInputBehaviour.class,
             TransportedItemStackHandlerBehaviour.class,
             KineticScrollValueBehaviour.class,
             TableClothFilteringBehaviour.class,
@@ -179,7 +281,7 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
     private static final Set<Class<?>> BEHAVIOURS;
     static {
         final Set<Class<?>> all = new HashSet<>(PURE_LOCAL_BEHAVIOURS);
-        all.add(DirectBeltInputBehaviour.class);
+        all.add(InvManipulationBehaviour.class);
         BEHAVIOURS = Set.copyOf(all);
     }
 
@@ -195,6 +297,38 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
     private record Prepared(ResourceKey<Level> dimension, long gameTime, Set<Long> stableNetworks) {
         Prepared {
             stableNetworks = Set.copyOf(stableNetworks);
+        }
+    }
+
+    private static final Field CRAFTER_PHASE_FIELD = optionalDeclaredField(MechanicalCrafterBlockEntity.class, "phase");
+    private static final Field FLOW_SOURCE_OTHER_PIPE_CACHED_FIELD = optionalDeclaredField(FlowSource.OtherPipe.class, "cached");
+    private static final Field FLOW_SOURCE_FLUID_HANDLER_CACHE_FIELD = optionalDeclaredField(FlowSource.FluidHandler.class, "fluidHandlerCache");
+    private static final Field SABLE_AIR_CURRENT_SUBLEVEL_FIELD = optionalDeclaredField(AirCurrent.class, "sable$subLevelReference");
+    private static final Field BEHAVIOUR_LAZY_TICK_COUNTER_FIELD = optionalDeclaredField(
+            com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour.class, "lazyTickCounter");
+
+    @Nullable
+    private static Field optionalDeclaredField(Class<?> owner, String name) {
+        try {
+            final var field = owner.getDeclaredField(name);
+            field.setAccessible(true);
+            return field;
+        } catch (NoSuchFieldException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static boolean invManipulationNeedsCallback(InvManipulationBehaviour inv, @Nullable Level level) {
+        if (((CapManipulationBehaviourBaseAccessor) inv).forgia$findNewNextTick()
+                || level == null
+                || level.getGameTime() % 64L == 0L
+                || BEHAVIOUR_LAZY_TICK_COUNTER_FIELD == null) {
+            return true;
+        }
+        try {
+            return BEHAVIOUR_LAZY_TICK_COUNTER_FIELD.getInt(inv) <= 1;
+        } catch (IllegalAccessException e) {
+            return true;
         }
     }
 
@@ -259,6 +393,9 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
                         if (first instanceof Block block) {
                             final BlockEntity instance = type.create(BlockPos.ZERO, block.defaultBlockState());
                             if (instance != null) {
+                                if (instance instanceof SmartBlockEntity smart && hasUnsupportedProbeBehaviour(smart)) {
+                                    return null;
+                                }
                                 return instance.getClass();
                             }
                         }
@@ -285,6 +422,36 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
         } catch (Throwable ignored) {
         }
         return null;
+    }
+
+    private static boolean hasUnsupportedProbeBehaviour(SmartBlockEntity smart) {
+        if (!(smart instanceof SmartBlockEntityAccessor accessor)) {
+            return false;
+        }
+        final var behaviours = accessor.forgia$behaviours();
+        if (behaviours == null || behaviours.getClass() != Reference2ObjectArrayMap.class) {
+            return true;
+        }
+        final boolean kinetic = smart instanceof KineticBlockEntity;
+        for (final var behaviour : behaviours.values()) {
+            if (behaviour.blockEntity != smart) {
+                return true;
+            }
+            if (behaviour instanceof InvManipulationBehaviour) {
+                continue;
+            }
+            if (FLUID_TRANSPORT_VERIFIED && behaviour instanceof FluidTransportBehaviour transport
+                    && FLUID_TRANSPORT_BEHAVIOURS.contains(transport.getClass())) {
+                continue;
+            }
+            final boolean allowed = kinetic
+                    ? BEHAVIOURS.contains(behaviour.getClass())
+                    : PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass());
+            if (!allowed) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static ResourceLocation type(String name) {
@@ -375,9 +542,20 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
             storage.add(new Storage(behaviours, Access.READ));
             storage.add(new Storage(((KineticBlockEntityAccessor) kinetic).forgia$effects(), Access.WRITE));
             for (final var behaviour : behaviours.values()) {
-                if (!PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass()) || behaviour.blockEntity != kinetic)
+                if (behaviour.blockEntity != kinetic) return null;
+                if (behaviour instanceof InvManipulationBehaviour inv) {
+                    if (invManipulationNeedsCallback(inv, kinetic.getLevel())) {
+                        return null;
+                    }
+                    storage.add(new Storage(behaviour, Access.WRITE));
+                } else if (FLUID_TRANSPORT_VERIFIED && behaviour instanceof FluidTransportBehaviour transport
+                        && FLUID_TRANSPORT_BEHAVIOURS.contains(transport.getClass())) {
+                    if (!appendFluidTransportStorage(transport, storage)) return null;
+                } else if (PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass())) {
+                    storage.add(new Storage(behaviour, Access.WRITE));
+                } else {
                     return null;
-                storage.add(new Storage(behaviour, Access.WRITE));
+                }
             }
             if (kinetic instanceof ArmBlockEntity arm) {
                 final var inputs = ((ArmBlockEntityAccessor) arm).forgia$inputs();
@@ -390,6 +568,30 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
                         storage.add(new Storage(target, Access.READ));
                     }
                 }
+            } else if (kinetic instanceof BeltBlockEntity belt && belt.isController()) {
+                final BeltInventory inv = ((BeltBlockEntityAccessor) belt).forgia$inventory();
+                if (inv == null || inv.getClass() != BeltInventory.class) return null;
+                final var invAcc = (BeltInventoryAccessor) inv;
+                storage.add(new Storage(inv, Access.WRITE));
+                storage.add(new Storage(invAcc.forgia$items(), Access.READ));
+                storage.add(new Storage(invAcc.forgia$toInsert(), Access.READ));
+                storage.add(new Storage(invAcc.forgia$toRemove(), Access.READ));
+                if (belt.passengers != null) {
+                    storage.add(new Storage(belt.passengers, Access.READ));
+                }
+            } else if (kinetic instanceof EncasedFanBlockEntity fan && fan.getSpeed() != 0.0F) {
+                final AirCurrent ac = fan.airCurrent;
+                if (ac == null || ac.getClass() != AirCurrent.class) return null;
+                final var acAcc = (AirCurrentAccessor) ac;
+                storage.add(new Storage(ac, Access.READ));
+                storage.add(new Storage(acAcc.forgia$caughtEntities(), Access.READ));
+                storage.add(new Storage(acAcc.forgia$affectedItemHandlers(), Access.READ));
+            } else if (kinetic instanceof PumpBlockEntity pump) {
+                final var sides = ((PumpBlockEntityAccessor) pump).forgia$sidesToUpdate();
+                if (sides == null) return null;
+                storage.add(new Storage(sides, Access.READ));
+                storage.add(new Storage(sides.getFirst(), Access.READ));
+                storage.add(new Storage(sides.getSecond(), Access.READ));
             }
             return new Proof(storage);
         }
@@ -401,9 +603,25 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
             storage.add(new Storage(smart, Access.WRITE));
             storage.add(new Storage(behaviours, Access.READ));
             for (final var behaviour : behaviours.values()) {
-                if (!PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass()) || behaviour.blockEntity != smart)
+                if (behaviour.blockEntity != smart) return null;
+                if (behaviour instanceof InvManipulationBehaviour inv) {
+                    if (invManipulationNeedsCallback(inv, smart.getLevel())) {
+                        return null;
+                    }
+                    storage.add(new Storage(behaviour, Access.WRITE));
+                } else if (FLUID_TRANSPORT_VERIFIED && behaviour instanceof FluidTransportBehaviour transport
+                        && FLUID_TRANSPORT_BEHAVIOURS.contains(transport.getClass())) {
+                    if (!appendFluidTransportStorage(transport, storage)) return null;
+                } else if (PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass())) {
+                    storage.add(new Storage(behaviour, Access.WRITE));
+                } else {
                     return null;
-                storage.add(new Storage(behaviour, Access.WRITE));
+                }
+            }
+            if (smart instanceof FunnelBlockEntity funnel) {
+                final var flap = ((FunnelBlockEntityAccessor) funnel).forgia$flap();
+                if (flap == null) return null;
+                storage.add(new Storage(flap, Access.WRITE));
             }
             return new Proof(storage);
         }
@@ -451,8 +669,40 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
         final var behaviours = ((SmartBlockEntityAccessor) smart).forgia$behaviours();
         if (behaviours == null || behaviours.getClass() != Reference2ObjectArrayMap.class) return Decision.UNKNOWN_BEHAVIOUR;
         for (final var behaviour : behaviours.values()) {
-            if (!PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass()) || behaviour.blockEntity != smart)
+            if (behaviour.blockEntity != smart) return Decision.UNKNOWN_BEHAVIOUR;
+            if (behaviour instanceof InvManipulationBehaviour inv) {
+                if (invManipulationNeedsCallback(inv, smart.getLevel())) {
+                    return Decision.CALLBACK_REQUIRED;
+                }
+            } else if (FLUID_TRANSPORT_VERIFIED && behaviour instanceof FluidTransportBehaviour transport
+                    && FLUID_TRANSPORT_BEHAVIOURS.contains(transport.getClass())) {
+                final Decision transportDecision = checkFluidTransport(transport);
+                if (transportDecision != Decision.ADMITTED) return transportDecision;
+            } else if (!PURE_LOCAL_BEHAVIOURS.contains(behaviour.getClass())) {
                 return Decision.UNKNOWN_BEHAVIOUR;
+            }
+        }
+        if (smart instanceof ItemVaultBlockEntity vault) {
+            final var accessor = (ItemVaultBlockEntityAccessor) vault;
+            final var lastPos = accessor.forgia$lastKnownPos();
+            if (lastPos == null || !lastPos.equals(vault.getBlockPos()) || accessor.forgia$updateConnectivity()) {
+                return Decision.TOPOLOGY_CHANGE;
+            }
+        }
+        if (smart instanceof FluidTankBlockEntity tank) {
+            if (tank.isController()) return Decision.CALLBACK_REQUIRED;
+            final var accessor = (FluidTankBlockEntityAccessor) tank;
+            final var lastPos = accessor.forgia$lastKnownPos();
+            if (lastPos == null || !lastPos.equals(tank.getBlockPos())
+                    || accessor.forgia$updateConnectivity() || accessor.forgia$updateCapability()) {
+                return Decision.TOPOLOGY_CHANGE;
+            }
+            if (accessor.forgia$syncCooldown() > 0 || accessor.forgia$fluidLevel() != null) {
+                return Decision.CALLBACK_REQUIRED;
+            }
+        }
+        if (smart instanceof FunnelBlockEntity funnel) {
+            return funnel(funnel);
         }
         return Decision.ADMITTED;
     }
@@ -476,7 +726,18 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
         final var behaviours = ((SmartBlockEntityAccessor) kinetic).forgia$behaviours();
         if (behaviours == null || behaviours.getClass() != Reference2ObjectArrayMap.class) return Decision.UNKNOWN_BEHAVIOUR;
         for (final var behaviour : behaviours.values()) {
-            if (!BEHAVIOURS.contains(behaviour.getClass()) || behaviour.blockEntity != kinetic) return Decision.UNKNOWN_BEHAVIOUR;
+            if (behaviour.blockEntity != kinetic) return Decision.UNKNOWN_BEHAVIOUR;
+            if (behaviour instanceof InvManipulationBehaviour inv) {
+                if (invManipulationNeedsCallback(inv, kinetic.getLevel())) {
+                    return Decision.CALLBACK_REQUIRED;
+                }
+            } else if (FLUID_TRANSPORT_VERIFIED && behaviour instanceof FluidTransportBehaviour transport
+                    && FLUID_TRANSPORT_BEHAVIOURS.contains(transport.getClass())) {
+                final Decision transportDecision = checkFluidTransport(transport);
+                if (transportDecision != Decision.ADMITTED) return transportDecision;
+            } else if (!BEHAVIOURS.contains(behaviour.getClass())) {
+                return Decision.UNKNOWN_BEHAVIOUR;
+            }
         }
         if (kinetic instanceof MillstoneBlockEntity millstone && !plainInventories(millstone)) return Decision.SHARED_RESOURCE;
         if (kinetic instanceof DeployerBlockEntity deployer) {
@@ -486,6 +747,210 @@ public final class CreateTickAdmission implements BlockEntityExecutionAdapter {
         if (kinetic instanceof ArmBlockEntity arm) {
             final Decision armDecision = arm(arm);
             if (armDecision != Decision.ADMITTED) return armDecision;
+        }
+        if (kinetic instanceof MechanicalCrafterBlockEntity crafter) {
+            final Decision crafterDecision = crafter(crafter);
+            if (crafterDecision != Decision.ADMITTED) return crafterDecision;
+        }
+        if (kinetic instanceof BeltBlockEntity belt) {
+            final Decision beltDecision = belt(belt);
+            if (beltDecision != Decision.ADMITTED) return beltDecision;
+        }
+        if (kinetic instanceof EncasedFanBlockEntity fan) {
+            final Decision fanDecision = fan(fan);
+            if (fanDecision != Decision.ADMITTED) return fanDecision;
+        }
+        if (kinetic instanceof PumpBlockEntity pump) {
+            final Decision pumpDecision = pump(pump);
+            if (pumpDecision != Decision.ADMITTED) return pumpDecision;
+        }
+        return Decision.ADMITTED;
+    }
+
+    private static Decision checkFluidTransport(FluidTransportBehaviour transport) {
+        final var accessor = (FluidTransportBehaviourAccessor) transport;
+        final var interfaces = accessor.forgia$interfaces();
+        if (interfaces == null) {
+            return transport.getClass() == CreateAudit.PUMP_FLUID_TRANSFER_BEHAVIOUR
+                    ? Decision.CALLBACK_REQUIRED
+                    : Decision.ADMITTED;
+        }
+        final var phase = accessor.forgia$phase();
+        if (phase == FluidTransportBehaviour.UpdatePhase.WAIT_FOR_PUMPS) return Decision.ADMITTED;
+        if (phase != FluidTransportBehaviour.UpdatePhase.IDLE) return Decision.CALLBACK_REQUIRED;
+        for (final PipeConnection conn : interfaces.values()) {
+            if (conn == null || conn.getClass() != PipeConnection.class) return Decision.SHARED_RESOURCE;
+            if (conn.hasFlow() || conn.hasPressure()) return Decision.CALLBACK_REQUIRED;
+            final Optional<FlowSource> optSource = ((PipeConnectionAccessor) conn).forgia$source();
+            if (optSource == null || optSource.isEmpty()) return Decision.CALLBACK_REQUIRED;
+            final FlowSource src = optSource.get();
+            final Class<?> srcClass = src.getClass();
+            if (srcClass == FlowSource.Blocked.class) {
+                continue;
+            }
+            if (srcClass == FlowSource.FluidHandler.class) {
+                if (FLOW_SOURCE_FLUID_HANDLER_CACHE_FIELD == null) return Decision.CALLBACK_REQUIRED;
+                try {
+                    if (FLOW_SOURCE_FLUID_HANDLER_CACHE_FIELD.get(src) == null) return Decision.CALLBACK_REQUIRED;
+                } catch (IllegalAccessException e) {
+                    return Decision.CALLBACK_REQUIRED;
+                }
+                continue;
+            }
+            if (srcClass == FlowSource.OtherPipe.class) {
+                if (FLOW_SOURCE_OTHER_PIPE_CACHED_FIELD == null) return Decision.CALLBACK_REQUIRED;
+                try {
+                    final Object raw = FLOW_SOURCE_OTHER_PIPE_CACHED_FIELD.get(src);
+                    if (!(raw instanceof WeakReference<?> ref)) return Decision.CALLBACK_REQUIRED;
+                    final Object target = ref.get();
+                    if (!(target instanceof FluidTransportBehaviour other)
+                            || other.blockEntity == null
+                            || other.blockEntity.isRemoved()) {
+                        return Decision.CALLBACK_REQUIRED;
+                    }
+                } catch (IllegalAccessException e) {
+                    return Decision.CALLBACK_REQUIRED;
+                }
+                continue;
+            }
+            return Decision.CALLBACK_REQUIRED;
+        }
+        return Decision.ADMITTED;
+    }
+
+    private static boolean appendFluidTransportStorage(FluidTransportBehaviour transport, ArrayList<Storage> storage) {
+        storage.add(new Storage(transport, Access.WRITE));
+        final var interfaces = ((FluidTransportBehaviourAccessor) transport).forgia$interfaces();
+        if (interfaces != null) {
+            storage.add(new Storage(interfaces, Access.READ));
+            for (final PipeConnection conn : interfaces.values()) {
+                if (conn == null || conn.getClass() != PipeConnection.class) return false;
+                storage.add(new Storage(conn, Access.WRITE));
+            }
+        }
+        return true;
+    }
+
+    private static Decision funnel(FunnelBlockEntity funnel) {
+        final BlockState state = funnel.getBlockState();
+        if (!FunnelBlock.isFunnel(state)) return Decision.CALLBACK_REQUIRED;
+        final var accessor = (FunnelBlockEntityAccessor) funnel;
+        if (accessor.forgia$flap() == null) return Decision.SHARED_RESOURCE;
+        if (state.getOptionalValue(BlockStateProperties.POWERED).orElse(false)) {
+            return Decision.ADMITTED;
+        }
+        if (state.getBlock() instanceof BeltFunnelBlock) {
+            final var shape = state.getValue(BeltFunnelBlock.SHAPE);
+            if (shape == BeltFunnelBlock.Shape.PULLING) return Decision.ADMITTED;
+            if (shape == BeltFunnelBlock.Shape.PUSHING) {
+                return accessor.forgia$extractionCooldown() > 0 ? Decision.ADMITTED : Decision.CALLBACK_REQUIRED;
+            }
+            return Decision.CALLBACK_REQUIRED;
+        }
+        if (state.getBlock() instanceof FunnelBlock) {
+            if (!state.getValue(FunnelBlock.EXTRACTING)) return Decision.ADMITTED;
+            return accessor.forgia$extractionCooldown() > 0 ? Decision.ADMITTED : Decision.CALLBACK_REQUIRED;
+        }
+        return Decision.CALLBACK_REQUIRED;
+    }
+
+    private static Decision crafter(MechanicalCrafterBlockEntity crafter) {
+        if (CRAFTER_PHASE_FIELD == null) return Decision.CALLBACK_REQUIRED;
+        final String phaseName;
+        try {
+            final Object phase = CRAFTER_PHASE_FIELD.get(crafter);
+            if (!(phase instanceof Enum<?> enumPhase)) return Decision.CALLBACK_REQUIRED;
+            phaseName = enumPhase.name();
+        } catch (IllegalAccessException e) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        if ("ACCEPTING".equals(phaseName)) return Decision.ADMITTED;
+        if (((SmartBlockEntityAccessor) crafter).forgia$lazyTickCounter() <= 1) return Decision.CALLBACK_REQUIRED;
+        final Level level = crafter.getLevel();
+        if (level == null) return Decision.CALLBACK_REQUIRED;
+        final var accessor = (MechanicalCrafterBlockEntityAccessor) crafter;
+        if (accessor.forgia$wasPoweredBefore() != level.hasNeighborSignal(crafter.getBlockPos())) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        if ("IDLE".equals(phaseName) || "WAITING".equals(phaseName)) {
+            return Decision.ADMITTED;
+        }
+        if ("ASSEMBLING".equals(phaseName) || "EXPORTING".equals(phaseName)) {
+            final int speed = crafter.getCountDownSpeed();
+            return accessor.forgia$countDown() >= speed ? Decision.ADMITTED : Decision.CALLBACK_REQUIRED;
+        }
+        return Decision.CALLBACK_REQUIRED;
+    }
+
+    private static Decision belt(BeltBlockEntity belt) {
+        final var accessor = (BeltBlockEntityAccessor) belt;
+        if (accessor.forgia$beltLength() <= 0
+                || accessor.forgia$itemHandler() == null
+                || !AllBlocks.BELT.has(belt.getBlockState())) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        if (!belt.isController()) {
+            return Decision.ADMITTED;
+        }
+        if (!BELT_INVENTORY_VERIFIED) return Decision.CALLBACK_REQUIRED;
+        final BeltInventory inv = accessor.forgia$inventory();
+        if (inv == null || inv.getClass() != BeltInventory.class) return Decision.CALLBACK_REQUIRED;
+        final var invAcc = (BeltInventoryAccessor) inv;
+        if (invAcc.forgia$lazyClientItem() != null
+                || !invAcc.forgia$toInsert().isEmpty()
+                || !invAcc.forgia$toRemove().isEmpty()
+                || !invAcc.forgia$items().isEmpty()) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        final float speed = belt.isOverStressed() ? 0.0f : belt.getTheoreticalSpeed();
+        if (speed != 0.0f) {
+            if (invAcc.forgia$beltMovementPositive() != (belt.getDirectionAwareBeltMovementSpeed() > 0.0f)) {
+                return Decision.CALLBACK_REQUIRED;
+            }
+            if (belt.passengers != null && !belt.passengers.isEmpty()) {
+                return Decision.CALLBACK_REQUIRED;
+            }
+        }
+        return Decision.ADMITTED;
+    }
+
+    private static Decision fan(EncasedFanBlockEntity fan) {
+        final var accessor = (EncasedFanBlockEntityAccessor) fan;
+        if (accessor.forgia$airCurrentUpdateCooldown() <= 0 || accessor.forgia$updateAirFlow()) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        if (fan.getSpeed() == 0.0F) {
+            return Decision.ADMITTED;
+        }
+        if (!AIR_CURRENT_VERIFIED || accessor.forgia$entitySearchCooldown() <= 0) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        final AirCurrent ac = fan.airCurrent;
+        if (ac == null || ac.getClass() != AirCurrent.class || ac.source != fan || ac.direction == null) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        if (SABLE_AIR_CURRENT_SUBLEVEL_FIELD != null) {
+            try {
+                if (SABLE_AIR_CURRENT_SUBLEVEL_FIELD.get(ac) == null) {
+                    return Decision.CALLBACK_REQUIRED;
+                }
+            } catch (IllegalAccessException e) {
+                return Decision.CALLBACK_REQUIRED;
+            }
+        }
+        final var acAcc = (AirCurrentAccessor) ac;
+        if (!acAcc.forgia$caughtEntities().isEmpty() || !acAcc.forgia$affectedItemHandlers().isEmpty()) {
+            return Decision.CALLBACK_REQUIRED;
+        }
+        return Decision.ADMITTED;
+    }
+
+    private static Decision pump(PumpBlockEntity pump) {
+        final var accessor = (PumpBlockEntityAccessor) pump;
+        if (accessor.forgia$scheduleFlip()) return Decision.CALLBACK_REQUIRED;
+        final var sides = accessor.forgia$sidesToUpdate();
+        if (sides == null || sides.getFirst().isTrue() || sides.getSecond().isTrue()) {
+            return Decision.CALLBACK_REQUIRED;
         }
         return Decision.ADMITTED;
     }

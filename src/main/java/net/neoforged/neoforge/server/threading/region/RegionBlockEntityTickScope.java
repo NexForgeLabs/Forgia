@@ -65,6 +65,19 @@ public final class RegionBlockEntityTickScope implements AutoCloseable {
         return scope;
     }
 
+    public static boolean isActiveForLevel(ServerLevel level) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return false;
+        }
+        final RegionBlockEntityTickScope scope = CURRENT.get();
+        return scope != null
+                && scope.active
+                && scope.admission != null
+                && scope.admission.level() == level
+                && scope.region != null
+                && scope.region.isOwnedByCurrentThread();
+    }
+
     /** {@return whether this exact invocation can replace its server-owned entity-load read} */
     public static boolean isAdmitted(ServerLevel level, @Nullable TickingBlockEntity ticker, BlockPos pos) {
         if (!RegionWorkerScope.isNativeWorkerThread()) {

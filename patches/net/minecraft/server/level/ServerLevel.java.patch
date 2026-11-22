@@ -683,7 +683,8 @@
          );
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
 +            return net.neoforged.neoforge.server.threading.RegionThreadingHooks.sendParticlesFromWorker(this,
-+                    () -> this.sendParticlesToNearbyPlayers(p_8769_, p_8770_, p_8771_, clientboundlevelparticlespacket));
++                    () -> this.sendParticlesToNearbyPlayers(p_8769_, p_8770_, p_8771_, clientboundlevelparticlespacket),
++                    1);
 +        }
 +        return this.sendParticlesToNearbyPlayers(p_8769_, p_8770_, p_8771_, clientboundlevelparticlespacket);
 +    }
@@ -702,7 +703,8 @@
          );
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
 +            return net.neoforged.neoforge.server.threading.RegionThreadingHooks.sendParticlesFromWorker(this,
-+                    () -> this.sendParticles(p_8625_, p_8627_, p_8628_, p_8629_, p_8630_, packet));
++                    () -> this.sendParticles(p_8625_, p_8627_, p_8628_, p_8629_, p_8630_, packet),
++                    Boolean.TRUE);
 +        }
          return this.sendParticles(p_8625_, p_8627_, p_8628_, p_8629_, p_8630_, packet);
      }

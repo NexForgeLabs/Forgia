@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "dev.forgia.compat.cataclysm.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CMWorldDataMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

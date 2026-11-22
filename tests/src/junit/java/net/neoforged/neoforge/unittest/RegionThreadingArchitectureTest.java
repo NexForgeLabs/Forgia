@@ -46,8 +46,19 @@ class RegionThreadingArchitectureTest {
     }
 
     @Test
-    void workerInfrastructureDoesNotDependOnTheNewChunkCoordinator() throws Exception {
-        assertNoReference(classes("RegionWorkerPool")[0], REGION + "RegionChunkTickCoordinator");
+    void scheduledTickOrchestrationDependsOnItsHostRatherThanTheEngineOrConcretePool() throws Exception {
+        for (final Class<?> type : classes("RegionScheduledTickCoordinator", "RegionScheduledTickCoordinator$Host")) {
+            assertNoReference(type, REGION + "RegionThreadingEngine", REGION + "RegionWorkerPool",
+                    "net/neoforged/neoforge/server/threading/RegionThreadingManager",
+                    REGION + "BlockEntityExecutionEngine", REGION + "BlockEntityResourceOwnership",
+                    REGION + "CoreModTickerVerifier");
+        }
+    }
+
+    @Test
+    void workerInfrastructureDoesNotDependOnTheNewChunkOrScheduledTickCoordinators() throws Exception {
+        assertNoReference(classes("RegionWorkerPool")[0], REGION + "RegionChunkTickCoordinator",
+                REGION + "RegionScheduledTickCoordinator");
     }
 
     @Test

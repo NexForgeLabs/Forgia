@@ -10,7 +10,21 @@
     "TorquePropagatorAccessor",
     "DeployerBlockEntityAccessor",
     "DeployerFakePlayerAccessor",
-    "ArmBlockEntityAccessor"
+    "ArmBlockEntityAccessor",
+    "ItemVaultBlockEntityAccessor",
+    "FluidTankBlockEntityAccessor",
+    "EncasedFanBlockEntityAccessor",
+    "AirCurrentAccessor",
+    "BeltBlockEntityAccessor",
+    "BeltInventoryAccessor",
+    "BeltBlockEntityTickMixin",
+    "MechanicalCrafterBlockEntityAccessor",
+    "MechanicalCrafterBlockEntityTickMixin",
+    "FunnelBlockEntityAccessor",
+    "FluidTransportBehaviourAccessor",
+    "PipeConnectionAccessor",
+    "PumpBlockEntityAccessor",
+    "CapManipulationBehaviourBaseAccessor"
   ],
   "injectors": { "defaultRequire": 1 }
 }

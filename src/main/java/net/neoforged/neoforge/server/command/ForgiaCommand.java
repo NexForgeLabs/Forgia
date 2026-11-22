@@ -66,6 +66,7 @@ public final class ForgiaCommand {
                                                         IntegerArgumentType.getInteger(context, "x"), IntegerArgumentType.getInteger(context, "z")))))))
                 .then(Commands.literal("workers").executes(context -> workers(context.getSource())))
                 .then(Commands.literal("scheduler").executes(context -> scheduler(context.getSource())))
+                .then(Commands.literal("async").executes(context -> asyncClockStatus(context.getSource())))
                 .then(performance())
                 .then(Commands.literal("bottleneck").executes(context -> bottleneck(context.getSource(), false))
                         .then(Commands.literal("json").executes(context -> bottleneck(context.getSource(), true))))
@@ -460,6 +461,45 @@ public final class ForgiaCommand {
                 + " cooldownRegions=" + fused.activeCooldownRegions());
         line(source, "BE adapters: core=" + engine.auditedBlockEntityCoreStatus()
                 + " registered=" + net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.blockEntityAdapterSummary(source.getServer()));
+        line(source, "Region sandbox: savedDataReads=" + net.neoforged.neoforge.server.threading.api.RegionAdapterApi.sandboxedSavedDataReads()
+                + " savedDataWrites=" + net.neoforged.neoforge.server.threading.api.RegionAdapterApi.sandboxedSavedDataWrites()
+                + " capabilitySkips=" + net.neoforged.neoforge.server.threading.api.RegionAdapterApi.sandboxedCapabilitySkips()
+                + " playerLookups=" + net.neoforged.neoforge.server.threading.api.RegionAdapterApi.sandboxedPlayerLookups()
+                + " broadcasts=" + net.neoforged.neoforge.server.threading.api.RegionAdapterApi.broadcastMessagesSent()
+                + " regionMessages=" + net.neoforged.neoforge.server.threading.api.RegionAdapterApi.regionMessagesSent());
+        final var async = engine.independentTickSnapshot(0);
+        line(source, "Independent region clock: enabled=" + async.enabled()
+                + " regions=" + async.trackedRegions()
+                + " inFlight=" + async.inFlightRegions()
+                + " completed=" + async.completedTicks()
+                + " skippedBusy=" + async.skippedBusyTicks()
+                + " pendingCommits=" + async.pendingCommits()
+                + " drainedCommits=" + async.drainedCommits());
+        return 1;
+    }
+
+    private static int asyncClockStatus(CommandSourceStack source) {
+        if (!(RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine)) return noEngine(source);
+        final var snap = engine.independentTickSnapshot(10);
+        line(source, "Independent region clock: enabled=" + snap.enabled()
+                + " trackedRegions=" + snap.trackedRegions()
+                + " inFlight=" + snap.inFlightRegions()
+                + " submitted=" + snap.submittedTicks()
+                + " completed=" + snap.completedTicks()
+                + " skippedBusy=" + snap.skippedBusyTicks()
+                + " failed=" + snap.failedTicks()
+                + " pendingCommits=" + snap.pendingCommits()
+                + " drainedCommits=" + snap.drainedCommits());
+        int rank = 1;
+        for (final var region : snap.slowestRegions()) {
+            line(source, "  #" + rank++ + " " + region.coordinate().level().dimension().location()
+                    + "@" + region.coordinate().regionX() + "," + region.coordinate().regionZ()
+                    + " tps=" + number(region.observedTps())
+                    + " ewma=" + number(region.ewmaMs()) + "ms"
+                    + " localTicks=" + region.localTickCount()
+                    + " inFlight=" + region.inFlight()
+                    + " skippedBusy=" + region.skippedWhileBusy());
+        }
         return 1;
     }
 

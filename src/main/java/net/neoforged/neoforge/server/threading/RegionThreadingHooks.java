@@ -273,6 +273,12 @@ public final class RegionThreadingHooks {
         if (RegionEntityOwnershipScope.grantsEntityMutation(level, entity, operation)) {
             return;
         }
+        if (RegionBlockEntityTickScope.isActiveForLevel(level)
+                && !entity.isAddedToLevel()
+                && !RegionEntityOwnershipScope.hasLevelEffects(entity)
+                && "Entity.setPosRaw".equals(operation)) {
+            return;
+        }
         RegionOwnershipViolationHandler.rejectNativeWorkerStorageAccess(operation);
     }
 
@@ -580,7 +586,20 @@ public final class RegionThreadingHooks {
         BlockEntityResourceOwnership.Scope.rejectEffect("entity admission");
         FurnaceWorkScope.rejectEffect("entity admission");
         RegionBlockEntityWorkGraph.opaqueEffect();
-        return RegionEntityOwnershipScope.deferEntityAddition(level, entity);
+        if (RegionEntityOwnershipScope.deferEntityAddition(level, entity)) {
+            return true;
+        }
+        if (RegionBlockEntityTickScope.isActiveForLevel(level)
+                && !entity.isAddedToLevel()
+                && !entity.isRemoved()
+                && !RegionEntityOwnershipScope.hasLevelEffects(entity)) {
+            return net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
+                if (!entity.isRemoved() && !entity.isAddedToLevel()) {
+                    level.addFreshEntity(entity);
+                }
+            });
+        }
+        return false;
     }
 
     /**
@@ -782,7 +801,25 @@ public final class RegionThreadingHooks {
             return List.of();
         }
         RegionEntityQueryCounters.record(RegionEntityQueryCounters.Operation.PLAYERS, RegionEntityQueryCounters.Path.PUBLISHED);
-        return snapshot.players();
+        final List<ServerPlayer> allPlayers = snapshot.players();
+        if (!allPlayers.isEmpty() && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionScopedPlayerViewEnabled()) {
+            final RegionCoordinate currentCoord = currentRegionCoordinateOrNull();
+            if (currentCoord != null) {
+                net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordSandboxedPlayerLookup();
+                List<ServerPlayer> localPlayers = null;
+                for (int i = 0, size = allPlayers.size(); i < size; i++) {
+                    final ServerPlayer p = allPlayers.get(i);
+                    if (isRegionTickOwnedByCurrentThread(level, p.blockPosition())) {
+                        if (localPlayers == null) {
+                            localPlayers = new java.util.ArrayList<>(size);
+                        }
+                        localPlayers.add(p);
+                    }
+                }
+                return localPlayers == null ? List.of() : java.util.Collections.unmodifiableList(localPlayers);
+            }
+        }
+        return allPlayers;
     }
 
     /**
@@ -1423,7 +1460,18 @@ public final class RegionThreadingHooks {
     }
 
     private static boolean requiresStableNonPlayerRead(net.minecraft.world.level.chunk.LevelChunk chunk) {
-        final boolean resourceRead = BlockEntityResourceOwnership.Scope.checkChunk(chunk, false);
+        final boolean resourceRead;
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isSandboxCapabilityEnabled()) {
+            boolean claimed = false;
+            try {
+                claimed = BlockEntityResourceOwnership.Scope.checkChunk(chunk, false);
+            } catch (IllegalStateException ignored) {
+                return true;
+            }
+            resourceRead = claimed;
+        } else {
+            resourceRead = BlockEntityResourceOwnership.Scope.checkChunk(chunk, false);
+        }
         if (FurnaceWorkScope.checkChunk(chunk, false) || resourceRead) return false;
         RegionBlockEntityWorkGraph.chunkAccess(chunk, false);
         return isNativeRegionWorkerThread() && !isRegionTickOwnedByCurrentThread(chunk.getLevel(), chunk.getPos().getWorldPosition());
@@ -1515,6 +1563,48 @@ public final class RegionThreadingHooks {
                     "BlockCapability:" + capabilityName,
                     "Native region worker queried block capability '" + capabilityName + "' at " + pos + " outside its leased region");
         }
+    }
+
+    /**
+     * Region-sandboxed guard for {@link net.neoforged.neoforge.capabilities.BlockCapability} queries.
+     * <p>
+     * When {@link net.neoforged.neoforge.server.threading.api.RegionAdapterApi#isSandboxCapabilityEnabled()} is active,
+     * a native region worker that reaches outside its active resource claim or leased region (for example due to a
+     * runtime sub-level coordinate redirect) safely receives {@code false} (causing {@code getCapability} to return
+     * {@code null}) instead of throwing {@link net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException}.
+     */
+    public static boolean canAccessBlockCapabilitySandboxed(net.minecraft.world.level.Level level, BlockPos pos, String capabilityName) {
+        if (!(level instanceof ServerLevel serverLevel) || !RegionWorkerScope.isNativeWorkerThread()) {
+            return true;
+        }
+        if (!net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isSandboxCapabilityEnabled()) {
+            assertBlockCapabilityAccess(level, pos, capabilityName);
+            return true;
+        }
+        final BlockPos resolved = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.resolveAffinityPos(serverLevel, pos);
+        try {
+            assertPlayerBlockAccess(serverLevel, resolved);
+            BlockEntityResourceOwnership.Scope.checkReference(serverLevel, resolved);
+            FurnaceWorkScope.checkReference(serverLevel, resolved);
+        } catch (IllegalStateException ex) {
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordSandboxedCapabilitySkip();
+            return false;
+        }
+        if (!isRegionTickOwnedByCurrentThread(serverLevel, resolved)) {
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordSandboxedCapabilitySkip();
+            return false;
+        }
+        RegionBlockEntityWorkGraph.blockEntityReference(serverLevel, resolved);
+        return true;
+    }
+
+    /**
+     * {@return true when the current thread is a native region worker and DimensionDataStorage accesses should
+     * be routed to the per-region SavedData sandbox rather than throwing a boundary exception}
+     */
+    public static boolean shouldSandboxDimensionDataStorage() {
+        return RegionWorkerScope.isNativeWorkerThread()
+                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isSandboxSavedDataEnabled();
     }
 
     /**
@@ -1739,11 +1829,15 @@ public final class RegionThreadingHooks {
 
     /** Routes a complete particle send through the entity batch's serviced wait and returns its real result. */
     public static <T> T sendParticlesFromWorker(ServerLevel level, java.util.function.Supplier<T> send) {
+        return sendParticlesFromWorker(level, send, null);
+    }
+
+    public static <T> T sendParticlesFromWorker(ServerLevel level, java.util.function.Supplier<T> send, T sandboxFallbackResult) {
         BlockEntityResourceOwnership.Scope.rejectEffect("particle send");
         FurnaceWorkScope.rejectEffect("particle send");
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         if (threading instanceof RegionThreadingEngine engine) {
-            return engine.sendParticlesFromWorker(level, send);
+            return engine.sendParticlesFromWorker(level, send, sandboxFallbackResult);
         }
         throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.networkBroadcast(
                 "ServerLevel.sendParticles", "Particle send requires a serviced entity tick batch");
@@ -1781,13 +1875,35 @@ public final class RegionThreadingHooks {
      * off-thread access still returns {@code null} unless
      * {@link #isForeignRegionBlockEntityReadable} proves the owning region is quiescent.
      */
+    @Nullable
+    public static RegionCoordinate currentRegionCoordinateOrNull() {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine
+                ? engine.currentRegionCoordinateOrNull()
+                : null;
+    }
+
+    public static boolean isChunkOwnedByCurrentRegionWorker(long chunkKey) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return false;
+        }
+        final RegionCoordinate coord = currentRegionCoordinateOrNull();
+        if (coord == null || coord.level() == null) {
+            return false;
+        }
+        final int cx = net.minecraft.world.level.ChunkPos.getX(chunkKey);
+        final int cz = net.minecraft.world.level.ChunkPos.getZ(chunkKey);
+        return isRegionTickOwnedByCurrentThread(coord.level(), new BlockPos(cx << 4, 0, cz << 4));
+    }
+
     public static boolean isRegionTickOwnedByCurrentThread(net.minecraft.world.level.Level level, BlockPos pos) {
         if (!(level instanceof ServerLevel serverLevel)) {
             return false;
         }
+        final BlockPos resolved = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.resolveAffinityPos(serverLevel, pos);
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         return threading instanceof RegionThreadingEngine engine
-                && engine.isOwnedByCurrentRegion(serverLevel, pos);
+                && engine.isOwnedByCurrentRegion(serverLevel, resolved);
     }
 
     /**

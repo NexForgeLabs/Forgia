@@ -11,6 +11,9 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(value = MechanicalCrafterBlockEntity.class, remap = false)
 public interface MechanicalCrafterBlockEntityAccessor {
-    @Accessor("phase")
-    MechanicalCrafterBlockEntity.Phase forgia$phase();
+    @Accessor("countDown")
+    int forgia$countDown();
+
+    @Accessor("wasPoweredBefore")
+    boolean forgia$wasPoweredBefore();
 }

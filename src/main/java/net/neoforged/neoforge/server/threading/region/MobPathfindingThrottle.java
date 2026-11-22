@@ -29,6 +29,10 @@ import org.jetbrains.annotations.ApiStatus;
 public final class MobPathfindingThrottle {
     private static volatile List<? extends String> cachedRawEntries;
     private static volatile Map<EntityType<?>, Integer> cachedByEntityType = Collections.emptyMap();
+    private static final java.util.concurrent.ConcurrentHashMap<EntityType<?>, Integer> AUTO_LEARNED_COOLDOWNS =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long SLOW_PATH_THRESHOLD_NANOS = 3_000_000L; // 3ms -> 10 ticks
+    private static final long SEVERE_PATH_THRESHOLD_NANOS = 8_000_000L; // 8ms -> 20 ticks
 
     private MobPathfindingThrottle() {}
 
@@ -49,7 +53,27 @@ public final class MobPathfindingThrottle {
         if (specific != null) {
             return specific;
         }
-        return ForgiaConfig.SERVER.mobPathfindingDefaultCooldownTicks.get();
+        final int configuredDefault = ForgiaConfig.SERVER.mobPathfindingDefaultCooldownTicks.get();
+        if (configuredDefault > 0) {
+            return configuredDefault;
+        }
+        final Integer autoLearned = AUTO_LEARNED_COOLDOWNS.get(mob.getType());
+        return autoLearned != null ? autoLearned : 0;
+    }
+
+    /**
+     * Records a completed {@code PathFinder.findPath} duration and adaptively learns a pathfinding
+     * cooldown for slow entity types so complex terrain pathfinding does not stall region ticks.
+     */
+    public static void recordPathfindingDuration(Mob mob, long durationNanos) {
+        if (mob == null || durationNanos < SLOW_PATH_THRESHOLD_NANOS || !ForgiaConfig.SERVER_SPEC.isLoaded()) {
+            return;
+        }
+        if (!ForgiaConfig.SERVER.enableMobPathfindingThrottle.get()) {
+            return;
+        }
+        final int targetCooldown = durationNanos >= SEVERE_PATH_THRESHOLD_NANOS ? 20 : 10;
+        AUTO_LEARNED_COOLDOWNS.merge(mob.getType(), targetCooldown, Math::max);
     }
 
     /**

@@ -13,8 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.simibubi.create.AllBlockEntityTypes;
 import com.simibubi.create.AllBlocks;
 import com.simibubi.create.content.decoration.copycat.CopycatBlockEntity;
+import com.simibubi.create.content.fluids.pipes.FluidPipeBlockEntity;
+import com.simibubi.create.content.fluids.pipes.StraightPipeBlockEntity;
+import com.simibubi.create.content.fluids.pump.PumpBlockEntity;
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
+import com.simibubi.create.content.kinetics.belt.transport.BeltInventory;
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
+import com.simibubi.create.content.kinetics.crafter.MechanicalCrafterBlockEntity;
 import com.simibubi.create.content.kinetics.deployer.DeployerBlockEntity;
+import com.simibubi.create.content.kinetics.fan.EncasedFanBlockEntity;
 import com.simibubi.create.content.kinetics.flywheel.FlywheelBlockEntity;
 import com.simibubi.create.content.kinetics.gantry.GantryShaftBlockEntity;
 import com.simibubi.create.content.kinetics.mechanicalArm.ArmBlockEntity;
@@ -23,9 +30,13 @@ import com.simibubi.create.content.kinetics.transmission.ClutchBlockEntity;
 import com.simibubi.create.content.kinetics.transmission.GearshiftBlockEntity;
 import com.simibubi.create.content.kinetics.transmission.SplitShaftBlockEntity;
 import com.simibubi.create.content.kinetics.turntable.TurntableBlockEntity;
+import com.simibubi.create.content.logistics.funnel.FunnelBlock;
+import com.simibubi.create.content.logistics.funnel.FunnelBlockEntity;
 import com.simibubi.create.content.logistics.itemHatch.ItemHatchBlockEntity;
 import com.simibubi.create.foundation.blockEntity.behaviour.BehaviourType;
 import com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour;
+import com.simibubi.create.foundation.blockEntity.behaviour.inventory.CapManipulationBehaviourBase;
+import com.simibubi.create.foundation.blockEntity.behaviour.inventory.InvManipulationBehaviour;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -46,8 +57,11 @@ import net.neoforged.forgia.compat.create.CreateAudit;
 import net.neoforged.forgia.compat.create.CreateTickAdmission;
 import net.neoforged.forgia.compat.create.mixin.ArmBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.DeployerBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.EncasedFanBlockEntityAccessor;
+import net.neoforged.forgia.compat.create.mixin.FunnelBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.KineticBlockEntityAccessor;
 import net.neoforged.forgia.compat.create.mixin.SmartBlockEntityAccessor;
+import net.neoforged.neoforge.items.ItemStackHandler;
 import net.neoforged.neoforge.server.threading.ParallelAdapterRuntime;
 import net.neoforged.neoforge.server.threading.api.BlockEntityExecutionAdapter;
 import net.neoforged.neoforge.server.threading.api.ParallelApi;
@@ -436,6 +450,113 @@ class CreateCanonicalIntegrationTest {
             assertEquals(999, ((KineticBlockEntityAccessor) first).forgia$validationCountdown());
             assertEquals(999, ((KineticBlockEntityAccessor) later).forgia$validationCountdown());
             assertEquals(1, fixture.status().workerCompletions());
+        }
+    }
+
+    @Test
+    void top10CreateMachinesRunSteadyTicksConcurrentlyOnWorkers() {
+        try (final var fixture = new CreateFixture()) {
+            org.mockito.Mockito.when(fixture.level.getGameTime()).thenReturn(1L);
+            // 1. Belt non-controller segment + empty Belt controller
+            final var beltSegment = new BeltBlockEntity(AllBlockEntityTypes.BELT.get(), FIRST, AllBlocks.BELT.getDefaultState());
+            fixture.steady(beltSegment, 32);
+            beltSegment.beltLength = 3;
+            beltSegment.setController(FIRST.east());
+            CreateFixture.set(BeltBlockEntity.class, beltSegment, "itemHandler", new ItemStackHandler(1));
+
+            final var beltController = new BeltBlockEntity(AllBlockEntityTypes.BELT.get(), FIRST.east(), AllBlocks.BELT.getDefaultState());
+            fixture.steady(beltController, 32);
+            beltController.beltLength = 3;
+            beltController.setController(FIRST.east());
+            CreateFixture.set(BeltBlockEntity.class, beltController, "itemHandler", new ItemStackHandler(1));
+            final var beltInv = new BeltInventory(beltController);
+            CreateFixture.set(BeltInventory.class, beltInv, "beltMovementPositive", beltController.getDirectionAwareBeltMovementSpeed() > 0.0f);
+            CreateFixture.set(BeltBlockEntity.class, beltController, "inventory", beltInv);
+
+            // 2. MechanicalCrafter in IDLE phase with matching redstone state (false == hasNeighborSignal)
+            final var crafter = new MechanicalCrafterBlockEntity(AllBlockEntityTypes.MECHANICAL_CRAFTER.get(), FIRST.east(2), AllBlocks.MECHANICAL_CRAFTER.getDefaultState());
+            fixture.steady(crafter, 64);
+            CreateFixture.set(MechanicalCrafterBlockEntity.class, crafter, "wasPoweredBefore", false);
+            for (final var behaviour : ((SmartBlockEntityAccessor) crafter).forgia$behaviours().values()) {
+                if (behaviour instanceof InvManipulationBehaviour) {
+                    CreateFixture.set(CapManipulationBehaviourBase.class, behaviour, "findNewNextTick", false);
+                    CreateFixture.set(com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour.class, behaviour, "lazyTickCounter", 10);
+                }
+            }
+
+            // 3. Funnel in COLLECT mode and cooling-down EXTRACT mode
+            final var collectFunnel = new FunnelBlockEntity(AllBlockEntityTypes.FUNNEL.get(), SECOND, AllBlocks.ANDESITE_FUNNEL.getDefaultState().setValue(FunnelBlock.EXTRACTING, false));
+            fixture.steadySmart(collectFunnel);
+            for (final var behaviour : ((SmartBlockEntityAccessor) collectFunnel).forgia$behaviours().values()) {
+                if (behaviour instanceof InvManipulationBehaviour) {
+                    CreateFixture.set(CapManipulationBehaviourBase.class, behaviour, "findNewNextTick", false);
+                    CreateFixture.set(com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour.class, behaviour, "lazyTickCounter", 10);
+                }
+            }
+
+            final var extractFunnel = new FunnelBlockEntity(AllBlockEntityTypes.FUNNEL.get(), SECOND.east(), AllBlocks.ANDESITE_FUNNEL.getDefaultState().setValue(FunnelBlock.EXTRACTING, true));
+            fixture.steadySmart(extractFunnel);
+            CreateFixture.set(FunnelBlockEntity.class, extractFunnel, "extractionCooldown", 5);
+            for (final var behaviour : ((SmartBlockEntityAccessor) extractFunnel).forgia$behaviours().values()) {
+                if (behaviour instanceof InvManipulationBehaviour) {
+                    CreateFixture.set(CapManipulationBehaviourBase.class, behaviour, "findNewNextTick", false);
+                    CreateFixture.set(com.simibubi.create.foundation.blockEntity.behaviour.BlockEntityBehaviour.class, behaviour, "lazyTickCounter", 10);
+                }
+            }
+
+            // 4. FluidPipe, StraightPipe, and Pump in steady state
+            final var fluidPipe = new FluidPipeBlockEntity(AllBlockEntityTypes.FLUID_PIPE.get(), SECOND.east(2), AllBlocks.FLUID_PIPE.getDefaultState());
+            fixture.steadySmart(fluidPipe);
+
+            final var straightPipe = new StraightPipeBlockEntity(AllBlockEntityTypes.GLASS_FLUID_PIPE.get(), SECOND.east(3), AllBlocks.GLASS_FLUID_PIPE.getDefaultState());
+            fixture.steadySmart(straightPipe);
+
+            final var pump = new PumpBlockEntity(AllBlockEntityTypes.MECHANICAL_PUMP.get(), SECOND.east(4), AllBlocks.MECHANICAL_PUMP.getDefaultState());
+            fixture.steady(pump, 32);
+            for (final var behaviour : ((SmartBlockEntityAccessor) pump).forgia$behaviours().values()) {
+                if (behaviour instanceof com.simibubi.create.content.fluids.FluidTransportBehaviour) {
+                    CreateFixture.set(com.simibubi.create.content.fluids.FluidTransportBehaviour.class, behaviour, "interfaces", java.util.Map.of());
+                }
+            }
+
+            // 5. Spinning EncasedFan with empty AirCurrent and positive cooldowns
+            final var fan = new EncasedFanBlockEntity(AllBlockEntityTypes.ENCASED_FAN.get(), SECOND.east(5), AllBlocks.ENCASED_FAN.getDefaultState());
+            fixture.steady(fan, 64);
+            CreateFixture.set(EncasedFanBlockEntity.class, fan, "airCurrentUpdateCooldown", 10);
+            CreateFixture.set(EncasedFanBlockEntity.class, fan, "entitySearchCooldown", 4);
+            CreateFixture.set(EncasedFanBlockEntity.class, fan, "updateAirFlow", false);
+            fan.airCurrent.direction = Direction.NORTH;
+
+            fixture.originalCreateTicker(beltSegment);
+            fixture.originalCreateTicker(beltController);
+            fixture.originalCreateTicker(crafter);
+            fixture.originalCreateTicker(collectFunnel);
+            fixture.originalCreateTicker(extractFunnel);
+            fixture.originalCreateTicker(fluidPipe);
+            fixture.originalCreateTicker(straightPipe);
+            fixture.originalCreateTicker(pump);
+            fixture.originalCreateTicker(fan);
+
+            final List<Thread> bodies = new CopyOnWriteArrayList<>();
+            fixture.engine.setBlockEntityBodyObserverForTesting((ticker, body) -> {
+                bodies.add(Thread.currentThread());
+                body.run();
+            });
+            fixture.canonicalTick();
+
+            assertEquals(9, bodies.size());
+            assertTrue(bodies.stream().noneMatch(thread -> thread == fixture.main), bodies.toString());
+            assertEquals(999, ((KineticBlockEntityAccessor) beltSegment).forgia$validationCountdown());
+            assertEquals(999, ((KineticBlockEntityAccessor) beltController).forgia$validationCountdown());
+            assertEquals(999, ((KineticBlockEntityAccessor) crafter).forgia$validationCountdown());
+            assertEquals(4, ((FunnelBlockEntityAccessor) extractFunnel).forgia$extractionCooldown());
+            assertEquals(999, ((SmartBlockEntityAccessor) fluidPipe).forgia$lazyTickCounter());
+            assertEquals(999, ((SmartBlockEntityAccessor) straightPipe).forgia$lazyTickCounter());
+            assertEquals(999, ((KineticBlockEntityAccessor) pump).forgia$validationCountdown());
+            assertEquals(9, ((EncasedFanBlockEntityAccessor) fan).forgia$airCurrentUpdateCooldown());
+            assertEquals(3, ((EncasedFanBlockEntityAccessor) fan).forgia$entitySearchCooldown());
+            assertEquals(9, fixture.status().workerCompletions());
+            assertEquals(0, fixture.engine.diagnostics().ownershipViolationCount());
         }
     }
 

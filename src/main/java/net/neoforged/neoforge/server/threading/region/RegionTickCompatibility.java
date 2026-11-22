@@ -237,6 +237,15 @@ public final class RegionTickCompatibility {
     /** Adapter candidacy is cached; its instance predicate is still mandatory before every native body. */
     public static RegionBlockEntityTickAdmission.Decision decideBlockEntityTick(ServerLevel level, @Nullable String type,
             boolean interiorChunk, boolean borderUpdatesEnabled) {
+        if (type != null && !serverThreadOnlyTypes.containsKey(type)
+                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionSandboxedBlockEntity(type)) {
+            if (interiorChunk) {
+                return RegionBlockEntityTickAdmission.Decision.ADMITTED;
+            }
+            return borderUpdatesEnabled
+                    ? RegionBlockEntityTickAdmission.Decision.ADMITTED_WITH_BORDER_UPDATES
+                    : RegionBlockEntityTickAdmission.Decision.NOT_INTERIOR_CHUNK;
+        }
         if (type != null && !serverThreadOnlyTypes.containsKey(type) && ParallelAdapterRuntime.hasBlockEntityTickAdapter(level, type)) {
             return (interiorChunk || ParallelAdapterRuntime.isResourceScopedBlockEntityTickAdapter(level, type))
                     ? RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED

@@ -1,22 +1,41 @@
 --- a/net/minecraft/world/level/storage/DimensionDataStorage.java
 +++ b/net/minecraft/world/level/storage/DimensionDataStorage.java
-@@ -41,6 +_,7 @@
+@@ -29,6 +_,7 @@
+     private final DataFixer fixerUpper;
+     private final HolderLookup.Provider registries;
+     private final File dataFolder;
++    private final net.neoforged.neoforge.server.threading.region.RegionSavedDataSandbox forgiaSavedDataSandbox = new net.neoforged.neoforge.server.threading.region.RegionSavedDataSandbox();
+ 
+     public DimensionDataStorage(File p_78149_, DataFixer p_78150_, HolderLookup.Provider p_324180_) {
+         this.fixerUpper = p_78150_;
+@@ -41,6 +_,10 @@
      }
  
      public <T extends SavedData> T computeIfAbsent(SavedData.Factory<T> p_294124_, String p_164864_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldSandboxDimensionDataStorage()) {
++            return this.forgiaSavedDataSandbox.computeIfAbsentSandboxed(p_294124_, p_164864_);
++        }
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.computeIfAbsent:" + p_164864_);
          T t = this.get(p_294124_, p_164864_);
          if (t != null) {
              return t;
-@@ -53,6 +_,7 @@
+@@ -53,17 +_,23 @@
  
      @Nullable
      public <T extends SavedData> T get(SavedData.Factory<T> p_295091_, String p_164860_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldSandboxDimensionDataStorage()) {
++            return this.forgiaSavedDataSandbox.getSandboxed(p_295091_, p_164860_);
++        }
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.get:" + p_164860_);
++        this.forgiaSavedDataSandbox.drainPendingToMainCache(this.cache);
          SavedData saveddata = this.cache.get(p_164860_);
          if (saveddata == null && !this.cache.containsKey(p_164860_)) {
              saveddata = this.readSavedData(p_295091_.deserializer(), p_295091_.type(), p_164860_);
-@@ -63,7 +_,7 @@
+             this.cache.put(p_164860_, saveddata);
+         }
++        this.forgiaSavedDataSandbox.onMainThreadPublish(p_164860_, saveddata);
+ 
+         return (T)saveddata;
      }
  
      @Nullable
@@ -25,12 +44,18 @@
          try {
              File file1 = this.getDataFile(p_164870_);
              if (file1.exists()) {
-@@ -78,10 +_,11 @@
+@@ -78,10 +_,17 @@
      }
  
      public void set(String p_164856_, SavedData p_164857_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldSandboxDimensionDataStorage()) {
++            this.forgiaSavedDataSandbox.setSandboxed(p_164856_, p_164857_);
++            return;
++        }
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertDimensionDataStorageAccess("DimensionDataStorage.set:" + p_164856_);
++        this.forgiaSavedDataSandbox.drainPendingToMainCache(this.cache);
          this.cache.put(p_164856_, p_164857_);
++        this.forgiaSavedDataSandbox.onMainThreadPublish(p_164856_, p_164857_);
      }
  
 -    public CompoundTag readTagFromDisk(String p_78159_, DataFixTypes p_295038_, int p_78160_) throws IOException {
@@ -59,3 +84,11 @@
  
          return compoundtag1;
      }
+@@ -124,6 +_,7 @@
+     }
+ 
+     public void save() {
++        this.forgiaSavedDataSandbox.drainPendingToMainCache(this.cache);
+         this.cache.forEach((p_323449_, p_323450_) -> {
+             if (p_323450_ != null) {
+                 p_323450_.save(this.getDataFile(p_323449_), this.registries);

@@ -476,7 +476,7 @@
 +            // is counted and logged once.
 +            net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordUnservedRangeQuery("Level.getEntities(Entity, AABB, Predicate)",
 +                    net.neoforged.neoforge.server.threading.region.RegionEntityQueryCounters.Operation.GET_IN_BOX);
-+            return java.util.List.of();
++            return new java.util.ArrayList<>();
 +        }
 +        return this.getEntitiesVanilla(p_46536_, p_46537_, p_46538_);
 +    }

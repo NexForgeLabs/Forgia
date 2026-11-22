@@ -14,6 +14,9 @@ public interface EncasedFanBlockEntityAccessor {
     @Accessor("airCurrentUpdateCooldown")
     int forgia$airCurrentUpdateCooldown();
 
+    @Accessor("entitySearchCooldown")
+    int forgia$entitySearchCooldown();
+
     @Accessor("updateAirFlow")
     boolean forgia$updateAirFlow();
 }

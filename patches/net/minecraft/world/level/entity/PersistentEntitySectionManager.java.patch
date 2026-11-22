@@ -211,7 +211,7 @@
          LongSet longset = this.getAllChunksToSave();
  
          while (!longset.isEmpty()) {
-@@ -280,31 +_,69 @@
+@@ -280,31 +_,72 @@
  
      @Override
      public void close() throws IOException {
@@ -256,11 +256,11 @@
 +     */
 +    public void forEachAccessibleNonEmptySectionInRegion(int regionX, int regionZ, net.minecraft.world.phys.AABB box, net.minecraft.util.AbortableIterationConsumer<EntitySection<T>> consumer) {
 +        this.sectionStorage.forEachAccessibleNonEmptySectionInRegion(regionX, regionZ, box, consumer);
-     }
++    }
 +
 +    public void forEachAccessibleNonEmptySectionInRegions(java.util.List<net.neoforged.neoforge.server.threading.region.RegionCoordinate> regions, net.minecraft.world.phys.AABB box, net.minecraft.util.AbortableIterationConsumer<EntitySection<T>> consumer) {
 +        this.sectionStorage.forEachAccessibleNonEmptySectionInRegions(regions, box, consumer);
-+    }
+     }
  
      public boolean canPositionTick(BlockPos p_202168_) {
 +        this.checkStorageAccess("PersistentEntitySectionManager.canPositionTick");
@@ -273,6 +273,9 @@
      }
  
      public boolean areEntitiesLoaded(long p_157508_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isChunkOwnedByCurrentRegionWorker(p_157508_)) {
++            return true;
++        }
 +        this.checkStorageAccess("PersistentEntitySectionManager.areEntitiesLoaded");
          return this.chunkLoadStatuses.get(p_157508_) == PersistentEntitySectionManager.ChunkLoadStatus.LOADED;
      }
