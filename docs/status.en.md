@@ -2,6 +2,19 @@
 
 English | [中文](status.zh.md)
 
+## Current project snapshot — C7 (2026-11-22)
+
+- **Platform:** NeoForge 1.21.1 development line.
+- **Region policy:** `DYNAMIC_CLUSTER` is the default; loaded sections coalesce into loaded-island regions. Legacy fixed layouts remain for compatibility and controlled comparisons.
+- **Production validation:** C7 / GitHub Issue #5 completed on the SkyExplorer pack with 188 enabled mods, 8 Region Workers, `DYNAMIC_CLUSTER/4ch`, generic BE Sandbox and Independent Region Clock.
+- **Recorded workload:** multiplayer load sustained 20.0 TPS over an 80-minute soak at 18.2–28.4 ms MSPT; exploration recorded 179 regions / 530 chunks at 20.0 TPS and 18.8 ms average MSPT (one-minute max 87.2 ms).
+- **BE execution:** 72%–82% of measured BE execution ran on workers. This is not a percentage of mod types certified compatible. Only 2–3 BE types were auto-demoted in the reported workload.
+- **Compatibility:** ordinary mods do not require dedicated adapters; complex global/shared-state mods such as Create retain dedicated compatibility handling or serial fences.
+- **Independent clock:** 858,298+ dispatches, zero reported failures, clean health in the C7 report.
+- **Remaining work:** fluid simulation has not yet been documented as generally worker-owned. Runtime Mod hot-unload remains unsupported. C20 is the planned 1.21.1 release target; this is not a stable-release claim.
+
+The detailed workload tables below this snapshot are **historical** unless explicitly labelled C7. Measurements from `.100` and earlier builds must not be presented as current-build results.
+
 Historical workload tables below were measured on a 4-core/8-thread machine, JDK 21, ZGC generational,
 fixed 3×3-chunk regions unless stated, 4 workers, 200 warmup + 600 measured ticks, two repeats. "Off"
 means the same build with region threading disabled. These are not new C6/canary performance results;
