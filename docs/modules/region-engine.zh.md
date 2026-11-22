@@ -4,7 +4,7 @@
 源码：[`RegionThreadingEngine`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionThreadingEngine.java)、[`RegionLayout`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionLayout.java)、[`LevelTickPhase`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelTickPhase.java)、[`RegionWorkerPool`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionWorkerPool.java)
 证据：[FOLIA-REFERENCE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/FOLIA-REFERENCE.md)、[PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
-C6 认证覆盖固定布局、4 个 worker 和文档列出的开关。所有开关默认 `false`。`DYNAMIC_CLUSTER` 为实验模式，属于 C6 认证范围之外。
+C6 验收覆盖其文档记录的固定布局配置。除此之外，`DYNAMIC_CLUSTER` 现为默认区域策略，并已完成文档所述 C7 188 Mod 生产验证，详见[性能基准](../benchmarks.zh.md)。并行执行开关仍默认 `false`；C7 结果仅适用于记录的构建、整合包与配置。
 
 ---
 
