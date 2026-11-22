@@ -606,7 +606,15 @@
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferBlockEvent(this, p_8746_, p_8747_, p_8748_, p_8749_)) {
 +            return;
 +        }
-         this.blockEvents.add(new BlockEventData(p_8746_, p_8747_, p_8748_, p_8749_));
++        if (Thread.currentThread() != this.server.getRunningThread()) {
++            final BlockPos immutablePos = p_8746_.immutable();
++            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
++                    this, () -> this.blockEvent(immutablePos, p_8747_, p_8748_, p_8749_));
++            return;
++        }
++        synchronized (this.blockEvents) {
++            this.blockEvents.add(new BlockEventData(p_8746_.immutable(), p_8747_, p_8748_, p_8749_));
++        }
      }
  
      private void runBlockEvents() {
@@ -637,8 +645,14 @@
 +        // so every lease is released when an event throws.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginBlockEventPhase(this);
 +        try {
-+            while (!this.blockEvents.isEmpty()) {
-+                BlockEventData blockeventdata = this.blockEvents.removeFirst();
++            while (true) {
++                BlockEventData blockeventdata;
++                synchronized (this.blockEvents) {
++                    if (this.blockEvents.isEmpty()) {
++                        break;
++                    }
++                    blockeventdata = this.blockEvents.removeFirst();
++                }
 +                if (this.shouldTickBlocksAt(blockeventdata.pos())) {
 +                    net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockTickTask(this, blockeventdata.pos(), () -> {
 +                        // Neo: the move of a piston event runs here, so the attribution of one event is the
@@ -671,7 +685,9 @@
 +        } finally {
 +            net.neoforged.neoforge.server.threading.RegionThreadingHooks.endBlockEventPhase(this);
 +            net.neoforged.neoforge.server.threading.region.RegionBlockEventAttribution.endPhase();
-+            this.blockEvents.addAll(this.blockEventsToReschedule);
++            synchronized (this.blockEvents) {
++                this.blockEvents.addAll(this.blockEventsToReschedule);
++            }
          }
 -
 -        this.blockEvents.addAll(this.blockEventsToReschedule);
