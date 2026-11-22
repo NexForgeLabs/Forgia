@@ -38,45 +38,19 @@ Forgia 把 [Folia](https://github.com/PaperMC/Folia) 的区域模型原生移植
 正确性始终是验收标准：POI 管理器、红石组件与 chunk 随机 tick 都与**真实原版实现**逐 tick 比较，
 而不是与预期比较。
 
-## 尚未完成的部分
+## 当前开发边界
 
-Forgia 不是完成态的 Folia 替代品。诚实的清单：
+C7 是生产验证里程碑，不是对所有模组的通用兼容认证：
 
-- **轻负载还赢不了。** 2048 漏斗产线 3.7–4.0 ms，inline 为 3.3 ms；4096 熔炉 2.7–3.3 ms 对 2.6 ms。
-  worker 正文本身每 ticker 约是 inline 的 2.5 倍成本，持久线程池仍默认关闭，等待完整负载矩阵。
-  [work-stealing 派发器](region-threading/WORK-STEALING-DISPATCHER.md) 现在批量提交并窃取未开始任务区段；
-  其仅派发测量不构成整服加速。
-- **生产 soak 是持平，不是领先。** 全部开启时落在 inline mspt 或以下（中位比值 0.983，p50 5.60 ms 对
-  6.22 ms），但真实世界在 3-chunk 区域下没有足够并行工作获得更多收益。
-- **漏斗与 pack 准入机器仍需内部规则**：它们会读写 live 邻居容器。熔炉族边界 chunk 现在可在开启边界传播
-  且邻居已加载时运行；混合 chunk 仍保持整 chunk fallback。见
-  [方块实体实现与后续步骤](region-threading/BLOCK-ENTITY-PARALLELISM.md)。
-- **结构不感知区域。** 跨边界移动方块的活塞与 Create 式移动装置仍在服务器线程运行。
-- **跨区 game-event 捕获（sculk）已实现且默认关闭。** 带 worker 回调的 inline 基线可能触达外部监听器；
-  请显式验证目标配置。
-- **玩家默认在服务器线程 tick。** 开启 `enableRegionThreadingPlayerTicks` 后，已准入的实体调用和原始
-  `ServerPlayer.doTick()` 正文可在区域 worker 上执行。服务器线程负责完整连接遍历，等待当前正文返回后继续。
-  [玩家 Tick 执行与验证](docs/modules/player-ticks.zh.md)
-- **长跑与多人验收仍未完成。** 10 分钟 32 假人全并行耐久测试（`FullParallelSoakGameTests`，`DYNAMIC_CLUSTER`，7 Workers）
-  实现 `0` 次所有权违规，且 P50（`-7.1%`）与 GC 耗时（`-48.8%`）优于原版串行，但轻载均值与长尾仍受协调与回退开销影响；
-  任意 C6 canary 整合包仍需独立验证。
-- **已验收固定布局中区域尺寸是静态的。** 实验性 `DYNAMIC_CLUSTER` 加载岛屿聚合调度已可在 C6 范围外启用；
-  连续区域 tick 在现有顺序合同下已被调查并否定。
+- `DYNAMIC_CLUSTER` 为默认区域策略；已加载 Section 会动态合并为连通 Region。
+- 普通模组方块实体可使用通用 Region Sandbox，无需逐个编写 Adapter。Sandbox 护栏、运行时降级与串行回退仍然必要；不能假设任意模组代码天然线程安全。
+- Create 等复杂共享状态模组仍需专用兼容处理。未明确准入的移动装置和回调继续串行执行。
+- C7 验证配置启用了独立 Region 时钟。它解耦区域调度，但不意味着世界时间轴完全独立；全局状态和跨区提交仍需协调。
+- 完整流体模拟尚未作为通用 Worker 所有权子系统记录发布；流体并行化仍属于开发工作。
+- 仍不支持运行时 Mod 热卸载。
+- C20 是计划中的 Forgia 1.21.1 Release 目标，目前尚未宣告稳定版发布。
 
-完整剩余计划见 [region-threading/STATUS.zh.md](region-threading/STATUS.zh.md#路线图)。
-完整 Forgia API 清单（公开类型、方法签名、调度器、操作句柄、兼容声明与配置字段）见
-[API 参考](region-threading/API-REFERENCE.md)。实验性公开模组集成 API 与 compile-only 门面见
-[并行 API 指南](region-threading/MOD-PARALLEL-API.md)。完整跨区操作与 scheduled 回调准入/指标见
-[操作指南](region-threading/CROSS-REGION-OPERATIONS.md)。更广的准备与并行刷怪过滤合同在
-[API RFC](region-threading/MOD-PARALLEL-API-RFC.md) 中提出；这些后续阶段尚未实现。
-[实验性 MobSpawnController 适配器](docs/adapters/mobspawncontroller-adapter.zh.md) 为 1.2.3 提供冻结规则与
-已验证准入。有序 nearby/chance 实验**需显式开启且默认关闭**：本地整合包验证发现工作截断且没有已证实的加速。
-默认自然刷怪保持串行；不支持的世界过滤、倍率与未验证原生钩子也保留完整串行计划。
-[实验性 Create 6.0.10 适配器](docs/adapters/create-adapter.zh.md) 现在使用通用
-[受审计原 ticker API](region-threading/AUDITED-BLOCK-ENTITY-TICK-API.md)，让稳态传动部件、离合器与动力
-转向器进入 canonical Level 路径。所有 Create 实现/状态/足迹知识都在适配器内；Core 校验共享合同、绑定、
-生命周期与所有权。适配器是显式审查过的信任合同，不是由类型/哈希自动证明。水车/磨石的 v1 检查仍是历史
-明确驱动覆盖；移动装置与未知回调保持串行。此扩展不带来整服性能或已安装整合包兼容声明。
+范围与证据见 [C7 性能基准](docs/benchmarks.zh.md)、[工程状态](docs/status.zh.md) 和[证据归档](region-threading/STATUS.md)。
 
 ## 文档
 
