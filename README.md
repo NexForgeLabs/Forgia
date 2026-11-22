@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-**A regionized, multithreaded Minecraft server for NeoForge 1.21.1.**
+**A regionized, multithreaded server runtime for NeoForge 1.21.1.**
 
 Forgia ports [Folia](https://github.com/PaperMC/Folia)'s region model into NeoForge natively: the world is
 partitioned into regions, each region owns its chunks, entities, block entities and points of interest, and
@@ -16,14 +16,11 @@ ownership are exposed through native NeoForge API, and mods keep running as mods
 
 ---
 
-For the first controlled deployment, use the [production readiness audit](region-threading/PRODUCTION-READINESS.md),
-[complete configuration matrix](region-threading/PRODUCTION-CONFIGURATION.md) and
-[canary/rollback procedure](region-threading/CONTROLLED-CANARY.md). **Both C6 and C7 (Issue #5: 188-mod production pack validation on `DYNAMIC_CLUSTER` + generic BE Sandbox + Independent Region Clock) are verified and closed**: `regionThreadingMode` now defaults to `DYNAMIC_CLUSTER`, and enabling `enableRegionSandboxAllBlockEntities` + `enableIndependentRegionTickClock` achieves 72%–82% BE worker parallelism and steady 20.0 TPS without per-mod adapters for ordinary mods. Runtime Mod hot-unload remains unsupported.
+For deployment planning, read the [production readiness audit](region-threading/PRODUCTION-READINESS.md), [configuration matrix](region-threading/PRODUCTION-CONFIGURATION.md) and [canary/rollback procedure](region-threading/CONTROLLED-CANARY.md). **C6 architecture acceptance and C7 production validation (Issue #5) are complete within their documented scopes.** C7 validated a 188-mod SkyExplorer pack using `DYNAMIC_CLUSTER`, the generic Block Entity Sandbox and the Independent Region Clock: the recorded workload sustained 20.0 TPS during an 80-minute multiplayer soak, with 72%–82% of measured BE execution occurring on workers. This percentage is execution share, not a percentage of mod types certified compatible. Ordinary mods do not require dedicated adapters; complex shared-state mods such as Create retain dedicated compatibility handling. `regionThreadingMode` defaults to `DYNAMIC_CLUSTER`; parallel execution switches remain opt-in and default off. Runtime Mod hot-unload remains unsupported.
 
 ## What works today
 
-The tables below include historical workload measurements; they are not performance results for a C6 canary.
-All region-threading switches are **off by default**. Pre-body admission can keep unsupported work on the server
+The tables below combine controlled historical measurements with the separately identified C7 production validation; do not compare different workloads as if they were a single A/B test. Region-threading execution switches are **off by default**. Pre-body admission can keep unsupported work on the server
 thread; a refusal or failure after effects begin is reported without replaying the whole ticker.
 
 | Area | What it does | Measured |
@@ -32,7 +29,7 @@ thread; a refusal or failure after effects begin is reported without replaying t
 | **Chunk ticks** | Random ticks, ice/snow, thunder on the region that owns the chunk, including chunks on a region border | 1.24–1.27× (100 % of dispatched chunks on workers) |
 | **Natural spawning** | Per-region spawn bodies against the vanilla level-wide mob cap | spawn slice 4.6 → 2.8–3.9 ms |
 | **Points of interest** | Region-partitioned storage with published snapshots; queries identical to vanilla | villagers **2.1–2.4×**, zombies **3.4×** |
-| **Block entities** | One canonical phase: narrow original Hopper branches, verified burning Furnace prefixes and complete Unknown/Create Serial Fences | C6 correctness accepted; no current whole-server speedup claim |
+| **Block entities** | One canonical phase: narrow original Hopper branches, verified burning Furnace prefixes and complete Unknown/Create Serial Fences | C7 production validation recorded 72%–82% BE worker execution share; light stationary BE workloads can still favor serial execution |
 | **Redstone** | Cross-region updates converge in the **same tick** through a fixpoint | 49 layouts run twice (on/off), 5 880 tick comparisons, identical to vanilla |
 | **Cross-region reads** | Seqlock chunk versions; a stale read re-runs the region that made it | 0 torn reads, 0 stale takes |
 | **Cross-region mod operations** | Public two-owner block entity operations, bounded sided Container transfers and explicit task outcomes | experimental; operations serialize after workers return |
