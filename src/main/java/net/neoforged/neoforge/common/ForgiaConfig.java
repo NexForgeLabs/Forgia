@@ -215,12 +215,12 @@ public final class ForgiaConfig {
                     .define("enableRegionThreadingBlockEntityTicks", false);
 
             enableRegionThreadingFurnaceWorkWaves = builder
-                    .comment("EXPERIMENTAL, default off: execute verified already-burning vanilla furnace-family ticks in directed resource waves, including independent instances in one chunk/region. Requires the block-entity worker slice and a fixed layout. Fuel/re-light/extinguish, unverified recipes/items/tickers and all other machines keep complete serial ticks in canonical order. Notifications commit on the server after each wave; no general region, entity or chunk mutation permission is granted. This is a narrow vanilla protocol, not arbitrary mod parallelism.")
+                    .comment("LEGACY (fixed-layout only; ignored under DYNAMIC_CLUSTER): Execute verified vanilla furnace-family ticks in directed resource waves.")
                     .worldRestart()
                     .define("enableRegionThreadingFurnaceWorkWaves", false);
 
             enableRegionThreadingBlockEntityResources = builder
-                    .comment("EXPERIMENTAL, default off: use current-operation object resource identities, READ/WRITE claims and nonblocking leases inside existing furnace work waves. Requires enableRegionThreadingFurnaceWorkWaves, the block-entity worker slice and a fixed layout. Resource scopes remain subordinate to held region leases; unknown/overflowed/stale proofs retain complete serial ticks. Does not admit additional machine types, arbitrary callbacks or cross-region worker transactions.")
+                    .comment("LEGACY (fixed-layout only; ignored under DYNAMIC_CLUSTER): Resource scopes inside legacy furnace work waves.")
                     .worldRestart()
                     .define("enableRegionThreadingBlockEntityResources", false);
 
@@ -279,8 +279,7 @@ public final class ForgiaConfig {
                     .define("enableRegionThreadingPersistentWorkers", false);
 
             enableRegionThreadingPackedRegionLeases = builder
-                    .comment(
-                            "EXPERIMENTAL: Lets one worker task of a tick slice hold several regions of that slice, so a tick submits about one task per worker instead of one task per region. A pack leases its regions in one canonical order, all or nothing: a pack that cannot lease every region releases the ones it took and the regions are leased one by one instead, which is counted. Exclusivity is unchanged - each region is still held by exactly one worker for the whole task, with its own lease, group random and ownership lease. Requires enableRegionThreadingBridge. With the switch off, every slice submits one task per region exactly like before.")
+                    .comment("LEGACY (fixed-layout only; ignored under DYNAMIC_CLUSTER): Packs several regions of one slice onto one worker task.")
                     .translation("neoforge.configgui.enableRegionThreadingPackedRegionLeases")
                     .worldRestart()
                     .define("enableRegionThreadingPackedRegionLeases", false);
@@ -292,10 +291,10 @@ public final class ForgiaConfig {
                     .defineInRange("regionThreadingWorkerThreads", 0, 0, 512);
 
             regionThreadingMode = builder
-                    .comment("EXPERIMENTAL: Region coordinate policy. FIXED_3X3 uses a non-overlapping global fixed-chunk grid whose edge length is regionThreadingFixedRegionChunks (3 chunks unless configured otherwise); regions never merge, split, or change coordinates. DYNAMIC_CLUSTER uses Folia-style dynamic merging and splitting over fixed (1 << regionThreadingDynamicSectionShift)-chunk sections with a 1-section empty buffer zone between independent regions. DYNAMIC keeps the legacy 16x16-chunk grid for compatibility.")
+                    .comment("Region coordinate policy. DYNAMIC_CLUSTER (default) uses Folia-style dynamic merging and splitting over fixed (1 << regionThreadingDynamicSectionShift)-chunk sections. FIXED_3X3 and DYNAMIC are retained only for legacy compatibility.")
                     .translation("neoforge.configgui.regionThreadingMode")
                     .worldRestart()
-                    .defineEnum("regionThreadingMode", RegionPolicy.FIXED_3X3);
+                    .defineEnum("regionThreadingMode", RegionPolicy.DYNAMIC_CLUSTER);
 
             regionThreadingFixedRegionChunks = builder
                     .comment("EXPERIMENTAL: Edge length in chunks of one fixed region, used when regionThreadingMode is FIXED_3X3. 3 reproduces the original 3x3-chunk grid, where only the center chunk of a region has all eight neighbors in the same region. Larger regions keep more neighboring chunks inside one region at the cost of coarser parallelism and longer region leases. A value outside 3..32 is clamped into that range when the config loads, and the region layout rejects it with an IllegalArgumentException.")

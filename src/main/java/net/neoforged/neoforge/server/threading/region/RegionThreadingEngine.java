@@ -659,10 +659,8 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final RegionBlockEntityWorkGraph blockEntityWorkGraph = new RegionBlockEntityWorkGraph();
     private final FurnaceWorkMetrics furnaceWorkMetrics = new FurnaceWorkMetrics();
     private final BlockEntityResourceMetrics blockEntityResourceMetrics = new BlockEntityResourceMetrics();
-    private volatile boolean blockEntityResourcesEnabled = net.neoforged.neoforge.common.ForgiaConfig.isServerConfigLoaded()
-            && net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingBlockEntityResources.get();
-    private volatile boolean furnaceWorkWavesEnabled = net.neoforged.neoforge.common.ForgiaConfig.isServerConfigLoaded()
-            && net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingFurnaceWorkWaves.get();
+    private volatile boolean blockEntityResourcesEnabled = false;
+    private volatile boolean furnaceWorkWavesEnabled = false;
     @Nullable
     private java.util.function.Consumer<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceBodyObserverForTesting;
     @Nullable
@@ -1130,7 +1128,11 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.scheduledTickWorkerExecutionEnabled = ticks.scheduledTicks();
         this.chunkTickWorkerExecutionEnabled = ticks.chunkTicks();
         this.spawnWorkerExecutionEnabled = ticks.spawning();
-        this.packedRegionLeasesEnabled = workers.packedRegionLeases();
+        this.packedRegionLeasesEnabled = this.layout.isFixed() && workers.packedRegionLeases();
+        if (this.layout.isFixed() && net.neoforged.neoforge.common.ForgiaConfig.isServerConfigLoaded()) {
+            this.blockEntityResourcesEnabled = net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingBlockEntityResources.get();
+            this.furnaceWorkWavesEnabled = net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingFurnaceWorkWaves.get();
+        }
         this.entityStorageMode = options.entityStorageMode();
         this.overloadConfig = options.overload();
         this.overloadGovernor = this.overloadConfig.enabled() && this.layout.isDynamicCluster()
