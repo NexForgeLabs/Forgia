@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-**面向 NeoForge 1.21.1 的区域化、多线程 Minecraft 服务器。**
+**面向 NeoForge 1.21.1 的区域化、多线程服务端运行时。**
 
 Forgia 把 [Folia](https://github.com/PaperMC/Folia) 的区域模型原生移植到 NeoForge：世界被划分为若干区域，
 每个区域拥有自己的 chunk、实体、方块实体与兴趣点，各区域在 worker 线程上并行 tick。它是 NeoForge 的
@@ -14,13 +14,11 @@ Forgia 把 [Folia](https://github.com/PaperMC/Folia) 的区域模型原生移植
 
 ---
 
-首次受控部署请使用[生产就绪审计](region-threading/PRODUCTION-READINESS.md)、
-[完整配置矩阵](region-threading/PRODUCTION-CONFIGURATION.md) 与
-[canary/回滚流程](region-threading/CONTROLLED-CANARY.md)。**C6 与 C7（Issue #5：188-Mod 真实整合包 `DYNAMIC_CLUSTER` + 通用 BE 沙盒 + 独立 Region 时钟）均已验收通过**：`regionThreadingMode` 已默认切换为 `DYNAMIC_CLUSTER`，开启 `enableRegionSandboxAllBlockEntities` 与 `enableIndependentRegionTickClock` 后可在无需逐一编写普通 Mod Adapter 的情况下实现 72%~82% BE 并行与多核 20.0 TPS 稳态运行。运行时 Mod 热卸载仍不支持。
+部署前请阅读[生产就绪审计](region-threading/PRODUCTION-READINESS.md)、[配置矩阵](region-threading/PRODUCTION-CONFIGURATION.md) 与 [canary/回滚流程](region-threading/CONTROLLED-CANARY.md)。**C6 架构验收与 C7 生产验证（Issue #5）均已在各自文档范围内完成。** C7 在 188 Mod 的 SkyExplorer 整合包上验证了 `DYNAMIC_CLUSTER`、通用方块实体 Sandbox 与独立 Region 时钟：记录的 80 分钟多人耐久测试维持 20.0 TPS，测得 BE 工作中有 72%~82% 由 Worker 执行。这个比例表示执行占比，不代表有相同比例的模组类型已获兼容认证。普通模组无需专用 Adapter；Create 等具有复杂共享状态的模组仍需专门兼容处理。`regionThreadingMode` 默认值为 `DYNAMIC_CLUSTER`；并行执行开关仍默认关闭，需主动启用。运行时 Mod 热卸载仍不支持。
 
 ## 今天可用的能力
 
-下表包含历史负载测量，不是 C6 canary 的性能结论。所有区域线程开关**默认关闭**。正文前准入可把不支持的工作
+下表同时包含明确标注的历史受控测量与独立的 C7 生产验证；不同负载不可视为同一组 A/B 对照。区域并行执行开关**默认关闭**。正文前准入可把不支持的工作
 留在服务器线程；副作用开始后的拒绝或失败会被报告，不会重放整个 ticker。
 
 | 领域 | 作用 | 实测 |
@@ -29,7 +27,7 @@ Forgia 把 [Folia](https://github.com/PaperMC/Folia) 的区域模型原生移植
 | **Chunk tick** | 随机 tick、冰霜/积雪、雷暴由拥有该 chunk 的区域执行，包括区域边界上的 chunk | 1.24–1.27×（100% 已派发 chunk 在 worker） |
 | **自然刷怪** | 每区域刷怪正文，对原版 level 级 mob cap 记账 | 刷怪切片 4.6 → 2.8–3.9 ms |
 | **兴趣点** | 区域分区存储 + 已发布快照；查询与原版一致 | 村民 **2.1–2.4×**，僵尸 **3.4×** |
-| **方块实体** | 单一 canonical 阶段：窄化的原版 Hopper 分支、已验证的燃烧熔炉前缀与完整 Unknown/Create Serial Fence | C6 正确性已验收；当前不声明整服加速 |
+| **方块实体** | 单一 canonical 阶段：窄化的原版 Hopper 分支、已验证的燃烧熔炉前缀与普通模组 BE 通用 Region Sandbox；复杂共享状态模组使用专用兼容层与串行围栏 | C7 生产验证记录 BE Worker 执行占比 72%~82%；轻量静态 BE 负载仍可能由串行执行更快 |
 | **红石** | 跨区更新通过 fixpoint 在**同一 tick** 收敛 | 49 种布局（开/关各一轮），5 880 次 tick 比较，与原版一致 |
 | **跨区读** | Seqlock chunk 版本；过期读会重跑产生它的区域 | 0 撕裂读，0 过期取用 |
 | **跨区模组操作** | 公开双 owner 方块实体操作、有界 sided Container 搬运与显式任务结果 | 实验性；worker 返回后操作串行化 |
