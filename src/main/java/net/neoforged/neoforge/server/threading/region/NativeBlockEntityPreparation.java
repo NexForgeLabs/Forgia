@@ -66,16 +66,6 @@ public final class NativeBlockEntityPreparation {
         if (TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
                 || !admission.isCurrent() || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(admission.type()))
             return null;
-        if (VERIFIED) {
-            final HopperBlockEntity source = isNativeValid(admission, null, null);
-            if (source != null) {
-                final var position = admission.position();
-                final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
-                if (isHopperChunkValid(admission, source, chunk)) {
-                    return new HopperCandidate(admission, source, chunk);
-                }
-            }
-        }
         if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionSandboxedBlockEntity(admission.type())) {
             final var position = admission.position();
             final var chunkSource = admission.level().getChunkSource();
@@ -86,6 +76,20 @@ public final class NativeBlockEntityPreparation {
                         && be.getLevel() == admission.level()
                         && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be))) {
                     return new RegionSandboxedCandidate(admission, be != null ? be : admission.ticker(), be, chunk);
+                }
+            }
+            if ("minecraft:hopper".equals(admission.type())
+                    && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled()) {
+                return null;
+            }
+        }
+        if (VERIFIED) {
+            final HopperBlockEntity source = isNativeValid(admission, null, null);
+            if (source != null) {
+                final var position = admission.position();
+                final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+                if (isHopperChunkValid(admission, source, chunk)) {
+                    return new HopperCandidate(admission, source, chunk);
                 }
             }
         }

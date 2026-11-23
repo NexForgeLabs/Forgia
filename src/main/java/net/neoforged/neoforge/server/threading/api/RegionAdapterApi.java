@@ -44,6 +44,7 @@ public final class RegionAdapterApi {
     private static final Set<String> SANDBOX_ADMITTED_BE_TYPES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_ADMITTED_NAMESPACES = ConcurrentHashMap.newKeySet();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
+    private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_TYPE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<ServerLevel, Map<Long, BlockPos>> VIRTUAL_CHUNK_AFFINITY = new ConcurrentHashMap<>();
 
     private static volatile boolean regionScopedPlayerViewEnabled = Boolean.parseBoolean(
@@ -177,10 +178,28 @@ public final class RegionAdapterApi {
         SANDBOX_NAMESPACE_PREDICATES.put(namespace.trim(), canRunOnWorker);
     }
 
+    public static void registerSandboxTypePredicate(
+            String blockEntityTypeId,
+            java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity> canRunOnWorker) {
+        Objects.requireNonNull(blockEntityTypeId, "blockEntityTypeId");
+        Objects.requireNonNull(canRunOnWorker, "canRunOnWorker");
+        SANDBOX_TYPE_PREDICATES.put(blockEntityTypeId.trim(), canRunOnWorker);
+    }
+
     public static boolean canRunSandboxedBlockEntityInstance(
             String type,
             @org.jetbrains.annotations.Nullable net.minecraft.world.level.block.entity.BlockEntity be) {
-        if (type == null || be == null || SANDBOX_NAMESPACE_PREDICATES.isEmpty()) {
+        if (type == null || be == null) {
+            return true;
+        }
+        if ("minecraft:hopper".equals(type) && !isHopperSandboxSafe(be)) {
+            return false;
+        }
+        final var typePredicate = SANDBOX_TYPE_PREDICATES.get(type);
+        if (typePredicate != null && !typePredicate.test(be)) {
+            return false;
+        }
+        if (SANDBOX_NAMESPACE_PREDICATES.isEmpty()) {
             return true;
         }
         final int colon = type.indexOf(':');
@@ -189,6 +208,29 @@ public final class RegionAdapterApi {
         }
         final var predicate = SANDBOX_NAMESPACE_PREDICATES.get(type.substring(0, colon));
         return predicate == null || predicate.test(be);
+    }
+
+    private static boolean isHopperSandboxSafe(net.minecraft.world.level.block.entity.BlockEntity be) {
+        if (!(be.getLevel() instanceof ServerLevel level)) {
+            return false;
+        }
+        final BlockPos pos = be.getBlockPos();
+        // Open-top hoppers can pull ground ItemEntities via entity storage queries; keep those on the server thread
+        // so one open hopper never triggers entity ownership demotion for all hoppers.
+        final BlockPos above = pos.above();
+        if (level.getBlockState(above).isAir() && level.getBlockEntity(above) == null) {
+            return false;
+        }
+        final var threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof net.neoforged.neoforge.server.threading.region.RegionThreadingEngine engine) {
+            final var layout = engine.regionLayout();
+            final var owner = layout.regionAt(level, pos);
+            return layout.isInRegion(level, (pos.getX() - 1) >> 4, (pos.getZ() - 1) >> 4, owner)
+                    && layout.isInRegion(level, (pos.getX() + 1) >> 4, (pos.getZ() - 1) >> 4, owner)
+                    && layout.isInRegion(level, (pos.getX() - 1) >> 4, (pos.getZ() + 1) >> 4, owner)
+                    && layout.isInRegion(level, (pos.getX() + 1) >> 4, (pos.getZ() + 1) >> 4, owner);
+        }
+        return true;
     }
 
     public static Set<String> sandboxAdmittedNamespaces() {
