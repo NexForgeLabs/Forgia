@@ -8263,6 +8263,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                     private Set<RegionState> nativeRegions;
                     private Set<Object> nativeSources;
                     private List<AuditedBlockEntityPreparation.Candidate> auditedNativeCandidates;
+                    private long lastPrepareChunkKey = Long.MIN_VALUE;
+                    @Nullable
+                    private LevelChunk lastPrepareChunk;
+                    @Nullable
+                    private RegionState lastPrepareRegion;
 
                     private void discardLookahead() {
                         this.lastPreparedIndex = -1;
@@ -8350,10 +8355,26 @@ public final class RegionThreadingEngine implements RegionThreading {
                         if (furnaces && admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
                                 && !AuditedBlockEntityPreparation.hasCandidate(admission))
                             return null;
-                        final var proof = NativeBlockEntityPreparation.prepare(admission);
-                        if (proof == null) return null;
-                        final var region = regionizer.getOrCreate(layout.regionAt(level, admission.position()));
+                        final var pos = admission.position();
+                        final int cx = pos.getX() >> 4;
+                        final int cz = pos.getZ() >> 4;
+                        final long ck = ChunkPos.asLong(cx, cz);
+                        final LevelChunk cachedChunk;
+                        final RegionState region;
+                        if (ck == this.lastPrepareChunkKey && this.lastPrepareRegion != null && !this.lastPrepareRegion.isDead()) {
+                            cachedChunk = this.lastPrepareChunk;
+                            region = this.lastPrepareRegion;
+                        } else {
+                            final var chunkSource = level.getChunkSource();
+                            cachedChunk = chunkSource == null ? null : chunkSource.getChunkNow(cx, cz);
+                            region = regionizer.getOrCreate(layout.regionAt(level, pos));
+                            this.lastPrepareChunkKey = ck;
+                            this.lastPrepareChunk = cachedChunk;
+                            this.lastPrepareRegion = region;
+                        }
                         if (region == null || region.isDead()) return null;
+                        final var proof = NativeBlockEntityPreparation.prepare(admission, cachedChunk);
+                        if (proof == null) return null;
                         if (proof instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate) {
                             this.lookaheadDirty = true;
                             return new NativeInvocation(admission, SANDBOX_NATIVE_INSPECTION, proof, region);
@@ -9140,6 +9161,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             int totalUnits,
             @Nullable RegionBlockEntityWorkGraph.Phase graph) {
         final long now = System.nanoTime();
+        final long gameTime = batch.level().getGameTime();
         this.workerPool.preWake(groups.size());
         for (final var entry : groups.entrySet()) {
             final RegionState region = entry.getKey();
@@ -9169,7 +9191,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 } finally {
                     this.currentBlockEntityTickRandom.remove();
                 }
-            }, null, now);
+            }, null, now, gameTime);
         }
         return totalUnits;
     }

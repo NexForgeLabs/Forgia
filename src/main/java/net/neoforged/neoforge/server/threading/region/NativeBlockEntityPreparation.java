@@ -57,19 +57,34 @@ public final class NativeBlockEntityPreparation {
     /** No inventory, provider, loot, entity, neighbor, RNG, or operation callback is entered in this branch. */
     @Nullable
     static Candidate prepare(RegionBlockEntityTickAdmission admission) {
-        final var nativeProof = prepareNative(admission);
+        return prepare(admission, null);
+    }
+
+    @Nullable
+    static Candidate prepare(RegionBlockEntityTickAdmission admission, @Nullable LevelChunk cachedChunk) {
+        final var nativeProof = prepareNative(admission, cachedChunk);
         return nativeProof != null ? nativeProof : AuditedBlockEntityPreparation.prepare(admission);
     }
 
     @Nullable
     static Candidate prepareNative(RegionBlockEntityTickAdmission admission) {
+        return prepareNative(admission, null);
+    }
+
+    @Nullable
+    static Candidate prepareNative(RegionBlockEntityTickAdmission admission, @Nullable LevelChunk cachedChunk) {
         if (TimeTracker.BLOCK_ENTITY_UPDATE.isEnabled() || !admission.isAdmitted()
                 || !admission.isCurrent() || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(admission.type()))
             return null;
         if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionSandboxedBlockEntity(admission.type())) {
             final var position = admission.position();
-            final var chunkSource = admission.level().getChunkSource();
-            final LevelChunk chunk = chunkSource == null ? null : chunkSource.getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+            final LevelChunk chunk;
+            if (cachedChunk != null && cachedChunk.isLoaded()) {
+                chunk = cachedChunk;
+            } else {
+                final var chunkSource = admission.level().getChunkSource();
+                chunk = chunkSource == null ? null : chunkSource.getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+            }
             if (chunk != null && chunk.isLoaded()) {
                 final BlockEntity be = chunk.getBlockEntities().get(position);
                 if (be == null || (!be.isRemoved()
@@ -87,7 +102,9 @@ public final class NativeBlockEntityPreparation {
             final HopperBlockEntity source = isNativeValid(admission, null, null);
             if (source != null) {
                 final var position = admission.position();
-                final LevelChunk chunk = admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
+                final LevelChunk chunk = cachedChunk != null && cachedChunk.isLoaded()
+                        ? cachedChunk
+                        : admission.level().getChunkSource().getChunkNow(position.getX() >> 4, position.getZ() >> 4);
                 if (isHopperChunkValid(admission, source, chunk)) {
                     return new HopperCandidate(admission, source, chunk);
                 }

@@ -79,6 +79,9 @@ public final class RegionIndependentTickScheduler {
         final AtomicInteger quiescencePins = new AtomicInteger();
         final Object completionMonitor = new Object();
         final AtomicLong skippedWhileBusy = new AtomicLong();
+        final ConcurrentLinkedQueue<Runnable> pendingSubWaves = new ConcurrentLinkedQueue<>();
+        final AtomicInteger pendingSubWaveCount = new AtomicInteger();
+        volatile long lastDispatchGameTime = Long.MIN_VALUE;
         final long[] completionTimestamps = new long[TPS_WINDOW_SIZE];
         int completionCursor;
         int completionSamples;
@@ -205,6 +208,15 @@ public final class RegionIndependentTickScheduler {
             Runnable regionBody,
             @Nullable Runnable serverThreadCommit,
             long nowNanos) {
+        return this.submitIfDue(region, regionBody, serverThreadCommit, nowNanos, -1L);
+    }
+
+    public DispatchOutcome submitIfDue(
+            RegionState region,
+            Runnable regionBody,
+            @Nullable Runnable serverThreadCommit,
+            long nowNanos,
+            long coalesceGameTime) {
         Objects.requireNonNull(region, "region");
         Objects.requireNonNull(regionBody, "regionBody");
         if (this.closed || region.isDead()) {
@@ -215,13 +227,39 @@ public final class RegionIndependentTickScheduler {
         if (clock.quiescencePins.get() > 0) {
             return DispatchOutcome.PINNED;
         }
-        if (nowNanos < clock.nextDueNanos) {
+        if (nowNanos < clock.nextDueNanos && (coalesceGameTime < 0L || clock.lastDispatchGameTime != coalesceGameTime)) {
             return DispatchOutcome.NOT_DUE;
         }
         if (!clock.inFlight.compareAndSet(false, true)) {
-            clock.skippedWhileBusy.incrementAndGet();
-            this.totalSkippedBusy.incrementAndGet();
-            return DispatchOutcome.BUSY_SKIPPED;
+            // Coalesce same-game-tick BE sub-waves (split by a serial fence in the same Level.tickBlockEntities pass)
+            // onto the already-running worker for this region instead of dropping them as BUSY_SKIPPED.
+            if (coalesceGameTime >= 0L
+                    && clock.lastDispatchGameTime == coalesceGameTime
+                    && clock.pendingSubWaveCount.get() < 8
+                    && clock.quiescencePins.get() == 0
+                    && !this.closed) {
+                clock.pendingSubWaveCount.incrementAndGet();
+                clock.pendingSubWaves.add(regionBody);
+                if (serverThreadCommit != null && coord.level() != null) {
+                    this.enqueueCommit(coord.level(), serverThreadCommit);
+                }
+                if (clock.inFlight.get()) {
+                    this.totalSubmitted.incrementAndGet();
+                    return DispatchOutcome.SUBMITTED;
+                }
+                if (!clock.inFlight.compareAndSet(false, true)) {
+                    this.totalSubmitted.incrementAndGet();
+                    return DispatchOutcome.SUBMITTED;
+                }
+                regionBody = () -> {};
+            } else {
+                clock.skippedWhileBusy.incrementAndGet();
+                this.totalSkippedBusy.incrementAndGet();
+                return DispatchOutcome.BUSY_SKIPPED;
+            }
+        }
+        if (coalesceGameTime >= 0L) {
+            clock.lastDispatchGameTime = coalesceGameTime;
         }
         // Double-check quiescence pin after winning inFlight CAS.
         if (this.closed || clock.quiescencePins.get() > 0 || region.isDead()) {
@@ -238,6 +276,7 @@ public final class RegionIndependentTickScheduler {
         final long intervalNanos = this.tickIntervalNanos();
         final int maxCatchUp = this.maxCatchUpTicks();
         this.inFlightCount.incrementAndGet();
+        final Runnable initialBody = regionBody;
         final boolean accepted = this.workerPool.execute("independent region tick " + coord, () -> {
             final long start = System.nanoTime();
             final boolean enteredWorkerScope = !RegionWorkerScope.isNativeWorkerThread();
@@ -247,7 +286,12 @@ public final class RegionIndependentTickScheduler {
             try {
                 region.beginOwnership();
                 try {
-                    this.regionContextRunner.accept(region, regionBody);
+                    this.regionContextRunner.accept(region, initialBody);
+                    Runnable subWave;
+                    while ((subWave = clock.pendingSubWaves.poll()) != null) {
+                        clock.pendingSubWaveCount.decrementAndGet();
+                        this.regionContextRunner.accept(region, subWave);
+                    }
                 } finally {
                     region.endOwnership();
                 }
