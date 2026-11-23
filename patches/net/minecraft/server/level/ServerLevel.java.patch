@@ -152,7 +152,7 @@
                          profilerfiller.push("checkDespawn");
                          p_308566_.checkDespawn();
                          profilerfiller.pop();
-@@ -412,12 +_,16 @@
+@@ -412,18 +_,26 @@
                              }
  
                              profilerfiller.push("tick");
@@ -170,6 +170,16 @@
              profilerfiller.pop();
              this.tickBlockEntities();
          }
+ 
+         profilerfiller.push("entityManagement");
++        final long emStart = System.nanoTime();
+         this.entityManager.tick();
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.ENTITY_MANAGER,
++                System.nanoTime() - emStart);
+         profilerfiller.pop();
+     }
+ 
 @@ -432,18 +_,46 @@
          return this.chunkSource.chunkMap.getDistanceManager().inBlockTickingRange(p_184059_);
      }

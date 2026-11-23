@@ -95,11 +95,13 @@
                  this.onServerExit();
              }
          }
-@@ -901,11 +_,13 @@
+@@ -901,11 +_,15 @@
      public void tickServer(BooleanSupplier p_129871_) {
          long i = Util.getNanos();
          this.tickCount++;
++        final long preServerStart = System.nanoTime();
 +        net.neoforged.neoforge.event.EventHooks.fireServerTickPre(p_129871_, this);
++        final long preServerElapsed = System.nanoTime() - preServerStart;
          this.tickRateManager.tick();
          this.tickChildren(p_129871_);
          if (i - this.lastServerStatus >= STATUS_EXPIRE_TIME_NANOS) {
@@ -109,11 +111,15 @@
          }
  
          this.ticksUntilAutosave--;
-@@ -927,6 +_,7 @@
+@@ -927,6 +_,11 @@
          this.smoothedTickTimeMillis = this.smoothedTickTimeMillis * 0.8F + (float)j / (float)TimeUtil.NANOSECONDS_PER_MILLISECOND * 0.19999999F;
          this.logTickMethodTime(i);
          this.profiler.pop();
++        final long postServerStart = System.nanoTime();
 +        net.neoforged.neoforge.event.EventHooks.fireServerTickPost(p_129871_, this);
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.SERVER_TICK_EVENTS,
++                preServerElapsed + (System.nanoTime() - postServerStart));
      }
  
      private void logTickMethodTime(long p_321837_) {
@@ -154,25 +160,32 @@
              this.profiler.push(() -> serverlevel + " " + serverlevel.dimension().location());
              if (this.tickCount % 20 == 0) {
                  this.profiler.push("timeSync");
-@@ -1005,6 +_,7 @@
+@@ -1005,6 +_,9 @@
              }
  
              this.profiler.push("tick");
++            final long preLevelStart = System.nanoTime();
 +            net.neoforged.neoforge.event.EventHooks.fireLevelTickPre(serverlevel, p_129954_);
++            final long preLevelElapsed = System.nanoTime() - preLevelStart;
  
              try {
                  serverlevel.tick(p_129954_);
-@@ -1013,16 +_,18 @@
+@@ -1013,16 +_,23 @@
                  serverlevel.fillReportDetails(crashreport);
                  throw new ReportedException(crashreport);
              }
++            final long postLevelStart = System.nanoTime();
 +            net.neoforged.neoforge.event.EventHooks.fireLevelTickPost(serverlevel, p_129954_);
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                    net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.LEVEL_TICK_EVENTS,
++                    preLevelElapsed + (System.nanoTime() - postLevelStart));
  
              this.profiler.pop();
              this.profiler.pop();
 +            perWorldTickTimes.computeIfAbsent(serverlevel.dimension(), k -> new long[100])[this.tickCount % 100] = Util.getNanos() - tickStart;
          }
  
++        final long netStart = System.nanoTime();
          this.profiler.popPush("connection");
          this.getConnection().tick();
          this.profiler.popPush("players");
@@ -182,7 +195,15 @@
              GameTestTicker.SINGLETON.tick();
          }
  
-@@ -1043,11 +_,17 @@
+@@ -1038,16 +_,25 @@
+             serverplayer.connection.chunkSender.sendNextChunks(serverplayer);
+             serverplayer.connection.resumeFlushing();
+         }
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.NETWORK_AND_PLAYERS,
++                System.nanoTime() - netStart);
+ 
+         this.profiler.pop();
      }
  
      private void synchronizeTime(ServerLevel p_276371_) {

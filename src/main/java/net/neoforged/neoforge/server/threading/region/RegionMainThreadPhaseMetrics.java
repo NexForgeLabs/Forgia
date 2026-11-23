@@ -26,7 +26,11 @@ public final class RegionMainThreadPhaseMetrics {
         SPAWN_MAIN("spawnMain"),
         CHUNK_SOURCE_TICK("chunkSource"),
         SCHEDULED_BLOCK_TICKS("blockTicks"),
-        RAID_AND_BLOCK_EVENTS("raidBlockEvents");
+        RAID_AND_BLOCK_EVENTS("raidBlockEvents"),
+        ENTITY_MANAGER("entityManager"),
+        LEVEL_TICK_EVENTS("levelTickEvents"),
+        NETWORK_AND_PLAYERS("networkPlayers"),
+        SERVER_TICK_EVENTS("serverTickEvents");
 
         private final String label;
 

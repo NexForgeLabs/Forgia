@@ -1,0 +1,41 @@
+--- a/net/minecraft/network/protocol/game/ClientboundLevelChunkPacketData.java
++++ b/net/minecraft/network/protocol/game/ClientboundLevelChunkPacketData.java
+@@ -30,19 +_,27 @@
+ 
+     public ClientboundLevelChunkPacketData(LevelChunk p_195651_) {
+         this.heightmaps = new CompoundTag();
+-
+-        for (Entry<Heightmap.Types, Heightmap> entry : p_195651_.getHeightmaps()) {
+-            if (entry.getKey().sendToClient()) {
+-                this.heightmaps.put(entry.getKey().getSerializationKey(), new LongArrayTag(entry.getValue().getRawData()));
+-            }
+-        }
+-
+-        this.buffer = new byte[calculateChunkSize(p_195651_)];
+-        extractChunkData(new FriendlyByteBuf(this.getWriteBuffer()), p_195651_);
+         this.blockEntitiesData = Lists.newArrayList();
+ 
+-        for (Entry<BlockPos, BlockEntity> entry1 : p_195651_.getBlockEntities().entrySet()) {
+-            this.blockEntitiesData.add(ClientboundLevelChunkPacketData.BlockEntityInfo.create(entry1.getValue()));
++        synchronized (p_195651_) {
++            for (Entry<Heightmap.Types, Heightmap> entry : p_195651_.getHeightmaps()) {
++                if (entry.getKey().sendToClient()) {
++                    this.heightmaps.put(entry.getKey().getSerializationKey(), new LongArrayTag(entry.getValue().getRawData()));
++                }
++            }
++
++            ByteBuf dynamicBuf = Unpooled.buffer(calculateChunkSize(p_195651_));
++            try {
++                extractChunkData(new FriendlyByteBuf(dynamicBuf), p_195651_);
++                this.buffer = new byte[dynamicBuf.readableBytes()];
++                dynamicBuf.getBytes(dynamicBuf.readerIndex(), this.buffer);
++            } finally {
++                dynamicBuf.release();
++            }
++
++            for (Entry<BlockPos, BlockEntity> entry1 : p_195651_.getBlockEntities().entrySet()) {
++                this.blockEntitiesData.add(ClientboundLevelChunkPacketData.BlockEntityInfo.create(entry1.getValue()));
++            }
+         }
+     }
+ 
