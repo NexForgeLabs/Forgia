@@ -209,7 +209,7 @@ class RuleSnapshotsIntegrationTest {
         call("setNaturalSpawnSettings", void.class, new Class<?>[] { ResourceLocation.class, settingsType }, MOB, decode.invoke(json));
         this.register();
         final var engine = new net.neoforged.neoforge.server.threading.region.RegionThreadingEngine(2, false, false, false, false, false, false, true,
-                net.neoforged.neoforge.server.threading.region.RegionLayout.of(net.neoforged.neoforge.server.threading.region.RegionPolicy.FIXED_3X3),
+                net.neoforged.neoforge.server.threading.region.RegionLayout.of(net.neoforged.neoforge.server.threading.region.RegionPolicy.DYNAMIC_CLUSTER),
                 net.neoforged.neoforge.server.threading.region.RegionEntityStorageMode.REGION_OWNED);
         net.neoforged.neoforge.server.threading.RegionThreadingManager.install(engine);
         final java.util.List<net.minecraft.world.entity.Mob> admitted = new java.util.ArrayList<>();
@@ -369,7 +369,7 @@ class RuleSnapshotsIntegrationTest {
         call("setAllowed", void.class, new Class<?>[] { ResourceLocation.class, MobSpawnType.class, boolean.class }, MOB, MobSpawnType.NATURAL, false);
         this.register();
         final var engine = new net.neoforged.neoforge.server.threading.region.RegionThreadingEngine(2, false, false, false, false, false, false, true,
-                net.neoforged.neoforge.server.threading.region.RegionLayout.of(net.neoforged.neoforge.server.threading.region.RegionPolicy.FIXED_3X3),
+                net.neoforged.neoforge.server.threading.region.RegionLayout.of(net.neoforged.neoforge.server.threading.region.RegionPolicy.DYNAMIC_CLUSTER),
                 net.neoforged.neoforge.server.threading.region.RegionEntityStorageMode.REGION_OWNED);
         net.neoforged.neoforge.server.threading.RegionThreadingManager.install(engine);
         try {
@@ -514,7 +514,7 @@ class RuleSnapshotsIntegrationTest {
         call("setNaturalSpawnSettings", void.class, new Class<?>[] { ResourceLocation.class, settings }, MOB, decoded);
         this.register();
         final var engine = new net.neoforged.neoforge.server.threading.region.RegionThreadingEngine(2, false, false, false, false, false, false, true,
-                net.neoforged.neoforge.server.threading.region.RegionLayout.of(net.neoforged.neoforge.server.threading.region.RegionPolicy.FIXED_3X3),
+                net.neoforged.neoforge.server.threading.region.RegionLayout.of(net.neoforged.neoforge.server.threading.region.RegionPolicy.DYNAMIC_CLUSTER),
                 net.neoforged.neoforge.server.threading.region.RegionEntityStorageMode.REGION_OWNED);
         net.neoforged.neoforge.server.threading.RegionThreadingManager.install(engine);
         try {

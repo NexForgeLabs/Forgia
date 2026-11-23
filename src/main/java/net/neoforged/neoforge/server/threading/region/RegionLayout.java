@@ -11,21 +11,9 @@ import net.minecraft.server.level.ServerLevel;
 /**
  * Immutable chunk-to-region mapping for one {@link RegionPolicy} and one region edge length in chunks.
  * <p>
+ * {@link RegionPolicy#DYNAMIC_CLUSTER} partitions chunks into dynamic section clusters (default 8x8 chunks,
+ * configurable via {@code regionThreadingDynamicSectionShift}) with hysteresis-protected merge and split.
  * {@link RegionPolicy#DYNAMIC} keeps the legacy 16x16-chunk grid with merge and split recalculation.
- * {@link RegionPolicy#FIXED_3X3} maps every chunk to the non-overlapping global grid whose edge length is
- * {@link #regionChunkSize()} using {@link Math#floorDiv(int, int)}, so negative chunks map to the region
- * that actually contains them (for an edge length of 3, chunk {@code -1} and {@code -3} belong to region
- * {@code -1}, chunk {@code -4} to region {@code -2}). Fixed regions never merge, split, or change their
- * coordinates.
- * <p>
- * The fixed edge length is the single source of truth of the fixed region size: the engine, the
- * regionizer, the physical section partitions and the diagnostics all take it from one instance. The
- * instance is created from {@code regionThreadingFixedRegionChunks} at world start, so
- * {@link #FIXED_3X3} is only the size-3 default instance. An edge length outside
- * {@value #MIN_FIXED_REGION_CHUNK_SIZE}..{@value #MAX_FIXED_REGION_CHUNK_SIZE} is rejected with an
- * {@link IllegalArgumentException} instead of being clamped, so a misconfigured caller never ticks and
- * partitions with a size it did not ask for. The config itself clamps an out-of-range value into that
- * range when it loads, so the layout only sees in-range values from the server lifecycle.
  */
 public final class RegionLayout {
     public static final int DYNAMIC_REGION_CHUNK_SHIFT = 4;

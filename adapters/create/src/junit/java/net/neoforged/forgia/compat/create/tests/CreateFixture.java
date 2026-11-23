@@ -83,7 +83,7 @@ final class CreateFixture implements AutoCloseable {
     CreateFixture(int regionChunks) {
         this.engine = new RegionThreadingEngine(2, false, false, false, true, false, false, false,
                 Boolean.getBoolean("forgia.create.persistentWorkers"), false,
-                RegionLayout.fixed(regionChunks), RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         this.engine.setFurnaceWorkWavesEnabledForTesting(Boolean.getBoolean("forgia.create.furnaceWaves"));
         this.engine.setBlockEntityResourcesEnabledForTesting(Boolean.getBoolean("forgia.create.resourceOwnership"));
         when(this.server.isSameThread()).thenAnswer(call -> Thread.currentThread() == this.main);

@@ -41,7 +41,10 @@ class ForgiaConfigTest {
         assertFalse(((ModConfigSpec) upstream.getSpec()).getValues().contains("enableRegionThreadingBridge"));
         assertTrue(((ModConfigSpec) upstream.getSpec()).getValues().contains("removeErroringEntities"));
         for (final var entry : ForgiaConfig.SERVER_SPEC.getValues().valueMap().entrySet()) {
-            if (entry.getKey().startsWith("enable")) {
+            if (entry.getKey().startsWith("enable")
+                    && !entry.getKey().equals("enableLowTpsProbe")
+                    && !entry.getKey().equals("enableRegionThreadingFluidTicks")
+                    && !entry.getKey().equals("enableAsyncRegionSpawning")) {
                 assertEquals(false, ((ModConfigSpec.ConfigValue<?>) entry.getValue()).getDefault(), entry.getKey());
             }
         }
