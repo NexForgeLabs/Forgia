@@ -180,9 +180,14 @@ public final class ForgiaConfig {
         public final IntValue sandboxPermanentDemotionThreshold;
 
         Server(ModConfigSpec.Builder builder) {
-            enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
+            enableRuntimeDiagnostics = builder.comment(
+                    "=== [1] Diagnostics & Runtime Sampling / 诊断与性能采样 ===",
+                    "Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.",
+                    "[中文] 是否采集原生 Tick 耗时历史与 Worker 任务统计（禁用后保留核心调度/所有权计数）。")
                     .define("runtimeDiagnosticsEnabled", true);
-            enableRuntimeJvmSampling = builder.comment("Sample local JVM CPU, allocation and GC counters once per wall second. No profiler, disk I/O or region scan. Unsupported/disabled JVM counters display N/A.")
+            enableRuntimeJvmSampling = builder.comment(
+                    "Sample local JVM CPU, allocation and GC counters once per wall second.",
+                    "[中文] 每秒采样一次 JVM 线程 CPU/分配速率/GC 指标；低开销追求极致性能可设为 false。")
                     .define("runtimeJvmSamplingEnabled", true);
             runtimeHighRegionMspt = builder.comment("HIGH_REGION_MSPT threshold for the latest recorded region tick, milliseconds; coverage is instrumented leased groups.")
                     .defineInRange("runtimeHighRegionMspt", 50, 1, 10000);
@@ -251,7 +256,10 @@ public final class ForgiaConfig {
                     .define("enableRegionThreadingScheduledTicks", false);
 
             enableRegionThreadingFluidTicks = builder
-                    .comment("Per-region parallel fluid tick execution under DYNAMIC_CLUSTER and fixed layouts. Fluid ticks whose +/-5 block horizontal slope-finding footprint stays loaded inside one region execute in parallel on region workers while border fluid ticks and auto-demoted modded fluids fall back cleanly to the server thread. Independent of enableRegionThreadingScheduledTicks (redstone block ticks remain serial on the server thread).")
+                    .comment(
+                            "=== [2] Core Region Threading Slices / 核心区域并行切片 ===",
+                            "Per-region parallel fluid tick execution under DYNAMIC_CLUSTER and fixed layouts while keeping redstone block ticks serial on the server thread.",
+                            "[中文] 是否启用区域并行流体（水/岩浆等）计算，同时保持红石计划刻在主线程串行。")
                     .translation("neoforge.configgui.enableRegionThreadingFluidTicks")
                     .worldRestart()
                     .define("enableRegionThreadingFluidTicks", true);
@@ -329,7 +337,10 @@ public final class ForgiaConfig {
                     .defineInRange("regionThreadingFixedRegionChunks", RegionLayout.FIXED_3X3_REGION_CHUNK_SIZE, RegionLayout.MIN_FIXED_REGION_CHUNK_SIZE, RegionLayout.MAX_FIXED_REGION_CHUNK_SIZE);
 
             regionThreadingDynamicSectionShift = builder
-                    .comment("EXPERIMENTAL: Bit shift of one static section edge in chunks when regionThreadingMode is DYNAMIC_CLUSTER. 2 = 4x4 chunks (64 blocks), 3 = 8x8 chunks (128 blocks, default), 4 = 16x16 chunks (256 blocks, Folia default).")
+                    .comment(
+                            "=== [3] Region Layout & Worker Pool / 区域粒度与线程池 ===",
+                            "Bit shift of one section edge in chunks for DYNAMIC_CLUSTER: 1 = 2x2 chunks (32 blocks), 2 = 4x4 chunks (64 blocks), 3 = 8x8 chunks (128 blocks).",
+                            "[中文] 动态区域单格边长位移：1=2x2区块(细粒度，适合拆开大型工业区吃满多核)，2=4x4区块(默认平衡)，3=8x8区块。")
                     .translation("neoforge.configgui.regionThreadingDynamicSectionShift")
                     .worldRestart()
                     .defineInRange("regionThreadingDynamicSectionShift", DynamicRegionTopology.DEFAULT_SECTION_SHIFT, DynamicRegionTopology.MIN_SECTION_SHIFT, DynamicRegionTopology.MAX_SECTION_SHIFT);
@@ -470,75 +481,109 @@ public final class ForgiaConfig {
                     .defineListAllowEmpty("itemCleanupWhitelist", List::of, () -> "", element -> element instanceof String s && !s.isBlank());
 
             enableMobPathfindingThrottle = builder
-                    .comment("Enables per-entity-type cooldown throttling on PathNavigation.createPath to prevent expensive 3D/long-range A* pathfinding mobs (such as primal:shark) from stalling region workers. Reuses active paths during cooldown. Default off.")
+                    .comment(
+                            "=== [5] Adaptive Entity Throttle & Pathfinding / 实体自适应节流与寻路冷却 ===",
+                            "Enables per-entity-type and hot-region cooldown throttling on PathNavigation.createPath.",
+                            "[中文] 是否开启生物寻路冷却节流（避免复杂寻路卡顿 Region Worker）。")
                     .translation("neoforge.configgui.enableMobPathfindingThrottle")
                     .define("enableMobPathfindingThrottle", false);
 
             mobPathfindingCooldowns = builder
-                    .comment("Per-entity-type minimum tick interval between full pathfinding computations, formatted as \"namespace:entity_id=ticks\" (e.g. [\"primal:shark=40\", \"minecraft:zombie_villager=20\"]).")
+                    .comment(
+                            "Per-entity-type minimum tick interval between full pathfinding computations, e.g. [\"primal:shark=40\"].",
+                            "[中文] 指定生物类型的寻路冷却时间（格式：\"modid:entity=ticks\"）。")
                     .translation("neoforge.configgui.mobPathfindingCooldowns")
                     .defineListAllowEmpty("mobPathfindingCooldowns", () -> List.of("primal:shark=40"), () -> "primal:shark=40",
                             net.neoforged.neoforge.server.threading.region.MobPathfindingThrottle::isValidEntry);
 
             mobPathfindingDefaultCooldownTicks = builder
-                    .comment("Optional default minimum tick interval between full pathfinding computations for mobs not listed in mobPathfindingCooldowns (0 disables global throttling). Default 0.")
+                    .comment(
+                            "Optional global default pathfinding cooldown ticks for unlisted mobs (0 disables). Default 0.",
+                            "[中文] 未列入名单生物的全局默认寻路冷却（0 表示不全局限制）。")
                     .translation("neoforge.configgui.mobPathfindingDefaultCooldownTicks")
                     .defineInRange("mobPathfindingDefaultCooldownTicks", 0, 0, 200);
 
             enableIndependentRegionTickClock = builder
-                    .comment("EXPERIMENTAL (Phase 2): Enables Folia-style independent per-region asynchronous tick clocks. Regions dispatch non-blockingly on their own 20 TPS schedule and commit deferred main-thread updates via an async commit queue, so a slow hotspot region no longer stalls fast regions or the server thread barrier. Default off.")
+                    .comment(
+                            "=== [4] Independent Region Clock & Generic BE Sandbox / 独立区域时钟与通用方块实体沙盒 ===",
+                            "EXPERIMENTAL (Phase 2): Enables Folia-style independent per-region asynchronous tick clocks so slow hotspot regions do not stall fast regions or the server thread.",
+                            "[中文] 是否启用 Folia 式独立 Region 异步时钟（消除全局 BE 同步等待，慢区不拖累快区）。")
                     .translation("neoforge.configgui.enableIndependentRegionTickClock")
                     .define("enableIndependentRegionTickClock", false);
 
             independentRegionTickIntervalNanos = builder
-                    .comment("Target tick interval in nanoseconds for each independent region clock (default 50000000 = 50ms / 20 TPS).")
+                    .comment(
+                            "Target tick interval in nanoseconds for each independent region clock (50000000 = 50ms / 20 TPS).",
+                            "[中文] 独立 Region 时钟的目标周期（纳秒，默认 50000000 即 20 TPS）。")
                     .translation("neoforge.configgui.independentRegionTickIntervalNanos")
                     .defineInRange("independentRegionTickIntervalNanos", 50_000_000L, 1_000_000L, 1_000_000_000L);
 
             independentRegionMaxCatchUpTicks = builder
-                    .comment("Maximum number of ticks a lagging independent region may catch up before its clock smoothly realigns. Default 4.")
+                    .comment(
+                            "Maximum number of ticks a lagging independent region may catch up before its clock smoothly realigns. Default 4.",
+                            "[中文] 滞后 Region 允许的最大追帧步数（默认 4）。")
                     .translation("neoforge.configgui.independentRegionMaxCatchUpTicks")
                     .defineInRange("independentRegionMaxCatchUpTicks", 4, 1, 100);
 
             enableRegionSandboxAllBlockEntities = builder
-                    .comment("EXPERIMENTAL: Admits all block-entity types (except server-thread-only denylisted types) into Region Sandbox parallel execution on region workers. Any type that throws a boundary or runtime exception on a worker is automatically demoted to the server thread and persisted to regionthreading-learned.json without crashing. Default off.")
+                    .comment(
+                            "Admits all non-denylisted modded block entities into Region Sandbox parallel execution on region workers.",
+                            "[中文] 默认将全服所有非黑名单方块实体放入 Region Worker 沙盒并行，遇到不兼容异常自动回退。")
                     .translation("neoforge.configgui.enableRegionSandboxAllBlockEntities")
                     .define("enableRegionSandboxAllBlockEntities", false);
 
             entityTickThrottleModerateNanos = builder
-                    .comment("Region entity EWMA threshold (nanoseconds) above which non-player entities in that region run every 2nd tick. Default 15000000 (15ms).")
+                    .comment(
+                            "Region entity EWMA threshold (ns) above which non-player entities in that region run every 2nd tick. Default 15000000 (15ms).",
+                            "[中文] 区域实体耗时 EWMA 超过此阈值（纳秒）时，该区非玩家实体降频为每 2 tick 运行一次（默认 15ms）。")
                     .defineInRange("entityTickThrottleModerateNanos", 15_000_000L, 1_000_000L, 500_000_000L);
 
             entityTickThrottleSevereNanos = builder
-                    .comment("Region entity EWMA threshold (nanoseconds) above which non-player entities in that region run every 3rd tick. Default 28000000 (28ms).")
+                    .comment(
+                            "Region entity EWMA threshold (ns) above which non-player entities in that region run every 3rd tick. Default 28000000 (28ms).",
+                            "[中文] 区域实体耗时 EWMA 超过此阈值（纳秒）时，该区非玩家实体降频为每 3 tick 运行一次（默认 28ms）。")
                     .defineInRange("entityTickThrottleSevereNanos", 28_000_000L, 1_000_000L, 1_000_000_000L);
 
             hotRegionEntityThresholdNanos = builder
-                    .comment("Region entity EWMA threshold (nanoseconds) above which mobs in that region use lightweight pathfinding cooldowns. Default 5000000 (5ms).")
+                    .comment(
+                            "Region entity EWMA threshold (ns) above which mobs in that region use lightweight pathfinding cooldowns. Default 5000000 (5ms).",
+                            "[中文] 判定为实体热点区域的 EWMA 阈值（纳秒），超过后该区生物自动启用轻量寻路冷却（默认 5ms）。")
                     .defineInRange("hotRegionEntityThresholdNanos", 5_000_000L, 500_000L, 500_000_000L);
 
             hotRegionMobPathfindingCooldownTicks = builder
-                    .comment("Pathfinding cooldown in ticks applied to idle/non-combat mobs inside hot entity regions. Default 4.")
+                    .comment(
+                            "Pathfinding cooldown in ticks applied to idle/non-combat mobs inside hot entity regions. Default 4.",
+                            "[中文] 热点区域内非战斗/游荡生物的寻路冷却 tick 数（默认 4，不影响移动流畅度）。")
                     .defineInRange("hotRegionMobPathfindingCooldownTicks", 4, 0, 100);
 
             hotRegionCombatMobPathfindingCooldownTicks = builder
-                    .comment("Pathfinding cooldown in ticks applied to mobs actively targeting a player inside hot entity regions. Default 2.")
+                    .comment(
+                            "Pathfinding cooldown in ticks applied to mobs actively targeting a player inside hot entity regions. Default 2.",
+                            "[中文] 热点区域内正在追击玩家的生物寻路冷却 tick 数（默认 2）。")
                     .defineInRange("hotRegionCombatMobPathfindingCooldownTicks", 2, 0, 100);
 
             slowPathfindingLearnThresholdNanos = builder
-                    .comment("Single PathFinder.findPath duration (nanoseconds) above which the mob type auto-learns a 10-tick pathfinding cooldown. Default 3000000 (3ms).")
+                    .comment(
+                            "Single PathFinder.findPath duration (ns) above which the mob type auto-learns a 10-tick cooldown. Default 3000000 (3ms).",
+                            "[中文] 单次寻路耗时超过此值（纳秒）时，该生物类型自动学习 10 tick 寻路冷却（默认 3ms）。")
                     .defineInRange("slowPathfindingLearnThresholdNanos", 3_000_000L, 500_000L, 100_000_000L);
 
             severePathfindingLearnThresholdNanos = builder
-                    .comment("Single PathFinder.findPath duration (nanoseconds) above which the mob type auto-learns a 20-tick pathfinding cooldown. Default 8000000 (8ms).")
+                    .comment(
+                            "Single PathFinder.findPath duration (ns) above which the mob type auto-learns a 20-tick cooldown. Default 8000000 (8ms).",
+                            "[中文] 单次寻路耗时超过此值（纳秒）时，该生物类型自动学习 20 tick 寻路冷却（默认 8ms）。")
                     .defineInRange("severePathfindingLearnThresholdNanos", 8_000_000L, 1_000_000L, 500_000_000L);
 
             sandboxTransientCooldownTicks = builder
-                    .comment("Cooldown in ticks before a sandboxed block entity instance that hit a transient boundary violation returns to region workers. Default 20.")
+                    .comment(
+                            "Cooldown in ticks before a sandboxed BE instance that hit a transient boundary violation returns to workers. Default 20.",
+                            "[中文] 沙盒方块实体单实例偶发边界异常回退主线程后的冷却时间，到期自动重返 Worker（默认 20 tick）。")
                     .defineInRange("sandboxTransientCooldownTicks", 20, 1, 1200);
 
             sandboxPermanentDemotionThreshold = builder
-                    .comment("Number of transient worker boundary violations for a block entity type before permanently demoting it to the server thread. Default 16.")
+                    .comment(
+                            "Number of transient boundary violations for a BE type before permanently demoting it to the server thread. Default 16.",
+                            "[中文] 同类型方块实体累计触发边界异常达到此次数后，永久拉黑至主线程并写入 regionthreading-learned.json（默认 16）。")
                     .defineInRange("sandboxPermanentDemotionThreshold", 16, 1, 1000);
         }
     }
