@@ -4,7 +4,7 @@
 源码：[`RegionEntityTickPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPlan.java)、[`RegionEntityTickBatch`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickBatch.java)、[`RegionScopedEntityQuery`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java)、[`RegionPlayerSnapshots`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSnapshots.java)
 证据：[OWNERSHIP-PROTOCOLS-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md)、[ENTITY-CALLBACK-LIFECYCLE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/ENTITY-CALLBACK-LIFECYCLE.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
-状态：在 C6 范围内（`enableRegionThreadingEntityTicks`）**已认证**。默认关闭。
+状态：有界实体 tick 路径通过了**历史 C6 验收范围**（`enableRegionThreadingEntityTicks`），但这不代表任意模组 AI 都兼容。当前默认区域策略为 `DYNAMIC_CLUSTER`；并行执行仍需主动启用，默认关闭。
 
 ---
 
@@ -98,13 +98,13 @@ worker 在 lease 外的写入会被记录，并由目标区域在同一 tick 应
 |---|---|---|
 | `enableRegionThreadingEntityTicks` | `false` | 需要 `DYNAMIC_CLUSTER` 或 `FIXED_3X3`、region-owned 存储、profiler 未激活；隐含 POI 存储 |
 | `enableRegionThreadingPoi` | `false` | 即使为 false 也会被实体 tick 隐含 |
-| `regionThreadingMode` | `FIXED_3X3` | `DYNAMIC_CLUSTER`（推荐）或 `FIXED_3X3`（C6 基线）；遗留 `DYNAMIC` 保持串行 |
+| `regionThreadingMode` | `DYNAMIC_CLUSTER` | `DYNAMIC_CLUSTER`（推荐）或 遗留 `FIXED_3X3`（C6 对照配置）；遗留 `DYNAMIC` 保持串行 |
 | `regionThreadingDynamicSectionShift` / `regionThreadingFixedRegionChunks` | `3` / `3` | `DYNAMIC_CLUSTER` Section 位偏移（`3` = 8×8）或 `FIXED_3X3` 固定边长 |
 | `regionThreadingWorkerThreads` | `0` | 可复现测量需固定 |
 | `regionThreadingOwnershipViolationMode` | `WARN` | 仅建议性断言；存储 guard 仍独立拒绝 |
 
 ```toml
-# config/forgia.toml —— 最小实体 tick 切片（推荐 DYNAMIC_CLUSTER；FIXED_3X3 为 C6 基线）
+# config/forgia.toml —— 最小实体 tick 切片（推荐 DYNAMIC_CLUSTER；FIXED_3X3 为 C6 历史对照配置）
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true          # 隐含 POI 存储
