@@ -602,9 +602,9 @@ public final class ForgiaConfig {
 
             enableAsyncRegionEntityTicks = builder
                     .comment(
-                            "Phase 3B: Dispatches non-player entity ticks (and fused random chunk ticks) asynchronously per region via RegionIndependentTickScheduler without blocking the server thread barrier. Players still tick synchronously on the server thread at full 20 TPS. Default true.",
-                            "[中文] Phase 3B：将各区域非玩家实体（及融合随机刻）异步分发到 Region Worker，主线程不再死等最慢区域的 ENTITY_TICK Barrier（玩家仍保持主线程满速 20 TPS，默认开启）。")
-                    .define("enableAsyncRegionEntityTicks", true);
+                            "EXPERIMENTAL (Phase 3B): Dispatches non-player entity ticks asynchronously per region via RegionIndependentTickScheduler without blocking the server thread barrier. Keep false until all synchronous worker->server handoffs (runOnServerThread) are fully decoupled. Default false.",
+                            "[中文] 实验性（Phase 3B）：将非玩家实体异步分发到 Region Worker（默认关闭，待所有同步 Worker->主线程回调完全解耦后再启用）。")
+                    .define("enableAsyncRegionEntityTicks", false);
 
             enableAsyncRegionFluidTicks = builder
                     .comment(
