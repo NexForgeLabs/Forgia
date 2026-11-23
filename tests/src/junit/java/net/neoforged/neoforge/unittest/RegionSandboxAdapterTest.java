@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(120)
 class RegionSandboxAdapterTest {
     private static final BlockPos REGION_A_POS = new BlockPos(20, 64, 20);
-    private static final BlockPos REGION_B_POS = new BlockPos(68, 64, 20);
+    private static final BlockPos REGION_B_POS = new BlockPos(148, 64, 20);
 
     private static final class CounterSavedData extends SavedData {
         volatile int value;
@@ -206,6 +206,43 @@ class RegionSandboxAdapterTest {
             assertFalse(RegionAdapterApi.isTransientSandboxedFallback(level, inlandPos),
                     "Inland coordinate of the same type must remain eligible for worker sandbox");
             assertTrue(RegionAdapterApi.recordTransientBoundaryFallback(level, inlandPos, type, 20L));
+        }
+    }
+
+    @Test
+    void fakePlayerLocalOperationsAreAllowedOnRegionWorkers() {
+        RegionAdapterApi.admitRegionSandboxedBlockEntities("test:fake_player_sandbox_worker");
+        final net.minecraft.server.PlayerAdvancements fakeAdvancements = org.mockito.Mockito.mock(net.minecraft.server.PlayerAdvancements.class);
+        org.mockito.Mockito.when(fakeAdvancements.forgiaIsFakePlayer()).thenReturn(true);
+        final net.neoforged.neoforge.common.util.FakePlayer fakePlayer = org.mockito.Mockito.mock(net.neoforged.neoforge.common.util.FakePlayer.class);
+        final AtomicReference<Throwable> workerError = new AtomicReference<>();
+        final AtomicBoolean ranOnWorker = new AtomicBoolean();
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            org.mockito.Mockito.when(fakePlayer.level()).thenReturn(f.level);
+            org.mockito.Mockito.when(fakePlayer.isAddedToLevel()).thenReturn(false);
+            org.mockito.Mockito.when(fakePlayer.getLevelCallback()).thenReturn(net.minecraft.world.level.entity.EntityInLevelCallback.NULL);
+
+            f.script("A", REGION_A_POS, "test:fake_player_sandbox_worker", () -> {
+                ranOnWorker.set(RegionThreadingHooks.isNativeRegionWorkerThread());
+                try {
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAdvancements(fakeAdvancements);
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkAward(fakeAdvancements, null);
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkTrigger(null, fakePlayer);
+                    net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkReward(null, fakePlayer);
+                    assertFalse(RegionThreadingHooks.routeWorkerPlayerAction(fakePlayer, p -> {}));
+                    RegionThreadingHooks.assertServerEntityStorageAccess(fakePlayer, "Entity.setPosRaw");
+                    RegionThreadingHooks.assertServerEntityStorageAccess(fakePlayer, "ServerPlayer.teleportRelative");
+                } catch (Throwable t) {
+                    workerError.set(t);
+                }
+            });
+            f.enable(false);
+            f.levelPhase();
+            assertTrue(ranOnWorker.get(), "callback must run on a native region worker");
+            if (workerError.get() != null) {
+                throw new AssertionError("FakePlayer operations on region worker threw unexpected exception", workerError.get());
+            }
+            f.clean();
         }
     }
 }

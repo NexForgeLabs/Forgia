@@ -113,6 +113,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
 
     /** Native access to advancement storage always needs this exact original owner, even with no scope. */
     public static void checkAdvancements(PlayerAdvancements owner) {
+        if (owner.forgiaIsFakePlayer()) return;
         if (RegionWorkerScope.isNativeWorkerThread() && require().player().getAdvancements() != owner) throw RegionWorkerBoundaryException.playerState("checkAdvancements", "Foreign advancement owner");
     }
 
@@ -121,6 +122,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void checkTrigger(SimpleCriterionTrigger<?> trigger, ServerPlayer player) {
+        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer) return;
         if (RegionWorkerScope.isNativeWorkerThread()) {
             var plan = require();
             if (plan.player() != player || !plan.allowsTrigger(trigger)) throw RegionWorkerBoundaryException.playerState("checkTrigger", "Uncaptured player criterion trigger");
@@ -128,11 +130,13 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void checkAward(PlayerAdvancements owner, AdvancementHolder holder) {
+        if (owner.forgiaIsFakePlayer()) return;
         checkAdvancements(owner);
         if (RegionWorkerScope.isNativeWorkerThread() && !require().allowsAward(holder)) throw RegionWorkerBoundaryException.playerState("checkAward", "Uncaptured synchronous award/reward");
     }
 
     public static void checkReward(AdvancementRewards reward, ServerPlayer player) {
+        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer) return;
         if (RegionWorkerScope.isNativeWorkerThread() || currentSlot() != null) {
             var plan = require();
             if (plan.player() != player || !plan.allowsReward(reward)) throw RegionWorkerBoundaryException.playerState("checkReward", "Uncaptured synchronous reward");

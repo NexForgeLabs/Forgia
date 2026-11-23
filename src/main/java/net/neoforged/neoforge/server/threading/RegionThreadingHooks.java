@@ -278,7 +278,8 @@ public final class RegionThreadingHooks {
                 && !RegionEntityOwnershipScope.hasLevelEffects(entity)
                 && ("Entity.setPosRaw".equals(operation)
                         || "Entity.absMoveTo".equals(operation)
-                        || "Entity.moveTo".equals(operation))) {
+                        || "Entity.moveTo".equals(operation)
+                        || "ServerPlayer.teleportRelative".equals(operation))) {
             return;
         }
         if (RegionBlockEntityTickScope.ownsEntityInCurrentRegion(level, entity)
@@ -463,7 +464,7 @@ public final class RegionThreadingHooks {
      * so the server-thread and bounded-player-tick fast paths allocate nothing.
      */
     public static boolean routeWorkerPlayerAction(ServerPlayer player, Consumer<ServerPlayer> action) {
-        if (!shouldRouteWorkerPlayerAction()) {
+        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || !shouldRouteWorkerPlayerAction()) {
             return false;
         }
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
