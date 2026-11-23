@@ -17,8 +17,8 @@ claim.
 
 | I want to… | Read | Primary types |
 |---|---|---|
-| Understand what Forgia is and what is certified | [README](index.md), [STATUS](status.en.md) ([中文](status.zh.md)) | — |
-| See the execution flow as a 3D animation first | [3D architecture walkthrough](visualizer/index.html) (10 interactive steps, all features, `DYNAMIC_CLUSTER` / `FIXED_3X3` live toggle) | — |
+| Understand current project status and validation scope | [README](index.md), [STATUS](status.en.md) ([中文](status.zh.md)) | — |
+| See the execution flow as a 3D animation first | [3D architecture walkthrough](visualizer/index.html) (interactive architecture walkthrough; conceptual, not a compatibility certification) | — |
 | Understand experimental player dispatch | [Player ticks](modules/player-ticks.en.md) | `ENTITY`, `CONNECTION`, `CONNECTION_BODY` |
 | Start a server / tune `config/forgia.toml` | [Configuration & hardware tuning](configuration.en.md), [Observability](modules/observability.en.md) | `forgia.toml`, `/forgia` |
 | Call a mod-facing API | [API overview](api/README.en.md) | `ParallelApi` |
@@ -76,7 +76,7 @@ how much evidence exists.
 |---|---|---|
 | **Stable-ish** | Public surface that has shipped for several builds and is covered by tests. | Signatures will not change without a major version bump. |
 | **Experimental** | `@ApiStatus.Experimental`, gated behind a capability and usually a config switch. | Behaviour can change in a minor build; always negotiate by capability. |
-| **Certified (scope)** | Passed the named acceptance run inside its documented scope (for example C6, Linux/HotSpot 21). | Only the documented configuration is certified. Not your modpack. |
+| **Validated (scope)** | Passed a named acceptance run inside its documented build, workload and configuration (C6 historical acceptance; C7 188-mod production validation). | Evidence applies only to that scope, not every modpack. |
 | **Unsupported** | Present in code or proposals but not a contract. | Do not build on it. |
 | **Not implemented** | Described in an RFC with no code. | Nothing to call. |
 
