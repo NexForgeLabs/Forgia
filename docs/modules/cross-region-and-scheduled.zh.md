@@ -4,7 +4,7 @@
 源码：[`BlockEntityOperationRuntime`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/BlockEntityOperationRuntime.java)、[`RegionScheduledTickAdmission`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScheduledTickAdmission.java)、[`RegionEntityInteractionTask`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityInteractionTask.java)、[`PlayerRegionTransitions`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/PlayerRegionTransitions.java)、[`GlobalRegionState`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/GlobalRegionState.java)
 证据：[CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md)、[CHUNK-OWNER-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-OWNER-OPERATIONS.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
-状态：除范围很窄的灯队列（在该范围内通过 C6 正确性）外，整体为**实验性**。所有开关默认关闭。
+状态：跨区操作与大多数计划刻路径仍为**实验性**。范围很窄的灯队列仅通过历史 C6 正确性验证。相关开关默认关闭；这不代表完整流体 Worker 并行或任意计划回调均已实现。
 
 ---
 
