@@ -49,7 +49,7 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 
 ## 3. 完整配置项总表（全部 36 项 `config/forgia.toml` 键）
 
-### 3.1 并行核心与切片开关（16 项，均默认 `false`，均需重启）
+### 3.1 并行核心与切片开关（默认关闭；需重启项见各键说明）
 
 | 配置键 | 默认值 | 依赖前置 | 说明 |
 |---|---:|---|---|
@@ -59,6 +59,8 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 | `enableRegionThreadingEntityTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 在 Region Worker 上并行执行 `ServerLevel` 实体 tick，自动启用 region-owned 实体存储与延迟状态发布 |
 | `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` +（`FIXED_3X3`，或 `DYNAMIC_CLUSTER` + `-Dforgia.dynamicPlayerSoak=true`） | 在满足空间/状态/回调/网络契约时，将玩家 `ENTITY`（`ServerPlayer.tick`）与受控 `CONNECTION_BODY` 派发至 Region Worker；按实际影响面判定第三方模组准入 |
 | `enableRegionThreadingBlockEntityTicks` | `false` | `Bridge` | 将已声明区域安全的方块实体 tick 派发至 Region Worker；未声明或存在跨区副作用的类型保持主线程串行 |
+| `enableRegionSandboxAllBlockEntities` | `false` | 方块实体 Worker 路径 | 将普通模组 BE 纳入通用 Region Sandbox；仍受兼容护栏和串行回退约束 |
+| `enableIndependentRegionTickClock` | `false` | Region 引擎 | 启用独立 Region Tick 调度；全局世界状态与跨区提交仍需协调 |
 | `enableRegionThreadingFurnaceWorkWaves` | `false` | `Bridge` + `BlockEntityTicks` + **仅 `FIXED_3X3`** | 实验性：按有向资源波次并行执行已验证燃烧中的原版熔炉族方块实体（`DYNAMIC_CLUSTER` 下忽略） |
 | `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` + **仅 `FIXED_3X3`** | 实验性：在熔炉波次内启用对象级 READ/WRITE 资源 claims、非阻塞租约与 scope（`DYNAMIC_CLUSTER` 下忽略） |
 | `enableRegionThreadingScheduledTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | 启用有界计划刻（红石灯等受审计惰性方块阶段）并行执行；其余保持原版 `LevelTicks` 串行 |
@@ -78,7 +80,7 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 
 | 配置键 | 默认值 | 取值范围 | 需重启 | 说明 |
 |---|---|---|---:|---|
-| `regionThreadingMode` | `"FIXED_3X3"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | 是 | 区域划分策略。**推荐 `"DYNAMIC_CLUSTER"`**；`"FIXED_3X3"` 为 C6 固定网格基线；`"DYNAMIC"` 为遗留 16×16 网格 |
+| `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | 是 | 区域划分策略。**推荐 `"DYNAMIC_CLUSTER"`**；`"FIXED_3X3"` 为 C6 固定网格基线；`"DYNAMIC"` 为遗留 16×16 网格 |
 | `regionThreadingDynamicSectionShift` | `3` | `2..4` | 是 | `DYNAMIC_CLUSTER` 基础 Section 边长位偏移：`1 << shift` chunks（`2`=4×4、`3`=8×8 推荐、`4`=16×16） |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | `0..1200` | 是 | `DYNAMIC_CLUSTER` 空 Section 分离并触发连通分量拆分的迟滞等待 tick 数 |
 | `regionThreadingFixedRegionChunks` | `3` | `3..32` | 是 | `FIXED_3X3` 模式下单个固定区域的边长（chunk 数） |
