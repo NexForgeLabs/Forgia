@@ -44,6 +44,7 @@ public final class RegionAdapterApi {
     private static final Set<String> SANDBOX_ADMITTED_BE_TYPES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_ADMITTED_NAMESPACES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_DENIED_NAMESPACES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> SANDBOX_DENIED_BE_TYPES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_DENIED_FLUIDS = ConcurrentHashMap.newKeySet();
     private static final Map<String, java.util.function.BiPredicate<ServerLevel, BlockPos>> SANDBOX_FLUID_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
@@ -188,6 +189,19 @@ public final class RegionAdapterApi {
         for (final String namespace : namespaces) {
             if (namespace != null && !namespace.isBlank()) {
                 SANDBOX_DENIED_NAMESPACES.add(namespace.trim());
+            }
+        }
+    }
+
+    /**
+     * Excludes one or more specific block entity registry IDs (e.g. {@code "modid:controller"})
+     * from parallel region sandbox execution, routing them to the server thread while allowing
+     * other block entity types from the same namespace to run on region workers.
+     */
+    public static void denyRegionSandboxedBlockEntityType(String... blockEntityTypes) {
+        for (final String type : blockEntityTypes) {
+            if (type != null && !type.isBlank()) {
+                SANDBOX_DENIED_BE_TYPES.add(type.trim());
             }
         }
     }
@@ -354,7 +368,8 @@ public final class RegionAdapterApi {
     }
 
     public static boolean isRegionSandboxedBlockEntity(String type) {
-        if (type == null || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(type)) {
+        if (type == null || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(type)
+                || SANDBOX_DENIED_BE_TYPES.contains(type)) {
             return false;
         }
         final int nsEnd = type.indexOf(':');

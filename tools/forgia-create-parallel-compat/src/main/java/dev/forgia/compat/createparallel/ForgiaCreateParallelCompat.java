@@ -63,8 +63,12 @@ public final class ForgiaCreateParallelCompat {
         };
 
         RegionAdapterApi.admitRegionSandboxedNamespace(CREATE_NAMESPACES);
-        // fxntstorage's StorageNetwork clears/rebuilds NonNullList slot tables during BE ticks; keep on server thread.
-        RegionAdapterApi.denyRegionSandboxedNamespace("fxntstorage");
+        // fxntstorage's StorageNetwork controllers/interfaces clear/rebuild NonNullList slot tables
+        // during BE ticks; keep only those on server thread while allowing StorageBoxEntity etc. on workers.
+        RegionAdapterApi.denyRegionSandboxedBlockEntityType(
+                "fxntstorage:storage_controller_entity",
+                "fxntstorage:storage_interface_entity",
+                "fxntstorage:storage_interface_filtered_entity");
         for (final String ns : CREATE_NAMESPACES) {
             RegionAdapterApi.registerSandboxPredicate(ns, kineticTopologySafe);
         }
