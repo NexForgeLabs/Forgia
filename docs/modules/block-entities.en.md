@@ -100,7 +100,7 @@ before the cursor advances.
 | `enableRegionThreadingBlockEntityResources` | `false` | Adds claims/leases/scopes to furnace prefixes (**`FIXED_3X3` only**); also gates C6 mod admission |
 | `enableRegionThreadingBorderUpdates` | `false` | Required for furnace boundary admission |
 | `enableRegionThreadingPackedRegionLeases` | `false` | 16-region packing (**`FIXED_3X3` only**; bypassed in `DYNAMIC_CLUSTER`) |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | `DYNAMIC_CLUSTER` works for regular BE ticks; **`FIXED_3X3` is required** for furnace waves/resources and packed leases |
+| `regionThreadingMode` / `FixedRegionChunks` | `DYNAMIC_CLUSTER` / `3` | Current default is `DYNAMIC_CLUSTER`; legacy furnace-wave/resource experiments and packed leases require `FIXED_3X3` |
 
 ```toml
 # config/forgia.toml — minimal block-entity slice
@@ -110,7 +110,7 @@ enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingBorderUpdates = true        # needed for furnace-family boundary admission
 # enableRegionThreadingFurnaceWorkWaves = true     # experimental, FIXED_3X3 only
 # enableRegionThreadingBlockEntityResources = true # experimental, FIXED_3X3 only
-regionThreadingMode = "FIXED_3X3"                # use FIXED_3X3 when testing furnace waves/resources; DYNAMIC_CLUSTER works for standard BE ticks
+regionThreadingMode = "FIXED_3X3"                # legacy-only example for furnace-wave/resource experiments; normal deployments use DYNAMIC_CLUSTER
 regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 4
 ```
