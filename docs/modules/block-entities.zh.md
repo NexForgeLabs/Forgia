@@ -99,7 +99,7 @@
 | `enableRegionThreadingBlockEntityResources` | `false` | 为熔炉前缀增加 claim/lease/scope（**仅 `FIXED_3X3` 生效**）；也门控 C6 模组准入 |
 | `enableRegionThreadingBorderUpdates` | `false` | 熔炉边界准入必需 |
 | `enableRegionThreadingPackedRegionLeases` | `false` | 16 区域打包（**仅 `FIXED_3X3` 生效**；`DYNAMIC_CLUSTER` 下自动绕过） |
-| `regionThreadingMode` / `FixedRegionChunks` | `FIXED_3X3` / `3` | 常规 BE tick 支持 `DYNAMIC_CLUSTER`；**熔炉波次/资源与打包租约必须使用 `FIXED_3X3`** |
+| `regionThreadingMode` / `FixedRegionChunks` | `DYNAMIC_CLUSTER` / `3` | 当前默认值为 `DYNAMIC_CLUSTER`；旧熔炉波次/资源实验与打包租约需要 `FIXED_3X3` |
 
 ```toml
 # config/forgia.toml —— 最小方块实体切片
@@ -109,7 +109,7 @@ enableRegionThreadingBlockEntityTicks = true
 enableRegionThreadingBorderUpdates = true        # 熔炉族边界准入需要
 # enableRegionThreadingFurnaceWorkWaves = true     # 实验性，仅 FIXED_3X3 生效
 # enableRegionThreadingBlockEntityResources = true # 实验性，仅 FIXED_3X3 生效
-regionThreadingMode = "FIXED_3X3"                # 测试熔炉波次/资源时需用 FIXED_3X3；常规 BE tick 支持 DYNAMIC_CLUSTER
+regionThreadingMode = "FIXED_3X3"                # 仅供旧熔炉波次/资源实验示例；常规部署使用 DYNAMIC_CLUSTER
 regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 4
 ```
