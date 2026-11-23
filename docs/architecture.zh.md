@@ -111,7 +111,7 @@ Forgia 基于 NeoForge 1.21.1 构建。面对模组生态复杂的共享状态�
 
 ## 4. Phase 1 + Phase 2: Region Sandbox、独立时钟与广播适配架构
 
-自 `DYNAMIC_CLUSTER` 成为默认区域策略后，Forgia 在核心执行层上新增了 Folia 风格的 **Region Sandbox + Broadcast Adapter（`RegionAdapterApi`）** 与 **独立 Region 异步时钟（`RegionIndependentTickScheduler`）**，使绝大多数普通模组无需逐一编写专属 Adapter 即可安全并行：
+自 `DYNAMIC_CLUSTER` 成为默认区域策略后，Forgia 在核心执行层上新增了 Folia 风格的 **Region Sandbox + Broadcast Adapter（`RegionAdapterApi`）** 与 **独立 Region 异步时钟（`RegionIndependentTickScheduler`）**，使普通模组 BE 无需逐一编写专属 Adapter 即可进入通用 Sandbox，并由所有权护栏与串行回退控制兼容风险：
 
 1. **通用 BE 沙盒（`enableRegionSandboxAllBlockEntities`）**：
    - 全服所有非移动活塞、非黑名单方块实体通过零票据沙盒快路径（`SANDBOX_NATIVE_INSPECTION`）在各自 Region Worker 上并行执行；
