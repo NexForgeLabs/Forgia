@@ -43,6 +43,7 @@ public final class RegionAdapterApi {
     private static final Set<String> SHARED_SAVED_DATA_IDS = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_ADMITTED_BE_TYPES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_ADMITTED_NAMESPACES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> SANDBOX_DENIED_NAMESPACES = ConcurrentHashMap.newKeySet();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_TYPE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<ServerLevel, Map<Long, BlockPos>> VIRTUAL_CHUNK_AFFINITY = new ConcurrentHashMap<>();
@@ -178,6 +179,14 @@ public final class RegionAdapterApi {
         SANDBOX_NAMESPACE_PREDICATES.put(namespace.trim(), canRunOnWorker);
     }
 
+    public static void denyRegionSandboxedNamespace(String... namespaces) {
+        for (final String namespace : namespaces) {
+            if (namespace != null && !namespace.isBlank()) {
+                SANDBOX_DENIED_NAMESPACES.add(namespace.trim());
+            }
+        }
+    }
+
     public static void registerSandboxTypePredicate(
             String blockEntityTypeId,
             java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity> canRunOnWorker) {
@@ -241,8 +250,8 @@ public final class RegionAdapterApi {
         if (type == null || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(type)) {
             return false;
         }
-        // fxntstorage's StorageNetwork clears/rebuilds NonNullList slot tables during BE ticks; keep its BEs on the server thread.
-        if (type.startsWith("fxntstorage:")) {
+        final int nsEnd = type.indexOf(':');
+        if (nsEnd > 0 && SANDBOX_DENIED_NAMESPACES.contains(type.substring(0, nsEnd))) {
             return false;
         }
         if (Boolean.getBoolean("neoforge.regionthreading.sandboxAllBlockEntities")
