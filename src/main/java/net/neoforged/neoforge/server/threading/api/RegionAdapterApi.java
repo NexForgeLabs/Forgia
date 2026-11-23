@@ -241,6 +241,10 @@ public final class RegionAdapterApi {
         if (type == null || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(type)) {
             return false;
         }
+        // fxntstorage's StorageNetwork clears/rebuilds NonNullList slot tables during BE ticks; keep its BEs on the server thread.
+        if (type.startsWith("fxntstorage:")) {
+            return false;
+        }
         if (Boolean.getBoolean("neoforge.regionthreading.sandboxAllBlockEntities")
                 || (net.neoforged.neoforge.common.ForgiaConfig.isServerConfigLoaded()
                         && net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionSandboxAllBlockEntities.get())) {
