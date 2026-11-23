@@ -45,6 +45,7 @@ final class RegionScheduledTickBatch<T> extends RegionTickBatch {
     private final List<Group<T>> groups = new ArrayList<>();
     private final Set<RegionState> leasedRegions = Collections.newSetFromMap(new IdentityHashMap<>());
     private final List<ScheduledTick<T>> fallbackTicks = new ArrayList<>();
+    private final Queue<ScheduledTick<T>> workerDemotedFallbackTicks = new ConcurrentLinkedQueue<>();
     private final Queue<Runnable> scheduledTickMutations = new ConcurrentLinkedQueue<>();
     @Nullable
     private RandomSource seedSource;
@@ -83,8 +84,16 @@ final class RegionScheduledTickBatch<T> extends RegionTickBatch {
         this.fallbackTicks.addAll(ticks);
     }
 
+    void addWorkerDemotedFallback(ScheduledTick<T> tick) {
+        this.workerDemotedFallbackTicks.add(tick);
+    }
+
     List<ScheduledTick<T>> fallbackTicks() {
         return this.fallbackTicks;
+    }
+
+    Queue<ScheduledTick<T>> workerDemotedFallbackTicks() {
+        return this.workerDemotedFallbackTicks;
     }
 
     /**

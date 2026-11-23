@@ -139,4 +139,14 @@ final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.enableRegionSandboxAllBlockEntities.get()
                 : ForgiaConfig.SERVER.enableRegionSandboxAllBlockEntities.getDefault();
     }
+
+    public static boolean fluidTickWorkerExecutionEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.fluidTicks");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableRegionThreadingFluidTicks.get()
+                : ForgiaConfig.SERVER.enableRegionThreadingFluidTicks.getDefault();
+    }
 }

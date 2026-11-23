@@ -239,6 +239,7 @@ enableIndependentRegionTickClock = true           # Folia-style per-region async
 independentRegionTickIntervalNanos = 50000000     # 50ms target (20 TPS)
 independentRegionMaxCatchUpTicks = 4              # Max catch-up ticks on lag
 enableRegionSandboxAllBlockEntities = true        # Admit all non-piston, non-denylisted modded BEs into Region Sandbox
+enableRegionThreadingFluidTicks = true            # Per-region parallel fluid ticks (inland +/-5 blocks) while keeping redstone serial
 
 # --- Adaptive Mob Pathfinding Throttle ---
 enableMobPathfindingThrottle = true               # Auto-learns slow pathfinding: >3ms -> 10t, >8ms -> 20t cooldown

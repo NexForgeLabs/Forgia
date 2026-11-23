@@ -36,6 +36,8 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.ticks.LevelChunkTicks;
 import net.minecraft.world.ticks.LevelTicks;
 import net.minecraft.world.ticks.ScheduledTick;
@@ -345,5 +347,101 @@ class RegionScheduledTickAdmissionTest {
         assertEquals(2L, fallbackStatus.collected());
         assertEquals(2L, fallbackStatus.serialCompletions());
         assertEquals(2L, this.engine.diagnostics().fallbackScheduledTicks());
+    }
+
+    @Test
+    void fluidTicksExecuteInParallelAcrossRegionsUnderDynamicCluster() throws Exception {
+        System.setProperty("neoforge.regionthreading.fluidTicks", "true");
+        try {
+            final RegionRedstoneWorld world = this.world();
+            this.engine = new RegionThreadingEngine(2, true, false, false, false, false, false, false,
+                    RegionLayout.dynamicCluster(2, 40L), RegionEntityStorageMode.MAIN_THREAD_ONLY);
+            RegionThreadingManager.install(this.engine);
+
+            // Dynamic cluster (shift=2 -> 4 chunks = 64 blocks per region):
+            // Region (0,0) covers x=[0..63], z=[0..63]; Region (1,0) covers x=[64..127], z=[0..63]
+            final BlockPos inlandA = new BlockPos(32, 64, 32);
+            final BlockPos inlandB = new BlockPos(96, 64, 32);
+            final BlockPos borderPos = new BlockPos(62, 64, 32); // within 5 blocks of x=64 border
+
+            final LevelTicks<Fluid> fluidTicks = new LevelTicks<>(chunkPos -> true, () -> InactiveProfiler.INSTANCE);
+            for (int cx = 0; cx <= 7; cx++) {
+                for (int cz = 0; cz <= 3; cz++) {
+                    fluidTicks.addContainer(new ChunkPos(cx, cz), new LevelChunkTicks<>());
+                }
+            }
+            fluidTicks.schedule(new ScheduledTick<>(Fluids.WATER, inlandA, 1L, 0L));
+            fluidTicks.schedule(new ScheduledTick<>(Fluids.WATER, inlandB, 1L, 1L));
+            fluidTicks.schedule(new ScheduledTick<>(Fluids.WATER, borderPos, 1L, 2L));
+
+            final CyclicBarrier parallelGate = new CyclicBarrier(2);
+            final AtomicInteger workerExecutions = new AtomicInteger();
+            final AtomicInteger serialExecutions = new AtomicInteger();
+
+            fluidTicks.tick(1L, 65536, (pos, fluid) -> {
+                if (RegionThreadingHooks.isNativeRegionWorkerThread()) {
+                    workerExecutions.incrementAndGet();
+                    try {
+                        parallelGate.await(5, TimeUnit.SECONDS);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    serialExecutions.incrementAndGet();
+                }
+            }, (pos, fluid) -> {
+                assertFalse(RegionThreadingHooks.isNativeRegionWorkerThread());
+                serialExecutions.incrementAndGet();
+            }, RegionThreadingHooks.scheduledTickDispatcher(world.level, ScheduledTickPhase.FLUID, BARRIER));
+
+            assertEquals(2, workerExecutions.get());
+            assertEquals(1, serialExecutions.get());
+            final var fluidStatus = this.engine.scheduledTickStatus().get(ScheduledTickPhase.FLUID.ordinal());
+            assertEquals(2L, fluidStatus.workerCompletions());
+            assertEquals(1L, fluidStatus.serialCompletions());
+        } finally {
+            System.clearProperty("neoforge.regionthreading.fluidTicks");
+        }
+    }
+
+    @Test
+    void fluidWorkerFailureAutoDemotesFluidTypeWithoutCrashing() {
+        System.setProperty("neoforge.regionthreading.fluidTicks", "true");
+        try {
+            final RegionRedstoneWorld world = this.world();
+            this.engine = new RegionThreadingEngine(2, true, false, false, false, false, false, false,
+                    RegionLayout.dynamicCluster(2, 40L), RegionEntityStorageMode.MAIN_THREAD_ONLY);
+            RegionThreadingManager.install(this.engine);
+
+            final BlockPos inlandA = new BlockPos(32, 64, 32);
+            final LevelTicks<Fluid> fluidTicks = new LevelTicks<>(chunkPos -> true, () -> InactiveProfiler.INSTANCE);
+            for (int cx = 0; cx <= 3; cx++) {
+                for (int cz = 0; cz <= 3; cz++) {
+                    fluidTicks.addContainer(new ChunkPos(cx, cz), new LevelChunkTicks<>());
+                }
+            }
+
+            fluidTicks.schedule(new ScheduledTick<>(Fluids.LAVA, inlandA, 1L, 0L));
+            final AtomicInteger serverFallbacks = new AtomicInteger();
+            fluidTicks.tick(1L, 65536, (pos, fluid) -> {
+                throw new IllegalStateException("simulated modded fluid global state touch");
+            }, (pos, fluid) -> {
+                assertFalse(RegionThreadingHooks.isNativeRegionWorkerThread());
+                serverFallbacks.incrementAndGet();
+            }, RegionThreadingHooks.scheduledTickDispatcher(world.level, ScheduledTickPhase.FLUID, BARRIER));
+            assertEquals(1, serverFallbacks.get());
+
+            // Next tick with the same demoted fluid type goes directly to serial fallback without entering worker
+            fluidTicks.schedule(new ScheduledTick<>(Fluids.LAVA, inlandA, 2L, 0L));
+            fluidTicks.tick(2L, 65536, (pos, fluid) -> {
+                throw new AssertionError("demoted fluid must not run on worker");
+            }, (pos, fluid) -> {
+                assertFalse(RegionThreadingHooks.isNativeRegionWorkerThread());
+                serverFallbacks.incrementAndGet();
+            }, RegionThreadingHooks.scheduledTickDispatcher(world.level, ScheduledTickPhase.FLUID, BARRIER));
+            assertEquals(2, serverFallbacks.get());
+        } finally {
+            System.clearProperty("neoforge.regionthreading.fluidTicks");
+        }
     }
 }

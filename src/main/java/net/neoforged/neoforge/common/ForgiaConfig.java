@@ -66,6 +66,8 @@ public final class ForgiaConfig {
 
         public final BooleanValue enableRegionThreadingScheduledTicks;
 
+        public final BooleanValue enableRegionThreadingFluidTicks;
+
         public final BooleanValue enableRegionThreadingRandomTicks;
 
         public final BooleanValue enableRegionThreadingSpawning;
@@ -229,6 +231,12 @@ public final class ForgiaConfig {
                     .translation("neoforge.configgui.enableRegionThreadingScheduledTicks")
                     .worldRestart()
                     .define("enableRegionThreadingScheduledTicks", false);
+
+            enableRegionThreadingFluidTicks = builder
+                    .comment("Per-region parallel fluid tick execution under DYNAMIC_CLUSTER and fixed layouts. Fluid ticks whose +/-5 block horizontal slope-finding footprint stays loaded inside one region execute in parallel on region workers while border fluid ticks and auto-demoted modded fluids fall back cleanly to the server thread. Independent of enableRegionThreadingScheduledTicks (redstone block ticks remain serial on the server thread).")
+                    .translation("neoforge.configgui.enableRegionThreadingFluidTicks")
+                    .worldRestart()
+                    .define("enableRegionThreadingFluidTicks", true);
 
             enableRegionThreadingRandomTicks = builder
                     .comment(

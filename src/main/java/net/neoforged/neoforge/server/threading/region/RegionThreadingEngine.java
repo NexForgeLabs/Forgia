@@ -193,6 +193,8 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final boolean entityTickWorkerExecutionEnabled;
     private final boolean blockEntityTickWorkerExecutionEnabled;
     private final boolean scheduledTickWorkerExecutionEnabled;
+    private final boolean fluidTickWorkerExecutionEnabled;
+    private final Set<net.minecraft.world.level.material.Fluid> demotedFluidTypes = ConcurrentHashMap.newKeySet();
     private final RegionScheduledTickMetrics[] scheduledTickMetrics = { new RegionScheduledTickMetrics(), new RegionScheduledTickMetrics() };
     private final RegionScheduledTickCoordinator scheduledTickCoordinator;
     private final RegionIndependentTickScheduler independentTickScheduler;
@@ -1126,6 +1128,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.entityTickWorkerExecutionEnabled = ticks.entities();
         this.blockEntityTickWorkerExecutionEnabled = ticks.blockEntities();
         this.scheduledTickWorkerExecutionEnabled = ticks.scheduledTicks();
+        this.fluidTickWorkerExecutionEnabled = this.workerExecutionEnabled && RegionThreadingConfig.fluidTickWorkerExecutionEnabled();
         this.chunkTickWorkerExecutionEnabled = ticks.chunkTicks();
         this.spawnWorkerExecutionEnabled = ticks.spawning();
         this.packedRegionLeasesEnabled = this.layout.isFixed() && workers.packedRegionLeases();
@@ -4407,7 +4410,10 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     @Nullable
     public <T> LevelTicks.TickDispatcher<T> beginScheduledTickDispatcher(ServerLevel level, ScheduledTickPhase phase, RegionTickBarrier barrier) {
-        if (!this.scheduledTickWorkerExecutionEnabled || this.shutdown || this.regionWorkAdmission.isOwner()) {
+        final boolean phaseEnabled = phase == ScheduledTickPhase.FLUID
+                ? (this.scheduledTickWorkerExecutionEnabled || this.fluidTickWorkerExecutionEnabled)
+                : this.scheduledTickWorkerExecutionEnabled;
+        if (!phaseEnabled || this.shutdown || this.regionWorkAdmission.isOwner()) {
             return null;
         }
         if (this.regionizer.isLevelClosed(level)) return null;
@@ -4437,7 +4443,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 if (level.getProfiler() != InactiveProfiler.INSTANCE) reason = ScheduledTickStatus.SerialReason.PROFILER_ACTIVE;
                 else if (RegionThreadingEngine.this.unclassifiedWorkerCallbacksForTesting) reason = null;
                 else reason = RegionScheduledTickAdmission.refusal(level, RegionThreadingEngine.this.layout, phase, ticks,
-                        RegionThreadingEngine.this.deferredBlockUpdateBudget / RegionTickSlice.SCHEDULED_TICK.reservationPerUnit());
+                        RegionThreadingEngine.this.deferredBlockUpdateBudget / RegionTickSlice.SCHEDULED_TICK.reservationPerUnit(),
+                        RegionThreadingEngine.this.fluidTickWorkerExecutionEnabled);
                 metrics.preparationNanos.add(System.nanoTime() - preparation);
                 if (reason != null) metrics.refused(reason);
                 else metrics.admitted.add(this.count);
@@ -10574,6 +10581,24 @@ public final class RegionThreadingEngine implements RegionThreading {
         @Override
         public void retireBatch(RegionTickBatch batch) {
             RegionThreadingEngine.this.activeTickBatches.remove(batch);
+        }
+
+        @Override
+        public RegionLayout layout() {
+            return RegionThreadingEngine.this.layout;
+        }
+
+        @Override
+        public Set<net.minecraft.world.level.material.Fluid> demotedFluids() {
+            return RegionThreadingEngine.this.demotedFluidTypes;
+        }
+
+        @Override
+        public void demoteFluid(net.minecraft.world.level.material.Fluid fluid, Throwable failure) {
+            if (RegionThreadingEngine.this.demotedFluidTypes.add(fluid)) {
+                LOGGER.warn("[RegionFluidSandbox] Auto-demoted fluid {} to server thread after worker exception: {}",
+                        net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid), failure.toString());
+            }
         }
     }
 

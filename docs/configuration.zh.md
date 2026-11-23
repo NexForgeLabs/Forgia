@@ -239,6 +239,7 @@ enableIndependentRegionTickClock = true           # 启用 Folia 式 per-region 
 independentRegionTickIntervalNanos = 50000000     # 目标周期 50ms (20 TPS)
 independentRegionMaxCatchUpTicks = 4              # 滞后时最大追帧上限
 enableRegionSandboxAllBlockEntities = true        # 默认把全服所有非移动活塞/非黑名单 BE 丢进 Region Worker 沙盒
+enableRegionThreadingFluidTicks = true            # 独立并行流体（水/岩浆）调度，红石 blockTicks 保持串行
 
 # --- 自适应寻路节流 ---
 enableMobPathfindingThrottle = true               # 开启后自动学习：单次寻路 >3ms 冷却 10t，>8ms 冷却 20t

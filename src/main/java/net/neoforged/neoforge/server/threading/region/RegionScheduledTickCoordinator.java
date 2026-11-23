@@ -8,12 +8,14 @@ package net.neoforged.neoforge.server.threading.region;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.ticks.ScheduledTick;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -83,6 +85,12 @@ final class RegionScheduledTickCoordinator {
         void applyRegionTickMutations(Queue<Runnable> mutations);
 
         void retireBatch(RegionTickBatch batch);
+
+        RegionLayout layout();
+
+        Set<Fluid> demotedFluids();
+
+        void demoteFluid(Fluid fluid, Throwable failure);
     }
 
     private final Host host;
@@ -130,11 +138,24 @@ final class RegionScheduledTickCoordinator {
             batch.addFallback(ticks.subList(admittedTickCount, ticks.size()));
             this.host.countRefusedDeferredBlockUpdates(ticks.size() - admittedTickCount);
         }
+        final List<ScheduledTick<T>> dispatchTicks;
+        if (phase == ScheduledTickPhase.FLUID && !this.host.unclassifiedWorkerCallbacksForTesting()) {
+            final List<ScheduledTick<T>> inlandTicks = new ArrayList<>(admittedTicks.size());
+            final List<ScheduledTick<T>> borderTicks = new ArrayList<>();
+            RegionScheduledTickAdmission.partitionFluidTicks(
+                    level, this.host.layout(), admittedTicks, this.host.demotedFluids(), inlandTicks, borderTicks);
+            if (!borderTicks.isEmpty()) {
+                batch.addFallback(borderTicks);
+            }
+            dispatchTicks = inlandTicks;
+        } else {
+            dispatchTicks = admittedTicks;
+        }
         Throwable failure = null;
         final long dispatchStart = System.nanoTime();
         try {
             try {
-                this.leaseGroups(batch, admittedTicks, callback, beginTick, barrier);
+                this.leaseGroups(batch, dispatchTicks, callback, beginTick, barrier);
             } catch (Throwable throwable) {
                 failure = throwable;
             } finally {
@@ -259,6 +280,16 @@ final class RegionScheduledTickCoordinator {
                                 }
                             } catch (Throwable throwable) {
                                 metrics.failures.increment();
+                                if (group.batch().phase() == ScheduledTickPhase.FLUID && !(throwable instanceof Error)) {
+                                    if (tick.type() instanceof Fluid fluid) {
+                                        this.host.demoteFluid(fluid, throwable);
+                                    }
+                                    group.batch().addWorkerDemotedFallback(tick);
+                                    for (int rem = attempted; rem < ticks.size(); ++rem) {
+                                        group.batch().addWorkerDemotedFallback(ticks.get(rem));
+                                    }
+                                    return;
+                                }
                                 metrics.skipped.add(ticks.size() - attempted);
                                 this.host.countSkippedTicks(ticks.size() - attempted);
                                 this.host.recordWorkerTickFailure(group.batch(), coordinate, throwable);
@@ -298,6 +329,22 @@ final class RegionScheduledTickCoordinator {
             beginTick.accept(tick);
             try {
                 fallbackCallback.accept(tick.pos(), tick.type());
+                metrics.serial.increment();
+            } catch (Throwable failure) {
+                metrics.failures.increment();
+                throw failure;
+            }
+        }
+        ScheduledTick<T> demotedTick;
+        while ((demotedTick = batch.workerDemotedFallbackTicks().poll()) != null) {
+            if (this.host.isLevelClosed(level)) {
+                this.host.countSkippedTicks(1);
+                metrics.skipped.increment();
+                continue;
+            }
+            this.host.countFallbackTick();
+            try {
+                fallbackCallback.accept(demotedTick.pos(), demotedTick.type());
                 metrics.serial.increment();
             } catch (Throwable failure) {
                 metrics.failures.increment();
