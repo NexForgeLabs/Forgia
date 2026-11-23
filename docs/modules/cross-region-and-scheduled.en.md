@@ -4,8 +4,7 @@ English | [中文](cross-region-and-scheduled.zh.md) · [Module map](README.en.m
 Source: [`BlockEntityOperationRuntime`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/BlockEntityOperationRuntime.java), [`RegionScheduledTickAdmission`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScheduledTickAdmission.java), [`RegionEntityInteractionTask`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityInteractionTask.java), [`PlayerRegionTransitions`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/PlayerRegionTransitions.java), [`GlobalRegionState`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/GlobalRegionState.java)
 Evidence: [CROSS-REGION-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CROSS-REGION-OPERATIONS.md), [CHUNK-OWNER-OPERATIONS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CHUNK-OWNER-OPERATIONS.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
-Status: **Experimental** except the narrow lamp-only scheduled cohort, which passed C6 correctness for that
-scope. All switches default off.
+Status: cross-region operations and most scheduled-tick paths remain **experimental**. The narrow lamp-only scheduled cohort passed the historical C6 correctness scope only. All related switches default off; this is not a general fluid-worker or arbitrary scheduled-callback implementation.
 
 ---
 
