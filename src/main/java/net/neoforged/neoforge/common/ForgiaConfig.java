@@ -181,6 +181,8 @@ public final class ForgiaConfig {
 
         public final BooleanValue enableAsyncRegionSpawning;
 
+        public final BooleanValue skipUnloadedNeighborhoodSpawning;
+
         public final BooleanValue enableAsyncRegionEntityTicks;
 
         public final BooleanValue enableAsyncRegionFluidTicks;
@@ -625,6 +627,12 @@ public final class ForgiaConfig {
                             "Phase 3A: Dispatches natural spawning calculations asynchronously on region workers via RegionIndependentTickScheduler without blocking the server thread barrier. Requires enableIndependentRegionTickClock and enableRegionThreadingSpawning. Default true.",
                             "[中文] Phase 3A：将自然刷怪计算异步分发到 Region Worker，主线程不再等待刷怪 Barrier，新生物由异步提交队列安全入表（默认开启）。")
                     .define("enableAsyncRegionSpawning", true);
+
+            skipUnloadedNeighborhoodSpawning = builder
+                    .comment(
+                            "Skips natural mob spawning in outer simulation-distance border chunks whose 3x3 neighbor chunks are not all loaded, instead of falling back to main-thread spawning and full-world entity scans. Default true.",
+                            "[中文] 跳过模拟距离最外圈（3x3 邻域未全部加载）边缘区块的自然刷怪，避免回退主线程并触发全图实体扫描（默认开启）。")
+                    .define("skipUnloadedNeighborhoodSpawning", true);
 
             enableAsyncRegionEntityTicks = builder
                     .comment(

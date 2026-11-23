@@ -178,9 +178,12 @@ public final class RegionSpawnPlan {
         if (!this.isLoadedChunkNeighborhoodCached(chunkPos)) {
             // The spawn body reads the chunks around the spawning chunk - the candidate positions, the block
             // below a candidate, the biome, the spawn rules - and a worker may not load a chunk, so the chunk
-            // keeps the server-thread body.
+            // either skips spawning (when skipUnloadedNeighborhoodSpawning is enabled, avoiding main-thread
+            // fallbackState full-entity scans at the simulation-distance edge) or keeps the server-thread body.
             this.engine.countUnloadedNeighborhoodSpawnChunk();
-            this.spawnInline(chunk);
+            if (!RegionThreadingConfig.skipUnloadedNeighborhoodSpawning()) {
+                this.spawnInline(chunk);
+            }
             return;
         }
         if (this.chunks.size() >= this.engine.spawnDeferredUpdateBudget()) {

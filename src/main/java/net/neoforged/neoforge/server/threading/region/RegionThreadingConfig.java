@@ -214,6 +214,16 @@ public final class RegionThreadingConfig {
                 : ForgiaConfig.SERVER.enableAsyncRegionSpawning.getDefault();
     }
 
+    public static boolean skipUnloadedNeighborhoodSpawning() {
+        final String prop = System.getProperty("neoforge.regionthreading.skipUnloadedNeighborhoodSpawning");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.skipUnloadedNeighborhoodSpawning.get()
+                : ForgiaConfig.SERVER.skipUnloadedNeighborhoodSpawning.getDefault();
+    }
+
     public static boolean asyncRegionEntityTicksEnabled() {
         final String prop = System.getProperty("neoforge.regionthreading.asyncEntityTicks");
         if (prop != null) {
