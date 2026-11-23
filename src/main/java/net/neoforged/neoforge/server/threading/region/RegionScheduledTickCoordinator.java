@@ -94,7 +94,7 @@ final class RegionScheduledTickCoordinator {
 
         boolean asyncFluidTicksEnabled();
 
-        boolean submitAsyncFluidGroup(RegionState region, Runnable wrappedWork, Runnable serverThreadCommit);
+        boolean submitAsyncFluidGroup(RegionState region, RegionScheduledTickBatch<?> regionBatch, Runnable wrappedWork, Runnable serverThreadCommit);
     }
 
     private final Host host;
@@ -310,7 +310,7 @@ final class RegionScheduledTickCoordinator {
                     regionBatch.finish();
                 }
             };
-            if (this.host.submitAsyncFluidGroup(region, wrappedWork, commit)) {
+            if (this.host.submitAsyncFluidGroup(region, regionBatch, wrappedWork, commit)) {
                 dispatched += regionTicks.size();
             } else {
                 // Region busy: run inline on server thread so no fluid tick is ever dropped.

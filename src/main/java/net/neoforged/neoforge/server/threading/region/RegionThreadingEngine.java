@@ -5387,7 +5387,8 @@ public final class RegionThreadingEngine implements RegionThreading {
         final var group = this.currentEntityTickGroup();
         if (RegionWorkerScope.isNativeWorkerThread() && group != null && group.level() == level
                 && RegionTickBatch.current() == group.batch() && level.getServer() != null
-                && !RegionPlayerStateScope.hasThreadBinding()) {
+                && !RegionPlayerStateScope.hasThreadBinding()
+                && !group.batch().isAsyncDetached()) {
             return this.runOnServerThread(level, send);
         }
         if (sandboxFallbackResult != null
@@ -7238,6 +7239,9 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final AtomicBoolean acquired = new AtomicBoolean();
         barrier.await(() -> {
+            if (this.independentTickScheduler != null && region.coordinate().level() != null) {
+                this.independentTickScheduler.drainCompletedCommits(region.coordinate().level(), 500_000L);
+            }
             if (region.isDead()) {
                 return true;
             }
@@ -7421,6 +7425,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             final RegionState region = activation.region();
             final List<RegionChunkTickEntry> regionChunks = chunksByRegion != null ? chunksByRegion.remove(region) : null;
             final RegionEntityTickBatch regionBatch = new RegionEntityTickBatch(level, perRegionBudget);
+            regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
             final FusedRegionTickBatch regionFused = (regionChunks != null && !regionChunks.isEmpty())
                     ? new FusedRegionTickBatch(level, randomTickSpeed, perRegionBudget)
                     : null;
@@ -7472,6 +7477,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 if (regionChunks == null || regionChunks.isEmpty()) continue;
                 final FusedRegionTickBatch regionFused = new FusedRegionTickBatch(level, randomTickSpeed, perRegionBudget);
                 final RegionEntityTickBatch regionBatch = new RegionEntityTickBatch(level, perRegionBudget);
+                regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
                 final RegionEntityTickBatch.Group group = regionBatch.registerGroup(region, List.of());
                 final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(
                         this.withRegionMailboxDelivery(level, region,
@@ -10763,7 +10769,11 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
 
         @Override
-        public boolean submitAsyncFluidGroup(RegionState region, Runnable wrappedWork, Runnable serverThreadCommit) {
+        public boolean submitAsyncFluidGroup(RegionState region, RegionScheduledTickBatch<?> regionBatch, Runnable wrappedWork, Runnable serverThreadCommit) {
+            final ServerLevel level = region.coordinate().level();
+            if (level != null) {
+                regionBatch.setAsyncMainThreadWorkSink(task -> RegionThreadingEngine.this.independentTickScheduler.enqueueCommit(level, task));
+            }
             return RegionThreadingEngine.this.independentTickScheduler.submitAsyncSlice(
                     region, "async fluid", wrappedWork, serverThreadCommit) == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED;
         }
@@ -11100,6 +11110,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             final RegionSpawnState.Built built = plan.buildRegionState(region, regionChunks);
             final RegionSpawnBatch regionBatch = new RegionSpawnBatch(level, plan.spawnFriendlies(), plan.spawnEnemies(),
                     plan.spawnPersistent(), perRegionBudget);
+            regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
             final RegionSpawnBatch.Group group = regionBatch.createAsyncGroup(region, regionChunks, built.state(), built.neighborhood());
             final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(this.spawnGroup(group, false));
             final Runnable commit = () -> {

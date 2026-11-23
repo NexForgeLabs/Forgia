@@ -94,6 +94,8 @@ abstract class RegionTickBatch {
     private final Object mainThreadWorkLock = new Object();
     private final Set<MainThreadWork<?>> pendingMainThreadWork = new LinkedHashSet<>();
     private boolean mainThreadWorkClosed;
+    @Nullable
+    private volatile java.util.function.Consumer<Runnable> asyncMainThreadWorkSink;
     private boolean submitted;
     private volatile boolean externalWaves;
     private boolean serverAdmissionFence;
@@ -519,6 +521,14 @@ abstract class RegionTickBatch {
         this.runPendingMainThreadWork();
     }
 
+    final void setAsyncMainThreadWorkSink(@Nullable java.util.function.Consumer<Runnable> sink) {
+        this.asyncMainThreadWorkSink = sink;
+    }
+
+    final boolean isAsyncDetached() {
+        return this.asyncMainThreadWorkSink != null;
+    }
+
     final <T> T runOnServerThread(ServerLevel taskLevel, Supplier<T> computation) {
         final MinecraftServer server = taskLevel.getServer();
         if (server == null || server.isSameThread()) {
@@ -527,6 +537,14 @@ abstract class RegionTickBatch {
             return computation.get();
         }
         final MainThreadWork<T> work = new MainThreadWork<>(computation);
+        final var asyncSink = this.asyncMainThreadWorkSink;
+        if (asyncSink != null) {
+            // Phase 3 async detached batch: route synchronous main-thread work into the independent scheduler's
+            // commit queue, which the server thread drains every tick AND inside awaitClockIdle/acquireRegionLease,
+            // preventing any A-B deadlock between async workers and the server thread.
+            asyncSink.accept(work::run);
+            return work.await();
+        }
         synchronized (this.mainThreadWorkLock) {
             if (this.mainThreadWorkClosed) {
                 throw new IllegalStateException("Region tick batch no longer accepts main-thread work");

@@ -187,4 +187,32 @@ class RegionIndependentTickSchedulerTest {
             assertEquals(6, heavySkipped, "Heavy regions (>8ms) stagger spawn every 4 ticks");
         }
     }
+
+    @Test
+    void asyncSliceRunOnServerThreadDoesNotDeadlockWithQuiesceLevel() throws Exception {
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            f.enable(false, true);
+            f.engine.setIndependentRegionTickEnabledForTesting(true);
+            final RegionIndependentTickScheduler scheduler = f.engine.independentTickScheduler();
+            final java.util.concurrent.CountDownLatch workerEntered = new java.util.concurrent.CountDownLatch(1);
+            final java.util.concurrent.atomic.AtomicInteger mainThreadValue = new java.util.concurrent.atomic.AtomicInteger();
+
+            assertTrue(RegionAdapterApi.dispatchIndependentRegionTick(f.level, REGION_A_POS, () -> {
+                workerEntered.countDown();
+                final java.util.concurrent.CompletableFuture<Integer> future = new java.util.concurrent.CompletableFuture<>();
+                scheduler.enqueueCommit(f.level, () -> future.complete(42));
+                try {
+                    mainThreadValue.set(future.get(5, java.util.concurrent.TimeUnit.SECONDS));
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }, null));
+            assertTrue(workerEntered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+
+            // Server thread immediately quiesces the level while worker is awaiting commit on server thread.
+            // awaitClockIdle must drain commitQueues instead of deadlocking!
+            scheduler.awaitLevelQuiescent(f.level, false);
+            assertEquals(42, mainThreadValue.get());
+        }
+    }
 }
