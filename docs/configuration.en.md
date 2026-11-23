@@ -41,9 +41,9 @@ The snippets further down this page are feature-specific examples, not a one-siz
 
 | `shift` | Section Size | Best For | Trade-offs |
 |---:|---|---|---|
-| **`2`** | `4×4` chunks (64×64 blocks) | Tightly clustered hubs / small maps / lowest P99 | Fewer island merges and lower P99, but players cross region borders more often |
-| **`3` (Recommended)** | `8×8` chunks (128×128 blocks) | **Most multiplayer & modded survival servers** | Highest overall TPS, best L3 locality, highest player worker admission (~86%) |
-| **`4`** | `16×16` chunks (256×256 blocks) | Very large worlds where players stay >500 blocks apart (Folia default) | Fewest boundaries, but merges into oversized islands when players are <300 blocks apart |
+| **`2`** | `4×4` chunks (64×64 blocks) | Dense hubs / compact maps | Smaller base sections; may create more region boundaries and topology work |
+| **`3` (Default)** | `8×8` chunks (128×128 blocks) | General starting point | Balanced section size; validate against your player distribution and workload |
+| **`4`** | `16×16` chunks (256×256 blocks) | Widely separated player groups | Fewer, larger base sections; can reduce independent-region granularity |
 
 ---
 
@@ -80,7 +80,7 @@ The snippets further down this page are feature-specific examples, not a one-siz
 
 | Key | Default | Range | Restart | Behavior |
 |---|---|---|---:|---|
-| `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | yes | Region policy. **`"DYNAMIC_CLUSTER"` recommended**; `"FIXED_3X3"` is the C6 baseline; `"DYNAMIC"` is legacy 16×16 |
+| `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | yes | Current default is `DYNAMIC_CLUSTER`; `FIXED_3X3` is retained for legacy/C6 comparisons; `DYNAMIC` is the legacy 16×16 grid |
 | `regionThreadingDynamicSectionShift` | `3` | `2..4` | yes | Dynamic section edge bit shift: `1 << shift` chunks (`2`=4×4, `3`=8×8 recommended, `4`=16×16) |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | `0..1200` | yes | Hysteresis ticks before an emptied dynamic section detaches and checks for island splitting |
 | `regionThreadingFixedRegionChunks` | `3` | `3..32` | yes | Edge length in chunks of one fixed region when `regionThreadingMode = "FIXED_3X3"` |
@@ -176,7 +176,7 @@ regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 0                  # 0 = auto; or explicit worker count
 
 # --- Phase 2: Independent Region Tick Clock & Generic BE Sandbox [restart] ---
-enableIndependentRegionTickClock = true           # Folia-style per-region async clock (removes BE global barrier)
+enableIndependentRegionTickClock = true           # Folia-style per-region clock scheduling; global state still coordinates
 independentRegionTickIntervalNanos = 50000000     # 50ms target (20 TPS)
 independentRegionMaxCatchUpTicks = 4              # Max catch-up ticks on lag
 enableRegionSandboxAllBlockEntities = true        # Admit all non-piston, non-denylisted modded BEs into Region Sandbox
