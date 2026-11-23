@@ -9,92 +9,31 @@ All Forgia parallel execution and runtime diagnostics settings live in **`config
 
 ---
 
-## 1. Recommended Profiles by Hardware
+## 1. Safe starting point and hardware tuning
 
-> **Core Tuning Principles**:
-> 1. **Use `DYNAMIC_CLUSTER` (`shift = 3`, i.e., 8×8 chunks / 128×128 blocks) as the default region mode**: verified by 30/30 dynamic cluster audit/topology tests and 32-player soaks (`0` ownership violations), delivering +9.2% TPS, -17% P95 MSPT, and +37% higher player worker admission than `FIXED_3X3`.
-> 2. **Know which switches are `FIXED_3X3`-only or gated by a JVM flag**:
->    - `enableRegionThreadingPlayerTicks = true` works out of the box in `FIXED_3X3`, but in `DYNAMIC_CLUSTER` it **also requires `-Dforgia.dynamicPlayerSoak=true`** on the JVM command line (otherwise player ticks remain serial).
->    - `enableRegionThreadingFurnaceWorkWaves`, `enableRegionThreadingBlockEntityResources`, and `enableRegionThreadingPackedRegionLeases` **only take effect in `FIXED_3X3`** (in `DYNAMIC_CLUSTER`, furnace waves/resources are ignored and lease packing is automatically bypassed because loaded-island coalescing replaces it). Keep all three `false` in `DYNAMIC_CLUSTER` profiles.
-> 3. **Do not leave `regionThreadingWorkerThreads = 0` on hyperthreaded CPUs**: `0` resolves to `logicalThreads - 1` (e.g., 15 workers on an 8C/16T CPU), which oversubscribes physical cores and saturates memory bandwidth against the server thread, chunk generation, and GC. Pin workers explicitly to **`physicalCores - 1..2`**, always reserving at least **1 full physical core** for the Server thread.
+> **Current defaults and scope (checked against `ForgiaConfig.java`):**
+> - `regionThreadingMode` defaults to `DYNAMIC_CLUSTER`. The old `FIXED_3X3` profile is retained for legacy compatibility and historical C6 comparisons; it is not the current default.
+> - The parallel execution switches default to `false`. This includes the bridge, worker slices, generic Block Entity Sandbox and Independent Region Clock. A server remains on the serial path until the relevant switches are deliberately enabled.
+> - C7 validated one specific 188-mod SkyExplorer workload. Its measurements are published on the [benchmark page](benchmarks.en.md); they are not universal hardware recommendations or a ready-made config for arbitrary modpacks.
+> - Ordinary modded block entities can use the generic Sandbox without per-mod adapters when `enableRegionSandboxAllBlockEntities` is enabled. Complex shared-state mods may still require dedicated adapters or serial fallback.
+> - Do not enable every switch just because it exists. Some features are experimental, have prerequisites, or only support particular layouts. Check the table below and the relevant module page first.
 
-### Profile A: 4-Core / 8-Thread CPU (e.g., i5-1135G7 / 4C VPS, 8–16 GB RAM)
+### Worker count
 
-* For **lowest median MSPT (P50) and lowest heap** (measured P50 `43.34 ms`, `-35.4%` heap vs. serial): `regionThreadingWorkerThreads = 3` (leaving 1 physical core for the Server thread).
-* For **tighter P99 tail latency**: `regionThreadingWorkerThreads = 4`.
+`regionThreadingWorkerThreads = 0` lets Forgia choose `max(1, logicalCpus - 1)`. This is a convenience default, not a promise that all logical CPUs are optimal. For production, start with a conservative explicit count, monitor the server thread, workers, chunk generation and GC together, then tune using repeatable workload tests. Leave enough CPU capacity for the server thread and non-Forgia work.
 
-```toml
-# === Core & Parallel Slice Switches ===
-enableRegionThreadingBridge = true
-enableRegionThreadingWorkers = true
-enableGlobalRegionThreadingWorker = true
-enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true            # requires JVM flag -Dforgia.dynamicPlayerSoak=true in DYNAMIC_CLUSTER
-enableRegionThreadingBlockEntityTicks = false      # serial is faster on light stationary BEs; enable for heavy furnace/audited adapter worlds
-enableRegionThreadingFurnaceWorkWaves = false      # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
-enableRegionThreadingBlockEntityResources = false  # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
-enableRegionThreadingScheduledTicks = false        # only admits audited redstone-lamp phases; keep off for general servers
-enableRegionThreadingRandomTicks = true
-enableRegionThreadingSpawning = true
-enableRegionThreadingPoi = true
-enableRegionThreadingBorderUpdates = true
-enableRegionThreadingGameEvents = true
-enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
+There is no single worker count that is correct for every CPU or modpack. Avoid treating the old hardware examples and historical P50/P99 figures in archived reports as current universal guidance.
 
-# === Dynamic Region Layout & Worker Pool ===
-regionThreadingMode = "DYNAMIC_CLUSTER"
-regionThreadingDynamicSectionShift = 3             # 8x8 chunks (128x128 blocks)
-regionThreadingDynamicSplitDelayTicks = 40         # 2s hysteresis against boundary split/merge churn
-regionThreadingWorkerThreads = 3                   # 4 physical cores: 3 workers + 1 core for Server thread (or 4 for tighter P99)
-```
+### Minimal configuration workflow
 
-### Profile B: 8-Core / 16-Thread High-Clock CPU + 32 GB Dual-Channel RAM (e.g., Xeon E5-2667 v2 @ 4.1GHz, 16GB×2 DDR3-1666)
+1. Back up the world and current configuration.
+2. Confirm the generated `config/forgia.toml` matches the build you are running.
+3. Start with only the region engine and the specific execution slices your workload needs.
+4. Enable generic BE Sandbox and Independent Region Clock separately; both are opt-in.
+5. Test on a copy of the production world, inspect `/neoforge regionthreading status` and worker/fallback counters, then run a controlled soak.
+6. If ownership violations, compatibility failures or instability appear, disable the relevant slice or set `enableRegionThreadingBridge = false`, restart and verify the serial rollback.
 
-* **Hardware profile**: 8 physical cores and a large 25 MB L3 cache pair well with `8×8` dynamic sections, while dual-channel DDR3-1666 memory bandwidth is relatively tight—avoid spawning 15 hyperthreaded workers (`0`).
-* **Core budget**: 1 physical core for the Server thread + **6 physical cores for Region Workers** (`5` during heavy worldgen/exploration bursts) + 1 physical core (and remaining SMT threads) for chunk generation, Netty I/O, and Generational ZGC.
-
-```toml
-# === Core & Parallel Slice Switches ===
-enableRegionThreadingBridge = true
-enableRegionThreadingWorkers = true
-enableGlobalRegionThreadingWorker = true
-enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true            # requires JVM flag -Dforgia.dynamicPlayerSoak=true in DYNAMIC_CLUSTER
-enableRegionThreadingBlockEntityTicks = true       # set false if the world has no heavy furnace/audited-adapter load
-enableRegionThreadingFurnaceWorkWaves = false      # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
-enableRegionThreadingBlockEntityResources = false  # FIXED_3X3 only (ignored in DYNAMIC_CLUSTER)
-enableRegionThreadingScheduledTicks = false        # only admits audited redstone-lamp phases; keep off unless needed
-enableRegionThreadingRandomTicks = true
-enableRegionThreadingSpawning = true
-enableRegionThreadingPoi = true
-enableRegionThreadingBorderUpdates = true
-enableRegionThreadingGameEvents = true
-enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = false    # FIXED_3X3 only (bypassed in DYNAMIC_CLUSTER)
-
-# === Dynamic Region Layout & Worker Pool ===
-regionThreadingMode = "DYNAMIC_CLUSTER"
-regionThreadingDynamicSectionShift = 3             # 8x8 chunks: maximizes 25 MB L3 hit rate & reduces memory bus traffic
-regionThreadingDynamicSplitDelayTicks = 40
-regionThreadingWorkerThreads = 6                   # 8-core sweet spot (use 5 during heavy chunk generation)
-```
-
-Recommended JDK 21 JVM flags (32 GB RAM — leave ~half for OS page cache of `.mca` region files; include `-Dforgia.dynamicPlayerSoak=true` if `enableRegionThreadingPlayerTicks = true` under `DYNAMIC_CLUSTER`):
-
-```bash
--Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch -Dforgia.dynamicPlayerSoak=true
-```
-
-### Profile C: 16+ Core High-Concurrency Server (e.g., Ryzen 9 / EPYC, 64+ GB RAM)
-
-* Reserve 2–4 physical cores for the Server thread, chunk generation, Netty, and GC; assign **10–12** to `regionThreadingWorkerThreads`.
-* Keep `regionThreadingDynamicSectionShift = 3` (`8×8` chunks) for normal survival/modded servers; lower to `2` (`4×4` chunks) if 20+ players cluster tightly within a 200–300 block hub and merge into a single mega-island.
-
-### Profile D: Vanilla Serial Rollback & Historical C6 Baseline
-
-* **Instant Serial Rollback**: set `enableRegionThreadingBridge = false` and restart the JVM to return 100% to vanilla serial execution.
-* **Historical C6 Fixed Baseline**: see `tools/production-readiness/config/c6-persistent.toml` (`regionThreadingMode = "FIXED_3X3"`, `regionThreadingFixedRegionChunks = 3`, `regionThreadingWorkerThreads = 4`).
+The snippets further down this page are feature-specific examples, not a one-size-fits-all production profile.
 
 ---
 
