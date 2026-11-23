@@ -4097,8 +4097,11 @@ public final class RegionThreadingEngine implements RegionThreading {
         final ServerLevel level = batch.level();
         final long start = System.nanoTime();
         final int[] ticked = { 0 };
+        final boolean acquiredOwnership = !region.isOwnedByCurrentThread();
         try {
-            region.beginOwnership();
+            if (acquiredOwnership) {
+                region.beginOwnership();
+            }
             this.currentRegionTickMutations.set(batch.regionTickMutations());
             try {
                 final RegionEntityOwnershipScope ownership = RegionEntityOwnershipScope.open(coordinate, group);
@@ -4141,7 +4144,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.currentRegionTickMutations.remove();
             }
         } finally {
-            region.endOwnership();
+            if (acquiredOwnership) {
+                region.endOwnership();
+            }
             if (releaseLeaseWhenDone) {
                 region.clearRunning();
             }
