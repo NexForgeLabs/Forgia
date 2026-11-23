@@ -2719,7 +2719,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 try {
                     update.apply(level);
                 } catch (Throwable throwable) {
-                    if (!RegionWorkerChunkUnavailableException.mustNotReplay(throwable)) {
+                    if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)) {
                         throw throwable;
                     }
                 } finally {
