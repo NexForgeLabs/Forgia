@@ -4,7 +4,7 @@
 源码：[`RegionSpawnPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnPlan.java)、[`RegionSpawnAdmissionBarrier`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnAdmissionBarrier.java)、[`LevelSpawnCapCounter`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelSpawnCapCounter.java)、[`RegionPoiStorage`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorage.java)、[`RegionPoiStorages`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorages.java)
 证据：[NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md)、[STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)、[MOBSPAWNCONTROLLER-LOCAL-RESULTS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md)
 
-状态：POI 在 C6 内**已认证**；自然刷怪**实验性且 C6 之外**
+状态：POI 通过了**历史 C6 验收范围**；自然刷怪仍为**实验性**。MobSpawnController 有序刷怪适配器目前不建议用于生产：记录的 A/B 测试更慢，且出现刷怪正文截断。除非在一次性测试实例中验证，否则保持自然刷怪串行。
 （`enableRegionThreadingSpawning` 默认关闭；`enableRegionThreadingPoi` 默认关闭但会被实体 tick 隐含）。
 
 ---
