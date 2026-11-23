@@ -1,0 +1,99 @@
+--- a/net/minecraft/world/level/entity/EntitySection.java
++++ b/net/minecraft/world/level/entity/EntitySection.java
+@@ -20,15 +_,28 @@
+     }
+ 
+     public void add(T p_188347_) {
+-        this.storage.add(p_188347_);
++        synchronized (this.storage) {
++            this.storage.add(p_188347_);
++        }
+     }
+ 
+     public boolean remove(T p_188356_) {
+-        return this.storage.remove(p_188356_);
++        synchronized (this.storage) {
++            return this.storage.remove(p_188356_);
++        }
+     }
+ 
+     public AbortableIterationConsumer.Continuation getEntities(AABB p_262016_, AbortableIterationConsumer<T> p_261863_) {
+-        for (T t : this.storage) {
++        final Object[] snapshot;
++        synchronized (this.storage) {
++            if (this.storage.isEmpty()) {
++                return AbortableIterationConsumer.Continuation.CONTINUE;
++            }
++            snapshot = this.storage.toArray();
++        }
++        for (Object obj : snapshot) {
++            @SuppressWarnings("unchecked")
++            T t = (T) obj;
+             if (t.getBoundingBox().intersects(p_262016_) && p_261863_.accept(t).shouldAbort()) {
+                 return AbortableIterationConsumer.Continuation.ABORT;
+             }
+@@ -40,27 +_,40 @@
+     public <U extends T> AbortableIterationConsumer.Continuation getEntities(
+         EntityTypeTest<T, U> p_188349_, AABB p_188350_, AbortableIterationConsumer<? super U> p_261535_
+     ) {
+-        Collection<? extends T> collection = this.storage.find(p_188349_.getBaseClass());
+-        if (collection.isEmpty()) {
+-            return AbortableIterationConsumer.Continuation.CONTINUE;
+-        } else {
+-            for (T t : collection) {
+-                U u = (U)p_188349_.tryCast(t);
+-                if (u != null && t.getBoundingBox().intersects(p_188350_) && p_261535_.accept(u).shouldAbort()) {
+-                    return AbortableIterationConsumer.Continuation.ABORT;
+-                }
+-            }
++        final Object[] snapshot;
++        synchronized (this.storage) {
++            Collection<? extends T> collection = this.storage.find(p_188349_.getBaseClass());
++            if (collection.isEmpty()) {
++                return AbortableIterationConsumer.Continuation.CONTINUE;
++            }
++            snapshot = collection.toArray();
++        }
++        for (Object obj : snapshot) {
++            @SuppressWarnings("unchecked")
++            T t = (T) obj;
++            U u = (U)p_188349_.tryCast(t);
++            if (u != null && t.getBoundingBox().intersects(p_188350_) && p_261535_.accept(u).shouldAbort()) {
++                return AbortableIterationConsumer.Continuation.ABORT;
++            }
++        }
+ 
+-            return AbortableIterationConsumer.Continuation.CONTINUE;
+-        }
++        return AbortableIterationConsumer.Continuation.CONTINUE;
+     }
+ 
+     public boolean isEmpty() {
+-        return this.storage.isEmpty();
++        synchronized (this.storage) {
++            return this.storage.isEmpty();
++        }
+     }
+ 
+     public Stream<T> getEntities() {
+-        return this.storage.stream();
++        synchronized (this.storage) {
++            return java.util.Arrays.stream(this.storage.toArray()).map(o -> {
++                @SuppressWarnings("unchecked")
++                T t = (T) o;
++                return t;
++            });
++        }
+     }
+ 
+     public Visibility getStatus() {
+@@ -75,6 +_,8 @@
+ 
+     @VisibleForDebug
+     public int size() {
+-        return this.storage.size();
++        synchronized (this.storage) {
++            return this.storage.size();
++        }
+     }
+ }

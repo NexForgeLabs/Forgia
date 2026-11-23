@@ -438,14 +438,19 @@ public final class RegionIndependentTickScheduler {
             return true;
         }
         final long ewma = clock.ewmaEntityNanos;
-        if (ewma <= 12_000_000L) {
+        if (ewma <= 6_000_000L) {
             return false;
         }
         final long hash = (((long) coordinate.regionX()) * 341873128712L) ^ (((long) coordinate.regionZ()) * 132897987541L);
-        if (ewma > 24_000_000L) {
+        if (ewma > 14_000_000L) {
             return Math.floorMod(gameTime + hash, 3L) != 0L;
         }
         return ((gameTime ^ hash) & 1L) != 0L;
+    }
+
+    public boolean isHotEntityRegion(RegionCoordinate coordinate) {
+        final RegionClock clock = this.clocks.get(coordinate);
+        return clock != null && clock.ewmaEntityNanos > 5_000_000L;
     }
 
     public boolean shouldStaggerSpawn(RegionCoordinate coordinate, long gameTime) {

@@ -58,7 +58,20 @@ public final class MobPathfindingThrottle {
             return configuredDefault;
         }
         final Integer autoLearned = AUTO_LEARNED_COOLDOWNS.get(mob.getType());
-        return autoLearned != null ? autoLearned : 0;
+        if (autoLearned != null) {
+            return autoLearned;
+        }
+        if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel
+                && net.neoforged.neoforge.server.threading.RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine) {
+            final RegionIndependentTickScheduler scheduler = engine.independentTickScheduler();
+            if (scheduler != null) {
+                final RegionCoordinate coord = engine.regionLayout().regionAt(serverLevel, mob.blockPosition());
+                if (scheduler.isHotEntityRegion(coord)) {
+                    return mob.getTarget() instanceof net.minecraft.world.entity.player.Player ? 2 : 4;
+                }
+            }
+        }
+        return 0;
     }
 
     /**

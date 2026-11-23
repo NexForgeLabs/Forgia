@@ -46,6 +46,9 @@ public final class RegionAdapterApi {
     private static final Set<String> SANDBOX_DENIED_NAMESPACES = ConcurrentHashMap.newKeySet();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_TYPE_PREDICATES = new ConcurrentHashMap<>();
+    private static final Map<ServerLevel, Map<Long, Long>> TRANSIENT_BE_COOLDOWNS = new ConcurrentHashMap<>();
+    private static final Map<String, java.util.concurrent.atomic.AtomicInteger> TRANSIENT_BE_BOUNDARY_COUNTS = new ConcurrentHashMap<>();
+    private static final int PERMANENT_DEMOTION_THRESHOLD = 16;
     private static final Map<ServerLevel, Map<Long, BlockPos>> VIRTUAL_CHUNK_AFFINITY = new ConcurrentHashMap<>();
 
     private static volatile boolean regionScopedPlayerViewEnabled = Boolean.parseBoolean(
@@ -195,11 +198,56 @@ public final class RegionAdapterApi {
         SANDBOX_TYPE_PREDICATES.put(blockEntityTypeId.trim(), canRunOnWorker);
     }
 
+    public static boolean recordTransientBoundaryFallback(ServerLevel level, BlockPos pos, String type, long cooldownTicks) {
+        if (level == null || pos == null || type == null) {
+            return false;
+        }
+        final int count = TRANSIENT_BE_BOUNDARY_COUNTS
+                .computeIfAbsent(type, k -> new java.util.concurrent.atomic.AtomicInteger())
+                .incrementAndGet();
+        if (count >= PERMANENT_DEMOTION_THRESHOLD) {
+            return false;
+        }
+        TRANSIENT_BE_COOLDOWNS
+                .computeIfAbsent(level, k -> new ConcurrentHashMap<>())
+                .put(pos.asLong(), level.getGameTime() + Math.max(1L, cooldownTicks));
+        return true;
+    }
+
+    public static boolean isTransientSandboxedFallback(@org.jetbrains.annotations.Nullable ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) {
+            return false;
+        }
+        final Map<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS.get(level);
+        if (byPos == null || byPos.isEmpty()) {
+            return false;
+        }
+        final long key = pos.asLong();
+        final Long until = byPos.get(key);
+        if (until == null) {
+            return false;
+        }
+        if (level.getGameTime() >= until) {
+            byPos.remove(key, until);
+            return false;
+        }
+        return true;
+    }
+
+    public static void clearTransientSandboxedFallbacksForLevel(ServerLevel level) {
+        if (level != null) {
+            TRANSIENT_BE_COOLDOWNS.remove(level);
+        }
+    }
+
     public static boolean canRunSandboxedBlockEntityInstance(
             String type,
             @org.jetbrains.annotations.Nullable net.minecraft.world.level.block.entity.BlockEntity be) {
         if (type == null || be == null) {
             return true;
+        }
+        if (be.getLevel() instanceof ServerLevel sl && isTransientSandboxedFallback(sl, be.getBlockPos())) {
+            return false;
         }
         if ("minecraft:hopper".equals(type) && !isHopperSandboxSafe(be)) {
             return false;

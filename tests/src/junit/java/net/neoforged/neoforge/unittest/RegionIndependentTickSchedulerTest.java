@@ -150,8 +150,8 @@ class RegionIndependentTickSchedulerTest {
             final RegionCoordinate severe = f.engine.regionLayout().regionAt(f.level, new BlockPos(320, 64, 384));
 
             scheduler.recordEntitySliceDuration(fast, 3_000_000L);
-            scheduler.recordEntitySliceDuration(slow, 16_000_000L);
-            scheduler.recordEntitySliceDuration(severe, 30_000_000L);
+            scheduler.recordEntitySliceDuration(slow, 10_000_000L);
+            scheduler.recordEntitySliceDuration(severe, 18_000_000L);
 
             int fastThrottled = 0;
             int slowThrottled = 0;
@@ -161,9 +161,9 @@ class RegionIndependentTickSchedulerTest {
                 if (scheduler.shouldThrottleEntityTick(slow, t)) slowThrottled++;
                 if (scheduler.shouldThrottleEntityTick(severe, t)) severeThrottled++;
             }
-            assertEquals(0, fastThrottled, "Fast regions (<12ms) must run at full 20 TPS");
-            assertEquals(6, slowThrottled, "12-24ms regions must run every 2nd tick");
-            assertEquals(8, severeThrottled, ">24ms regions must run every 3rd tick");
+            assertEquals(0, fastThrottled, "Fast regions (<6ms) must run at full 20 TPS");
+            assertEquals(6, slowThrottled, "6-14ms regions must run every 2nd tick");
+            assertEquals(8, severeThrottled, ">14ms regions must run every 3rd tick");
         }
     }
 

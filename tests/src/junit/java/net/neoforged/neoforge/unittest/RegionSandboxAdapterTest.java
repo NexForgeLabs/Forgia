@@ -174,4 +174,30 @@ class RegionSandboxAdapterTest {
             f.clean();
         }
     }
+
+    @Test
+    void transientBoundaryFallbackCoolsDownAndEscalatesAtThreshold() throws Exception {
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            final net.minecraft.server.level.ServerLevel level = f.level;
+            final BlockPos pos = new BlockPos(32, 64, 32);
+            final String type = "test:transient_sandbox_be";
+            final java.util.concurrent.atomic.AtomicLong gameTime = new java.util.concurrent.atomic.AtomicLong(100L);
+            org.mockito.Mockito.when(level.getGameTime()).thenAnswer(inv -> gameTime.get());
+
+            assertTrue(RegionAdapterApi.recordTransientBoundaryFallback(level, pos, type, 20L));
+            assertTrue(RegionAdapterApi.isTransientSandboxedFallback(level, pos));
+
+            gameTime.set(119L);
+            assertTrue(RegionAdapterApi.isTransientSandboxedFallback(level, pos), "Still within 20-tick cooldown");
+            gameTime.set(120L);
+            assertFalse(RegionAdapterApi.isTransientSandboxedFallback(level, pos), "Cooldown expired, auto-returned to worker");
+
+            // Repeating up to threshold (16 total) escalates to permanent demotion
+            for (int i = 2; i < 16; i++) {
+                assertTrue(RegionAdapterApi.recordTransientBoundaryFallback(level, pos, type, 20L));
+            }
+            assertFalse(RegionAdapterApi.recordTransientBoundaryFallback(level, pos, type, 20L),
+                    "16th boundary violation must escalate to permanent demotion");
+        }
+    }
 }

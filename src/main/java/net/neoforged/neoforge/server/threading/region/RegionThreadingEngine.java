@@ -11497,10 +11497,20 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
+                admission.level(), admission.position(), type, 20L)) {
+            final var ticker = admission.ticker();
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
+                if (!ticker.isRemoved()) {
+                    ticker.tick();
+                }
+            });
+            return true;
+        }
         RegionTickCompatibility.declareServerThreadOnlyType(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {
             net.neoforged.neoforge.server.threading.RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
-            LOGGER.warn("Region worker truncated the tick of block entity {} at {} due to worker boundary guard [{}]: {}. "
+            LOGGER.warn("Region worker truncated the tick of block entity {} at {} due to repeated worker boundary guard [{}]: {}. "
                     + "Ticks of this type now fall back to the server thread.",
                     type, admission.position(), violation.category(), violation.getMessage());
         }
