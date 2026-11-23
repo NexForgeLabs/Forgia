@@ -50,7 +50,7 @@ public final class DynamicRegionTopology {
     public static final int NO_REGION = 0;
 
     /** Smallest supported section shift: 2 -> 4x4 chunks (64x64 blocks). */
-    public static final int MIN_SECTION_SHIFT = 2;
+    public static final int MIN_SECTION_SHIFT = 1;
     /** Largest supported section shift: 4 -> 16x16 chunks (256x256 blocks, Folia default). */
     public static final int MAX_SECTION_SHIFT = 4;
     /** Default section shift: 3 -> 8x8 chunks (128x128 blocks). */
