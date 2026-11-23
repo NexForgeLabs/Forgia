@@ -4,7 +4,7 @@ English | [中文](entity-ticks.zh.md) · [Module map](README.en.md)
 Source: [`RegionEntityTickPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickPlan.java), [`RegionEntityTickBatch`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionEntityTickBatch.java), [`RegionScopedEntityQuery`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionScopedEntityQuery.java), [`RegionPlayerSnapshots`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPlayerSnapshots.java)
 Evidence: [OWNERSHIP-PROTOCOLS-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/OWNERSHIP-PROTOCOLS-VALIDATION.md), [ENTITY-CALLBACK-LIFECYCLE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/ENTITY-CALLBACK-LIFECYCLE.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md)
 
-Status: **Certified within C6 scope** (`enableRegionThreadingEntityTicks`). Off by default.
+Status: the bounded entity-tick path passed its **historical C6 acceptance scope** (`enableRegionThreadingEntityTicks`). This is not a blanket mod-AI compatibility claim. The current default region policy is `DYNAMIC_CLUSTER`; parallel execution remains opt-in and off by default.
 
 ---
 
@@ -98,13 +98,13 @@ propagation); a destination without a live region drops the update **with a coun
 |---|---|---|
 | `enableRegionThreadingEntityTicks` | `false` | Requires `DYNAMIC_CLUSTER` or `FIXED_3X3`, region-owned storage, inactive profiler; implies POI storage |
 | `enableRegionThreadingPoi` | `false` | Also implied by entity ticks even when false |
-| `regionThreadingMode` | `FIXED_3X3` | `DYNAMIC_CLUSTER` (recommended) or `FIXED_3X3` (C6 baseline); legacy `DYNAMIC` stays serial |
+| `regionThreadingMode` | `DYNAMIC_CLUSTER` | `DYNAMIC_CLUSTER` (recommended) or legacy `FIXED_3X3` (C6 comparison profile); legacy `DYNAMIC` stays serial |
 | `regionThreadingDynamicSectionShift` / `regionThreadingFixedRegionChunks` | `3` / `3` | Section shift for `DYNAMIC_CLUSTER` (`3` = 8×8) or fixed grid edge length for `FIXED_3X3` |
 | `regionThreadingWorkerThreads` | `0` | Pin for reproducible measurements |
 | `regionThreadingOwnershipViolationMode` | `WARN` | Advisory assertions only; storage guards still reject |
 
 ```toml
-# config/forgia.toml — minimal entity tick slice (DYNAMIC_CLUSTER recommended; FIXED_3X3 is the C6 baseline)
+# config/forgia.toml — minimal entity tick slice (DYNAMIC_CLUSTER recommended; FIXED_3X3 is the legacy C6 comparison profile)
 enableRegionThreadingBridge = true
 enableRegionThreadingWorkers = true
 enableRegionThreadingEntityTicks = true          # implies POI storage
