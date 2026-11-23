@@ -3226,8 +3226,28 @@ public final class RegionThreadingEngine implements RegionThreading {
                 inline = region == null;
                 retry = !inline && region.isDead();
                 if (!inline && !retry && !region.tryMarkRunning()) {
-                    RegionOwnershipViolationHandler.handle("Entity region is already running for " + entity);
-                    return;
+                    final boolean canYieldForAsyncWorker = level.getServer() != null
+                            && level.getServer().isSameThread()
+                            && this.independentTickScheduler != null
+                            && (this.isIndependentRegionTickEnabled()
+                                    || RegionThreadingConfig.asyncRegionEntityTicksEnabled()
+                                    || RegionThreadingConfig.asyncRegionSpawningEnabled());
+                    boolean acquiredAfterYield = false;
+                    if (canYieldForAsyncWorker) {
+                        final long deadline = System.nanoTime() + 50_000_000L;
+                        while (!region.isDead() && System.nanoTime() < deadline) {
+                            this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+                            if (region.tryMarkRunning()) {
+                                acquiredAfterYield = true;
+                                break;
+                            }
+                            Thread.onSpinWait();
+                        }
+                    }
+                    if (!acquiredAfterYield) {
+                        RegionOwnershipViolationHandler.handle("Entity region is already running for " + entity);
+                        return;
+                    }
                 }
             }
         } finally {
@@ -6811,6 +6831,10 @@ public final class RegionThreadingEngine implements RegionThreading {
     @ApiStatus.Internal
     public List<RegionMainThreadPhaseMetrics.PhaseSnapshot> mainThreadPhaseSnapshots() {
         return this.mainThreadPhaseMetrics.snapshots();
+    }
+
+    public void recordMainThreadPhase(RegionMainThreadPhaseMetrics.Phase phase, long nanos) {
+        this.mainThreadPhaseMetrics.record(phase, nanos);
     }
 
     @ApiStatus.Internal
@@ -11731,14 +11755,21 @@ public final class RegionThreadingEngine implements RegionThreading {
      * server thread so subsequent ticks run legally without crashing the server.
      */
     private void demoteSandboxedBlockEntityOnError(RegionBlockEntityTickAdmission admission, Throwable throwable) {
+        final Throwable root = (throwable instanceof RegionBlockEntityTickFailure && throwable.getCause() != null)
+                ? throwable.getCause()
+                : throwable;
+        if (RegionWorkerChunkUnavailableException.isChunkUnavailable(root)
+                || this.truncateIfBlockEntityBoundaryViolation(admission, root)) {
+            return;
+        }
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
-        final String reason = "sandbox_runtime_error:" + throwable.getClass().getSimpleName();
+        final String reason = "sandbox_runtime_error:" + root.getClass().getSimpleName();
         RegionTickCompatibility.declareServerThreadOnlyType(type, reason);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {
             net.neoforged.neoforge.server.threading.RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(type, reason);
             LOGGER.warn("Region sandbox caught runtime error in block entity {} at {} ({}); demoted this type to server thread without crashing.",
-                    type, admission.position(), throwable.toString());
+                    type, admission.position(), root.toString());
         }
     }
 
@@ -11749,14 +11780,28 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
-        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
-                admission.level(), admission.position(), type, RegionThreadingConfig.sandboxTransientCooldownTicks())) {
-            final var ticker = admission.ticker();
-            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
-                if (!ticker.isRemoved()) {
-                    ticker.tick();
-                }
-            });
+        final boolean transientCooldown = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
+                admission.level(), admission.position(), type, RegionThreadingConfig.sandboxTransientCooldownTicks());
+        final var ticker = admission.ticker();
+        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
+            if (!ticker.isRemoved()) {
+                ticker.tick();
+            }
+        });
+        if (transientCooldown) {
+            return true;
+        }
+        // The specific coordinate admission.position() has now reached the permanent threshold and is
+        // pinned to the server thread (Long.MAX_VALUE cooldown). Only escalate to a server-wide type
+        // demotion if the boundary violation is a global/player state violation rather than a spatial
+        // neighbor/chunk/capability boundary at this block position.
+        final String category = violation.category();
+        final boolean spatialOrInstanceSpecific = "storage_access".equals(category)
+                || "capability_access".equals(category)
+                || "network_broadcast".equals(category)
+                || "minecraft:hopper".equals(type)
+                || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.hasSandboxTypePredicate(type);
+        if (spatialOrInstanceSpecific) {
             return true;
         }
         RegionTickCompatibility.declareServerThreadOnlyType(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);

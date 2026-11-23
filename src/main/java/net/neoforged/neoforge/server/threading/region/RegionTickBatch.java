@@ -585,6 +585,11 @@ abstract class RegionTickBatch {
     }
 
     private void runPendingMainThreadWork() {
+        if (net.neoforged.neoforge.server.threading.RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine
+                && this.level.getServer() != null
+                && this.level.getServer().isSameThread()) {
+            engine.independentTickScheduler().drainCompletedCommits(this.level, 500_000L);
+        }
         while (true) {
             final MainThreadWork<?> work;
             synchronized (this.mainThreadWorkLock) {

@@ -80,14 +80,18 @@
              }
  
              this.wakeUpAllPlayers();
-@@ -360,9 +_,13 @@
+@@ -360,27 +_,45 @@
          if (!this.isDebug() && flag) {
              long k = this.getGameTime();
              profilerfiller.push("blockTicks");
 -            this.blockTicks.tick(k, 65536, this::tickBlock);
++            final long blockTicksStart = System.nanoTime();
 +            this.blockTicks.tick(k, 65536, (pos, block) -> net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockTickTask(this, pos, () -> this.tickBlock(pos, block)),
 +                    this::tickBlock,
 +                    net.neoforged.neoforge.server.threading.RegionThreadingHooks.scheduledTickDispatcher(this, net.neoforged.neoforge.server.threading.region.ScheduledTickPhase.BLOCK, this.chunkSource::managedBlockOnMainThread));
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                    net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.SCHEDULED_BLOCK_TICKS,
++                    System.nanoTime() - blockTicksStart);
              profilerfiller.popPush("fluidTicks");
 -            this.fluidTicks.tick(k, 65536, this::tickFluid);
 +            this.fluidTicks.tick(k, 65536, (pos, fluid) -> net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockTickTask(this, pos, () -> this.tickFluid(pos, fluid)),
@@ -96,7 +100,27 @@
              profilerfiller.pop();
          }
  
-@@ -380,7 +_,7 @@
+         profilerfiller.popPush("raid");
++        final long raidStart = System.nanoTime();
+         if (flag) {
+             this.raids.tick();
+         }
++        final long raidElapsed = System.nanoTime() - raidStart;
+ 
+         profilerfiller.popPush("chunkSource");
++        final long chunkSourceStart = System.nanoTime();
+         this.getChunkSource().tick(p_8794_, true);
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.CHUNK_SOURCE_TICK,
++                System.nanoTime() - chunkSourceStart);
+         profilerfiller.popPush("blockEvents");
++        final long blockEventsStart = System.nanoTime();
+         if (flag) {
+             this.runBlockEvents();
+         }
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.RAID_AND_BLOCK_EVENTS,
++                raidElapsed + (System.nanoTime() - blockEventsStart));
  
          this.handlingTick = false;
          profilerfiller.pop();
@@ -337,7 +361,10 @@
              if (p_8644_ != null) {
                  p_8644_.progressStartNoAbort(Component.translatable("menu.savingLevel"));
              }
-@@ -804,3 +_,8 @@
+@@ -801,12 +_,25 @@
+                 p_8644_.progressStage(Component.translatable("menu.savingChunks"));
+             }
+ 
 +            final long forgiaSaveStart = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming();
 +            try {
              serverchunkcache.save(p_8645_);
@@ -346,7 +373,6 @@
 +            }
              if (p_8645_) {
                  this.entityManager.saveAll();
-@@ -807,6 +_,14 @@
              } else {
                  this.entityManager.autoSave();
              }
@@ -432,7 +458,8 @@
          p_8713_.clearAllBlockEntities();
          p_8713_.unregisterTickContainerFromLevel(this);
      }
-@@ -936,4 +_,12 @@
+@@ -935,6 +_,14 @@
+ 
      @Override
      public void destroyBlockProgress(int p_8612_, BlockPos p_8613_, int p_8614_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
@@ -445,7 +472,9 @@
 +        }
          for (ServerPlayer serverplayer : this.server.getPlayerList().getPlayers()) {
              if (serverplayer != null && serverplayer.level() == this && serverplayer.getId() != p_8612_) {
-@@ -960,7 +_,11 @@
+                 double d0 = (double)p_8613_.getX() - serverplayer.getX();
+@@ -959,15 +_,18 @@
+         float p_263390_,
          long p_263403_
      ) {
 -        this.server
@@ -460,13 +489,15 @@
 +        this.broadcastVisualSound(
                  p_263330_,
                  p_263393_,
-@@ -968,5 +_,4 @@
+                 p_263369_,
                  p_263354_,
                  (double)p_263412_.value().getRange(p_263352_),
 -                this.dimension(),
                  new ClientboundSoundPacket(p_263412_, p_263338_, p_263393_, p_263369_, p_263354_, p_263352_, p_263390_, p_263403_)
              );
-@@ -977,7 +_,11 @@
+     }
+@@ -976,21 +_,43 @@
+     public void playSeededSound(
          @Nullable Player p_263545_, Entity p_263544_, Holder<SoundEvent> p_263491_, SoundSource p_263542_, float p_263530_, float p_263520_, long p_263490_
      ) {
 -        this.server
@@ -481,7 +512,7 @@
 +        this.broadcastVisualSound(
                  p_263545_,
                  p_263544_.getX(),
-@@ -985,11 +_,33 @@
+                 p_263544_.getY(),
                  p_263544_.getZ(),
                  (double)p_263491_.value().getRange(p_263530_),
 -                this.dimension(),
@@ -512,7 +543,9 @@
 +        }
          if (this.getGameRules().getBoolean(GameRules.RULE_GLOBAL_SOUND_EVENTS)) {
              this.server.getPlayerList().broadcastAll(new ClientboundLevelEventPacket(p_8811_, p_8812_, p_8813_, true));
-@@ -1001,4 +_,13 @@
+         } else {
+@@ -1000,6 +_,15 @@
+ 
      @Override
      public void levelEvent(@Nullable Player p_8684_, int p_8685_, BlockPos p_8686_, int p_8687_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
@@ -526,6 +559,7 @@
 +        }
          this.server
              .getPlayerList()
+             .broadcast(
 @@ -1019,11 +_,20 @@
  
      @Override
@@ -564,7 +598,8 @@
          this.neighborUpdater.updateNeighborsAtExceptFromFacing(p_215052_, p_215053_, p_215054_);
      }
  
-@@ -1078,4 +_,15 @@
+@@ -1077,11 +_,33 @@
+ 
      @Override
      public void broadcastEntityEvent(Entity p_8650_, byte p_8651_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
@@ -580,7 +615,7 @@
 +        }
          this.getChunkSource().broadcastAndSend(p_8650_, new ClientboundEntityEventPacket(p_8650_, p_8651_));
      }
-@@ -1083,4 +_,15 @@
+ 
      @Override
      public void broadcastDamageEvent(Entity p_270420_, DamageSource p_270311_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
@@ -596,10 +631,12 @@
 +        }
          this.getChunkSource().broadcastAndSend(p_270420_, new ClientboundDamageEventPacket(p_270420_, p_270311_));
      }
-@@ -1136,34 +_,62 @@
+ 
+@@ -1136,34 +_,78 @@
  
      @Override
      public void blockEvent(BlockPos p_8746_, Block p_8747_, int p_8748_, int p_8749_) {
+-        this.blockEvents.add(new BlockEventData(p_8746_, p_8747_, p_8748_, p_8749_));
 +        // Neo: a region worker may not mutate the level-wide ordered event set, and a piston move or a note
 +        // block plays through the level and can write the next region. The worker batch records the event and
 +        // the server thread re-adds it at the batch barrier, before the vanilla block event phase.
@@ -635,6 +672,9 @@
 -                            this.dimension(),
 -                            new ClientboundBlockEventPacket(blockeventdata.pos(), blockeventdata.block(), blockeventdata.paramA(), blockeventdata.paramB())
 -                        );
+-                }
+-            } else {
+-                this.blockEventsToReschedule.add(blockeventdata);
 +        net.neoforged.neoforge.server.threading.region.RegionBlockEventAttribution.beginPhase(this);
 +        // Neo: every region batch of the level tick has returned by the time the block event phase runs, so no
 +        // worker holds or can take a region lease and the whole level is quiescent. The phase therefore runs as a
@@ -678,23 +718,22 @@
 +                    });
 +                } else {
 +                    this.blockEventsToReschedule.add(blockeventdata);
-                 }
--            } else {
--                this.blockEventsToReschedule.add(blockeventdata);
-             }
++                }
++            }
 +        } finally {
 +            net.neoforged.neoforge.server.threading.RegionThreadingHooks.endBlockEventPhase(this);
 +            net.neoforged.neoforge.server.threading.region.RegionBlockEventAttribution.endPhase();
 +            synchronized (this.blockEvents) {
 +                this.blockEvents.addAll(this.blockEventsToReschedule);
-+            }
+             }
          }
 -
 -        this.blockEvents.addAll(this.blockEventsToReschedule);
      }
  
      private boolean doBlockEvent(BlockEventData p_8699_) {
-@@ -1200,9 +_,17 @@
+@@ -1199,11 +_,20 @@
+         ClientboundLevelParticlesPacket clientboundlevelparticlespacket = new ClientboundLevelParticlesPacket(
              p_8768_, false, p_8769_, p_8770_, p_8771_, (float)p_8773_, (float)p_8774_, (float)p_8775_, (float)p_8776_, p_8772_
          );
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
@@ -714,7 +753,9 @@
 +            if (this.sendParticles(serverplayer, false, x, y, z, packet)) {
                  i++;
              }
-@@ -1228,4 +_,8 @@
+         }
+@@ -1227,6 +_,11 @@
+         Packet<?> packet = new ClientboundLevelParticlesPacket(
              p_8626_, p_8627_, p_8628_, p_8629_, p_8630_, (float)p_8632_, (float)p_8633_, (float)p_8634_, (float)p_8635_, p_8631_
          );
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
@@ -724,6 +765,7 @@
 +        }
          return this.sendParticles(p_8625_, p_8627_, p_8628_, p_8629_, p_8630_, packet);
      }
+ 
 @@ -1309,16 +_,31 @@
      @Nullable
      @Override
@@ -770,6 +812,17 @@
      }
  
      @Override
+@@ -1519,7 +_,9 @@
+ 
+     @VisibleForTesting
+     public void clearBlockEvents(BoundingBox p_8723_) {
+-        this.blockEvents.removeIf(p_207568_ -> p_8723_.isInside(p_207568_.pos()));
++        synchronized (this.blockEvents) {
++            this.blockEvents.removeIf(p_207568_ -> p_8723_.isInside(p_207568_.pos()));
++        }
+     }
+ 
+     @Override
 @@ -1600,7 +_,50 @@
  
      @Override
@@ -803,7 +856,7 @@
 +    public void forEachAccessibleNonEmptySectionInRegion(int regionX, int regionZ, AABB box, AbortableIterationConsumer<net.minecraft.world.level.entity.EntitySection<Entity>> consumer) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertLeasedEntityQuery(this, regionX, regionZ);
 +        this.entityManager.forEachAccessibleNonEmptySectionInRegion(regionX, regionZ, box, consumer);
-     }
++    }
 +
 +    /** Original physical single-bucket traversal during the player publisher's pre-body check. */
 +    public void forgiaVerifyPlayerSectionMembers(int regionX, int regionZ, AABB box, AbortableIterationConsumer<net.minecraft.world.level.entity.EntitySection<Entity>> consumer) {
@@ -819,7 +872,7 @@
 +            net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertLeasedEntityQuery(this, region.regionX(), region.regionZ());
 +        }
 +        this.entityManager.forEachAccessibleNonEmptySectionInRegions(regions, box, consumer);
-+    }
+     }
  
      public void addLegacyChunkEntities(Stream<Entity> p_143312_) {
 @@ -1612,6 +_,7 @@

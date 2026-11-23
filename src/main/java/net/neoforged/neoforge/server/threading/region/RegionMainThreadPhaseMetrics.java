@@ -23,7 +23,10 @@ public final class RegionMainThreadPhaseMetrics {
         ENTITY_FALLBACKS("entityFallbacks"),
         BORDER_FIXPOINT("borderFixpoint"),
         CHUNK_MAIN("chunkMain"),
-        SPAWN_MAIN("spawnMain");
+        SPAWN_MAIN("spawnMain"),
+        CHUNK_SOURCE_TICK("chunkSource"),
+        SCHEDULED_BLOCK_TICKS("blockTicks"),
+        RAID_AND_BLOCK_EVENTS("raidBlockEvents");
 
         private final String label;
 

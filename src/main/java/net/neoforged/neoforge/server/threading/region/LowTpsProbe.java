@@ -237,6 +237,29 @@ public final class LowTpsProbe {
                 console.append("]");
             }
             report.add("topSlices", slicesArr);
+
+            final var fenceSnapshot = engine.fenceMetricsSnapshot(topCount);
+            final JsonArray fencesArr = new JsonArray();
+            if (!fenceSnapshot.topEntries().isEmpty()) {
+                console.append(" | topFences=[");
+            }
+            for (int i = 0; i < fenceSnapshot.topEntries().size(); i++) {
+                final var f = fenceSnapshot.topEntries().get(i);
+                final JsonObject obj = new JsonObject();
+                obj.addProperty("ticker", f.tickerClass());
+                obj.addProperty("region", f.regionId());
+                obj.addProperty("count", f.count());
+                obj.addProperty("totalMs", round2(f.totalMs()));
+                obj.addProperty("maxMs", round2(f.maxMs()));
+                fencesArr.add(obj);
+                if (i > 0) console.append(", ");
+                console.append(String.format(Locale.ROOT, "%s@%s(total=%.1fms,max=%.2fms)",
+                        f.tickerClass(), f.regionId(), f.totalMs(), f.maxMs()));
+            }
+            if (!fenceSnapshot.topEntries().isEmpty()) {
+                console.append("]");
+            }
+            report.add("topSerialFences", fencesArr);
         }
 
         LOGGER.warn("{}", console);

@@ -372,7 +372,7 @@ public final class RegionIndependentTickScheduler {
             try {
                 region.beginOwnership();
                 try {
-                    regionBody.run();
+                    this.regionContextRunner.accept(region, regionBody);
                 } finally {
                     region.endOwnership();
                 }

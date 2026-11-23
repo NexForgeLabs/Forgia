@@ -251,19 +251,25 @@ public final class RegionAdapterApi {
         SANDBOX_TYPE_PREDICATES.put(blockEntityTypeId.trim(), canRunOnWorker);
     }
 
+    public static boolean hasSandboxTypePredicate(String blockEntityTypeId) {
+        return blockEntityTypeId != null && SANDBOX_TYPE_PREDICATES.containsKey(blockEntityTypeId.trim());
+    }
+
     public static boolean recordTransientBoundaryFallback(ServerLevel level, BlockPos pos, String type, long cooldownTicks) {
         if (level == null || pos == null || type == null) {
             return false;
         }
+        final String instanceKey = type + "@" + pos.asLong();
         final int count = TRANSIENT_BE_BOUNDARY_COUNTS
-                .computeIfAbsent(type, k -> new java.util.concurrent.atomic.AtomicInteger())
+                .computeIfAbsent(instanceKey, k -> new java.util.concurrent.atomic.AtomicInteger())
                 .incrementAndGet();
+        final Map<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS
+                .computeIfAbsent(level, k -> new ConcurrentHashMap<>());
         if (count >= net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxPermanentDemotionThreshold()) {
+            byPos.put(pos.asLong(), Long.MAX_VALUE);
             return false;
         }
-        TRANSIENT_BE_COOLDOWNS
-                .computeIfAbsent(level, k -> new ConcurrentHashMap<>())
-                .put(pos.asLong(), level.getGameTime() + Math.max(1L, cooldownTicks));
+        byPos.put(pos.asLong(), level.getGameTime() + Math.max(1L, cooldownTicks));
         return true;
     }
 

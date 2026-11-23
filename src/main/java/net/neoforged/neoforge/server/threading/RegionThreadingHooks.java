@@ -2537,4 +2537,12 @@ public final class RegionThreadingHooks {
             }
         });
     }
+
+    public static void recordMainThreadPhase(net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase phase, long nanos) {
+        RegionThreadingManager.ifInstalled(threading -> {
+            if (threading instanceof RegionThreadingEngine engine) {
+                engine.recordMainThreadPhase(phase, nanos);
+            }
+        });
+    }
 }
