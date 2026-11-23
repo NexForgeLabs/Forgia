@@ -407,7 +407,7 @@
          Entity entity = this.getEntities().get(p_8854_.getUUID());
          if (entity != null) {
              LOGGER.warn("Force-added player with duplicate UUID {}", p_8854_.getUUID());
-@@ -903,19 +_,40 @@
+@@ -903,19 +_,49 @@
              this.removePlayerImmediately((ServerPlayer)entity, Entity.RemovalReason.DISCARDED);
          }
  
@@ -444,6 +444,15 @@
      }
  
      public boolean tryAddFreshEntityWithPassengers(Entity p_8861_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
++                && (net.neoforged.neoforge.server.threading.region.RegionBlockEntityTickScope.isActiveForLevel(this)
++                        || net.neoforged.neoforge.server.threading.RegionThreadingHooks.regionTickMutationQueue() != null)
++                && !p_8861_.isAddedToLevel()
++                && !p_8861_.isRemoved()
++                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
++                        this, () -> this.tryAddFreshEntityWithPassengers(p_8861_))) {
++            return true;
++        }
 +        // Neo: the duplicate precheck reads the manager's UUID admission set, so the guard has to run
 +        // before it and before any passenger is added.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityAdditionAccess("ServerLevel.tryAddFreshEntityWithPassengers");
@@ -560,7 +569,7 @@
          this.server
              .getPlayerList()
              .broadcast(
-@@ -1019,11 +_,20 @@
+@@ -1019,11 +_,27 @@
  
      @Override
      public void gameEvent(Holder<GameEvent> p_316597_, Vec3 p_215042_, GameEvent.Context p_215043_) {
@@ -576,6 +585,13 @@
 +        // write and the server thread publishes it at the batch barrier.
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferBlockUpdate(p_8755_, p_8756_, p_8757_, p_8758_)) {
 +            return;
++        }
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++            final BlockPos immutablePos = p_8755_.immutable();
++            if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
++                    this, () -> this.sendBlockUpdated(immutablePos, p_8756_, p_8757_, p_8758_))) {
++                return;
++            }
 +        }
 +
          if (this.isUpdatingNavigations) {
@@ -632,7 +648,58 @@
          this.getChunkSource().broadcastAndSend(p_270420_, new ClientboundDamageEventPacket(p_270420_, p_270311_));
      }
  
-@@ -1136,34 +_,78 @@
+@@ -1111,59 +_,112 @@
+             explosion.clearToBlow();
+         }
+ 
+-        for (ServerPlayer serverplayer : this.players) {
+-            if (serverplayer.distanceToSqr(p_256067_, p_256370_, p_256153_) < 4096.0) {
+-                serverplayer.connection
+-                    .send(
+-                        new ClientboundExplodePacket(
+-                            p_256067_,
+-                            p_256370_,
+-                            p_256153_,
+-                            p_256045_,
+-                            explosion.getToBlow(),
+-                            explosion.getHitPlayers().get(serverplayer),
+-                            explosion.getBlockInteraction(),
+-                            explosion.getSmallExplosionParticles(),
+-                            explosion.getLargeExplosionParticles(),
+-                            explosion.getExplosionSound()
+-                        )
+-                    );
++        final Runnable sendExplosionPackets = () -> {
++            for (ServerPlayer serverplayer : this.players) {
++                if (serverplayer.distanceToSqr(p_256067_, p_256370_, p_256153_) < 4096.0) {
++                    serverplayer.connection
++                        .send(
++                            new ClientboundExplodePacket(
++                                p_256067_,
++                                p_256370_,
++                                p_256153_,
++                                p_256045_,
++                                explosion.getToBlow(),
++                                explosion.getHitPlayers().get(serverplayer),
++                                explosion.getBlockInteraction(),
++                                explosion.getSmallExplosionParticles(),
++                                explosion.getLargeExplosionParticles(),
++                                explosion.getExplosionSound()
++                            )
++                        );
++                }
+             }
++        };
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
++                && !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasThreadBinding()
++                && net.neoforged.neoforge.server.threading.RegionThreadingHooks.deferWorkerVisualBroadcast(
++                        "ServerLevel.explode", sendExplosionPackets)) {
++            return explosion;
+         }
++        sendExplosionPackets.run();
+ 
+         return explosion;
+     }
  
      @Override
      public void blockEvent(BlockPos p_8746_, Block p_8747_, int p_8748_, int p_8749_) {

@@ -8682,6 +8682,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                 final var phase = batch;
                 // All prefix tasks have physically joined before their helpers return or throw.
                 failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(phase, Long.MAX_VALUE));
+                failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(phase));
+                failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(phase.regionTickMutations()));
                 failure = runBatchCompletion(failure, () -> this.releaseCanonicalNativeRegions(phase));
                 if (published && hadWorkerPrefix[0]) {
                     failure = runBatchCompletion(failure, () -> this.drainGlobalMessages(level));
@@ -9306,6 +9308,8 @@ public final class RegionThreadingEngine implements RegionThreading {
             batch.externalWaveActive(false);
             final long before = units.getLast().admission().sequence() + 1;
             failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(batch, before));
+            failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
+            failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
             failure = runBatchCompletion(failure, () -> this.releaseCanonicalNativeRegions(batch));
             failure = runBatchCompletion(failure, batch::reportTickFailures);
         }
@@ -9319,14 +9323,17 @@ public final class RegionThreadingEngine implements RegionThreading {
             int totalUnits,
             @Nullable RegionBlockEntityWorkGraph.Phase graph) {
         final long now = System.nanoTime();
-        final long gameTime = batch.level().getGameTime();
+        final ServerLevel level = batch.level();
+        final long gameTime = level.getGameTime();
         this.workerPool.preWake(groups.size());
         for (final var entry : groups.entrySet()) {
             final RegionState region = entry.getKey();
             final List<NativeEntry> entries = entry.getValue();
             final RandomSource random = batch.canonicalRandom(region);
+            final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
             this.independentTickScheduler.submitIfDue(region, () -> {
                 this.currentBlockEntityTickRandom.set(random);
+                this.currentRegionTickMutations.set(mutations);
                 try {
                     for (int i = 0, size = entries.size(); i < size; ++i) {
                         final var unit = entries.get(i).invocation();
@@ -9347,9 +9354,14 @@ public final class RegionThreadingEngine implements RegionThreading {
                         }
                     }
                 } finally {
+                    this.currentRegionTickMutations.remove();
                     this.currentBlockEntityTickRandom.remove();
                 }
-            }, null, now, gameTime);
+            }, () -> {
+                if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                    this.applyRegionTickMutations(mutations);
+                }
+            }, now, gameTime);
         }
         return totalUnits;
     }
@@ -9414,6 +9426,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             if (gate.failure.get() != null || gate.admitted.get() == 0) return;
             final var authority = guard;
             this.currentBlockEntityTickRandom.set(random);
+            this.currentRegionTickMutations.set(batch.regionTickMutations());
             this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, batch.level(),
                     region.coordinate(), region, null), () -> {
                         for (final var entry : entries) {
@@ -9453,6 +9466,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         }
                     });
         } finally {
+            this.currentRegionTickMutations.remove();
             this.currentBlockEntityTickRandom.remove();
             try {
                 if (guard != null) guard.close();
