@@ -11,7 +11,10 @@
              ServerPlayer.this.connection.send(new ClientboundContainerSetDataPacket(p_143455_.containerId, p_143456_, p_143457_));
          }
      };
-@@ -490,6 +_,105 @@
+@@ -487,8 +_,107 @@
+         return new ServerItemCooldowns(this);
+     }
+ 
 +    // Publisher-only reusable observations for the exact original player. Never retains a spatial lease.
 +    private net.neoforged.neoforge.server.threading.region.RegionPlayerStatePlan.Template[] forgiaPlayerStateTemplates;
 +
@@ -116,8 +119,8 @@
          this.gameMode.tick();
          this.wardenSpawnTracker.tick();
          this.spawnInvulnerableTime--;
-         if (this.invulnerableTime > 0) {
-@@ -525,3 +_,9 @@
+@@ -524,6 +_,12 @@
+         this.trackEnteredOrExitedLavaOnVehicle();
          this.updatePlayerAttributes();
          this.advancements.flushDirty(this);
 +        } catch (Throwable failure) {
@@ -127,10 +130,18 @@
 +            if (playerPhase != null) playerPhase.close();
 +        }
      }
-@@ -555,1 +_,2 @@
+ 
+     private void updatePlayerAttributes() {
+@@ -552,7 +_,8 @@
+                 super.tick();
+             }
+ 
 -            for (int i = 0; i < this.getInventory().getContainerSize(); i++) {
 +            boolean scanComplexItems = !net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.hasOnlyPlainLocalInventory(this);
 +            for (int i = 0; scanComplexItems && i < this.getInventory().getContainerSize(); i++) {
+                 ItemStack itemstack = this.getInventory().getItem(i);
+                 if (itemstack.getItem().isComplex()) {
+                     Packet<?> packet = ((ComplexItem)itemstack.getItem()).getUpdatePacket(itemstack, this.level(), this);
 @@ -606,6 +_,11 @@
                  this.connection.send(new ClientboundSetExperiencePacket(this.experienceProgress, this.totalExperience, this.experienceLevel));
              }
@@ -143,7 +154,8 @@
              if (this.tickCount % 20 == 0) {
                  CriteriaTriggers.LOCATION.trigger(this);
              }
-@@ -657,6 +_,8 @@
+@@ -656,7 +_,9 @@
+ 
      @Override
      public void die(DamageSource p_9035_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
@@ -152,10 +164,15 @@
          boolean flag = this.level().getGameRules().getBoolean(GameRules.RULE_SHOWDEATHMESSAGES);
          if (flag) {
              Component component = this.getCombatTracker().getDeathMessage();
-@@ -758,1 +_,3 @@
+@@ -756,6 +_,8 @@
+ 
+     @Override
      public boolean hurt(DamageSource p_9037_, float p_9038_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkDamage(this, p_9037_, p_9038_);
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.routePlayerDamage(this, p_9037_, p_9038_)) return false;
+         if (this.isInvulnerableTo(p_9037_)) {
+             return false;
+         } else {
 @@ -826,7 +_,7 @@
              return BedBlock.findStandUpPosition(EntityType.PLAYER, p_348505_, p_348607_, blockstate.getValue(BedBlock.FACING), p_348481_)
                  .map(p_348148_ -> ServerPlayer.RespawnPosAngle.of(p_348148_, p_348607_));
@@ -339,7 +356,7 @@
      }
  
      @Override
-@@ -1409,11 +_,17 @@
+@@ -1409,11 +_,21 @@
  
      @Override
      public void teleportTo(double p_8969_, double p_8970_, double p_8971_) {
@@ -351,6 +368,10 @@
  
      @Override
      public void teleportRelative(double p_251611_, double p_248861_, double p_252266_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerAction(
++                this, livePlayer -> livePlayer.teleportRelative(p_251611_, p_248861_, p_252266_))) {
++            return;
++        }
 +        // Neo: the connection records the pending teleport before the guarded absMoveTo runs.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertServerEntityStorageAccess(this, "ServerPlayer.teleportRelative");
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.invalidatePlayerTickPlans(this);
@@ -516,7 +537,8 @@
      }
  
      public boolean allowsListing() {
-@@ -1886,5 +_,9 @@
+@@ -1885,6 +_,10 @@
+ 
      @Override
      public boolean startRiding(Entity p_277395_, boolean p_278062_) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.routePlayerMount(this, p_277395_, p_278062_)) {
