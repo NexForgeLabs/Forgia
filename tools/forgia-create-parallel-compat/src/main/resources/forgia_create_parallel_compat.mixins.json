@@ -9,6 +9,7 @@
     "GlobalLogisticsManagerMixin",
     "RedstoneLinkNetworkHandlerMixin",
     "CreateAdvancementMixin",
+    "BeltInventoryMixin",
     "SmartBlockEntityAccessor",
     "KineticBlockEntityAccessor"
   ],
