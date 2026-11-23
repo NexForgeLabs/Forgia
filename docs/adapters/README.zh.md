@@ -3,8 +3,7 @@
 [English](README.en.md) | 中文 · [API 索引](../api/README.zh.md)
 证据：[GENERAL-MOD-ADAPTER-ARCHITECTURE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GENERAL-MOD-ADAPTER-ARCHITECTURE.md)、[MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE.md)
 
-状态：已发布适配器均为**实验性**。核心**没有任何目标模组专用后端**：目标模组的类、指纹、分支条件和
-资源足迹全部位于适配器 jar。
+状态：已发布适配器均为**实验性**。大多数普通模组 BE 不需要 Adapter：主动启用通用 Region Sandbox 后，常见 BE 可走通用路径。专用 Adapter 主要用于具有复杂全局/共享状态、需要单独审查执行合同的模组。核心不内置目标模组专用类、指纹、分支条件或资源足迹。
 
 ---
 
@@ -105,7 +104,7 @@ Gradle 工程在 `settings.gradle` 中注册为 `:create-adapter`、`:mobspawnco
 
 | 适配器 | 目标 | 使用能力 | 默认状态 | 文档 |
 |---|---|---|---|---|
-| Create 0.2.0 | Create 6.0.10（MC 1.21.1） | `AUDITED_BLOCK_ENTITY_TICKS` | 仅稳态动力类型；其余完整串行 | [Create](create-adapter.zh.md) |
+| Create 0.3.0 | Create 6.0.10（MC 1.21.1） | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | 通过 `RESOURCE_SCOPED` 执行已审计的稳态动力分支；其他系统仍串行 | [当前源码说明](../../adapters/create/README.md) · [0.2 历史文档](create-adapter.zh.md) |
 | MobSpawnController 0.3.0 | MSC 1.2.3 | 刷怪准备 + 有序最终化 + claim | **默认串行**；有序模式需 `-Dforgia.mscOrderedSpawning=true` | [MSC](mobspawncontroller-adapter.zh.md) |
 
 ## 8. 验证清单
