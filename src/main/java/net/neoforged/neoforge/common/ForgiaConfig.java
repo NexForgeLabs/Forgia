@@ -179,6 +179,14 @@ public final class ForgiaConfig {
 
         public final IntValue sandboxPermanentDemotionThreshold;
 
+        public final BooleanValue enableAsyncRegionSpawning;
+
+        public final BooleanValue enableAsyncRegionEntityTicks;
+
+        public final BooleanValue enableAsyncRegionFluidTicks;
+
+        public final LongValue independentRegionCommitDrainBudgetNanos;
+
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment(
                     "=== [1] Diagnostics & Runtime Sampling / 诊断与性能采样 ===",
@@ -585,6 +593,30 @@ public final class ForgiaConfig {
                             "Number of transient boundary violations for a BE type before permanently demoting it to the server thread. Default 16.",
                             "[中文] 同类型方块实体累计触发边界异常达到此次数后，永久拉黑至主线程并写入 regionthreading-learned.json（默认 16）。")
                     .defineInRange("sandboxPermanentDemotionThreshold", 16, 1, 1000);
+
+            enableAsyncRegionSpawning = builder
+                    .comment(
+                            "Phase 3A: Dispatches natural spawning calculations asynchronously on region workers via RegionIndependentTickScheduler without blocking the server thread barrier. Requires enableIndependentRegionTickClock and enableRegionThreadingSpawning. Default true.",
+                            "[中文] Phase 3A：将自然刷怪计算异步分发到 Region Worker，主线程不再等待刷怪 Barrier，新生物由异步提交队列安全入表（默认开启）。")
+                    .define("enableAsyncRegionSpawning", true);
+
+            enableAsyncRegionEntityTicks = builder
+                    .comment(
+                            "Phase 3B: Dispatches non-player entity ticks (and fused random chunk ticks) asynchronously per region via RegionIndependentTickScheduler without blocking the server thread barrier. Players still tick synchronously on the server thread at full 20 TPS. Default true.",
+                            "[中文] Phase 3B：将各区域非玩家实体（及融合随机刻）异步分发到 Region Worker，主线程不再死等最慢区域的 ENTITY_TICK Barrier（玩家仍保持主线程满速 20 TPS，默认开启）。")
+                    .define("enableAsyncRegionEntityTicks", true);
+
+            enableAsyncRegionFluidTicks = builder
+                    .comment(
+                            "Phase 3C: Dispatches inland region fluid ticks asynchronously via RegionIndependentTickScheduler without blocking the server thread barrier; border fluid ticks stay serial on the server thread. Default true.",
+                            "[中文] Phase 3C：将区域内陆流体计算异步分发到 Region Worker，主线程不再等待流体 Barrier，边缘 5 格流体留在主线程收尾（默认开启）。")
+                    .define("enableAsyncRegionFluidTicks", true);
+
+            independentRegionCommitDrainBudgetNanos = builder
+                    .comment(
+                            "Maximum nanoseconds per server tick spent draining async region worker commit queues (particles, deferred spawns, block events). Default 4000000 (4ms).",
+                            "[中文] 主线程每 Tick 排空异步 Region 提交队列的最大时间预算（纳秒，默认 4ms，防止瞬时堆积导致单帧卡死）。")
+                    .defineInRange("independentRegionCommitDrainBudgetNanos", 4_000_000L, 500_000L, 50_000_000L);
         }
     }
 }

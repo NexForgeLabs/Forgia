@@ -326,6 +326,84 @@ public final class RegionIndependentTickScheduler {
         return DispatchOutcome.SUBMITTED;
     }
 
+    /**
+     * Phase 3: Dispatches an asynchronous slice (e.g., SPAWN, CHUNK_TICK, ENTITY_TICK, FLUID) for {@code region}
+     * sharing the region's {@code inFlight} mutex and quiescence pins, without disturbing the BE clock cadence.
+     * Never blocks the calling server thread: if the region is currently busy, returns {@link DispatchOutcome#BUSY_SKIPPED}.
+     */
+    public DispatchOutcome submitAsyncSlice(
+            RegionState region,
+            String taskLabel,
+            Runnable regionBody,
+            @Nullable Runnable serverThreadCommit) {
+        Objects.requireNonNull(region, "region");
+        Objects.requireNonNull(regionBody, "regionBody");
+        if (this.closed || region.isDead()) {
+            return DispatchOutcome.REJECTED;
+        }
+        final RegionCoordinate coord = region.coordinate();
+        final RegionClock clock = this.clocks.computeIfAbsent(coord, c -> new RegionClock(c, System.nanoTime()));
+        if (clock.quiescencePins.get() > 0) {
+            return DispatchOutcome.PINNED;
+        }
+        if (!clock.inFlight.compareAndSet(false, true)) {
+            clock.skippedWhileBusy.incrementAndGet();
+            this.totalSkippedBusy.incrementAndGet();
+            return DispatchOutcome.BUSY_SKIPPED;
+        }
+        if (this.closed || clock.quiescencePins.get() > 0 || region.isDead()) {
+            this.releaseInFlight(clock);
+            return DispatchOutcome.PINNED;
+        }
+        if (!region.tryMarkRunning()) {
+            clock.skippedWhileBusy.incrementAndGet();
+            this.totalSkippedBusy.incrementAndGet();
+            this.releaseInFlight(clock);
+            return DispatchOutcome.BUSY_SKIPPED;
+        }
+
+        this.inFlightCount.incrementAndGet();
+        final boolean accepted = this.workerPool.execute(taskLabel + " " + coord, () -> {
+            final long start = System.nanoTime();
+            final boolean enteredWorkerScope = !RegionWorkerScope.isNativeWorkerThread();
+            if (enteredWorkerScope) {
+                RegionWorkerScope.enter();
+            }
+            try {
+                region.beginOwnership();
+                try {
+                    regionBody.run();
+                } finally {
+                    region.endOwnership();
+                }
+                if (serverThreadCommit != null && coord.level() != null) {
+                    this.enqueueCommit(coord.level(), serverThreadCommit);
+                }
+                this.totalCompleted.incrementAndGet();
+            } catch (Throwable throwable) {
+                this.totalFailed.incrementAndGet();
+                LOGGER.error("Async region slice [{}] failed for {}", taskLabel, coord, throwable);
+            } finally {
+                if (enteredWorkerScope) {
+                    RegionWorkerScope.exit();
+                }
+                final long duration = System.nanoTime() - start;
+                region.tickMetrics().recordTick(duration);
+                region.clearRunning();
+                this.inFlightCount.decrementAndGet();
+                this.releaseInFlight(clock);
+            }
+        });
+        if (!accepted) {
+            region.clearRunning();
+            this.inFlightCount.decrementAndGet();
+            this.releaseInFlight(clock);
+            return DispatchOutcome.REJECTED;
+        }
+        this.totalSubmitted.incrementAndGet();
+        return DispatchOutcome.SUBMITTED;
+    }
+
     /** Enqueues a main-thread commit task produced by an asynchronous region worker. */
     public void enqueueCommit(ServerLevel level, Runnable commitAction) {
         Objects.requireNonNull(level, "level");

@@ -183,6 +183,10 @@ sealed class RegionEntityTickBatch extends RegionTickBatch permits FusedRegionTi
         return this.addGroup(activation.region(), List.of(), workFactory);
     }
 
+    Runnable wrapAsyncGroupWork(Runnable body) {
+        return this.groupWork(body);
+    }
+
     /**
      * Records an entity the self-driven slice hands to the server thread; its whole vanilla entity body runs
      * in the handoff.

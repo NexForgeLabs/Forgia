@@ -107,6 +107,18 @@ final class RegionSpawnBatch extends RegionTickBatch {
         return group;
     }
 
+    Group createAsyncGroup(RegionState region, List<RegionSpawnChunk> chunks, NaturalSpawner.SpawnState state,
+            RegionSpawnNeighborhood neighborhood) {
+        this.leasedRegions.add(region);
+        final Group group = new Group(this, region, chunks, state, neighborhood);
+        this.groups.add(group);
+        return group;
+    }
+
+    Runnable wrapAsyncGroupWork(Runnable body) {
+        return this.groupWork(body);
+    }
+
     /**
      * Records a chunk whose region could not be leased or whose body has to run on the server thread; it spawns
      * there after the batch completed instead of being dropped.

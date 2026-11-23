@@ -203,4 +203,40 @@ public final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.sandboxPermanentDemotionThreshold.get()
                 : ForgiaConfig.SERVER.sandboxPermanentDemotionThreshold.getDefault();
     }
+
+    public static boolean asyncRegionSpawningEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.asyncSpawning");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncRegionSpawning.get()
+                : ForgiaConfig.SERVER.enableAsyncRegionSpawning.getDefault();
+    }
+
+    public static boolean asyncRegionEntityTicksEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.asyncEntityTicks");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncRegionEntityTicks.get()
+                : ForgiaConfig.SERVER.enableAsyncRegionEntityTicks.getDefault();
+    }
+
+    public static boolean asyncRegionFluidTicksEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.asyncFluidTicks");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncRegionFluidTicks.get()
+                : ForgiaConfig.SERVER.enableAsyncRegionFluidTicks.getDefault();
+    }
+
+    public static long independentRegionCommitDrainBudgetNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.independentRegionCommitDrainBudgetNanos.get()
+                : ForgiaConfig.SERVER.independentRegionCommitDrainBudgetNanos.getDefault();
+    }
 }

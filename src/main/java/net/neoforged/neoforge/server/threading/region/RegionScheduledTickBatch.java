@@ -76,6 +76,17 @@ final class RegionScheduledTickBatch<T> extends RegionTickBatch {
         return group;
     }
 
+    Group<T> createAsyncGroup(RegionState region, List<ScheduledTick<T>> ticks, long randomSeed) {
+        this.leasedRegions.add(region);
+        final Group<T> group = new Group<>(this, region, ticks, randomSeed);
+        this.groups.add(group);
+        return group;
+    }
+
+    Runnable wrapAsyncGroupWork(Runnable body) {
+        return this.groupWork(body);
+    }
+
     /**
      * Records ticks that could not be leased safely; they are executed on the server thread after the
      * batch completed instead of being dropped.

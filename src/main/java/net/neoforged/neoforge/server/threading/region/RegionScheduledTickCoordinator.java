@@ -91,6 +91,10 @@ final class RegionScheduledTickCoordinator {
         Set<Fluid> demotedFluids();
 
         void demoteFluid(Fluid fluid, Throwable failure);
+
+        boolean asyncFluidTicksEnabled();
+
+        boolean submitAsyncFluidGroup(RegionState region, Runnable wrappedWork, Runnable serverThreadCommit);
     }
 
     private final Host host;
@@ -146,6 +150,19 @@ final class RegionScheduledTickCoordinator {
                     level, this.host.layout(), admittedTicks, this.host.demotedFluids(), inlandTicks, borderTicks);
             if (!borderTicks.isEmpty()) {
                 batch.addFallback(borderTicks);
+            }
+            if (this.host.asyncFluidTicksEnabled() && !inlandTicks.isEmpty()) {
+                this.dispatchAsyncFluidTicks(level, inlandTicks, callback, fallbackCallback, beginTick, budget, metrics);
+                // Run border fallbacks synchronously on server thread; inland fluids run asynchronously without barrier!
+                batch.markExecutingOnCurrentThread();
+                try {
+                    this.tickFallbacks(batch, fallbackCallback, beginTick);
+                } finally {
+                    batch.finish();
+                    this.host.retireBatch(batch);
+                    batch.clearExecutingOnCurrentThread();
+                }
+                return;
             }
             dispatchTicks = inlandTicks;
         } else {
@@ -248,7 +265,73 @@ final class RegionScheduledTickCoordinator {
         }
     }
 
+    private <T> void dispatchAsyncFluidTicks(ServerLevel level, List<ScheduledTick<T>> inlandTicks,
+            BiConsumer<BlockPos, T> callback, BiConsumer<BlockPos, T> fallbackCallback,
+            Consumer<ScheduledTick<T>> beginTick, int totalBudget, RegionScheduledTickMetrics metrics) {
+        final RegionTickGrouping<RegionState, ScheduledTick<T>> grouping = new RegionTickGrouping<>();
+        int rescheduledCount = 0;
+        final int maxReschedule = this.host.maxCatchUpScheduledTicks();
+        for (final ScheduledTick<T> tick : inlandTicks) {
+            final RegionState region = this.host.regionAt(level, tick.pos());
+            if (region == null || region.isDead()) {
+                beginTick.accept(tick);
+                fallbackCallback.accept(tick.pos(), tick.type());
+                metrics.serial.increment();
+            } else if (this.host.shouldSkipOverloadedRegion(level, region)
+                    && rescheduledCount < maxReschedule
+                    && this.host.rescheduleThrottledScheduledTick(level, ScheduledTickPhase.FLUID, tick, region.overloadState().nextActiveGameTime())) {
+                ++rescheduledCount;
+                this.host.countSkippedTicks(1);
+            } else {
+                grouping.add(region, tick);
+            }
+        }
+        if (grouping.isEmpty()) {
+            return;
+        }
+        final int perRegionBudget = Math.max(64, totalBudget / Math.max(1, grouping.regions().size()));
+        int dispatched = 0;
+        for (final RegionState region : grouping.regions()) {
+            final List<ScheduledTick<T>> regionTicks = grouping.items(region);
+            final RegionScheduledTickBatch<T> regionBatch = new RegionScheduledTickBatch<>(
+                    level, ScheduledTickPhase.FLUID, perRegionBudget, false);
+            final RegionScheduledTickBatch.Group<T> group = regionBatch.createAsyncGroup(
+                    region, regionTicks, regionBatch.nextRandomSeed(region.coordinate()));
+            final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(
+                    this.host.withRegionMailboxDelivery(level, region, this.groupBody(group, callback, beginTick, false)));
+            final Runnable commit = () -> {
+                try {
+                    if (!this.host.isLevelClosed(level)) {
+                        this.host.applyDeferredBlockUpdates(regionBatch);
+                        this.tickFallbacks(regionBatch, fallbackCallback, beginTick);
+                        this.host.applyRegionTickMutations(regionBatch.scheduledTickMutations());
+                    }
+                } finally {
+                    regionBatch.finish();
+                }
+            };
+            if (this.host.submitAsyncFluidGroup(region, wrappedWork, commit)) {
+                dispatched += regionTicks.size();
+            } else {
+                // Region busy: run inline on server thread so no fluid tick is ever dropped.
+                regionBatch.finish();
+                for (final ScheduledTick<T> tick : regionTicks) {
+                    beginTick.accept(tick);
+                    fallbackCallback.accept(tick.pos(), tick.type());
+                    metrics.serial.increment();
+                }
+            }
+        }
+        if (dispatched > 0 && this.workersNoticeLogged.compareAndSet(false, true)) {
+            LOGGER.info("Region scheduled fluid ticks are now executing asynchronously on region workers: {} ticks", dispatched);
+        }
+    }
+
     private <T> Runnable groupBody(RegionScheduledTickBatch.Group<T> group, BiConsumer<BlockPos, T> callback, Consumer<ScheduledTick<T>> beginTick) {
+        return this.groupBody(group, callback, beginTick, true);
+    }
+
+    private <T> Runnable groupBody(RegionScheduledTickBatch.Group<T> group, BiConsumer<BlockPos, T> callback, Consumer<ScheduledTick<T>> beginTick, boolean manageRegionLifecycle) {
         final RegionState region = group.region();
         final RegionCoordinate coordinate = region.coordinate();
         final ServerLevel level = group.level();
@@ -258,7 +341,9 @@ final class RegionScheduledTickCoordinator {
             final long start = System.nanoTime();
             final int[] ticked = { 0 };
             try {
-                region.beginOwnership();
+                if (manageRegionLifecycle) {
+                    region.beginOwnership();
+                }
                 this.host.setCurrentScheduledTickRandom(random);
                 this.host.setCurrentRegionTickMutations(group.batch().scheduledTickMutations());
                 try {
@@ -305,13 +390,17 @@ final class RegionScheduledTickCoordinator {
                     this.host.setCurrentRegionTickMutations(null);
                 }
             } finally {
-                region.endOwnership();
-                region.clearRunning();
-                final long duration = System.nanoTime() - start;
-                region.tickMetrics().recordTick(duration);
-                RegionTickWatchdog.warnIfLongTick("scheduled tick batch " + coordinate, duration);
+                if (manageRegionLifecycle) {
+                    region.endOwnership();
+                    region.clearRunning();
+                    final long duration = System.nanoTime() - start;
+                    region.tickMetrics().recordTick(duration);
+                    RegionTickWatchdog.warnIfLongTick("scheduled tick batch " + coordinate, duration);
+                }
                 this.host.countTicksOnWorkers(ticked[0]);
-                this.host.removeIfEmpty(region);
+                if (manageRegionLifecycle) {
+                    this.host.removeIfEmpty(region);
+                }
             }
         };
     }
