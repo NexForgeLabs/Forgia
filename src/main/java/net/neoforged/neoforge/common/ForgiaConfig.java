@@ -185,6 +185,12 @@ public final class ForgiaConfig {
 
         public final BooleanValue enableAsyncRegionFluidTicks;
 
+        public final BooleanValue enableLowTpsProbe;
+        public final DoubleValue lowTpsProbeThreshold;
+        public final IntValue lowTpsProbeDurationSeconds;
+        public final IntValue lowTpsProbeCooldownSeconds;
+        public final IntValue lowTpsProbeTopCount;
+
         public final LongValue independentRegionCommitDrainBudgetNanos;
 
         Server(ModConfigSpec.Builder builder) {
@@ -212,6 +218,26 @@ public final class ForgiaConfig {
                     .defineInRange("runtimeMainCpuPercent", 90, 1, 100);
             runtimeHighServerMspt = builder.comment("MAIN_THREAD_BOTTLENECK server mean MSPT threshold, milliseconds. A correlation warning, not a root-cause diagnosis.")
                     .defineInRange("runtimeHighServerMspt", 50, 1, 10000);
+            enableLowTpsProbe = builder.comment(
+                    "Automatically records a structured bottleneck snapshot (to console WARN and logs/forgia-low-tps-probe.jsonl) whenever global TPS stays below lowTpsProbeThreshold for lowTpsProbeDurationSeconds.",
+                    "[中文] 低 TPS 自动探针：当全局 TPS 持续低于 lowTpsProbeThreshold 超过 lowTpsProbeDurationSeconds 秒时，自动记录一份全局最大性能瓶颈快照到控制台与 logs/forgia-low-tps-probe.jsonl。")
+                    .define("enableLowTpsProbe", true);
+            lowTpsProbeThreshold = builder.comment(
+                    "Global TPS threshold below which the low-TPS probe begins timing an incident.",
+                    "[中文] 触发低 TPS 探针计时的全局 TPS 阈值（默认 18.0）。")
+                    .defineInRange("lowTpsProbeThreshold", 18.0D, 1.0D, 20.0D);
+            lowTpsProbeDurationSeconds = builder.comment(
+                    "Continuous seconds below lowTpsProbeThreshold required before emitting a probe report.",
+                    "[中文] 全局 TPS 连续低于阈值多少秒后触发一次完整瓶颈记录（默认 30 秒）。")
+                    .defineInRange("lowTpsProbeDurationSeconds", 30, 5, 300);
+            lowTpsProbeCooldownSeconds = builder.comment(
+                    "Minimum seconds between consecutive low-TPS probe reports during a sustained slowdown.",
+                    "[中文] 持续卡顿期间两次探针记录之间的最小冷却间隔秒数（默认 60 秒）。")
+                    .defineInRange("lowTpsProbeCooldownSeconds", 60, 10, 3600);
+            lowTpsProbeTopCount = builder.comment(
+                    "Number of top regions, main-thread phases, and slices included in each low-TPS probe report.",
+                    "[中文] 每次低 TPS 探针报告中记录的最重区域 / 主线程阶段 / 切片数量（默认 5）。")
+                    .defineInRange("lowTpsProbeTopCount", 5, 1, 20);
 
             enableRegionThreadingBridge = builder
                     .comment("EXPERIMENTAL: Enables the temporary single-thread region threading bridge. This exposes the region scheduler API before the full Folia-style tick scheduler is ported.")
@@ -608,9 +634,9 @@ public final class ForgiaConfig {
 
             enableAsyncRegionFluidTicks = builder
                     .comment(
-                            "Phase 3C: Dispatches inland region fluid ticks asynchronously via RegionIndependentTickScheduler without blocking the server thread barrier; border fluid ticks stay serial on the server thread. Default true.",
-                            "[中文] Phase 3C：将区域内陆流体计算异步分发到 Region Worker，主线程不再等待流体 Barrier，边缘 5 格流体留在主线程收尾（默认开启）。")
-                    .define("enableAsyncRegionFluidTicks", true);
+                            "Phase 3C: Dispatches inland region fluid ticks asynchronously via RegionIndependentTickScheduler without blocking the server thread barrier; border fluid ticks stay serial on the server thread. Default false (parallel fluid workers stay barrier-synchronized with blockTicks unless explicitly enabled).",
+                            "[中文] Phase 3C：将区域内陆流体计算异步脱离 Barrier 分发到 Region Worker（默认关闭，使用带 Barrier 的多核流体并行以避免与后续方块阶段并发写同一区块）。")
+                    .define("enableAsyncRegionFluidTicks", false);
 
             independentRegionCommitDrainBudgetNanos = builder
                     .comment(

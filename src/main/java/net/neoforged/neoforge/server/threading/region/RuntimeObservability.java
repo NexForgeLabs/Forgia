@@ -56,6 +56,7 @@ public final class RuntimeObservability {
             state.lastJvmSample = 0;
             state.jvm = JvmSample.UNAVAILABLE;
         }
+        state.lowTpsProbe.onSecondSample(server, now, state.history, state.jvm);
     }
 
     /** Commands call on the authoritative server thread, exactly like native tick-ring access. */
@@ -85,6 +86,7 @@ public final class RuntimeObservability {
     private static final class State {
         private final WeakReference<MinecraftServer> server;
         private final RuntimeTickHistory history = new RuntimeTickHistory();
+        private final LowTpsProbe lowTpsProbe = new LowTpsProbe();
         private final java.lang.management.ThreadMXBean threads = ManagementFactory.getThreadMXBean();
         private final java.lang.management.MemoryMXBean memory = ManagementFactory.getMemoryMXBean();
         private final List<java.lang.management.GarbageCollectorMXBean> collectors = ManagementFactory.getGarbageCollectorMXBeans();

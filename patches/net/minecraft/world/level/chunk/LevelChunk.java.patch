@@ -69,10 +69,11 @@
          try {
              int i = this.getSectionIndex(p_62816_);
              if (i >= 0 && i < this.sections.length) {
-@@ -236,74 +_,95 @@
+@@ -235,75 +_,96 @@
+ 
      @Nullable
      @Override
-     public BlockState setBlockState(BlockPos p_62865_, BlockState p_62866_, boolean p_62867_) {
+-    public BlockState setBlockState(BlockPos p_62865_, BlockState p_62866_, boolean p_62867_) {
 -        int i = p_62865_.getY();
 -        LevelChunkSection levelchunksection = this.getSection(this.getSectionIndex(i));
 -        boolean flag = levelchunksection.hasOnlyAir();
@@ -84,6 +85,7 @@
 -            int l = p_62865_.getZ() & 15;
 -            BlockState blockstate = levelchunksection.setBlockState(j, k, l, p_62866_);
 -            if (blockstate == p_62866_) {
++    public synchronized BlockState setBlockState(BlockPos p_62865_, BlockState p_62866_, boolean p_62867_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerBlockAccess(this.level, p_62865_);
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.refuseForeignChunkMutation(this)) {
 +            return null;

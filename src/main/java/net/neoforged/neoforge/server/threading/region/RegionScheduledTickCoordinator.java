@@ -152,8 +152,8 @@ final class RegionScheduledTickCoordinator {
                 batch.addFallback(borderTicks);
             }
             if (this.host.asyncFluidTicksEnabled() && !inlandTicks.isEmpty()) {
-                this.dispatchAsyncFluidTicks(level, inlandTicks, callback, fallbackCallback, beginTick, budget, metrics);
-                // Run border fallbacks synchronously on server thread; inland fluids run asynchronously without barrier!
+                // Run border fallbacks synchronously on server thread FIRST before dispatching async inland
+                // fluid workers, so border and inland fluid ticks never race on the same outer LevelChunk.
                 batch.markExecutingOnCurrentThread();
                 try {
                     this.tickFallbacks(batch, fallbackCallback, beginTick);
@@ -162,6 +162,7 @@ final class RegionScheduledTickCoordinator {
                     this.host.retireBatch(batch);
                     batch.clearExecutingOnCurrentThread();
                 }
+                this.dispatchAsyncFluidTicks(level, inlandTicks, callback, fallbackCallback, beginTick, budget, metrics);
                 return;
             }
             dispatchTicks = inlandTicks;
