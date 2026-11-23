@@ -9,92 +9,31 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 
 ---
 
-## 1. 快速选型：不同硬件的推荐配置
+## 1. 安全起步与硬件调优
 
-> **核心调优原则**：
-> 1. **区域模式优先选 `DYNAMIC_CLUSTER`（默认 `shift = 3`，即 8×8 chunks / 128×128 格）**：已通过 30/30 动态拓扑与所有权审计测试及 32 玩家耐久验证，相比 `FIXED_3X3` 吞吐更高（+9.2% TPS）、P95 更低（-17%）且玩家进 Worker 比例高出 +37%。
-> 2. **区分仅 `FIXED_3X3` 生效或需 JVM 参数的开关**：
->    - `enableRegionThreadingPlayerTicks = true` 在 `FIXED_3X3` 下可直接生效；在 `DYNAMIC_CLUSTER` 下**必须同时在 JVM 启动参数中添加 `-Dforgia.dynamicPlayerSoak=true`**，否则玩家 tick 会保持主线程串行。
->    - `enableRegionThreadingFurnaceWorkWaves`、`enableRegionThreadingBlockEntityResources` 与 `enableRegionThreadingPackedRegionLeases` **仅在 `FIXED_3X3` 下生效**（`DYNAMIC_CLUSTER` 下熔炉波次/资源会被忽略，租约打包会被动态岛合包自动绕过）。在 `DYNAMIC_CLUSTER` 配置中请将这三项保持 `false`。
-> 3. **不要在超线程 CPU 上放任 `regionThreadingWorkerThreads = 0`**：`0` 表示 `逻辑线程数 - 1`（例如 8 核 16 线程会开出 15 个 Worker），容易与主线程、原版区块生成线程池和 GC 争抢物理核与内存带宽。建议按 **`物理核数 - 1 ~ 2`** 显式固定 Worker 数，**始终给 Server 主线程留出至少 1 个完整物理核**。
+> **当前默认值与适用范围（已对照 `ForgiaConfig.java`）：**
+> - `regionThreadingMode` 默认值是 `DYNAMIC_CLUSTER`。旧 `FIXED_3X3` 布局仍用于历史 C6 对照和兼容场景，但它不是当前默认模式。
+> - 并行执行开关默认均为 `false`，包括 Bridge、Worker 切片、通用方块实体 Sandbox 和独立 Region 时钟。只有主动启用相应开关后，服务器才会进入对应并行路径。
+> - C7 验证的是特定的 188 Mod SkyExplorer 负载。数据见[性能基准页](benchmarks.zh.md)，不能直接当作所有硬件、整合包的通用推荐配置。
+> - 启用 `enableRegionSandboxAllBlockEntities` 后，普通模组 BE 可在通用 Sandbox 中执行，无需逐个编写 Adapter；复杂共享状态模组仍可能需要专用 Adapter 或串行回退。
+> - 不要因为配置项存在就全部开启。部分功能仍属实验性、有前置条件，或只支持特定布局；请先阅读下方配置表和对应模块文档。
 
-### 场景 A：4 核 8 线程机器（如 i5-1135G7 / 4C VPS，8–16 GB 内存）
+### Worker 数量
 
-* 追求**最低中位延迟（P50）与最低内存占用**（实测 P50 `43.34 ms`，堆内存比串行省 35%）：`regionThreadingWorkerThreads = 3`（留 1 物理核给主线程）。
-* 追求**更低 P99 长尾延迟**：`regionThreadingWorkerThreads = 4`。
+`regionThreadingWorkerThreads = 0` 时，Forgia 自动选择 `max(1, 逻辑 CPU 数 - 1)`。这是便捷默认值，不代表所有逻辑线程都能带来最佳性能。生产环境建议先设置较保守的显式数量，同时观察 Server 主线程、Worker、区块生成和 GC，再用可重复的实际负载测试逐步调整。必须为主线程及其他服务端任务预留 CPU 资源。
 
-```toml
-# === 核心与并行切片开关 ===
-enableRegionThreadingBridge = true
-enableRegionThreadingWorkers = true
-enableGlobalRegionThreadingWorker = true
-enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true            # DYNAMIC_CLUSTER 下需配合 JVM 参数 -Dforgia.dynamicPlayerSoak=true
-enableRegionThreadingBlockEntityTicks = false      # 轻负载静止 BE 串行更快；重度熔炉/受审计适配器场景再开
-enableRegionThreadingFurnaceWorkWaves = false      # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
-enableRegionThreadingBlockEntityResources = false  # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
-enableRegionThreadingScheduledTicks = false        # 仅对受审计红石灯阶段生效，常规服可保持关闭
-enableRegionThreadingRandomTicks = true
-enableRegionThreadingSpawning = true
-enableRegionThreadingPoi = true
-enableRegionThreadingBorderUpdates = true
-enableRegionThreadingGameEvents = true
-enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
+不存在适用于所有 CPU 和整合包的固定 Worker 数。旧硬件示例和历史报告中的 P50/P99 数据，不应被当作当前通用调优结论。
 
-# === 动态区域布局与线程池 ===
-regionThreadingMode = "DYNAMIC_CLUSTER"
-regionThreadingDynamicSectionShift = 3             # 8x8 chunks (128x128 格)
-regionThreadingDynamicSplitDelayTicks = 40         # 2 秒延迟防边界抖动拆合
-regionThreadingWorkerThreads = 3                   # 4 物理核：3 Workers + 1 物理核留给主线程（追求 P99 可设 4）
-```
+### 最小配置流程
 
-### 场景 B：8 核 16 线程高频 CPU + 32 GB 双通道内存（如 E5-2667 v2 @ 4.1GHz，16GB×2 DDR3-1666）
+1. 备份世界存档和当前配置。
+2. 确认生成的 `config/forgia.toml` 与正在运行的构建版本一致。
+3. 从区域引擎和实际需要的执行切片开始，不要一次性开启全部功能。
+4. 通用 BE Sandbox 与独立 Region 时钟分别启用；两者默认关闭。
+5. 在生产世界副本上测试，检查 `/neoforge regionthreading status`、Worker 和 fallback 计数，再进行受控耐久测试。
+6. 如果出现所有权违规、兼容失败或不稳定，关闭对应切片；必要时设置 `enableRegionThreadingBridge = false`，重启并确认已回到串行路径。
 
-* **硬件特点**：8 个物理核充裕、25 MB 大 L3 缓存非常契合 `8×8` 动态区域，但双通道 DDR3-1666 内存带宽偏紧，切忌开满 15 个超线程 Worker。
-* **核数分配**：1 物理核专供 Server 主线程 + **6 个物理核给 Region Workers**（重度探图/生区块高峰可设 `5`）+ 1 物理核及剩余超线程给原版世界生成、Netty I/O 与分代 ZGC。
-
-```toml
-# === 核心与并行切片开关 ===
-enableRegionThreadingBridge = true
-enableRegionThreadingWorkers = true
-enableGlobalRegionThreadingWorker = true
-enableRegionThreadingEntityTicks = true
-enableRegionThreadingPlayerTicks = true            # DYNAMIC_CLUSTER 下需配合 JVM 参数 -Dforgia.dynamicPlayerSoak=true
-enableRegionThreadingBlockEntityTicks = true       # 若服内有大量熔炉/受审计适配器可开启，否则可设为 false
-enableRegionThreadingFurnaceWorkWaves = false      # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
-enableRegionThreadingBlockEntityResources = false  # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动忽略）
-enableRegionThreadingScheduledTicks = false        # 仅对受审计红石灯阶段生效，常规服可保持关闭
-enableRegionThreadingRandomTicks = true
-enableRegionThreadingSpawning = true
-enableRegionThreadingPoi = true
-enableRegionThreadingBorderUpdates = true
-enableRegionThreadingGameEvents = true
-enableRegionThreadingPersistentWorkers = true
-enableRegionThreadingPackedRegionLeases = false    # 仅 FIXED_3X3 生效（DYNAMIC_CLUSTER 下自动绕过）
-
-# === 动态区域布局与线程池 ===
-regionThreadingMode = "DYNAMIC_CLUSTER"
-regionThreadingDynamicSectionShift = 3             # 8x8 chunks，充分利用 25MB L3 并减少内存总线访问
-regionThreadingDynamicSplitDelayTicks = 40
-regionThreadingWorkerThreads = 6                   # 8 物理核甜点（重度生区块高峰期可改 5）
-```
-
-配套 JDK 21 启动参数（32 GB 物理内存留一半给 OS Page Cache 缓存 `.mca` 区块文件；若在 `DYNAMIC_CLUSTER` 下开启 `enableRegionThreadingPlayerTicks = true`，请加上 `-Dforgia.dynamicPlayerSoak=true`）：
-
-```bash
--Xms12G -Xmx12G -XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch -Dforgia.dynamicPlayerSoak=true
-```
-
-### 场景 C：16 核及以上高并发服务器（如 Ryzen 9 / EPYC，64+ GB 内存）
-
-* 留 2–4 个物理核给主线程、区块生成、Netty 与 GC，其余 **10–12 核** 分配给 `regionThreadingWorkerThreads`。
-* 若 20+ 名玩家高度集中在同一个 200–300 格半径主城内，可将 `regionThreadingDynamicSectionShift` 降至 `2`（`4×4` chunks）防止合并成单个巨型岛；常规分散生存服保持 `3`（`8×8` chunks）。
-
-### 场景 D：回滚至原版串行 / C6 历史基线
-
-* **一键回滚串行**：将 `enableRegionThreadingBridge = false` 并重启 JVM，即可 100% 退回原版串行热路径。
-* **历史 C6 固定布局基线**：参考 `tools/production-readiness/config/c6-persistent.toml`（`regionThreadingMode = "FIXED_3X3"`、`regionThreadingFixedRegionChunks = 3`、`regionThreadingWorkerThreads = 4`）。
+本页后续代码片段是针对具体功能的示例，不是适用于所有整合包的通用生产配置。
 
 ---
 
