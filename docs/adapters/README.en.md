@@ -3,8 +3,7 @@
 English | [中文](README.zh.md) · [API index](../api/README.en.md)
 Evidence: [GENERAL-MOD-ADAPTER-ARCHITECTURE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GENERAL-MOD-ADAPTER-ARCHITECTURE.md), [MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MODDED-BLOCK-ENTITY-ADAPTATION-ARCHITECTURE.md)
 
-Status: shipped adapters are **experimental**. Core contains **no target-mod-specific backend**: every
-class, fingerprint, branch condition and footprint of a target mod lives in an adapter jar.
+Status: shipped adapters are **experimental**. Most ordinary modded block entities do not need an adapter: the generic Region Sandbox handles the common case when explicitly enabled. Dedicated adapters are for complex mods whose global/shared state needs a reviewed execution contract. The core keeps target-mod-specific classes, fingerprints, branch conditions and resource footprints out of its backend.
 
 ---
 
@@ -106,7 +105,7 @@ Gradle projects are registered in `settings.gradle` as `:create-adapter`, `:mobs
 
 | Adapter | Target | Capability used | Default state | Docs |
 |---|---|---|---|---|
-| Create 0.2.0 | Create 6.0.10 (MC 1.21.1) | `AUDITED_BLOCK_ENTITY_TICKS` | Steady kinetic types only; everything else serial | [Create](create-adapter.en.md) |
+| Create 0.3.0 | Create 6.0.10 (MC 1.21.1) | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | Audited steady-state kinetic branches via `RESOURCE_SCOPED`; other systems remain serial | [Current source guide](../../adapters/create/README.md) · [0.2 history](create-adapter.en.md) |
 | MobSpawnController 0.3.0 | MSC 1.2.3 | Natural-spawn preparation + ordered finalization + claim | **Serial by default**; ordered mode is opt-in via `-Dforgia.mscOrderedSpawning=true` | [MSC](mobspawncontroller-adapter.en.md) |
 
 ## 8. Verification checklist
