@@ -79,7 +79,8 @@ public final class RegionSpawnPlan {
      * category and reserves its slot there, so a mob that walks into the neighbouring region still holds its slot
      * and no region can take the last slot of the level twice.
      */
-    private final LevelSpawnCapCounter capCounter;
+    @Nullable
+    private LevelSpawnCapCounter capCounter;
     private final ParallelAdapterRuntime.PreparedSpawnPlan preparedPlan;
     /** Tick-scoped caches avoiding repeated chunk-map and player-distance scans across regions. */
     private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(512);
@@ -135,7 +136,6 @@ public final class RegionSpawnPlan {
         this.spawnEnemies = spawnEnemies;
         this.spawnPersistent = spawnPersistent;
         this.barrier = barrier;
-        this.capCounter = LevelSpawnCapCounter.count(level, this.source);
     }
 
     it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache() {
@@ -259,7 +259,7 @@ public final class RegionSpawnPlan {
                     this.level.getAllEntities(),
                     this.source.chunkGetter(),
                     new RegionLocalMobCapCalculator(this.source.playersNearForSpawning()),
-                    this.capCounter);
+                    this.capCounter());
         }
         return this.fallbackState;
     }
@@ -269,6 +269,9 @@ public final class RegionSpawnPlan {
      */
     @VisibleForTesting
     public LevelSpawnCapCounter capCounter() {
+        if (this.capCounter == null) {
+            this.capCounter = LevelSpawnCapCounter.count(this.level, this.source);
+        }
         return this.capCounter;
     }
 
@@ -296,7 +299,7 @@ public final class RegionSpawnPlan {
                 }
             };
         };
-        return RegionSpawnState.buildForPlan(this.level, this.source, region, entities, regionChunks, this.capCounter,
+        return RegionSpawnState.buildForPlan(this.level, this.source, region, entities, regionChunks, this.capCounter(),
                 this.sharedNeighborhood);
     }
 
