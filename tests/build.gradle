@@ -373,10 +373,8 @@ enableRegionThreadingPoi = ${regionThreading}
 enableRegionThreadingBorderUpdates = ${regionThreading}
 enableRegionThreadingGameEvents = ${regionThreading}
 enableRegionThreadingPersistentWorkers = ${regionThreading}
-enableRegionThreadingPackedRegionLeases = ${regionThreading}
 regionThreadingWorkerThreads = ${regionThreading ? 4 : 0}
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"
 regionThreadingOwnershipViolationMode = "WARN"
 """
 }
@@ -441,7 +439,6 @@ enableRegionThreadingPoi = ${parallel}
 enableRegionThreadingBorderUpdates = ${parallel}
 enableRegionThreadingGameEvents = ${parallel}
 enableRegionThreadingPersistentWorkers = ${parallel}
-enableRegionThreadingPackedRegionLeases = ${parallel}
 regionThreadingWorkerThreads = 0
 regionThreadingMode = "DYNAMIC_CLUSTER"
 regionThreadingDynamicSectionShift = 3
@@ -492,8 +489,7 @@ enableRegionThreadingEntityTicks = true
 enableRegionThreadingRandomTicks = true
 enableRegionThreadingPoi = true
 enableRegionThreadingScheduledTicks = true
-regionThreadingMode = "FIXED_3X3"
-regionThreadingFixedRegionChunks = 3
+regionThreadingMode = "DYNAMIC_CLUSTER"
 regionThreadingWorkerThreads = 4
 regionThreadingOwnershipViolationMode = "WARN"
 """

@@ -660,7 +660,7 @@ class RegionRandomizedRedstoneSoakTest {
             circuit.build(world);
         }
         if (regionThreading) {
-            final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true, RegionPolicy.FIXED_3X3);
+            final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true, RegionPolicy.DYNAMIC_CLUSTER);
             installed.setBorderUpdatesEnabledForTesting(true);
             installed.setBorderUpdateBudgetForTesting(20000);
             installed.enableUnclassifiedWorkerCallbacksForTesting();

@@ -129,7 +129,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void theChunkIndexedPlanTicksTheSameTraceAsThePerTickerImplementationOverRandomizedStates() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final RandomSource random = RandomSource.create(20240117L);
         final List<ChunkPos> chunkPool = List.of(INTERIOR_CHUNK, SECOND_INTERIOR_CHUNK, THIRD_INTERIOR_CHUNK, BOUNDARY_CHUNK);
@@ -163,7 +163,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void boundaryFurnaceSnapshotIsInvalidatedWhenPropagationPolicyChanges() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         this.engine.addRegionSection(level, -1, 1);
         final LevelChunk chunk = this.loadChunk(level, BOUNDARY_CHUNK);
@@ -181,7 +181,7 @@ class RegionBlockEntityTickChunkIterationTest {
         final RegionBlockEntityTickAdmission second = this.snapshotAdmissions(level).getFirst();
         assertEquals(RegionBlockEntityTickAdmission.Decision.ADMITTED_WITH_BORDER_UPDATES, second.decision());
         assertNotSame(first, second);
-        assertFalse(withoutPropagation.isCurrent(RegionLayout.FIXED_3X3, chunk.blockEntityTickerRevision(), true));
+        assertFalse(withoutPropagation.isCurrent(RegionLayout.DYNAMIC_CLUSTER_8X8, chunk.blockEntityTickerRevision(), true));
         assertSame(second, this.snapshotAdmissions(level).getFirst());
         this.collectAndExecute(level);
         assertEquals(1L, this.engine.boundaryBlockEntityTicksOnWorkers());
@@ -195,7 +195,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void cachedBoundaryAdmissionDoesNotCacheNeighborAvailability() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         this.engine.setBorderUpdatesEnabledForTesting(true);
         final ServerLevel level = mockLevel();
         this.engine.addRegionSection(level, -1, 1);
@@ -223,7 +223,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void theSnapshotOfAnUnchangedChunkIsReusedAcrossTicks() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, SECOND_INTERIOR_CHUNK);
         this.loadedChunks.add(SECOND_INTERIOR_CHUNK.toLong());
@@ -245,7 +245,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void theSnapshotIsInvalidatedByTheTickerSetAndByTheLayout() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, INTERIOR_CHUNK);
         this.loadedChunks.add(INTERIOR_CHUNK.toLong());
@@ -258,10 +258,10 @@ class RegionBlockEntityTickChunkIterationTest {
         assertNotNull(snapshot, "the first plan must build the snapshot of the chunk");
         assertEquals(liveBefore + 1, RegionBlockEntityTickChunkCache.liveSnapshotCount());
         final long revision = chunk.blockEntityTickerRevision();
-        assertTrue(snapshot.isCurrent(RegionLayout.FIXED_3X3, revision), "a fresh snapshot must be current");
-        assertFalse(snapshot.isCurrent(RegionLayout.fixed(5), revision),
+        assertTrue(snapshot.isCurrent(RegionLayout.DYNAMIC_CLUSTER_8X8, revision), "a fresh snapshot must be current");
+        assertFalse(snapshot.isCurrent(RegionLayout.DYNAMIC_CLUSTER_8X8, revision),
                 "a changed region layout must invalidate the interior-chunk flag and the region of the snapshot");
-        assertFalse(snapshot.isCurrent(RegionLayout.FIXED_3X3, revision + 1L),
+        assertFalse(snapshot.isCurrent(RegionLayout.DYNAMIC_CLUSTER_8X8, revision + 1L),
                 "a changed ticker revision must invalidate the snapshot");
 
         // A ticker added to the chunk and a ticker removed from it both change the ticker set, so both have
@@ -285,7 +285,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void aRebindBetweenTicksRebuildsTheSnapshotInsteadOfReusingTheOldDecision() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, INTERIOR_CHUNK);
         this.loadedChunks.add(INTERIOR_CHUNK.toLong());
@@ -310,7 +310,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void aSnapshotThatWentStaleBetweenPlanAndExecutionIsRevalidatedOnTheServerThread() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, INTERIOR_CHUNK);
         this.loadedChunks.add(INTERIOR_CHUNK.toLong());
@@ -336,7 +336,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void aChunkThatIsNotBlockTickingProducesNoWorkerTick() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, INTERIOR_CHUNK);
         this.loadedChunks.add(INTERIOR_CHUNK.toLong());
@@ -372,7 +372,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void aChunkWhoseEntitiesAreStillLoadingProducesNoWorkerTick() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, INTERIOR_CHUNK);
         this.loadedChunks.add(INTERIOR_CHUNK.toLong());
@@ -399,7 +399,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void aTickerOfABoundaryChunkStillFallsBackToTheServerThread() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final LevelChunk chunk = this.loadChunk(level, BOUNDARY_CHUNK);
         this.loadedChunks.add(BOUNDARY_CHUNK.toLong());
@@ -417,7 +417,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void theBlockTickingRangeOfAChunkIsEvaluatedOncePerChunkPerTick() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final List<ChunkPos> chunkPool = List.of(INTERIOR_CHUNK, SECOND_INTERIOR_CHUNK, THIRD_INTERIOR_CHUNK);
         for (final ChunkPos pos : chunkPool) {
@@ -441,7 +441,7 @@ class RegionBlockEntityTickChunkIterationTest {
 
     @Test
     void chunkChurnKeepsOneSnapshotPerLoadedChunk() throws ReflectiveOperationException {
-        this.installEngine(RegionPolicy.FIXED_3X3);
+        this.installEngine(RegionPolicy.DYNAMIC_CLUSTER);
         final ServerLevel level = mockLevel();
         final int liveBefore = RegionBlockEntityTickChunkCache.liveSnapshotCount();
 

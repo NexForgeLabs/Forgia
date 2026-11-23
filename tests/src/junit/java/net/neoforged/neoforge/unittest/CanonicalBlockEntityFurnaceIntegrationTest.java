@@ -244,7 +244,7 @@ class CanonicalBlockEntityFurnaceIntegrationTest {
             final var enqueue = f.engine.getClass().getDeclaredMethod("enqueueRegionTask", net.minecraft.server.level.ServerLevel.class, BlockPos.class, Runnable.class);
             enqueue.setAccessible(true);
             CanonicalBlockEntityTestSupport.invoke(enqueue, f.engine, f.level, A, (Runnable) () -> {});
-            final var target = net.neoforged.neoforge.server.threading.region.RegionLayout.FIXED_3X3.regionAt(f.level, A);
+            final var target = net.neoforged.neoforge.server.threading.region.RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(f.level, A);
             assertEquals(net.neoforged.neoforge.server.threading.region.RegionMailbox.PostResult.ACCEPTED,
                     f.engine.mailbox(f.level).post(target, () -> {
                         assertSame(f.serverThread, Thread.currentThread());

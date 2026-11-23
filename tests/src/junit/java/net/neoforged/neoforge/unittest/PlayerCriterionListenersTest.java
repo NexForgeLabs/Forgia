@@ -66,7 +66,7 @@ class PlayerCriterionListenersTest {
     @BeforeEach
     void enableOwnerStorage() {
         RegionThreadingEngine engine = new RegionThreadingEngine(1, false, false, true, false, false, false,
-                RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+                RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         RegionThreadingManager.install(engine);
         engine.configurePlayerTickPlanningForTesting(true);
     }

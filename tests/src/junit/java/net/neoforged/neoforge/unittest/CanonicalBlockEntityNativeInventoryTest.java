@@ -122,7 +122,7 @@ class CanonicalBlockEntityNativeInventoryTest {
                 final var first = hopper(f, "A", FIRST);
                 final var second = hopper(f, "B", OTHER_REGION);
                 f.enable(false);
-                assertFalse(RegionLayout.FIXED_3X3.regionAt(f.level, FIRST).equals(RegionLayout.FIXED_3X3.regionAt(f.level, OTHER_REGION)));
+                assertFalse(RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(f.level, FIRST).equals(RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(f.level, OTHER_REGION)));
                 try {
                     f.retainedExplicitPhase("A", "B");
                     assertEquals(2, max.get());
@@ -231,7 +231,7 @@ class CanonicalBlockEntityNativeInventoryTest {
                 final var batch = Class.forName("net.neoforged.neoforge.server.threading.region.RegionTickBatch");
                 final Method seed = batch.getDeclaredMethod("regionRandomSeed", ServerLevel.class, RegionCoordinate.class);
                 seed.setAccessible(true);
-                final var expected = RandomSource.create((Long) invoke(seed, null, f.level, RegionLayout.FIXED_3X3.regionAt(f.level, FIRST)));
+                final var expected = RandomSource.create((Long) invoke(seed, null, f.level, RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(f.level, FIRST)));
                 f.retainedExplicitPhase("A", "B");
                 assertEquals(List.of(expected.nextLong(), expected.nextLong()), draws);
                 assertEquals(2, streams.size());

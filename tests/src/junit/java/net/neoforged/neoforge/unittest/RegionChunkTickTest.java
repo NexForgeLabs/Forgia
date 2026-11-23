@@ -93,7 +93,7 @@ class RegionChunkTickTest {
     };
     private static final int RANDOM_TICK_SPEED = 3;
     private static final ChunkPos INTERIOR_CHUNK = new ChunkPos(1, 1);
-    private static final ChunkPos OTHER_INTERIOR_CHUNK = new ChunkPos(4, 4);
+    private static final ChunkPos OTHER_INTERIOR_CHUNK = new ChunkPos(9, 9);
     private static final ChunkPos BOUNDARY_CHUNK = new ChunkPos(0, 0);
 
     private RegionThreadingEngine engine;
@@ -250,7 +250,7 @@ class RegionChunkTickTest {
     void collectedChunksEqualTheServerThreadSetForRandomizedLayouts() {
         final Random random = new Random(20260101L);
         for (int layoutSize : new int[] { 3, 4, 5, 8 }) {
-            this.installEngine(2, RegionLayout.fixed(layoutSize));
+            this.installEngine(2, RegionLayout.DYNAMIC_CLUSTER_8X8);
             final ServerLevel level = mockLevel();
             final TickRecorder recorder = new TickRecorder();
             final Set<Long> unloaded = new HashSet<>();
@@ -323,7 +323,7 @@ class RegionChunkTickTest {
         assertEquals(RANDOM_TICK_SPEED, recorder.positions().size(), "a write must be applied exactly once");
         assertEquals(RANDOM_TICK_SPEED, new HashSet<>(recorder.positions()).size(), "no position may be ticked twice");
         for (final BlockPos pos : recorder.positions()) {
-            assertTrue(isInteriorChunk(new ChunkPos(pos.getX() >> 4, pos.getZ() >> 4), RegionLayout.FIXED_3X3_REGION_CHUNK_SIZE),
+            assertTrue(isInteriorChunk(new ChunkPos(pos.getX() >> 4, pos.getZ() >> 4), RegionLayout.DYNAMIC_CLUSTER_8X8.regionChunkSize()),
                     () -> "a worker chunk may only write inside its own region: " + pos);
         }
     }
@@ -476,7 +476,7 @@ class RegionChunkTickTest {
     @Test
     void chunkTicksOfTheSameRegionRunSeriallyInListOrder() {
         // A 5x5 fixed region has three interior chunk columns, so two interior chunks can share one region.
-        this.installEngine(2, RegionLayout.fixed(5));
+        this.installEngine(2, RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel();
         final AtomicInteger active = new AtomicInteger();
         final AtomicInteger maxActive = new AtomicInteger();
@@ -785,7 +785,7 @@ class RegionChunkTickTest {
     }
 
     private List<BlockPos> runTwoInteriorChunksOfOneRegion(boolean firstChunkOnly) {
-        this.installEngine(2, RegionLayout.fixed(5));
+        this.installEngine(2, RegionLayout.DYNAMIC_CLUSTER_8X8);
         final TickRecorder recorder = new TickRecorder();
         final ServerLevel level = mockLevel();
         final LevelChunk second = chunk(new ChunkPos(2, 2), recorder);
@@ -998,7 +998,7 @@ class RegionChunkTickTest {
     }
 
     private void installEngine(boolean chunkTickWorkers) {
-        this.installEngine(2, RegionPolicy.FIXED_3X3, chunkTickWorkers);
+        this.installEngine(2, RegionPolicy.DYNAMIC_CLUSTER, chunkTickWorkers);
     }
 
     private void installEngine(int workerThreads, RegionLayout layout) {

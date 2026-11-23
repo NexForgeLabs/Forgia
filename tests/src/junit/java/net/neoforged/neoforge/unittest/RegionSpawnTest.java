@@ -151,7 +151,7 @@ class RegionSpawnTest {
                 for (int chunkZ = 0; chunkZ < 12; chunkZ++) {
                     final ChunkPos chunk = new ChunkPos(chunkX, chunkZ);
                     allChunks.add(chunk);
-                    if (RegionLayout.FIXED_3X3.regionX(chunkX) == 0) {
+                    if (RegionLayout.DYNAMIC_CLUSTER_8X8.regionX(chunkX) == 0) {
                         firstChunks.add(chunk.toLong());
                     } else {
                         secondChunks.add(chunk.toLong());
@@ -277,7 +277,7 @@ class RegionSpawnTest {
         final Set<Long> firstRegion = new HashSet<>();
         final Set<Long> secondRegion = new HashSet<>();
         for (final ChunkPos chunk : chunks) {
-            (RegionLayout.FIXED_3X3.regionX(chunk.x) == 0 ? firstRegion : secondRegion).add(chunk.toLong());
+            (RegionLayout.DYNAMIC_CLUSTER_8X8.regionX(chunk.x) == 0 ? firstRegion : secondRegion).add(chunk.toLong());
         }
         final RegionSpawnState.Built first = RegionSpawnState.build(level, source, firstRegion, List.of(), firstRegion, counter);
         final RegionSpawnState.Built second = RegionSpawnState.build(level, source, secondRegion, List.of(), secondRegion, counter);
@@ -338,7 +338,7 @@ class RegionSpawnTest {
         final Set<Long> known = new HashSet<>(chunkKeys(chunks));
         final Set<Long> firstRegion = new HashSet<>();
         for (final ChunkPos chunk : chunks) {
-            if (RegionLayout.FIXED_3X3.regionX(chunk.x) == 0) {
+            if (RegionLayout.DYNAMIC_CLUSTER_8X8.regionX(chunk.x) == 0) {
                 firstRegion.add(chunk.toLong());
             }
         }
@@ -708,7 +708,7 @@ class RegionSpawnTest {
      */
     @Test
     void spawnOnlyStartupReservesOwnedStorageBeforeAnAdapterCanEnableItsSlice() {
-        final var fixed = RegionLayout.of(RegionPolicy.FIXED_3X3);
+        final var fixed = RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER);
         final var mode = RegionEntityStorageMode.forConfiguration(false, true, fixed);
         assertEquals(RegionEntityStorageMode.REGION_OWNED, mode);
         this.engine = new RegionThreadingEngine(2, false, false, false, false, false, false, true, fixed, mode);
@@ -774,7 +774,7 @@ class RegionSpawnTest {
 
     private void installEngine(boolean spawnWorkers) {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, false, false, true,
-                spawnWorkers, RegionLayout.of(RegionPolicy.FIXED_3X3));
+                spawnWorkers, RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));
         RegionThreadingManager.install(created);
         this.engine = created;
     }

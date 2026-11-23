@@ -98,7 +98,7 @@ class RegionScheduledTickTest {
     void configuredScheduledTickWorkersFallBackToTheVanillaInlinePath() {
         // Production preflights the complete phase. An unknown callback retains the unchanged live
         // serial queue even though the bounded lamp profile is available for other phases.
-        this.engine = new RegionThreadingEngine(2, false, false, false, false, true, RegionPolicy.FIXED_3X3);
+        this.engine = new RegionThreadingEngine(2, false, false, false, false, true, RegionPolicy.DYNAMIC_CLUSTER);
         RegionThreadingManager.install(this.engine);
         final ServerLevel level = mockLevel();
         final LevelTicks<Block> ticks = newTicks();
@@ -937,7 +937,7 @@ class RegionScheduledTickTest {
     }
 
     private void installEngine(boolean scheduledTickWorkers) {
-        final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, false, scheduledTickWorkers, RegionPolicy.FIXED_3X3);
+        final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, false, scheduledTickWorkers, RegionPolicy.DYNAMIC_CLUSTER);
         if (scheduledTickWorkers) {
             // Production falls back to the vanilla inline path for unclassified scheduled callbacks; these
             // tests explicitly opt into the internal mechanics seam.
@@ -970,7 +970,7 @@ class RegionScheduledTickTest {
             final Object regionizer = regionizer(engine);
             final Method getOrCreate = regionizer.getClass().getDeclaredMethod("getOrCreate", RegionCoordinate.class);
             getOrCreate.setAccessible(true);
-            return getOrCreate.invoke(regionizer, RegionLayout.FIXED_3X3.regionAt(level, pos));
+            return getOrCreate.invoke(regionizer, RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(level, pos));
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException(exception);
         }

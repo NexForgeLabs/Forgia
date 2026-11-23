@@ -32,7 +32,7 @@ class RegionThreadingOptionsTest {
                 selected(selection, 2), selected(selection, 3));
         final var ticks = new RegionThreadingOptions.TickSlices(selected(selection, 4), selected(selection, 5),
                 selected(selection, 6), selected(selection, 7), selected(selection, 8));
-        final RegionLayout layout = RegionLayout.fixed(5);
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         final RegionEntityStorageMode storage = RegionEntityStorageMode.REGION_OWNED;
         final var options = new RegionThreadingOptions(workers, ticks, layout, storage);
         final RegionThreadingEngine grouped = new RegionThreadingEngine(options);
@@ -71,7 +71,7 @@ class RegionThreadingOptionsTest {
     void startupSpawnAdmissionCanStillNarrowTheInitialSelection() throws Exception {
         final var options = new RegionThreadingOptions(new RegionThreadingOptions.Workers(1, false, false, false, false),
                 new RegionThreadingOptions.TickSlices(false, false, false, false, true),
-                RegionLayout.fixed(3), RegionEntityStorageMode.REGION_OWNED);
+                RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.REGION_OWNED);
         final RegionThreadingEngine engine = new RegionThreadingEngine(options);
         try {
             engine.configureStartupSpawnWorkers(false);

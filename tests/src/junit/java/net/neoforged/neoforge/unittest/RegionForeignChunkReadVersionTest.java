@@ -102,7 +102,7 @@ class RegionForeignChunkReadVersionTest {
             LockSupport.parkNanos(100_000L);
         }
     };
-    private static final RegionPolicy FIXED = RegionPolicy.FIXED_3X3;
+    private static final RegionPolicy FIXED = RegionPolicy.DYNAMIC_CLUSTER;
     /** Last chunk of region (0,0): the region that reads across the border. */
     private static final ChunkPos READER_CHUNK = new ChunkPos(2, 0);
     /** First chunk of region (1,0): the chunk another region mutates under the reader. */

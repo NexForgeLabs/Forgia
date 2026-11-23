@@ -248,7 +248,7 @@ class RegionHopperTickLeaseTest {
      */
     private void installEngine(boolean blockEntityTickWorkers) {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, blockEntityTickWorkers,
-                false, false, RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                false, false, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         RegionThreadingManager.install(created);
         this.engine = created;
     }

@@ -63,12 +63,12 @@ class RegionBorderUpdateTest {
             LockSupport.parkNanos(100_000L);
         }
     };
-    /** Source chunk: the middle of region (0,0) of the size-3 fixed layout. */
-    private static final ChunkPos SOURCE_CHUNK = new ChunkPos(1, 1);
-    /** Target chunk: the first chunk of region (1,0), one block across the border. */
-    private static final ChunkPos TARGET_CHUNK = new ChunkPos(3, 1);
+    /** Source chunk: in region (0,0) of the 8x8 dynamic cluster layout. */
+    private static final ChunkPos SOURCE_CHUNK = new ChunkPos(7, 1);
+    /** Target chunk: the first chunk of region (1,0), across the border. */
+    private static final ChunkPos TARGET_CHUNK = new ChunkPos(8, 1);
     /** An interior chunk of the target region, so the next-tick plan can lease the region and deliver its mailbox. */
-    private static final ChunkPos TARGET_TICK_CHUNK = new ChunkPos(4, 1);
+    private static final ChunkPos TARGET_TICK_CHUNK = new ChunkPos(9, 1);
     private static final BlockPos SOURCE_POS = new BlockPos(SOURCE_CHUNK.getMinBlockX() + 1, 64, SOURCE_CHUNK.getMinBlockZ() + 1);
     private static final BlockPos TARGET_POS = new BlockPos(TARGET_CHUNK.getMinBlockX() + 1, 64, TARGET_CHUNK.getMinBlockZ() + 1);
     /** The last block of the source region and the first block of the target region, for a comparator update. */
@@ -140,7 +140,7 @@ class RegionBorderUpdateTest {
         this.installEngine(level);
         final Thread serverThread = Thread.currentThread();
         final Block block = mock(Block.class);
-        final BlockPos origin = new BlockPos(63, 64, 24);
+        final BlockPos origin = new BlockPos(143, 64, 24);
         final List<BlockPos> executed = new CopyOnWriteArrayList<>();
         final List<Thread> threads = new CopyOnWriteArrayList<>();
         final BlockState state = mock(BlockState.class);
@@ -152,8 +152,8 @@ class RegionBorderUpdateTest {
         }).when(state).handleNeighborChanged(any(), any(), any(), any(), anyBoolean());
         doAnswer(call -> {
             final BlockPos pos = call.getArgument(0);
-            if (Thread.currentThread() != serverThread && (pos.getX() >> 4) == 4) {
-                throw net.neoforged.neoforge.server.threading.region.RegionWorkerChunkUnavailableException.forChunk(4, 1, ChunkStatus.FULL);
+            if (Thread.currentThread() != serverThread && (pos.getX() >> 4) == 9) {
+                throw net.neoforged.neoforge.server.threading.region.RegionWorkerChunkUnavailableException.forChunk(9, 1, ChunkStatus.FULL);
             }
             return state;
         }).when(level).getBlockState(any(BlockPos.class));
@@ -166,7 +166,7 @@ class RegionBorderUpdateTest {
         // The target region is leased, but an adjacent chunk within that same region is unavailable.
         final ServerChunkCache source = level.getChunkSource();
         doAnswer(call -> Thread.currentThread() == serverThread ? mock(LevelChunk.class) : null)
-                .when(source).getChunkNow(4, 1);
+                .when(source).getChunkNow(9, 1);
         doAnswer(call -> {
             level.neighborChanged(TARGET_POS, block, SOURCE_POS);
             return null;
@@ -397,7 +397,7 @@ class RegionBorderUpdateTest {
 
     private void installEngine(ServerLevel level) {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, false, false, true,
-                RegionLayout.of(RegionPolicy.FIXED_3X3));
+                RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));
         created.setBorderUpdatesEnabledForTesting(true);
         RegionThreadingManager.install(created);
         this.engine = created;

@@ -92,8 +92,8 @@ class RegionScopedEntityQueryTest {
 
     @Test
     void leasedWorkerQueryReturnsExactlyTheEntitiesOfItsRegion() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity inside = new TestEntity(level);
         inside.setPos(5.0, 64.0, 5.0);
@@ -128,8 +128,8 @@ class RegionScopedEntityQueryTest {
 
     @Test
     void crossingQueryIsClampedCountedAndNeverReadsTheNeighbourBucket() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity inside = new TestEntity(level);
         inside.setPos(5.0, 64.0, 5.0);
@@ -169,7 +169,7 @@ class RegionScopedEntityQueryTest {
 
     @Test
     void workerWithoutLeaseAnswersEmptyAndCountsTheTruncation() {
-        this.installEngine(1, false, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+        this.installEngine(1, false, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         final AtomicReference<Boolean> guard = new AtomicReference<>();
 
         runOnNativeWorker(() -> {
@@ -214,8 +214,8 @@ class RegionScopedEntityQueryTest {
 
     @Test
     void mainThreadOnlyStorageAnswersEmptyOnAWorker() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         assertNull(this.engine.beginEntityTickPlan(level, entity -> true, PARKING_BARRIER),
                 "MAIN_THREAD_ONLY storage must not start an entity worker batch");
         final AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -240,8 +240,8 @@ class RegionScopedEntityQueryTest {
 
     @Test
     void serverThreadQueriesKeepTheVanillaResultsOrderingAndAbortSemantics() {
-        this.installEngine(1, false, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, false, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity first = new TestEntity(level);
         first.setPos(1.0, 64.0, 1.0);

@@ -134,7 +134,7 @@ class RegionBorderEquivalenceTest {
         }
         if (regionThreading) {
             final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true,
-                    net.neoforged.neoforge.server.threading.region.RegionPolicy.FIXED_3X3);
+                    net.neoforged.neoforge.server.threading.region.RegionPolicy.DYNAMIC_CLUSTER);
             installed.setBorderUpdatesEnabledForTesting(true);
             installed.enableUnclassifiedWorkerCallbacksForTesting();
             RegionThreadingManager.install(installed);

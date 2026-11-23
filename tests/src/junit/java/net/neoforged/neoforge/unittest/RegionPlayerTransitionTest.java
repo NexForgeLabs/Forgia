@@ -380,7 +380,7 @@ class RegionPlayerTransitionTest {
 
     private void installEngine() {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, true, false, false, false,
-                RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+                RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         RegionThreadingManager.install(created);
         this.engine = created;
     }

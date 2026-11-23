@@ -163,7 +163,7 @@ final class CanonicalBlockEntityTestSupport implements AutoCloseable {
     }
 
     void enable(boolean waves, boolean persistent) {
-        this.enable(waves, persistent, RegionLayout.FIXED_3X3);
+        this.enable(waves, persistent, RegionLayout.DYNAMIC_CLUSTER_8X8);
     }
 
     void enable(boolean waves, boolean persistent, RegionLayout layout) {

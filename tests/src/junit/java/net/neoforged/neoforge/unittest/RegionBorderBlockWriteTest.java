@@ -101,7 +101,7 @@ class RegionBorderBlockWriteTest {
             LockSupport.parkNanos(100_000L);
         }
     };
-    private static final RegionPolicy FIXED = RegionPolicy.FIXED_3X3;
+    private static final RegionPolicy FIXED = RegionPolicy.DYNAMIC_CLUSTER;
     /** Middle chunk of region (0,0): the region whose worker writes across the border. */
     private static final ChunkPos SOURCE_CHUNK = new ChunkPos(1, 1);
     /** Middle chunk of region (1,0): the region that owns the written position and applies the write. */

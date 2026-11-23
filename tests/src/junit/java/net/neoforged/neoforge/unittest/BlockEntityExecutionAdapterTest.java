@@ -447,7 +447,7 @@ class BlockEntityExecutionAdapterTest {
 
     private static void enqueue(CanonicalBlockEntityTestSupport f, Runnable task) {
         assertEquals(net.neoforged.neoforge.server.threading.region.RegionMailbox.PostResult.ACCEPTED,
-                f.engine.mailbox(f.level).post(net.neoforged.neoforge.server.threading.region.RegionLayout.FIXED_3X3.regionAt(f.level, FIRST), task));
+                f.engine.mailbox(f.level).post(net.neoforged.neoforge.server.threading.region.RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(f.level, FIRST), task));
     }
 
     private static Adapter register(CanonicalBlockEntityTestSupport f, Mode mode) {

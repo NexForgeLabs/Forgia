@@ -580,7 +580,7 @@ class RegionEntityQueryHandoffTest {
     }
 
     private void installEngine(boolean entityTickWorkers, boolean blockEntityTickWorkers, RegionEntityStorageMode entityStorageMode) {
-        final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, entityTickWorkers, blockEntityTickWorkers, true, false, RegionPolicy.FIXED_3X3, entityStorageMode);
+        final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, entityTickWorkers, blockEntityTickWorkers, true, false, RegionPolicy.DYNAMIC_CLUSTER, entityStorageMode);
         // These tests exercise the legacy handoff transport and the scheduled tick mechanics directly.
         // Production rejects legacy worker queries and gates unclassified scheduled callbacks.
         created.enableLegacyEntityQueryHandoffForTesting();

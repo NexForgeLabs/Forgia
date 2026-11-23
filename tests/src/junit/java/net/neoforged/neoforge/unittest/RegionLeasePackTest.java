@@ -75,7 +75,7 @@ class RegionLeasePackTest {
 
     @BeforeEach
     void createRegionizer() throws ReflectiveOperationException {
-        this.regionizer = regionizerConstructor.newInstance(RegionLayout.FIXED_3X3);
+        this.regionizer = regionizerConstructor.newInstance(RegionLayout.DYNAMIC_CLUSTER_8X8);
     }
 
     @Test

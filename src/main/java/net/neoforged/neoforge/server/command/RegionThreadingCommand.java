@@ -670,8 +670,7 @@ final class RegionThreadingCommand {
                 + ", compatConflicts=" + RegionThreadingCompatReport.conflictCount()
                 + ", compatLeftOffSlices=" + RegionThreadingCompatReport.state().plan().leftOffSlices()
                 + ", configuredWorkerThreads=" + ForgiaConfig.SERVER.regionThreadingWorkerThreads.get()
-                + ", configuredRegionPolicy=" + ForgiaConfig.SERVER.regionThreadingMode.get()
-                + ", configuredRegionChunkSize=" + ForgiaConfig.SERVER.regionThreadingFixedRegionChunks.get()), false);
+                + ", configuredRegionPolicy=" + ForgiaConfig.SERVER.regionThreadingMode.get()), false);
         source.sendSuccess(() -> Component.literal(RegionMetricsReport.notInstalledLine()), false);
     }
 }

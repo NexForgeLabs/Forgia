@@ -1624,7 +1624,7 @@ class RegionBlockEntityTickTest {
     }
 
     private void installEngine(boolean blockEntityTickWorkers, int workerThreads, boolean persistentWorkers, boolean packedRegionLeases) {
-        final RegionThreadingEngine created = new RegionThreadingEngine(workerThreads, false, false, false, blockEntityTickWorkers, false, false, false, persistentWorkers, packedRegionLeases, RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+        final RegionThreadingEngine created = new RegionThreadingEngine(workerThreads, false, false, false, blockEntityTickWorkers, false, false, false, persistentWorkers, packedRegionLeases, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         RegionThreadingManager.install(created);
         this.engine = created;
     }

@@ -411,21 +411,21 @@ class RegionDeferredBlockUpdatesTest {
 
     private void installBlockEntityEngine() {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, true, false, false,
-                RegionLayout.of(RegionPolicy.FIXED_3X3));
+                RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));
         RegionThreadingManager.install(created);
         this.engine = created;
     }
 
     private void installBlockEntityAndChunkTickEngine() {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, true, false, true,
-                RegionLayout.of(RegionPolicy.FIXED_3X3));
+                RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));
         RegionThreadingManager.install(created);
         this.engine = created;
     }
 
     private void installEntityTickEngine() {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, true, false, false, false,
-                RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+                RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         RegionThreadingManager.install(created);
         this.engine = created;
     }

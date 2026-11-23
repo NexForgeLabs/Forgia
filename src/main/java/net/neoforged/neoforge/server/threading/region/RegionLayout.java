@@ -31,23 +31,12 @@ public final class RegionLayout {
     public static final int DYNAMIC_REGION_CHUNK_SHIFT = 4;
     /** Edge length in chunks of the legacy dynamic grid. */
     public static final int DYNAMIC_REGION_CHUNK_SIZE = 1 << DYNAMIC_REGION_CHUNK_SHIFT;
-    /** Smallest accepted fixed region edge length in chunks. */
-    public static final int MIN_FIXED_REGION_CHUNK_SIZE = 3;
-    /** Largest accepted fixed region edge length in chunks. */
-    public static final int MAX_FIXED_REGION_CHUNK_SIZE = 32;
-    /** Edge length in chunks of the default fixed layout; the default of {@code regionThreadingFixedRegionChunks}. */
-    public static final int FIXED_3X3_REGION_CHUNK_SIZE = 3;
     /** Edge length in blocks of one chunk, the unit the chunk coordinates of a position are taken in. */
     private static final int CHUNK_BLOCK_SIZE = 16;
     public static final RegionLayout DYNAMIC = new RegionLayout(
             RegionPolicy.DYNAMIC,
             DYNAMIC_REGION_CHUNK_SIZE,
             DYNAMIC_REGION_CHUNK_SHIFT,
-            0L);
-    public static final RegionLayout FIXED_3X3 = new RegionLayout(
-            RegionPolicy.FIXED_3X3,
-            FIXED_3X3_REGION_CHUNK_SIZE,
-            -1,
             0L);
     public static final RegionLayout DYNAMIC_CLUSTER_8X8 = new RegionLayout(
             RegionPolicy.DYNAMIC_CLUSTER,
@@ -73,21 +62,6 @@ public final class RegionLayout {
     public static RegionLayout of(RegionPolicy policy) {
         return switch (policy) {
             case DYNAMIC -> DYNAMIC;
-            case FIXED_3X3 -> FIXED_3X3;
-            case DYNAMIC_CLUSTER -> DYNAMIC_CLUSTER_8X8;
-        };
-    }
-
-    /**
-     * {@return the layout of {@code policy} with the configured fixed edge length}
-     * <p>
-     * {@code fixedRegionChunkSize} is ignored by {@link RegionPolicy#DYNAMIC} and
-     * {@link RegionPolicy#DYNAMIC_CLUSTER}.
-     */
-    public static RegionLayout of(RegionPolicy policy, int fixedRegionChunkSize) {
-        return switch (policy) {
-            case DYNAMIC -> DYNAMIC;
-            case FIXED_3X3 -> fixed(fixedRegionChunkSize);
             case DYNAMIC_CLUSTER -> DYNAMIC_CLUSTER_8X8;
         };
     }
@@ -95,28 +69,11 @@ public final class RegionLayout {
     /**
      * {@return the layout of {@code policy} with all configured grid parameters}
      */
-    public static RegionLayout of(RegionPolicy policy, int fixedRegionChunkSize, int dynamicSectionShift, long dynamicSplitDelayTicks) {
+    public static RegionLayout of(RegionPolicy policy, int dynamicSectionShift, long dynamicSplitDelayTicks) {
         return switch (policy) {
             case DYNAMIC -> DYNAMIC;
-            case FIXED_3X3 -> fixed(fixedRegionChunkSize);
             case DYNAMIC_CLUSTER -> dynamicCluster(dynamicSectionShift, dynamicSplitDelayTicks);
         };
-    }
-
-    /**
-     * {@return a fixed layout with an edge length of {@code regionChunkSize} chunks}
-     *
-     * @throws IllegalArgumentException when {@code regionChunkSize} is outside
-     *                                  {@value #MIN_FIXED_REGION_CHUNK_SIZE}..{@value #MAX_FIXED_REGION_CHUNK_SIZE}
-     */
-    public static RegionLayout fixed(int regionChunkSize) {
-        if (regionChunkSize < MIN_FIXED_REGION_CHUNK_SIZE || regionChunkSize > MAX_FIXED_REGION_CHUNK_SIZE) {
-            throw new IllegalArgumentException("Fixed region chunk size must be in "
-                    + MIN_FIXED_REGION_CHUNK_SIZE + ".." + MAX_FIXED_REGION_CHUNK_SIZE + ": " + regionChunkSize);
-        }
-        return regionChunkSize == FIXED_3X3_REGION_CHUNK_SIZE
-                ? FIXED_3X3
-                : new RegionLayout(RegionPolicy.FIXED_3X3, regionChunkSize, -1, 0L);
     }
 
     /**
@@ -142,10 +99,6 @@ public final class RegionLayout {
         return this.policy;
     }
 
-    public boolean isFixed() {
-        return this.policy == RegionPolicy.FIXED_3X3;
-    }
-
     public boolean isDynamicCluster() {
         return this.policy == RegionPolicy.DYNAMIC_CLUSTER;
     }
@@ -155,7 +108,7 @@ public final class RegionLayout {
      * {@link #regionX(int)}/{@link #regionZ(int)}}
      */
     public boolean supportsSectionPartitions() {
-        return this.policy == RegionPolicy.FIXED_3X3 || this.policy == RegionPolicy.DYNAMIC_CLUSTER;
+        return this.policy == RegionPolicy.DYNAMIC_CLUSTER;
     }
 
     public int dynamicSectionShift() {
@@ -175,7 +128,6 @@ public final class RegionLayout {
 
     public int regionX(int chunkX) {
         return switch (this.policy) {
-            case FIXED_3X3 -> Math.floorDiv(chunkX, this.regionChunkSize);
             case DYNAMIC_CLUSTER -> chunkX >> this.dynamicSectionShift;
             case DYNAMIC -> chunkX >> DYNAMIC_REGION_CHUNK_SHIFT;
         };
@@ -183,7 +135,6 @@ public final class RegionLayout {
 
     public int regionZ(int chunkZ) {
         return switch (this.policy) {
-            case FIXED_3X3 -> Math.floorDiv(chunkZ, this.regionChunkSize);
             case DYNAMIC_CLUSTER -> chunkZ >> this.dynamicSectionShift;
             case DYNAMIC -> chunkZ >> DYNAMIC_REGION_CHUNK_SHIFT;
         };

@@ -121,8 +121,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void getAllOnAWorkerAnswersFromItsRegionAndCountsTruncation() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity inside = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity neighbour = this.entity(level, 60.0, 64.0, 5.0);
@@ -158,8 +158,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void getAllOnAWorkerOfACompleteRegionIsNotTruncated() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity inside = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity self = this.entity(level, 1.0, 64.0, 1.0);
@@ -185,8 +185,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void getAllOnTheServerThreadKeepsVanillaSemantics() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity first = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity second = this.entity(level, 60.0, 64.0, 5.0);
@@ -207,8 +207,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void serverThreadLookupsOfEveryShapeKeepVanillaSemantics() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity first = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity second = this.entity(level, 60.0, 64.0, 5.0);
@@ -238,8 +238,8 @@ class RegionEntityQueryPathsTest {
         // A worker without a lease has no region to answer from, so the lookup answers the empty view vanilla
         // answers for a level without entities and counts the truncation. Throwing turned an ordinary "no
         // entity is here" into a server crash.
-        this.installEngine(1, false, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        this.installEngine(1, false, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         final List<Entity> seen = new CopyOnWriteArrayList<>();
         final List<Throwable> failures = new CopyOnWriteArrayList<>();
 
@@ -263,8 +263,8 @@ class RegionEntityQueryPathsTest {
         // The property a lookup on a worker guarantees: it never throws and never reads the level's live view.
         // Whether the answer is empty or the region's own snapshot depends on the regionizer (two entities merge
         // into one region), so that is not asserted here.
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity self = this.entity(level, 1.0, 64.0, 1.0);
         addEntity(manager, 0, 0, self);
@@ -291,8 +291,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void byUuidLookupOnAWorkerAnswersFromItsRegion() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity owner = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity self = this.entity(level, 1.0, 64.0, 1.0);
@@ -324,8 +324,8 @@ class RegionEntityQueryPathsTest {
         // The property a by-uuid/by-id lookup on a worker guarantees: it never throws and never rejects. A worker
         // whose lease covers the entity answers it; one whose lease does not answers what vanilla answers for an
         // absent entity. Which of the two applies depends on the regionizer, so only the guarantee is asserted.
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity neighbour = this.entity(level, 60.0, 64.0, 5.0);
         final TestEntity self = this.entity(level, 1.0, 64.0, 1.0);
@@ -357,8 +357,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void typeFilteredLookupOnAWorkerAnswersFromItsRegionIndex() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity inside = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity neighbour = this.entity(level, 60.0, 64.0, 5.0);
@@ -390,8 +390,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void workerReadsThePlayerSnapshotInsteadOfTheLiveList() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         final List<ServerPlayer> live = livePlayers(level);
         final ServerPlayer first = player(level, 1.0, 64.0, 1.0);
         live.add(first);
@@ -430,8 +430,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void playerSnapshotIsReplacedOncePerLevelTick() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         final List<ServerPlayer> live = livePlayers(level);
         live.add(player(level, 1.0, 64.0, 1.0));
 
@@ -452,8 +452,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void playerSnapshotIsDetachedWithTheLevel() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         final List<ServerPlayer> live = livePlayers(level);
         live.add(player(level, 1.0, 64.0, 1.0));
 
@@ -477,7 +477,7 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void levelWithoutTheEngineKeepsTheLivePlayerList() {
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         final List<ServerPlayer> live = livePlayers(level);
         final ServerPlayer player = player(level, 1.0, 64.0, 1.0);
         live.add(player);
@@ -491,8 +491,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void playerTypedBoxQueryOnAWorkerAddsThePlayerOfAnotherRegion() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final List<ServerPlayer> live = livePlayers(level);
         // The player stands beyond the leased region's 48-block edge, inside the crossing query box.
@@ -527,8 +527,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void typedBoxConsumerOnAWorkerAnswersAPlayerOfTheLeaseOnce() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final List<ServerPlayer> live = livePlayers(level);
         // The first player stands inside the leased region, so the physical section bucket answers it. The
@@ -570,8 +570,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void boxConsumerOnAWorkerAnswersTheClampedLease() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity inside = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity outsideTheBox = this.entity(level, 5.0, 64.0, 30.0);
@@ -611,8 +611,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void typedBoxQueryOnAWorkerStopsAtMaxWhileItAppendsThePlayerUnion() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final List<ServerPlayer> live = livePlayers(level);
         final ServerPlayer local = player(level, 5.0, 64.0, 5.0);
@@ -646,8 +646,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void byIdLookupOfAnEntityWhoseRemovalIsDeferredIsRefused() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final TestEntity owner = this.entity(level, 5.0, 64.0, 5.0);
         final TestEntity self = this.entity(level, 1.0, 64.0, 1.0);
@@ -683,8 +683,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void playerTypedBoxQueryUsesTheBoundingBoxOfTheSnapshot() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final ServerLevel level = mockLevel(newManager(RegionLayout.FIXED_3X3));
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final ServerLevel level = mockLevel(newManager(RegionLayout.DYNAMIC_CLUSTER_8X8));
         final List<ServerPlayer> live = livePlayers(level);
         final ServerPlayer player = player(level, 60.0, 64.0, 5.0);
         live.add(player);
@@ -714,8 +714,8 @@ class RegionEntityQueryPathsTest {
 
     @Test
     void boxQueryOnAWorkerAppendsThePartsOfTheOwnersItAnswers() {
-        this.installEngine(1, true, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
-        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.FIXED_3X3);
+        this.installEngine(1, true, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
+        final PersistentEntitySectionManager<Entity> manager = newManager(RegionLayout.DYNAMIC_CLUSTER_8X8);
         final ServerLevel level = mockLevel(manager);
         final MultipartTestEntity multipart = new MultipartTestEntity(level);
         multipart.setPos(5.0, 64.0, 5.0);

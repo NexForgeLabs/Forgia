@@ -212,7 +212,7 @@ class CanonicalBlockEntityRecoveryTest {
             f.enable(true);
             f.engine.addRegionSection(f.level, A.getX() / 16, A.getZ() / 16);
             f.engine.addRegionSection(f.level, B.getX() / 16, B.getZ() / 16);
-            final var old = region(f, RegionLayout.FIXED_3X3, A);
+            final var old = region(f, RegionLayout.DYNAMIC_CLUSTER_8X8, A);
             final var entered = new CountDownLatch(2);
             final var release = new CountDownLatch(1);
             f.onStart = id -> {

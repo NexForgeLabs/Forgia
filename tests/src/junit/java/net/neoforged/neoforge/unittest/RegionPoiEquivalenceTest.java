@@ -95,7 +95,7 @@ class RegionPoiEquivalenceTest {
     @ParameterizedTest
     @ValueSource(ints = { 3, 4, 8 })
     void everyQueryMatchesTheReferenceManagerForEveryRegionSize(int regionChunkSize) {
-        final RegionLayout layout = RegionLayout.fixed(regionChunkSize);
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         try (Harness harness = this.harness(layout, "size-" + regionChunkSize)) {
             this.runScript(harness, layout, 0x5EED_0000L + regionChunkSize, STEPS, 1);
         }
@@ -106,7 +106,7 @@ class RegionPoiEquivalenceTest {
         // A publish cadence of five means several writes of one region are visible to another region only after
         // the next publish, which is the staleness the storage promises. The comparison happens after the
         // publish, so the published state has to be the live state exactly.
-        final RegionLayout layout = RegionLayout.FIXED_3X3;
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         try (Harness harness = this.harness(layout, "cadence")) {
             this.runScript(harness, layout, 0xC0FFEE, STEPS, 5);
         }

@@ -133,12 +133,12 @@ class RegionOverloadGovernorTest {
         final var workers = new RegionThreadingOptions.Workers(2, false, false, false, false);
         final var ticks = new RegionThreadingOptions.TickSlices(false, false, false, false, false);
 
-        final var fixedEngine = new RegionThreadingEngine(new RegionThreadingOptions(
-                workers, ticks, RegionLayout.of(RegionPolicy.FIXED_3X3, 3, 3, 40L), RegionEntityStorageMode.MAIN_THREAD_ONLY, enabledConfig));
+        final var legacyDynamicEngine = new RegionThreadingEngine(new RegionThreadingOptions(
+                workers, ticks, RegionLayout.of(RegionPolicy.DYNAMIC), RegionEntityStorageMode.MAIN_THREAD_ONLY, enabledConfig));
         try {
-            assertFalse(fixedEngine.isOverloadGovernorActive(), "FIXED_3X3 must ignore overload governor");
+            assertFalse(legacyDynamicEngine.isOverloadGovernorActive(), "DYNAMIC must ignore overload governor");
         } finally {
-            fixedEngine.shutdown();
+            legacyDynamicEngine.shutdown();
         }
 
         final var dynamicEngine = new RegionThreadingEngine(new RegionThreadingOptions(

@@ -118,7 +118,7 @@ class FurnaceWorkWavesTest {
         doReturn(chunk).when(chunkSource).getChunkNow(anyInt(), anyInt());
         NeoForge.EVENT_BUS.addListener(this.fuel);
         this.engine = new RegionThreadingEngine(2, false, false, false, true, false, false, false,
-                persistentWorkers, false, RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                persistentWorkers, false, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         this.engine.setBlockEntityAdmissionCacheEnabledForTesting(false);
         this.engine.setFurnaceWorkWavesEnabledForTesting(true);
         this.engine.setBlockEntityResourcesEnabledForTesting(Boolean.getBoolean("forgia.furnace.resourceOwnership"));
@@ -221,7 +221,7 @@ class FurnaceWorkWavesTest {
                 final var regionizer = field.get(this.engine);
                 final var get = regionizer.getClass().getDeclaredMethod("get", net.neoforged.neoforge.server.threading.region.RegionCoordinate.class);
                 get.setAccessible(true);
-                final var region = get.invoke(regionizer, RegionLayout.FIXED_3X3.regionAt(this.level, source.getBlockPos()));
+                final var region = get.invoke(regionizer, RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(this.level, source.getBlockPos()));
                 final var begin = region.getClass().getDeclaredMethod("beginOwnership");
                 begin.setAccessible(true);
                 final var failure = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> begin.invoke(region));

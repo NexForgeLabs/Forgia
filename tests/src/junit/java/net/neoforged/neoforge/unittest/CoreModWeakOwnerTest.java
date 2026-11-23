@@ -115,7 +115,7 @@ class CoreModWeakOwnerTest {
         // The broad invocation fixture installs observer/stubbing closures that retain its whole graph.
         // This test isolates the production callback with a real shutdown Engine and an unstubbed Level.
         final var engine = new RegionThreadingEngine(2, false, false, false, true, false, false, false,
-                false, false, RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                false, false, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         final var level = org.mockito.Mockito.mock(ServerLevel.class);
         try {
             final Object check = authority(engine, level, null);

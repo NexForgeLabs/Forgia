@@ -440,7 +440,7 @@ class DynamicClusterScalabilityAuditTest {
     @Test
     void matchedLayoutComparisonAndSoakReport() {
         final RegionLayout[] layouts = {
-                RegionLayout.FIXED_3X3,
+                RegionLayout.DYNAMIC_CLUSTER_8X8,
                 RegionLayout.DYNAMIC,
                 RegionLayout.dynamicCluster(3, 40L)
         };

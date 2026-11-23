@@ -3431,7 +3431,7 @@ public class ServerLoadBenchmarkGameTests {
             return invariants;
         }
         final RegionThreadingDiagnostics engine = after.get();
-        final RegionMappingCheck mapping = window.watch().engineState().checkRegionMapping(level, RegionLayout.of(engine.regionPolicy(), engine.regionChunkSize()));
+        final RegionMappingCheck mapping = window.watch().engineState().checkRegionMapping(level, RegionLayout.of(engine.regionPolicy(), Integer.numberOfTrailingZeros(engine.regionChunkSize()), 40L));
         final List<Entity> liveEntities = liveLevelEntities(level);
         final int sectionMismatches = regionMismatches(level, liveEntities);
         final int ledgerLive = level.entityIdentityLedger().liveCount();
@@ -3970,7 +3970,6 @@ public class ServerLoadBenchmarkGameTests {
     private static String profileName(Optional<RegionThreadingDiagnostics> diagnostics) {
         return diagnostics.map(value -> {
             final String layout = switch (value.regionPolicy()) {
-                case FIXED_3X3 -> "fixed";
                 case DYNAMIC -> "legacyDynamic";
                 case DYNAMIC_CLUSTER -> "dynamicCluster";
             };

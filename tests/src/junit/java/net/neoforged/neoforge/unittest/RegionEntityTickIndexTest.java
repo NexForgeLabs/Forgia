@@ -44,7 +44,7 @@ class RegionEntityTickIndexTest {
 
     @Test
     void indexMatchesTheRegionizerEntityMapUnderRandomEntityOperations() throws ReflectiveOperationException {
-        final RegionLayout layout = RegionLayout.FIXED_3X3;
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         final Object regionizer = newRegionizer(layout);
         // A 9x9 chunk island spans three fixed regions per axis, so the random walk crosses region boundaries
         // in both axes.
@@ -93,7 +93,7 @@ class RegionEntityTickIndexTest {
 
     @Test
     void tickListOrderIsPreservedAndReinsertionAppends() throws ReflectiveOperationException {
-        final Object regionizer = newRegionizer(RegionLayout.FIXED_3X3);
+        final Object regionizer = newRegionizer(RegionLayout.DYNAMIC_CLUSTER_8X8);
         addChunk(regionizer, this.level, 0, 0);
         final Entity first = this.tickingEntity(regionizer, new BlockPos(1, 64, 1));
         final Entity second = this.tickingEntity(regionizer, new BlockPos(2, 64, 1));
@@ -170,7 +170,7 @@ class RegionEntityTickIndexTest {
 
     @Test
     void mappedButNotTickingEntityIsIndexedAndNotPartOfTheTick() throws ReflectiveOperationException {
-        final RegionLayout layout = RegionLayout.FIXED_3X3;
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         final Object regionizer = newRegionizer(layout);
         addChunk(regionizer, this.level, 0, 0);
         final Entity entity = this.entity(new BlockPos(1, 64, 1));
@@ -192,7 +192,7 @@ class RegionEntityTickIndexTest {
 
     @Test
     void alwaysTickingEntityIsMarkedForTheServerThread() throws ReflectiveOperationException {
-        final Object regionizer = newRegionizer(RegionLayout.FIXED_3X3);
+        final Object regionizer = newRegionizer(RegionLayout.DYNAMIC_CLUSTER_8X8);
         addChunk(regionizer, this.level, 0, 0);
         final Entity player = this.entity(new BlockPos(1, 64, 1));
         when(player.isAlwaysTicking()).thenReturn(true);
@@ -207,7 +207,7 @@ class RegionEntityTickIndexTest {
 
     @Test
     void clearLevelAndClearDropEveryIndexEntry() throws ReflectiveOperationException {
-        final Object regionizer = newRegionizer(RegionLayout.FIXED_3X3);
+        final Object regionizer = newRegionizer(RegionLayout.DYNAMIC_CLUSTER_8X8);
         addChunk(regionizer, this.level, 0, 0);
         final Entity entity = this.tickingEntity(regionizer, new BlockPos(1, 64, 1));
         assertEquals(1, entityCount(regionizer));

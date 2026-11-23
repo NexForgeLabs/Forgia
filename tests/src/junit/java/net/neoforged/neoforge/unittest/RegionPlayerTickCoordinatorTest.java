@@ -71,7 +71,7 @@ class RegionPlayerTickCoordinatorTest {
         when(players.getPlayer(any(UUID.class))).thenAnswer(call -> this.online.get(call.getArgument(0)));
         when(this.server.getPlayerList()).thenReturn(players);
         this.engine = new RegionThreadingEngine(2, false, false, true, false, false, false,
-                RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+                RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         RegionThreadingManager.install(this.engine);
         this.engine.configurePlayerTickPlanningForTesting(true);
     }
@@ -178,7 +178,7 @@ class RegionPlayerTickCoordinatorTest {
     void missingOwnedStorageRunsCompleteSerialFallbackBeforeAnyPlan() throws Exception {
         RegionThreadingManager.clear();
         this.engine = new RegionThreadingEngine(2, false, false, true, false, false, false,
-                RegionPolicy.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         RegionThreadingManager.install(this.engine);
         this.engine.configurePlayerTickPlanningForTesting(true);
         ServerPlayer player = this.player(this.level(Level.OVERWORLD), UUID.randomUUID());

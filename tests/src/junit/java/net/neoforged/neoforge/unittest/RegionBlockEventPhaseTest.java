@@ -86,7 +86,7 @@ import org.junit.jupiter.api.Timeout;
  */
 @Timeout(120)
 class RegionBlockEventPhaseTest {
-    private static final RegionPolicy FIXED = RegionPolicy.FIXED_3X3;
+    private static final RegionPolicy FIXED = RegionPolicy.DYNAMIC_CLUSTER;
     private static final int Y = 64;
     /** A position in the middle of region (0,0), i.e. of the chunks x 0..2 and z 0..2. */
     private static final BlockPos REGION_ZERO_POS = new BlockPos(8, Y, 8);

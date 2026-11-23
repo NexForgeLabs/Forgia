@@ -56,8 +56,8 @@ class ForgiaConfigTest {
                 enableRegionThreadingBridge = true
                 enableRegionThreadingEntityTicks = true
                 regionThreadingWorkerThreads = 9
-                regionThreadingFixedRegionChunks = 8
-                regionThreadingMode = "FIXED_3X3"
+                regionThreadingDynamicSectionShift = 2
+                regionThreadingMode = "DYNAMIC_CLUSTER"
                 """;
         Files.writeString(this.directory.resolve("neoforge-server.toml"), legacy);
         ForgiaConfigMigration.migrate(this.directory);
@@ -65,7 +65,7 @@ class ForgiaConfigTest {
         assertEquals(5, migrated.size());
         assertEquals(true, migrated.get("enableRegionThreadingBridge"));
         assertEquals(9, (int) migrated.get("regionThreadingWorkerThreads"));
-        assertEquals(8, (int) migrated.get("regionThreadingFixedRegionChunks"));
+        assertEquals(2, (int) migrated.get("regionThreadingDynamicSectionShift"));
         assertFalse(migrated.contains("removeErroringEntities"));
         assertFalse(migrated.contains("permissionHandler"));
         assertEquals(legacy, Files.readString(this.directory.resolve("neoforge-server.toml")));

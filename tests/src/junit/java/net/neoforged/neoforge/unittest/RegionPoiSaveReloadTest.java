@@ -425,7 +425,7 @@ class RegionPoiSaveReloadTest {
                 false,
                 DataFixTypes.POI_CHUNK);
         final ServerLevel level = mock(ServerLevel.class);
-        final RegionLayout layout = RegionLayout.FIXED_3X3;
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         final RegionPoiStorage regionPoiStorage = new RegionPoiStorage(level, layout, storage, registryAccess, heightAccessor);
         regionized.attachRegionPoiStorage(regionPoiStorage);
         RegionPoiStorages.resetCountersForTesting();

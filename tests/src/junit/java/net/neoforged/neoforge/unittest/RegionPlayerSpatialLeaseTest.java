@@ -159,7 +159,7 @@ class RegionPlayerSpatialLeaseTest {
         this.server = mock(MinecraftServer.class);
         when(this.server.isSameThread()).thenAnswer(call -> Thread.currentThread() == this.publishing);
         when(this.server.getTickCount()).thenReturn(100);
-        this.engine = new RegionThreadingEngine(2, false, false, true, false, false, false, false, persistent, false, RegionLayout.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+        this.engine = new RegionThreadingEngine(2, false, false, true, false, false, false, false, persistent, false, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.REGION_OWNED);
         RegionThreadingManager.install(this.engine);
         this.engine.configurePlayerTickPlanningForTesting(true);
         this.level = mock(ServerLevel.class);
@@ -188,7 +188,7 @@ class RegionPlayerSpatialLeaseTest {
                 return chunk;
             });
         });
-        this.partitions = new FixedEntitySectionPartitions<>(RegionLayout.FIXED_3X3);
+        this.partitions = new FixedEntitySectionPartitions<>(RegionLayout.DYNAMIC_CLUSTER_8X8);
         doAnswer(call -> {
             Consumer<Entity> visitor = call.getArgument(0);
             this.entities.forEach(visitor);
@@ -267,7 +267,7 @@ class RegionPlayerSpatialLeaseTest {
         if (entity instanceof ServerPlayer player) {
             try {
                 invoke(this.engine, "publishPlayerRegion", new Class<?>[] { ServerLevel.class, ServerPlayer.class, RegionCoordinate.class }, this.level, player,
-                        RegionLayout.FIXED_3X3.regionAt(this.level, entity.blockPosition()));
+                        RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(this.level, entity.blockPosition()));
             } catch (Exception error) {
                 throw new IllegalStateException(error);
             }
@@ -359,7 +359,7 @@ class RegionPlayerSpatialLeaseTest {
         invoke(this.engine, "publishPlayerRegion", new Class<?>[] { ServerLevel.class, ServerPlayer.class, RegionCoordinate.class }, this.level, this.player, new RegionCoordinate(this.level, -2, -2));
         ServerPlayer target = mock(ServerPlayer.class);
         this.add(target, -47.9, -47.9, new AABB(-48.2, 64, -48.2, -47.6, 65.8, -47.6));
-        this.partitions = new FixedEntitySectionPartitions<>(RegionLayout.FIXED_3X3);
+        this.partitions = new FixedEntitySectionPartitions<>(RegionLayout.DYNAMIC_CLUSTER_8X8);
         for (Entity entity : this.entities) {
             BlockPos p = entity.blockPosition();
             long id = SectionPos.asLong(SectionPos.blockToSectionCoord(p.getX()), 4, SectionPos.blockToSectionCoord(p.getZ()));
@@ -507,7 +507,7 @@ class RegionPlayerSpatialLeaseTest {
     @Test
     void retainedPlanFromAnotherEngineDoesNotGrantAuthority() throws Exception {
         var plan = capture();
-        RegionThreadingEngine foreign = new RegionThreadingEngine(1, false, false, true, false, false, false, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+        RegionThreadingEngine foreign = new RegionThreadingEngine(1, false, false, true, false, false, false, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         try {
             assertThrows(IllegalStateException.class, () -> invoke(foreign, "reservePlayerSpatial", new Class<?>[] { Class.forName(PKG + "RegionTickBatch"), Class.forName(PKG + "RegionOwnershipLeaseGroup"), List.class }, null, null, List.of(plan)));
         } finally {

@@ -350,7 +350,7 @@ class RegionPoiRegionizationTest {
             final SimpleRegionStorage regionizedStorage = new SimpleRegionStorage(
                     new RegionStorageInfo("test", Level.OVERWORLD, "poi"), regionizedDir, dataFixer, false, DataFixTypes.POI_CHUNK);
             final ServerLevel level = mock(ServerLevel.class);
-            final RegionPoiStorage storage = new RegionPoiStorage(level, RegionLayout.FIXED_3X3, regionizedStorage, registryAccess, heightAccessor);
+            final RegionPoiStorage storage = new RegionPoiStorage(level, RegionLayout.DYNAMIC_CLUSTER_8X8, regionizedStorage, registryAccess, heightAccessor);
             for (int index = 0; index < positions.size(); index++) {
                 final BlockPos pos = positions.get(index);
                 final Holder<PoiType> type = index % 2 == 0 ? bed : workstation;
@@ -392,7 +392,7 @@ class RegionPoiRegionizationTest {
             final SimpleRegionStorage reloadedStorage = new SimpleRegionStorage(
                     new RegionStorageInfo("test", Level.OVERWORLD, "poi"), regionizedDir, dataFixer, false, DataFixTypes.POI_CHUNK);
             final PoiManager reloadedRegionized = this.manager(this.tempDir.resolve("unused"), registryAccess, dataFixer, heightAccessor);
-            final RegionPoiStorage reloaded = new RegionPoiStorage(level, RegionLayout.FIXED_3X3, reloadedStorage, registryAccess, heightAccessor);
+            final RegionPoiStorage reloaded = new RegionPoiStorage(level, RegionLayout.DYNAMIC_CLUSTER_8X8, reloadedStorage, registryAccess, heightAccessor);
             reloadedRegionized.attachRegionPoiStorage(reloaded);
             for (final BlockPos pos : positions) {
                 assertEquals(reloadedReference.getType(pos), reloadedRegionized.getType(pos), "reloaded type at " + pos);
@@ -535,7 +535,7 @@ class RegionPoiRegionizationTest {
         final DataFixer dataFixer = this.dataFixer();
         final LevelHeightAccessor heightAccessor = LevelHeightAccessor.create(MIN_SECTION * 16, (MAX_SECTION - MIN_SECTION) * 16);
         final ServerLevel level = mock(ServerLevel.class);
-        final RegionLayout layout = RegionLayout.FIXED_3X3;
+        final RegionLayout layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         final SimpleRegionStorage regionStorage = new SimpleRegionStorage(
                 new RegionStorageInfo("test", Level.OVERWORLD, "poi"), this.tempDir.resolve(name), dataFixer, false, DataFixTypes.POI_CHUNK);
         final RegionPoiStorage storage = new RegionPoiStorage(level, layout, regionStorage, registryAccess, heightAccessor);

@@ -287,7 +287,7 @@ class EntityIdentityLedgerTest {
 
     @Test
     void workerCannotMutateTheLedgerButReadsThePublication() {
-        this.engine = new RegionThreadingEngine(2, false, false, false, false, false, false, RegionPolicy.FIXED_3X3);
+        this.engine = new RegionThreadingEngine(2, false, false, false, false, false, false, RegionPolicy.DYNAMIC_CLUSTER);
         RegionThreadingManager.install(this.engine);
         final PersistentEntitySectionManager<Entity> manager = newManager(new TestCallbacks());
         final EntityIdentityLedger ledger = manager.identityLedger();

@@ -172,7 +172,6 @@ public class ServerLifecycleHooks {
             // physical section partitions of every level created afterwards share one region size.
             final RegionLayout layout = RegionLayout.of(
                     ForgiaConfig.SERVER.regionThreadingMode.get(),
-                    ForgiaConfig.SERVER.regionThreadingFixedRegionChunks.get(),
                     ForgiaConfig.SERVER.regionThreadingDynamicSectionShift.get(),
                     ForgiaConfig.SERVER.regionThreadingDynamicSplitDelayTicks.get());
             // Entity worker ticks need region-owned entity storage: the ticks of the leased entities mutate
@@ -186,7 +185,7 @@ public class ServerLifecycleHooks {
                     ForgiaConfig.SERVER.enableRegionThreadingWorkers.get(),
                     ForgiaConfig.SERVER.enableGlobalRegionThreadingWorker.get(),
                     ForgiaConfig.SERVER.enableRegionThreadingPersistentWorkers.get(),
-                    ForgiaConfig.SERVER.enableRegionThreadingPackedRegionLeases.get());
+                    false);
             final var ticks = new RegionThreadingOptions.TickSlices(
                     compatibility.entityTickWorkers(),
                     ForgiaConfig.SERVER.enableRegionThreadingBlockEntityTicks.get(),
@@ -225,8 +224,8 @@ public class ServerLifecycleHooks {
             if (installed == null) {
                 LOGGER.warn(SERVERHOOKS, "Player phase planning requested but the region bridge is unavailable; complete original player calls remain serial");
             } else {
-                LOGGER.info(SERVERHOOKS, "Player tick workers requested: bounded_complete_calls; unsupported invocations remain serial; fixedLayout={}, entitySlice={}, ownedStorage={}. Workers controls queued-task drain only",
-                        installed.regionLayout().isFixed(), compatibility.entityTickWorkers(),
+                LOGGER.info(SERVERHOOKS, "Player tick workers requested: bounded_complete_calls; unsupported invocations remain serial; dynamicCluster={}, entitySlice={}, ownedStorage={}. Workers controls queued-task drain only",
+                        installed.regionLayout().isDynamicCluster(), compatibility.entityTickWorkers(),
                         RegionEntityStorageMode.forConfiguration(compatibility.entityTickWorkers(), ForgiaConfig.SERVER.enableRegionThreadingSpawning.get(), installed.regionLayout()));
             }
         }

@@ -126,7 +126,7 @@ class RegionPlayerFootprintTest {
 
     @Test
     void multiRegionSectionVisitPreservesGlobalSignedPackedOrder() {
-        var partitions = new net.neoforged.neoforge.server.threading.region.FixedEntitySectionPartitions<Entity>(net.neoforged.neoforge.server.threading.region.RegionLayout.FIXED_3X3);
+        var partitions = new net.neoforged.neoforge.server.threading.region.FixedEntitySectionPartitions<Entity>(net.neoforged.neoforge.server.threading.region.RegionLayout.DYNAMIC_CLUSTER_8X8);
         var boxes = new AABB(-4, 60, -4, 52, 70, 52);
         var ids = List.of(net.minecraft.core.SectionPos.asLong(0, 4, 3), net.minecraft.core.SectionPos.asLong(0, 4, 0),
                 net.minecraft.core.SectionPos.asLong(-1, 4, -1), net.minecraft.core.SectionPos.asLong(3, 4, 0));

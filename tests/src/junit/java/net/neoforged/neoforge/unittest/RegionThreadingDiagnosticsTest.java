@@ -180,7 +180,7 @@ class RegionThreadingDiagnosticsTest {
     void dispatchAggregationReadsTheExistingPoolAndPackingCounters(boolean persistent) throws Exception {
         final var options = new RegionThreadingOptions(new RegionThreadingOptions.Workers(1, false, false, persistent, true),
                 new RegionThreadingOptions.TickSlices(false, false, false, false, false),
-                RegionLayout.fixed(3), RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         final RegionThreadingEngine other = new RegionThreadingEngine(options);
         try {
             final Object originalPool = field(other, "workerPool");

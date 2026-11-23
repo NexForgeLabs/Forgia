@@ -156,7 +156,7 @@ public class RegionThreadingGameTests {
             final var diagnostics = workerDiagnostics(helper);
             final ServerLevel level = helper.getLevel();
             final EntitySectionStorage<Entity> storage = persistentSections(level);
-            final boolean fixed = diagnostics.isPresent() && diagnostics.get().regionPolicy() == RegionPolicy.FIXED_3X3;
+            final boolean fixed = diagnostics.isPresent() && diagnostics.get().regionPolicy() == RegionPolicy.DYNAMIC_CLUSTER;
             helper.assertTrue((storageField(storage, "partitions") != null) == fixed, "server storage backend must match the installed policy");
             if (!fixed) {
                 helper.succeed();
@@ -165,7 +165,7 @@ public class RegionThreadingGameTests {
             helper.assertTrue(storageField(storage, "sections") == null && storageField(storage, "sectionIds") == null,
                     "fixed server storage must not retain global authoritative containers");
             final int regionChunkSize = diagnostics.get().regionChunkSize();
-            final BlockPos interior = evidenceBlockPos(helper, RegionPolicy.FIXED_3X3, regionChunkSize, 5);
+            final BlockPos interior = evidenceBlockPos(helper, RegionPolicy.DYNAMIC_CLUSTER, regionChunkSize, 5);
             final int boundaryChunkX = (Math.floorDiv(SectionPos.blockToSectionCoord(interior.getX()), regionChunkSize) + 1)
                     * regionChunkSize;
             final int boundaryX = boundaryChunkX * 16;
@@ -326,7 +326,7 @@ public class RegionThreadingGameTests {
                 return;
             }
             final var engine = (RegionThreadingEngine) RegionThreadingManager.currentOrNull();
-            helper.assertTrue(engine.furnaceWorkWavesEnabled() && engine.regionLayout().isFixed(),
+            helper.assertTrue(engine.furnaceWorkWavesEnabled() && engine.regionLayout().isDynamicCluster(),
                     "the canonical furnace test requires the opt-in Furnace Waves and fixed layout profile");
             final ServerLevel level = helper.getLevel();
             final BlockPos first = evidenceBlockPos(helper, engine.regionPolicy(), engine.regionLayout().regionChunkSize(), 0);
@@ -377,13 +377,13 @@ public class RegionThreadingGameTests {
                 return;
             }
             final RegionThreadingEngine engine = (RegionThreadingEngine) RegionThreadingManager.currentOrNull();
-            if (!engine.borderUpdatesEnabled() || !engine.regionLayout().isFixed()) {
+            if (!engine.borderUpdatesEnabled() || !engine.regionLayout().isDynamicCluster()) {
                 helper.succeed();
                 return;
             }
             final ServerLevel level = helper.getLevel();
             final int size = engine.regionLayout().regionChunkSize();
-            final BlockPos interior = evidenceBlockPos(helper, RegionPolicy.FIXED_3X3, size, 6);
+            final BlockPos interior = evidenceBlockPos(helper, RegionPolicy.DYNAMIC_CLUSTER, size, 6);
             final int boundaryX = (Math.floorDiv(interior.getX() >> 4, size) + 1) * size * 16 - 1;
             final BlockPos furnacePos = new BlockPos(boundaryX, interior.getY(), interior.getZ());
             final BlockPos comparatorPos = furnacePos.east();
@@ -449,7 +449,7 @@ public class RegionThreadingGameTests {
             final Optional<RegionThreadingDiagnostics> diagnostics = RegionThreadingHooks.diagnostics();
             final boolean nativeTicks = entityTickSliceEffective(diagnostics);
             final BlockPos source = evidenceBlockPos(helper,
-                    diagnostics.map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.FIXED_3X3),
+                    diagnostics.map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.DYNAMIC_CLUSTER),
                     diagnostics.map(RegionThreadingDiagnostics::regionChunkSize).orElse(3), 9);
             final BlockPos target = source.offset(16, 0, 0);
             final AtomicReference<net.minecraft.world.entity.animal.Cow> cow = new AtomicReference<>();
@@ -599,7 +599,7 @@ public class RegionThreadingGameTests {
             final ServerLevel level = helper.getLevel();
             final var api = net.neoforged.neoforge.server.threading.api.ParallelApi.forServer(level.getServer()).orElseThrow();
             helper.assertTrue(api.capabilities().contains(net.neoforged.neoforge.server.threading.api.ParallelApi.Capability.BLOCK_ENTITY_OPERATIONS), "public operation capability missing");
-            final RegionPolicy policy = RegionThreadingHooks.diagnostics().map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.FIXED_3X3);
+            final RegionPolicy policy = RegionThreadingHooks.diagnostics().map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.DYNAMIC_CLUSTER);
             final int size = RegionThreadingHooks.diagnostics().map(RegionThreadingDiagnostics::regionChunkSize).orElse(3);
             final BlockPos from = evidenceBlockPos(helper, policy, size, 7);
             final BlockPos to = from.offset(size * 16, 0, 0);
@@ -676,7 +676,7 @@ public class RegionThreadingGameTests {
             final ServerLevel level = helper.getLevel();
             final var diagnostics = RegionThreadingHooks.diagnostics();
             final int size = diagnostics.map(RegionThreadingDiagnostics::regionChunkSize).orElse(3);
-            final RegionPolicy policy = diagnostics.map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.FIXED_3X3);
+            final RegionPolicy policy = diagnostics.map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.DYNAMIC_CLUSTER);
             final BlockPos lamp = evidenceBlockPos(helper, policy, size, 8);
             final AtomicReference<Long> before = new AtomicReference<>(0L);
             helper.addEndListener(passed -> {
@@ -816,7 +816,7 @@ public class RegionThreadingGameTests {
                 return;
             }
             final var engine = (RegionThreadingEngine) RegionThreadingManager.currentOrNull();
-            helper.assertTrue(engine.furnaceWorkWavesEnabled() && engine.regionLayout().isFixed(), "the canonical mixed test requires Furnace Waves and fixed layout");
+            helper.assertTrue(engine.furnaceWorkWavesEnabled() && engine.regionLayout().isDynamicCluster(), "the canonical mixed test requires Furnace Waves and fixed layout");
             final ServerLevel level = helper.getLevel();
             final BlockPos first = evidenceBlockPos(helper, engine.regionPolicy(), engine.regionLayout().regionChunkSize(), 4);
             final BlockPos second = first.east(16);
@@ -891,7 +891,7 @@ public class RegionThreadingGameTests {
             final GameRules.IntegerValue randomTickSpeed = helper.getLevel().getGameRules().getRule(GameRules.RULE_RANDOMTICKING);
             final int previousRandomTickSpeed = randomTickSpeed.get();
             final ServerLevel level = helper.getLevel();
-            final BlockPos centre = evidenceBlockPos(helper, diagnostics.map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.FIXED_3X3), diagnostics.map(RegionThreadingDiagnostics::regionChunkSize).orElse(RegionLayout.FIXED_3X3_REGION_CHUNK_SIZE), 2);
+            final BlockPos centre = evidenceBlockPos(helper, diagnostics.map(RegionThreadingDiagnostics::regionPolicy).orElse(RegionPolicy.DYNAMIC_CLUSTER), diagnostics.map(RegionThreadingDiagnostics::regionChunkSize).orElse(RegionLayout.DYNAMIC_CLUSTER_8X8.regionChunkSize()), 2);
             final java.util.List<BlockPos> positions = new java.util.ArrayList<>();
             final var section = new BlockPos(centre.getX() & -16, centre.getY() & -16, centre.getZ() & -16);
             for (int dx = 0; dx < 16; dx++) {
@@ -1238,7 +1238,7 @@ public class RegionThreadingGameTests {
         final int baseZ = origin.getZ() + EVIDENCE_AREA_Z_OFFSET + slot * EVIDENCE_AREA_SPACING;
         int chunkX = Math.floorDiv(baseX, 16);
         int chunkZ = Math.floorDiv(baseZ, 16);
-        if (policy == RegionPolicy.FIXED_3X3) {
+        if (policy == RegionPolicy.DYNAMIC_CLUSTER) {
             chunkX = nearestChunkWithResidue(chunkX, fixedRegionChunkSize, 1);
             chunkZ = nearestChunkWithResidue(chunkZ, fixedRegionChunkSize, 1);
         } else {

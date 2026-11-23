@@ -78,7 +78,7 @@ final class FurnaceResourcePreparation {
 
     Claims capture(FurnaceWorkPreparation.Candidate candidate) {
         final var admission = candidate.admission();
-        if (!this.layout.isFixed() || admission.level() != this.level) return this.fence(admission);
+        if (!this.layout.isDynamicCluster() || admission.level() != this.level) return this.fence(admission);
         final Object home = this.home(this.layout.regionAt(this.level, admission.position()));
         final var builder = Claims.builder(this.level, home);
         final var source = candidate.source();

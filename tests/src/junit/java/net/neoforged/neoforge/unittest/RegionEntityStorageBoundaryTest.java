@@ -623,7 +623,7 @@ class RegionEntityStorageBoundaryTest {
     @Test
     void configuredScheduledSpawnRunsInlineAndReturnsActualResults() {
         // This unclassified phase keeps its original live serial queue and synchronous join results.
-        this.engine = new RegionThreadingEngine(2, false, false, false, false, true, false, RegionPolicy.FIXED_3X3);
+        this.engine = new RegionThreadingEngine(2, false, false, false, false, true, false, RegionPolicy.DYNAMIC_CLUSTER);
         RegionThreadingManager.install(this.engine);
         final ServerLevel level = mockServerLevel();
         doReturn(net.minecraft.util.profiling.InactiveProfiler.INSTANCE).when(level).getProfiler();
@@ -748,12 +748,12 @@ class RegionEntityStorageBoundaryTest {
     }
 
     private void installEngine() {
-        this.engine = new RegionThreadingEngine(2, false, false, false, false, false, false, RegionPolicy.FIXED_3X3);
+        this.engine = new RegionThreadingEngine(2, false, false, false, false, false, false, RegionPolicy.DYNAMIC_CLUSTER);
         RegionThreadingManager.install(this.engine);
     }
 
     private void installSingleWorkerEngine() {
-        this.engine = new RegionThreadingEngine(1, false, false, false, false, false, false, RegionPolicy.FIXED_3X3);
+        this.engine = new RegionThreadingEngine(1, false, false, false, false, false, false, RegionPolicy.DYNAMIC_CLUSTER);
         RegionThreadingManager.install(this.engine);
     }
 

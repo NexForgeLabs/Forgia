@@ -408,7 +408,7 @@ public class SaveReloadGameTests {
         }
         helper.assertTrue(engine.isPresent(), "the region threading run must install the bridge");
         final RegionThreadingDiagnostics diagnostics = engine.get();
-        helper.assertTrue(diagnostics.regionPolicy() == net.neoforged.neoforge.server.threading.region.RegionPolicy.FIXED_3X3
+        helper.assertTrue(diagnostics.regionPolicy() == net.neoforged.neoforge.server.threading.region.RegionPolicy.DYNAMIC_CLUSTER
                 && diagnostics.regionChunkSize() == REGION_CHUNK_SIZE,
                 "the save/reload test needs the fixed " + REGION_CHUNK_SIZE + "-chunk layout, got "
                         + diagnostics.regionPolicy() + "/" + diagnostics.regionChunkSize());
@@ -733,7 +733,7 @@ public class SaveReloadGameTests {
         Fixture(ServerLevel level, List<ChunkPos> grid) {
             this.level = level;
             this.grid = grid;
-            this.layout = RegionLayout.FIXED_3X3;
+            this.layout = RegionLayout.DYNAMIC_CLUSTER_8X8;
         }
 
         /**

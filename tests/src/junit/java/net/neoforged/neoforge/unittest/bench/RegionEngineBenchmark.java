@@ -127,7 +127,7 @@ class RegionEngineBenchmark {
     /** A benchmark tick must never wait forever; the whole harness is bounded by the class timeout too. */
     private static final long TICK_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(60);
     /** Edge length in chunks of the fixed layout every engine of this harness uses. */
-    private static final int REGION_CHUNK_SIZE = RegionLayout.FIXED_3X3.regionChunkSize();
+    private static final int REGION_CHUNK_SIZE = RegionLayout.DYNAMIC_CLUSTER_8X8.regionChunkSize();
     /** Regions are placed 8 per row of the fixed grid; the row index selects the region Z coordinate. */
     private static final int REGIONS_PER_ROW = 8;
     private static final int FURNACE_Y = 64;
@@ -223,7 +223,7 @@ class RegionEngineBenchmark {
      * @param moving {@code true} when every player teleports to the other region before every publication
      */
     private static PlayerTransitionRow measurePlayerPublication(int players, boolean moving) {
-        final RegionThreadingEngine engine = new RegionThreadingEngine(2, false, false, true, false, false, false, RegionLayout.FIXED_3X3);
+        final RegionThreadingEngine engine = new RegionThreadingEngine(2, false, false, true, false, false, false, RegionLayout.DYNAMIC_CLUSTER_8X8);
         RegionThreadingManager.install(engine);
         try {
             final ServerLevel level = mockLevel();
@@ -393,7 +393,7 @@ class RegionEngineBenchmark {
     }
 
     private static RegionThreadingEngine installEngine(int workerThreads, boolean blockEntityTickWorkers, boolean scheduledTickWorkers) {
-        final RegionThreadingEngine engine = new RegionThreadingEngine(workerThreads, false, false, false, blockEntityTickWorkers, scheduledTickWorkers, false, RegionLayout.FIXED_3X3);
+        final RegionThreadingEngine engine = new RegionThreadingEngine(workerThreads, false, false, false, blockEntityTickWorkers, scheduledTickWorkers, false, RegionLayout.DYNAMIC_CLUSTER_8X8);
         if (scheduledTickWorkers) {
             // Production keeps unclassified scheduled callbacks on the server thread; the harness opts into
             // the internal mechanics seam to measure the dispatcher itself.
@@ -587,7 +587,7 @@ class RegionEngineBenchmark {
                 (LevelCallback<Entity>) mock(LevelCallback.class),
                 storage,
                 RegionThreadingHooks::assertServerEntityStorageAccess,
-                RegionLayout.FIXED_3X3);
+                RegionLayout.DYNAMIC_CLUSTER_8X8);
         setField(ServerLevel.class, level, "entityManager", manager);
         return manager;
     }

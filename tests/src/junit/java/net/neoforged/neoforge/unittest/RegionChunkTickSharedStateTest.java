@@ -382,7 +382,7 @@ class RegionChunkTickSharedStateTest {
 
     private void installEngine() {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, false, false, true,
-                RegionLayout.of(RegionPolicy.FIXED_3X3));
+                RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));
         RegionThreadingManager.install(created);
         this.engine = created;
     }

@@ -498,7 +498,7 @@ class RegionSculkSensorEquivalenceTest {
             }
             if (regionized) {
                 final RegionThreadingEngine installed = new RegionThreadingEngine(2, false, false, false, false, false, true,
-                        RegionLayout.of(RegionPolicy.FIXED_3X3));
+                        RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));
                 installed.setCrossRegionGameEventsEnabledForTesting(true);
                 RegionThreadingManager.install(installed);
                 engine = installed;

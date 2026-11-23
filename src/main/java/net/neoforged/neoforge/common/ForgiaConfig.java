@@ -87,13 +87,9 @@ public final class ForgiaConfig {
 
         public final BooleanValue enableRegionThreadingPersistentWorkers;
 
-        public final BooleanValue enableRegionThreadingPackedRegionLeases;
-
         public final IntValue regionThreadingWorkerThreads;
 
         public final ModConfigSpec.EnumValue<RegionPolicy> regionThreadingMode;
-
-        public final IntValue regionThreadingFixedRegionChunks;
 
         public final IntValue regionThreadingDynamicSectionShift;
 
@@ -316,7 +312,7 @@ public final class ForgiaConfig {
 
             enableRegionThreadingPoi = builder
                     .comment(
-                            "EXPERIMENTAL: Partitions the POI storage of a level per region so that the POI users (villagers, iron golems, raiders, bees, zombies and foxes) tick on their region worker again. A POI section belongs to the region that owns its chunk; each region publishes an immutable snapshot of the sections it wrote at the end of every region phase, and a query from a worker reads its own region's live sections plus the published snapshots of the regions its box overlaps, in vanilla's result order. A foreign answer is at most one publish old, free-ticket counts are live, and the village distance is answered from the published village-center index instead of draining the level-wide distance tracker. Requires enableRegionThreadingBridge and a fixed region policy (regionThreadingMode FIXED_3X3), because the storage maps a chunk to exactly one region coordinate. Enabling enableRegionThreadingEntityTicks implies this storage, because a worker tick of a POI user reaches the level's POI manager. With the switch off, and without entity worker ticks, the vanilla PoiManager storage is used unchanged.")
+                            "EXPERIMENTAL: Partitions the POI storage of a level per region so that the POI users (villagers, iron golems, raiders, bees, zombies and foxes) tick on their region worker again. A POI section belongs to the region that owns its chunk; each region publishes an immutable snapshot of the sections it wrote at the end of every region phase, and a query from a worker reads its own region's live sections plus the published snapshots of the regions its box overlaps, in vanilla's result order. A foreign answer is at most one publish old, free-ticket counts are live, and the village distance is answered from the published village-center index instead of draining the level-wide distance tracker. Requires enableRegionThreadingBridge and DYNAMIC_CLUSTER. Enabling enableRegionThreadingEntityTicks implies this storage, because a worker tick of a POI user reaches the level's POI manager. With the switch off, and without entity worker ticks, the vanilla PoiManager storage is used unchanged.")
                     .translation("neoforge.configgui.enableRegionThreadingPoi")
                     .worldRestart()
                     .define("enableRegionThreadingPoi", false);
@@ -348,12 +344,6 @@ public final class ForgiaConfig {
                     .worldRestart()
                     .define("enableRegionThreadingPersistentWorkers", false);
 
-            enableRegionThreadingPackedRegionLeases = builder
-                    .comment("LEGACY (fixed-layout only; ignored under DYNAMIC_CLUSTER): Packs several regions of one slice onto one worker task.")
-                    .translation("neoforge.configgui.enableRegionThreadingPackedRegionLeases")
-                    .worldRestart()
-                    .define("enableRegionThreadingPackedRegionLeases", false);
-
             regionThreadingWorkerThreads = builder
                     .comment("EXPERIMENTAL: Number of native region worker threads reserved for the future region scheduler. A value of 0 uses max(1, available processors - 1).")
                     .translation("neoforge.configgui.regionThreadingWorkerThreads")
@@ -361,16 +351,10 @@ public final class ForgiaConfig {
                     .defineInRange("regionThreadingWorkerThreads", 0, 0, 512);
 
             regionThreadingMode = builder
-                    .comment("Region coordinate policy. DYNAMIC_CLUSTER (default) uses Folia-style dynamic merging and splitting over fixed (1 << regionThreadingDynamicSectionShift)-chunk sections. FIXED_3X3 and DYNAMIC are retained only for legacy compatibility.")
+                    .comment("Region coordinate policy. DYNAMIC_CLUSTER (default) uses Folia-style dynamic merging and splitting over fixed (1 << regionThreadingDynamicSectionShift)-chunk sections. DYNAMIC is retained only for legacy compatibility.")
                     .translation("neoforge.configgui.regionThreadingMode")
                     .worldRestart()
                     .defineEnum("regionThreadingMode", RegionPolicy.DYNAMIC_CLUSTER);
-
-            regionThreadingFixedRegionChunks = builder
-                    .comment("EXPERIMENTAL: Edge length in chunks of one fixed region, used when regionThreadingMode is FIXED_3X3. 3 reproduces the original 3x3-chunk grid, where only the center chunk of a region has all eight neighbors in the same region. Larger regions keep more neighboring chunks inside one region at the cost of coarser parallelism and longer region leases. A value outside 3..32 is clamped into that range when the config loads, and the region layout rejects it with an IllegalArgumentException.")
-                    .translation("neoforge.configgui.regionThreadingFixedRegionChunks")
-                    .worldRestart()
-                    .defineInRange("regionThreadingFixedRegionChunks", RegionLayout.FIXED_3X3_REGION_CHUNK_SIZE, RegionLayout.MIN_FIXED_REGION_CHUNK_SIZE, RegionLayout.MAX_FIXED_REGION_CHUNK_SIZE);
 
             regionThreadingDynamicSectionShift = builder
                     .comment(
@@ -414,7 +398,7 @@ public final class ForgiaConfig {
                     .defineInRange("regionThreadingMaxScheduledTasksPerDrain", 10000, 0, Integer.MAX_VALUE);
 
             enableRegionOverloadGovernor = builder
-                    .comment("EXPERIMENTAL: Isolates lagging regions by throttling their tick dispatch frequency so a single hot region does not drag down server-wide TPS. Effective only when regionThreadingMode is DYNAMIC_CLUSTER; ignored under FIXED_3X3 or DYNAMIC. Uses deterministic jittered scheduling so periodic modulo checks (e.g. gameTime % 20 or beacon % 80) never starve.")
+                    .comment("EXPERIMENTAL: Isolates lagging regions by throttling their tick dispatch frequency so a single hot region does not drag down server-wide TPS. Effective only when regionThreadingMode is DYNAMIC_CLUSTER; ignored under DYNAMIC. Uses deterministic jittered scheduling so periodic modulo checks (e.g. gameTime % 20 or beacon % 80) never starve.")
                     .translation("neoforge.configgui.enableRegionOverloadGovernor")
                     .worldRestart()
                     .define("enableRegionOverloadGovernor", false);

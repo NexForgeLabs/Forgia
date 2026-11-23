@@ -368,7 +368,7 @@ public class ProductionSoakGameTests {
         helper.assertTrue(diagnostics.spawnWorkerExecutionEnabled(), "the production soak needs the natural spawning slice enabled");
         helper.assertTrue(diagnostics.entityStorageMode() == RegionEntityStorageMode.REGION_OWNED,
                 "the entity tick slice of the production soak needs region-owned entity storage, got " + diagnostics.entityStorageMode());
-        helper.assertTrue(diagnostics.regionPolicy() == RegionPolicy.FIXED_3X3 && diagnostics.regionChunkSize() == REGION_CHUNK_SIZE,
+        helper.assertTrue(diagnostics.regionPolicy() == RegionPolicy.DYNAMIC_CLUSTER && diagnostics.regionChunkSize() == REGION_CHUNK_SIZE,
                 "the production soak needs the fixed " + REGION_CHUNK_SIZE + "-chunk layout, got " + diagnostics.regionPolicy() + "/" + diagnostics.regionChunkSize());
         helper.assertTrue(diagnostics.workerThreadCount() >= 2, "the production soak needs at least two region workers, got " + diagnostics.workerThreadCount());
         helper.assertTrue(diagnostics.chunkTickWorkerDispatchEffective(), "the chunk tick slice of the production soak is requested but not effective");
@@ -1102,7 +1102,7 @@ public class ProductionSoakGameTests {
             final RegionThreadingDiagnostics engine = after.get();
             final RegionThreadingDiagnostics start = window.before().orElseThrow();
             final RegionMappingCheck mapping = window.watch().engineState().checkRegionMapping(level,
-                    RegionLayout.of(engine.regionPolicy(), engine.regionChunkSize()));
+                    RegionLayout.of(engine.regionPolicy(), Integer.numberOfTrailingZeros(engine.regionChunkSize()), 40L));
             final List<Entity> liveEntities = liveLevelEntities(level);
             final int sectionMismatches = regionMismatches(level, liveEntities);
             final int ledgerLive = level.entityIdentityLedger().liveCount();

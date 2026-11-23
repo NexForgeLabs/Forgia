@@ -69,7 +69,7 @@ class FixedEntitySectionPartitionsTest {
 
     @Test
     void physicalBucketsOwnIndependentMapsAndTreesAndRetire() throws Exception {
-        var fixed = storage(RegionLayout.FIXED_3X3);
+        var fixed = storage(RegionLayout.DYNAMIC_CLUSTER_8X8);
         assertNull(field(fixed, "sections"));
         assertNull(field(fixed, "sectionIds"));
         long[] ids = { SectionPos.asLong(-4, 0, -4), SectionPos.asLong(-3, 0, -3), SectionPos.asLong(-1, 17, -1), SectionPos.asLong(0, -7, 0), SectionPos.asLong(2, 8, 2), SectionPos.asLong(3, 0, 3) };
@@ -103,7 +103,7 @@ class FixedEntitySectionPartitionsTest {
     @Test
     void operationsMatchLegacyAtNegativeBoundariesAndPackedCoordinateEdges() {
         var legacy = storage(RegionLayout.DYNAMIC);
-        var fixed = storage(RegionLayout.FIXED_3X3);
+        var fixed = storage(RegionLayout.DYNAMIC_CLUSTER_8X8);
         int[] horizontal = { -2097152, -2097151, -4, -3, -1, 0, 2, 3, 2097150, 2097151 };
         int[] vertical = { -524288, -17, -1, 0, 1, 524287 };
         List<Long> keys = new ArrayList<>();
@@ -145,7 +145,7 @@ class FixedEntitySectionPartitionsTest {
     @Test
     void queriesPreserveVanillaOrderVisibilityTypedCacheAndEveryAbortPrefix() {
         var legacy = storage(RegionLayout.DYNAMIC);
-        var fixed = storage(RegionLayout.FIXED_3X3);
+        var fixed = storage(RegionLayout.DYNAMIC_CLUSTER_8X8);
         int id = 0;
         for (int x : new int[] { 3, -4, 0, -1, 2, -3 }) {
             for (int z : new int[] { -1, 3, -3, 0 }) {
@@ -193,7 +193,7 @@ class FixedEntitySectionPartitionsTest {
     void expandedQueryBoundsAndSignedLongOverflowMatchLegacy() {
         for (int x : new int[] { -2097152, -4, -1, 0, 3, 2097150, 2097151 }) {
             var legacy = storage(RegionLayout.DYNAMIC);
-            var fixed = storage(RegionLayout.FIXED_3X3);
+            var fixed = storage(RegionLayout.DYNAMIC_CLUSTER_8X8);
             TestEntity oversized = new TestEntity(1, new BlockPos(x * 16 + 15, -16, -16));
             oversized.bounds = new AABB(x * 16 + 15, -16, -16, x * 16 + 19, 4, 4);
             long key = SectionPos.asLong(oversized.pos);
@@ -211,7 +211,7 @@ class FixedEntitySectionPartitionsTest {
 
     @Test
     void deferredChunkStreamDoesNotRetainRetiredBucketAndResolvesRecreatedSection() throws Exception {
-        var fixed = storage(RegionLayout.FIXED_3X3);
+        var fixed = storage(RegionLayout.DYNAMIC_CLUSTER_8X8);
         long key = SectionPos.asLong(-3, -1, -3);
         EntitySection<TestEntity> old = fixed.getOrCreateSection(key);
         Stream<EntitySection<TestEntity>> stream = fixed.getExistingSectionsInChunk(ChunkPos.asLong(-3, -3));
@@ -227,7 +227,7 @@ class FixedEntitySectionPartitionsTest {
 
     @Test
     void sectionFactoriesCannotPublishNullOrDuplicateSections() throws Exception {
-        var partitions = new FixedEntitySectionPartitions<TestEntity>(RegionLayout.FIXED_3X3);
+        var partitions = new FixedEntitySectionPartitions<TestEntity>(RegionLayout.DYNAMIC_CLUSTER_8X8);
         long key = SectionPos.asLong(-3, 0, -3);
         assertThrows(NullPointerException.class, () -> partitions.getOrCreate(key, ignored -> null));
         assertNull(partitions.get(key));
@@ -252,7 +252,7 @@ class FixedEntitySectionPartitionsTest {
 
     @Test
     void rangeLookupUsesRegionXRowsAndRetiresEmptyRows() throws Exception {
-        var partitions = new FixedEntitySectionPartitions<TestEntity>(RegionLayout.FIXED_3X3);
+        var partitions = new FixedEntitySectionPartitions<TestEntity>(RegionLayout.DYNAMIC_CLUSTER_8X8);
         int[] xs = { -9, -8, -7, -1, 0, 1, 7, 8 };
         int[] zs = { -4, 0, 4 };
         for (int x : xs) {
@@ -317,7 +317,7 @@ class FixedEntitySectionPartitionsTest {
     @Test
     void persistentManagerMovementLoadSaveUnloadAndCallbacksMatchLegacy() throws Exception {
         Scenario legacy = scenario(RegionLayout.DYNAMIC);
-        Scenario fixed = scenario(RegionLayout.FIXED_3X3);
+        Scenario fixed = scenario(RegionLayout.DYNAMIC_CLUSTER_8X8);
         assertEquals(legacy, fixed);
         assertTrue(fixed.events.contains("section:1"));
         assertTrue(fixed.events.contains("trackingEnd:1"));
@@ -365,7 +365,7 @@ class FixedEntitySectionPartitionsTest {
         assertEquals(0, manager.count());
         assertFalse(manager.isLoaded(moving.uuid));
         assertFalse(manager.isLoaded(loaded.uuid));
-        if (layout.isFixed()) assertTrue(buckets(sections).isEmpty());
+        if (layout.isDynamicCluster()) assertTrue(buckets(sections).isEmpty());
         manager.updateChunkStatus(target, Visibility.TICKING);
         fixture.complete(target, List.of(moving));
         manager.tick();
@@ -379,7 +379,7 @@ class FixedEntitySectionPartitionsTest {
         manager.saveAll();
         manager.close();
         assertEquals(0, sections.count());
-        if (layout.isFixed()) assertTrue(buckets(sections).isEmpty());
+        if (layout.isDynamicCluster()) assertTrue(buckets(sections).isEmpty());
         return new Scenario(events, saved, fixture.stored, query);
     }
 
@@ -388,15 +388,15 @@ class FixedEntitySectionPartitionsTest {
         RegionThreadingManager.clear();
         var early = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture(), RegionThreadingHooks::assertServerEntityStorageAccess, RegionThreadingHooks.entitySectionStorageLayout());
         assertNull(field(managerStorage(early), "partitions"));
-        for (RegionLayout layout : List.of(RegionLayout.DYNAMIC, RegionLayout.FIXED_3X3, RegionLayout.fixed(9))) {
+        for (RegionLayout layout : List.of(RegionLayout.DYNAMIC, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionLayout.DYNAMIC_CLUSTER_8X8)) {
             var engine = new RegionThreadingEngine(1, false, false, false, false, false, false, layout);
             try {
                 RegionThreadingManager.install(engine);
                 assertEquals(layout, RegionThreadingHooks.entitySectionStorageLayout());
                 assertEquals(layout.regionChunkSize(), RegionThreadingHooks.entitySectionStorageLayout().regionChunkSize());
                 var server = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture(), RegionThreadingHooks::assertServerEntityStorageAccess, RegionThreadingHooks.entitySectionStorageLayout());
-                assertEquals(layout.isFixed(), field(managerStorage(server), "partitions") != null);
-                if (layout.isFixed()) {
+                assertEquals(layout.isDynamicCluster(), field(managerStorage(server), "partitions") != null);
+                if (layout.isDynamicCluster()) {
                     assertEquals(layout, field(field(managerStorage(server), "partitions"), "layout"));
                 }
                 var generic = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture());
@@ -419,7 +419,7 @@ class FixedEntitySectionPartitionsTest {
     @Test
     void partitionsIndexWithTheEngineLayoutSize() throws Exception {
         RegionThreadingManager.clear();
-        var engine = new RegionThreadingEngine(1, false, false, false, false, false, false, RegionLayout.fixed(9));
+        var engine = new RegionThreadingEngine(1, false, false, false, false, false, false, RegionLayout.DYNAMIC_CLUSTER_8X8);
         try {
             RegionThreadingManager.install(engine);
             var manager = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture(), RegionThreadingHooks::assertServerEntityStorageAccess, RegionThreadingHooks.entitySectionStorageLayout());
@@ -457,8 +457,8 @@ class FixedEntitySectionPartitionsTest {
 
     @Test
     void nativeWorkerCannotAccessPartitionsOrManagerEvenAfterBridgeRemoval() throws Exception {
-        var engine = new RegionThreadingEngine(1, true, false, false, false, false, false, RegionLayout.FIXED_3X3);
-        var manager = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture(), RegionThreadingHooks::assertServerEntityStorageAccess, RegionLayout.FIXED_3X3);
+        var engine = new RegionThreadingEngine(1, true, false, false, false, false, false, RegionLayout.DYNAMIC_CLUSTER_8X8);
+        var manager = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture(), RegionThreadingHooks::assertServerEntityStorageAccess, RegionLayout.DYNAMIC_CLUSTER_8X8);
         var sections = managerStorage(manager);
         sections.getOrCreateSection(0);
         var getter = manager.getEntityGetter();
@@ -527,13 +527,13 @@ class FixedEntitySectionPartitionsTest {
     @Test
     void levelCallbacksInstallTheOwnerCheckAndTheRegionLayout() throws Exception {
         RegionThreadingManager.clear();
-        var engine = new RegionThreadingEngine(1, true, false, false, false, false, false, RegionLayout.FIXED_3X3);
+        var engine = new RegionThreadingEngine(1, true, false, false, false, false, false, RegionLayout.DYNAMIC_CLUSTER_8X8);
         RegionThreadingManager.install(engine);
         try {
             var level = mock(ServerLevel.class);
             var owned = new PersistentEntitySectionManager<>(TestEntity.class, new OwningCallbacks(level), new Fixture());
             var unowned = new PersistentEntitySectionManager<>(TestEntity.class, callbacks(new ArrayList<>()), new Fixture());
-            assertEquals(RegionLayout.FIXED_3X3, field(field(managerStorage(owned), "partitions"), "layout"));
+            assertEquals(RegionLayout.DYNAMIC_CLUSTER_8X8, field(field(managerStorage(owned), "partitions"), "layout"));
             assertNull(field(managerStorage(unowned), "partitions"));
             owned.addNewEntity(new TestEntity(1, BlockPos.ZERO));
             CountDownLatch finished = new CountDownLatch(1);

@@ -1131,8 +1131,8 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.fluidTickWorkerExecutionEnabled = this.workerExecutionEnabled && RegionThreadingConfig.fluidTickWorkerExecutionEnabled();
         this.chunkTickWorkerExecutionEnabled = ticks.chunkTicks();
         this.spawnWorkerExecutionEnabled = ticks.spawning();
-        this.packedRegionLeasesEnabled = this.layout.isFixed() && workers.packedRegionLeases();
-        if (this.layout.isFixed() && net.neoforged.neoforge.common.ForgiaConfig.isServerConfigLoaded()) {
+        this.packedRegionLeasesEnabled = false;
+        if (this.layout.isDynamicCluster() && net.neoforged.neoforge.common.ForgiaConfig.isServerConfigLoaded()) {
             this.blockEntityResourcesEnabled = net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingBlockEntityResources.get();
             this.furnaceWorkWavesEnabled = net.neoforged.neoforge.common.ForgiaConfig.SERVER.enableRegionThreadingFurnaceWorkWaves.get();
         }
@@ -1608,12 +1608,6 @@ public final class RegionThreadingEngine implements RegionThreading {
     private boolean ownsChunk(ServerLevel level, int chunkX, int chunkZ, BasicRegionThreadingContext context, RegionState region) {
         if (!region.isOwnedByCurrentThread()) {
             return false;
-        }
-        final RegionCoordinate coordinate = context.regionCoordinate;
-        if (coordinate != null && coordinate.level() == level && this.layout.isFixed()
-                && this.layout.regionX(chunkX) == coordinate.regionX()
-                && this.layout.regionZ(chunkZ) == coordinate.regionZ()) {
-            return true;
         }
         return this.regionizer.get(this.layout.regionAt(level, chunkX, chunkZ)) == region;
     }
@@ -6467,7 +6461,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     private boolean playerTickLayoutSupported() {
-        return this.layout.isFixed() || this.layout.isDynamicCluster() && Boolean.getBoolean("forgia.dynamicPlayerSoak");
+        return this.layout.isDynamicCluster();
     }
 
     /** Storage prerequisites match the actual player phase dependencies; no slice is enabled here. */
@@ -8048,7 +8042,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.tickCanonicalBlockEntities(level, chunks, barrier);
             return;
         }
-        if (this.furnaceWorkWavesEnabled && this.layout.isFixed()) {
+        if (this.furnaceWorkWavesEnabled && this.layout.isDynamicCluster()) {
             this.tickFurnaceWorkWaves(level, chunks, barrier, canonicalSequence);
             return;
         }
@@ -8293,7 +8287,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private void tickCanonicalBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier) {
         final long canonicalBeStart = System.nanoTime();
         this.enterCanonicalBoundary(level, barrier);
-        final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isFixed();
+        final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isDynamicCluster();
         boolean hasWorkerCandidate = this.coreModPreparation != null
                 && this.blockEntityResourcesEnabled
                 && CoreModTickerVerifier.available()

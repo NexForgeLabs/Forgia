@@ -84,7 +84,7 @@ class RegionScheduledTickAdmissionTest {
 
     private void install() {
         this.engine = new RegionThreadingEngine(2, false, false, false, false, true, false,
-                RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         RegionThreadingManager.install(this.engine);
     }
 

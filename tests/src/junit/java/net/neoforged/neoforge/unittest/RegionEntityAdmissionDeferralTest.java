@@ -1018,7 +1018,7 @@ class RegionEntityAdmissionDeferralTest {
     private void installEngine(int workerThreads, boolean entityTickWorkers) {
         // Only the entity tick mechanics tests construct an engine with region-owned entity storage.
         final RegionThreadingEngine created = new RegionThreadingEngine(workerThreads, false, false, entityTickWorkers,
-                false, false, false, RegionPolicy.FIXED_3X3, RegionEntityStorageMode.REGION_OWNED);
+                false, false, false, RegionPolicy.DYNAMIC_CLUSTER, RegionEntityStorageMode.REGION_OWNED);
         RegionThreadingManager.install(created);
         this.engine = created;
     }
@@ -1091,7 +1091,7 @@ class RegionEntityAdmissionDeferralTest {
                 callbacks,
                 storage,
                 RegionThreadingHooks::assertServerEntityStorageAccess,
-                RegionLayout.FIXED_3X3);
+                RegionLayout.DYNAMIC_CLUSTER_8X8);
     }
 
     /**

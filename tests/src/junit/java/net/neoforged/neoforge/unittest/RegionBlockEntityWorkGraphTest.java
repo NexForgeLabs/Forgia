@@ -85,7 +85,7 @@ class RegionBlockEntityWorkGraphTest {
         doReturn(net.minecraft.server.level.FullChunkStatus.BLOCK_TICKING).when(this.chunk).getFullStatus();
         doReturn(Blocks.HOPPER.defaultBlockState()).when(this.chunk).getBlockState(any(BlockPos.class));
         this.engine = new RegionThreadingEngine(2, false, false, false, true, false, false,
-                RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
         this.engine.setBlockEntityAdmissionCacheEnabledForTesting(false);
         RegionThreadingManager.install(this.engine);
     }

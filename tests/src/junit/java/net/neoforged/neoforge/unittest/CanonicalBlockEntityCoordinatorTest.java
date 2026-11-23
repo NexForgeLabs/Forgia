@@ -115,7 +115,7 @@ class CanonicalBlockEntityCoordinatorTest {
                     net.neoforged.neoforge.server.threading.region.RegionCoordinate.class);
             seed.setAccessible(true);
             final var expected = RandomSource.create((Long) CanonicalBlockEntityTestSupport.invoke(seed, null,
-                    f.level, RegionLayout.FIXED_3X3.regionAt(f.level, A)));
+                    f.level, RegionLayout.DYNAMIC_CLUSTER_8X8.regionAt(f.level, A)));
             f.levelPhase();
             assertEquals(List.of(expected.nextLong(), expected.nextLong()), draws);
             assertNotNull(streams.getFirst());

@@ -187,7 +187,7 @@ class RegionBoundaryFurnaceTest {
         final RegionThreadingEngine engine;
         if (parallel) {
             engine = new RegionThreadingEngine(2, false, false, false, true, false, false,
-                    RegionLayout.FIXED_3X3, RegionEntityStorageMode.MAIN_THREAD_ONLY);
+                    RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.MAIN_THREAD_ONLY);
             engine.setBorderUpdatesEnabledForTesting(true);
             RegionThreadingManager.install(engine);
             engine.addRegionSection(level, chunk.getPos().x, chunk.getPos().z);

@@ -145,7 +145,7 @@ final class FurnaceWorkPreparation {
         final int pz = position.getZ();
         final int centerChunkX = centerChunk.getPos().x;
         final int centerChunkZ = centerChunk.getPos().z;
-        final boolean fixedLayout = this.layout.isFixed();
+        final boolean fixedLayout = this.layout.isDynamicCluster();
         final int centerRegionX = fixedLayout ? this.layout.regionX(centerChunkX) : 0;
         final int centerRegionZ = fixedLayout ? this.layout.regionZ(centerChunkZ) : 0;
         final RegionCoordinate centerCoord = fixedLayout ? null : this.layout.regionAt(this.level, centerChunkX, centerChunkZ);

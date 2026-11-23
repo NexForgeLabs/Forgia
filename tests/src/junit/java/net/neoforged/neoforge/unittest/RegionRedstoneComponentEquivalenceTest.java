@@ -194,7 +194,7 @@ class RegionRedstoneComponentEquivalenceTest {
         final ServerLevel level = world.level;
         final Layout layout = Layout.interiorGrid(0xB12E5L, chains);
         layout.build(world);
-        final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true, RegionPolicy.FIXED_3X3);
+        final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true, RegionPolicy.DYNAMIC_CLUSTER);
         installed.setBorderUpdatesEnabledForTesting(borderUpdates);
         installed.setBorderUpdateBudgetForTesting(20000);
         installed.enableUnclassifiedWorkerCallbacksForTesting();
@@ -270,7 +270,7 @@ class RegionRedstoneComponentEquivalenceTest {
         final ServerLevel level = world.level;
         layout.build(world);
         if (regionThreading) {
-            final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true, RegionPolicy.FIXED_3X3);
+            final RegionThreadingEngine installed = new RegionThreadingEngine(4, false, false, false, false, true, RegionPolicy.DYNAMIC_CLUSTER);
             installed.setBorderUpdatesEnabledForTesting(true);
             installed.setBorderUpdateBudgetForTesting(20000);
             installed.enableUnclassifiedWorkerCallbacksForTesting();
