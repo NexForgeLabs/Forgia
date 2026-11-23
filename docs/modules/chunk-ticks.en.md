@@ -4,7 +4,7 @@ English | [中文](chunk-ticks.zh.md) · [Module map](README.en.md)
 Source: [`RegionChunkTickCoordinator`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionChunkTickCoordinator.java), [`RegionBorderUpdates`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderUpdates.java), [`RegionBorderGameEvents`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionBorderGameEvents.java), [`RegionDeferredBlockUpdates`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionDeferredBlockUpdates.java)
 Evidence: [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md), [PRODUCTION-CONFIGURATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/PRODUCTION-CONFIGURATION.md), [GUARD-INVENTORY](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/GUARD-INVENTORY.md)
 
-Status: random chunk ticks **certified within C6**; border updates and game events are **experimental**
+Status: random chunk ticks passed the **historical C6 acceptance scope**; border updates and game events remain **experimental**
 (`enableRegionThreadingBorderUpdates`, `enableRegionThreadingGameEvents`, both default off, outside C6).
 
 ---
@@ -84,7 +84,7 @@ Status: random chunk ticks **certified within C6**; border updates and game even
 | `enableRegionThreadingRandomTicks` | `false` | yes | Whole chunk tick body on workers |
 | `enableRegionThreadingBorderUpdates` | `false` | yes | Cross-region neighbour capture + fixpoint |
 | `enableRegionThreadingGameEvents` | `false` | yes | Foreign game-event capture; OFF keeps inline dispatch |
-| `regionThreadingMode` | `FIXED_3X3` | yes | `DYNAMIC_CLUSTER` (recommended) or `FIXED_3X3` (C6 baseline) |
+| `regionThreadingMode` | `FIXED_3X3` | yes | `DYNAMIC_CLUSTER` (recommended) or legacy `FIXED_3X3` (C6 comparison profile) |
 | `regionThreadingOwnershipViolationMode` | `WARN` | no | Advisory assertions |
 
 ```toml
@@ -94,7 +94,7 @@ enableRegionThreadingWorkers = true
 enableRegionThreadingRandomTicks = true
 # enableRegionThreadingBorderUpdates = true  # experimental, outside C6
 # enableRegionThreadingGameEvents = true     # experimental, outside C6
-regionThreadingMode = "DYNAMIC_CLUSTER"      # recommended (FIXED_3X3 is the C6 baseline)
+regionThreadingMode = "DYNAMIC_CLUSTER"      # recommended (FIXED_3X3 is the legacy C6 comparison profile)
 regionThreadingDynamicSectionShift = 3
 ```
 
