@@ -49,7 +49,7 @@ The snippets further down this page are feature-specific examples, not a one-siz
 
 ## 3. Complete Configuration Reference (All 36 `config/forgia.toml` Keys)
 
-### 3.1 Core & Parallel Slice Switches (16 keys, all default `false`, all restart-only)
+### 3.1 Core & Parallel Slice Switches (parallel switches default `false`; restart requirements vary by key)
 
 | Key | Default | Prerequisites | Behavior |
 |---|---:|---|---|
@@ -59,6 +59,8 @@ The snippets further down this page are feature-specific examples, not a one-siz
 | `enableRegionThreadingEntityTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | Runs `ServerLevel` entity ticks on region workers; enables region-owned entity storage and deferred handoff |
 | `enableRegionThreadingPlayerTicks` | `false` | `Bridge` + `EntityTicks` + (`FIXED_3X3`, or `DYNAMIC_CLUSTER` + `-Dforgia.dynamicPlayerSoak=true`) | Dispatches eligible player `ENTITY` (`ServerPlayer.tick`) and bounded `CONNECTION_BODY` ticks to region workers; evaluates third-party mods by actual transform/listener surface |
 | `enableRegionThreadingBlockEntityTicks` | `false` | `Bridge` | Dispatches declared region-safe block entity ticks to region workers; undeclared/unsafe types stay serial |
+| `enableRegionSandboxAllBlockEntities` | `false` | Block Entity worker path | Opts ordinary modded BEs into the generic Region Sandbox; compatibility guards and serial fallback still apply |
+| `enableIndependentRegionTickClock` | `false` | Region engine | Enables independent per-region tick scheduling; global world state and cross-region commits remain coordinated |
 | `enableRegionThreadingFurnaceWorkWaves` | `false` | `Bridge` + `BlockEntityTicks` + **`FIXED_3X3` only** | Experimental: runs verified already-burning vanilla furnace-family ticks in directed resource waves (ignored in `DYNAMIC_CLUSTER`) |
 | `enableRegionThreadingBlockEntityResources` | `false` | `FurnaceWorkWaves` + **`FIXED_3X3` only** | Experimental: enables object-level READ/WRITE claims, nonblocking leases, and scopes inside furnace waves (ignored in `DYNAMIC_CLUSTER`) |
 | `enableRegionThreadingScheduledTicks` | `false` | `Bridge` + `DYNAMIC_CLUSTER`/`FIXED_3X3` | Bounded scheduled block/fluid tick slice (audited inert vanilla redstone-lamp phases); others stay serial in `LevelTicks` |
@@ -78,7 +80,7 @@ The snippets further down this page are feature-specific examples, not a one-siz
 
 | Key | Default | Range | Restart | Behavior |
 |---|---|---|---:|---|
-| `regionThreadingMode` | `"FIXED_3X3"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | yes | Region policy. **`"DYNAMIC_CLUSTER"` recommended**; `"FIXED_3X3"` is the C6 baseline; `"DYNAMIC"` is legacy 16×16 |
+| `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | yes | Region policy. **`"DYNAMIC_CLUSTER"` recommended**; `"FIXED_3X3"` is the C6 baseline; `"DYNAMIC"` is legacy 16×16 |
 | `regionThreadingDynamicSectionShift` | `3` | `2..4` | yes | Dynamic section edge bit shift: `1 << shift` chunks (`2`=4×4, `3`=8×8 recommended, `4`=16×16) |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | `0..1200` | yes | Hysteresis ticks before an emptied dynamic section detaches and checks for island splitting |
 | `regionThreadingFixedRegionChunks` | `3` | `3..32` | yes | Edge length in chunks of one fixed region when `regionThreadingMode = "FIXED_3X3"` |
