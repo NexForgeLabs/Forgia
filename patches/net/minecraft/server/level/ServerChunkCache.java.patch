@@ -21,7 +21,7 @@
              profilerfiller.incrementCounter("getChunkCacheMiss");
              CompletableFuture<ChunkResult<ChunkAccess>> completablefuture = this.getChunkFutureMainThread(p_8360_, p_8361_, p_330876_, p_8363_);
              this.mainThreadProcessor.managedBlock(completablefuture::isDone);
-@@ -164,10 +_,66 @@
+@@ -164,10 +_,72 @@
          }
      }
  
@@ -102,7 +102,10 @@
                  ChunkAccess chunkaccess1 = chunkholder.getChunkIfPresent(ChunkStatus.FULL);
                  if (chunkaccess1 != null) {
                      this.storeInCache(i, chunkaccess1, ChunkStatus.FULL);
-@@ -200,4 +_,36 @@
+@@ -197,7 +_,39 @@
+         }
+     }
+ 
 +    // Positive FULL observations used by the player publisher. Ticket updates and cache clears
 +    // invalidate the entire table before a holder can be demoted, replaced, or unpublished.
 +    private it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> forgiaPlayerChunks;
@@ -151,7 +154,7 @@
          CompletableFuture<ChunkResult<ChunkAccess>> completablefuture;
          if (flag) {
              completablefuture = this.getChunkFutureMainThread(p_8432_, p_8433_, p_330326_, p_8435_);
-@@ -270,6 +_,17 @@
+@@ -270,7 +_,18 @@
          return this.mainThreadProcessor.pollTask();
      }
  
@@ -169,6 +172,46 @@
 +        this.forgiaClearPlayerChunkObservations();
          boolean flag = this.distanceManager.runAllUpdates(this.chunkMap);
          boolean flag1 = this.chunkMap.promoteChunkMap();
+         this.chunkMap.runGenerationTasks();
+@@ -305,25 +_,38 @@
+ 
+     @Override
+     public void tick(BooleanSupplier p_201913_, boolean p_201914_) {
++        final long distStart = System.nanoTime();
+         this.level.getProfiler().push("purge");
+         if (this.level.tickRateManager().runsNormally() || !p_201914_) {
+             this.distanceManager.purgeStaleTickets();
+         }
+ 
+         this.runDistanceManagerUpdates();
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.CHUNK_SOURCE_DIST,
++                System.nanoTime() - distStart);
+         this.level.getProfiler().popPush("chunks");
+         if (p_201914_) {
+             this.tickChunks();
++            final long mapTickStart = System.nanoTime();
+             this.chunkMap.tick();
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                    net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.CHUNK_SOURCE_UNLOAD,
++                    System.nanoTime() - mapTickStart);
+         }
+ 
+         this.level.getProfiler().popPush("unload");
++        final long unloadStart = System.nanoTime();
+         this.chunkMap.tick(p_201913_);
++        net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.CHUNK_SOURCE_UNLOAD,
++                System.nanoTime() - unloadStart);
+         this.level.getProfiler().pop();
+         this.clearCache();
+     }
+ 
+     private void tickChunks() {
++        final long chunksStart = System.nanoTime();
+         long i = this.level.getGameTime();
+         long j = i - this.lastInhabitedUpdate;
+         this.lastInhabitedUpdate = i;
 @@ -343,30 +_,71 @@
              if (this.level.tickRateManager().runsNormally()) {
                  profilerfiller.popPush("naturalSpawnCount");
@@ -251,6 +294,22 @@
  
                  profilerfiller.popPush("customSpawners");
                  if (flag1) {
+@@ -374,8 +_,15 @@
+                 }
+             }
+ 
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                    net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.CHUNK_SOURCE_CHUNKS,
++                    System.nanoTime() - chunksStart);
++            final long broadcastStart = System.nanoTime();
+             profilerfiller.popPush("broadcast");
+             list.forEach(p_184022_ -> p_184022_.holder.broadcastChanges(p_184022_.chunk));
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.recordMainThreadPhase(
++                    net.neoforged.neoforge.server.threading.region.RegionMainThreadPhaseMetrics.Phase.CHUNK_SOURCE_BROADCAST,
++                    System.nanoTime() - broadcastStart);
+             profilerfiller.pop();
+             profilerfiller.pop();
+         }
 @@ -388,6 +_,24 @@
          }
      }

@@ -3378,7 +3378,15 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final RegionEntityTickBatch.Group group = this.currentEntityTickGroup();
         if (group == null || group.level() != level) {
-            return false;
+            if (!RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled()) {
+                return false;
+            }
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
+                if (!player.isRemoved() && player.level() == level) {
+                    action.accept(player);
+                }
+            });
+            return true;
         }
         final RegionEntityInteractionTask request = new RegionEntityInteractionTask(
                 player, level,
