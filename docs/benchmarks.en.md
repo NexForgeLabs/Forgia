@@ -5,7 +5,7 @@
   <a href="../benchmarks.zh/">中文</a>
 </div>
 
-Forgia separates **where region threading already wins** (entity-heavy worlds, multiplayer player dispatch, chunk random ticks, natural spawning) from **where single-thread execution remains faster** (light stationary block entities). All benchmarks below preserve exact world state or NBT equivalence and keep every threading switch **off by default**.
+This page separates the **latest C7 production validation** from historical controlled tests. Older microbenchmarks describe only their named build, fixture and configuration; they are not current-build speedup claims. In particular, the MobSpawnController ordered-spawn experiment is not recommended for production. All parallel execution switches default to **off**.
 
 ---
 
