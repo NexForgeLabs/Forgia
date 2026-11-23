@@ -11780,29 +11780,31 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
-        final boolean transientCooldown = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
-                admission.level(), admission.position(), type, RegionThreadingConfig.sandboxTransientCooldownTicks());
-        final var ticker = admission.ticker();
-        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
-            if (!ticker.isRemoved()) {
-                ticker.tick();
+        if (RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled()) {
+            final boolean transientCooldown = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
+                    admission.level(), admission.position(), type, RegionThreadingConfig.sandboxTransientCooldownTicks());
+            final var ticker = admission.ticker();
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
+                if (!ticker.isRemoved()) {
+                    ticker.tick();
+                }
+            });
+            if (transientCooldown) {
+                return true;
             }
-        });
-        if (transientCooldown) {
-            return true;
-        }
-        // The specific coordinate admission.position() has now reached the permanent threshold and is
-        // pinned to the server thread (Long.MAX_VALUE cooldown). Only escalate to a server-wide type
-        // demotion if the boundary violation is a global/player state violation rather than a spatial
-        // neighbor/chunk/capability boundary at this block position.
-        final String category = violation.category();
-        final boolean spatialOrInstanceSpecific = "storage_access".equals(category)
-                || "capability_access".equals(category)
-                || "network_broadcast".equals(category)
-                || "minecraft:hopper".equals(type)
-                || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.hasSandboxTypePredicate(type);
-        if (spatialOrInstanceSpecific) {
-            return true;
+            // The specific coordinate admission.position() has now reached the permanent threshold and is
+            // pinned to the server thread (Long.MAX_VALUE cooldown). Only escalate to a server-wide type
+            // demotion if the boundary violation is a global/player state violation rather than a spatial
+            // neighbor/chunk/capability boundary at this block position.
+            final String category = violation.category();
+            final boolean spatialOrInstanceSpecific = "storage_access".equals(category)
+                    || "capability_access".equals(category)
+                    || "network_broadcast".equals(category)
+                    || "minecraft:hopper".equals(type)
+                    || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.hasSandboxTypePredicate(type);
+            if (spatialOrInstanceSpecific) {
+                return true;
+            }
         }
         RegionTickCompatibility.declareServerThreadOnlyType(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {

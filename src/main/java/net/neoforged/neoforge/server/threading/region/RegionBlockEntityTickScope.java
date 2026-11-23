@@ -78,6 +78,31 @@ public final class RegionBlockEntityTickScope implements AutoCloseable {
                 && scope.region.isOwnedByCurrentThread();
     }
 
+    @Nullable
+    public static RegionCoordinate currentCoordinateForLevel(ServerLevel level) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return null;
+        }
+        final RegionBlockEntityTickScope scope = CURRENT.get();
+        if (scope != null
+                && scope.active
+                && scope.admission != null
+                && scope.admission.level() == level
+                && scope.region != null
+                && scope.region.isOwnedByCurrentThread()) {
+            return scope.region.coordinate();
+        }
+        return null;
+    }
+
+    public static boolean ownsEntityInCurrentRegion(ServerLevel level, net.minecraft.world.entity.Entity entity) {
+        if (entity == null || entity instanceof net.minecraft.world.entity.player.Player || entity.level() != level) {
+            return false;
+        }
+        final RegionCoordinate coordinate = currentCoordinateForLevel(level);
+        return coordinate != null && RegionEntityOwnershipScope.isInsideRegion(coordinate, level, entity.blockPosition());
+    }
+
     /** {@return whether this exact invocation can replace its server-owned entity-load read} */
     public static boolean isAdmitted(ServerLevel level, @Nullable TickingBlockEntity ticker, BlockPos pos) {
         if (!RegionWorkerScope.isNativeWorkerThread()) {

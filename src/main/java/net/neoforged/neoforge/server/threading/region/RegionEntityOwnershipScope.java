@@ -522,13 +522,13 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
     @Nullable
     static RegionCoordinate queryCoordinate(ServerLevel level) {
         final RegionEntityOwnershipScope scope = currentScope();
-        if (scope == null
-                || !scope.isActive()
-                || !RegionWorkerScope.isNativeWorkerThread()
-                || scope.coordinate.level() != level) {
-            return null;
+        if (scope != null
+                && scope.isActive()
+                && RegionWorkerScope.isNativeWorkerThread()
+                && scope.coordinate.level() == level) {
+            return scope.coordinate;
         }
-        return scope.coordinate;
+        return RegionBlockEntityTickScope.currentCoordinateForLevel(level);
     }
 
     /**

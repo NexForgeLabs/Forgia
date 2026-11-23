@@ -276,7 +276,20 @@ public final class RegionThreadingHooks {
         if ((RegionBlockEntityTickScope.isActiveForLevel(level) || regionTickMutationQueue() != null)
                 && !entity.isAddedToLevel()
                 && !RegionEntityOwnershipScope.hasLevelEffects(entity)
-                && "Entity.setPosRaw".equals(operation)) {
+                && ("Entity.setPosRaw".equals(operation)
+                        || "Entity.absMoveTo".equals(operation)
+                        || "Entity.moveTo".equals(operation))) {
+            return;
+        }
+        if (RegionBlockEntityTickScope.ownsEntityInCurrentRegion(level, entity)
+                && ("Entity.setPosRaw".equals(operation)
+                        || "Entity.move".equals(operation)
+                        || "Entity.absMoveTo".equals(operation)
+                        || "Entity.moveTo".equals(operation)
+                        || "Entity.discard".equals(operation)
+                        || "Entity.remove".equals(operation)
+                        || "Entity.setRemoved".equals(operation)
+                        || "LivingEntity.remove".equals(operation))) {
             return;
         }
         RegionOwnershipViolationHandler.rejectNativeWorkerStorageAccess(operation);
@@ -661,7 +674,21 @@ public final class RegionThreadingHooks {
      *         acquisition, because the barrier applies them instead
      */
     public static boolean deferEntitySectionUpdate(Entity entity, EntityInLevelCallback callback, double x, double y, double z) {
-        return RegionEntityOwnershipScope.deferEntitySectionUpdate(entity, callback, x, y, z);
+        if (RegionEntityOwnershipScope.deferEntitySectionUpdate(entity, callback, x, y, z)) {
+            return true;
+        }
+        if (entity.level() instanceof ServerLevel level
+                && entity.isAddedToLevel()
+                && !entity.isRemoved()
+                && RegionBlockEntityTickScope.ownsEntityInCurrentRegion(level, entity)) {
+            return net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
+                if (!entity.isRemoved() && entity.isAddedToLevel()) {
+                    callback.onMove();
+                    level.getChunk(((int) Math.floor(entity.getX())) >> 4, ((int) Math.floor(entity.getZ())) >> 4);
+                }
+            });
+        }
+        return false;
     }
 
     /**
@@ -675,7 +702,12 @@ public final class RegionThreadingHooks {
      * vanilla inline behaviour.
      */
     public static boolean skipsSectionUpdateOfRemovedEntity(Entity entity) {
-        return RegionEntityOwnershipScope.skipsSectionUpdateOfRemovedEntity(entity);
+        if (RegionEntityOwnershipScope.skipsSectionUpdateOfRemovedEntity(entity)) {
+            return true;
+        }
+        return entity.isRemoved()
+                && entity.level() instanceof ServerLevel level
+                && RegionBlockEntityTickScope.isActiveForLevel(level);
     }
 
     /**
@@ -699,7 +731,15 @@ public final class RegionThreadingHooks {
      * @return {@code true} when the caller must skip the level callback, because the barrier runs it instead
      */
     public static boolean deferEntityRemoval(Entity entity, EntityInLevelCallback callback, Entity.RemovalReason reason) {
-        return RegionEntityOwnershipScope.deferEntityRemoval(entity, callback, reason);
+        if (RegionEntityOwnershipScope.deferEntityRemoval(entity, callback, reason)) {
+            return true;
+        }
+        if (entity.level() instanceof ServerLevel level
+                && entity.isAddedToLevel()
+                && RegionBlockEntityTickScope.ownsEntityInCurrentRegion(level, entity)) {
+            return net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> callback.onRemove(reason));
+        }
+        return false;
     }
 
     /**
