@@ -41,9 +41,9 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 
 | `shift` 值 | 单 Section 尺寸 | 适用场景 | 特点 |
 |---:|---|---|---|
-| **`2`** | `4×4` chunks（64×64 格） | 玩家聚集在较近区域（主城/小地图）或追求极致 P99 | 岛合并更克制、岛数更多、P99 更低，但玩家更易跨区边界 |
-| **`3`（推荐）** | `8×8` chunks（128×128 格） | **绝大多数多人与混合生存/模组服** | 综合 TPS 最高、L3 缓存友好、玩家进 Worker 比例最高（~86%） |
-| **`4`** | `16×16` chunks（256×256 格） | 超大地图且玩家彼此相距 >500 格的百人服（Folia 默认） | 边界极少，但在玩家间距 <300 格时易合并成大岛降低并发度 |
+| **`2`** | `4×4` chunks（64×64 格） | 高密度主城 / 小地图 | 基础 Section 更小；可能产生更多 Region 边界和拓扑管理开销 |
+| **`3`（默认）** | `8×8` chunks（128×128 格） | 通用起点 | Section 尺寸较均衡；仍需根据玩家分布和实际负载验证 |
+| **`4`** | `16×16` chunks（256×256 格） | 玩家群体彼此距离较远的地图 | 基础 Section 更大、边界更少，但独立 Region 的粒度也可能降低 |
 
 ---
 
@@ -80,7 +80,7 @@ Forgia 的全部并行与诊断开关统一存放在独立配置文件 **`config
 
 | 配置键 | 默认值 | 取值范围 | 需重启 | 说明 |
 |---|---|---|---:|---|
-| `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | 是 | 区域划分策略。**推荐 `"DYNAMIC_CLUSTER"`**；`"FIXED_3X3"` 为 C6 固定网格基线；`"DYNAMIC"` 为遗留 16×16 网格 |
+| `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | 是 | 当前默认值为 `DYNAMIC_CLUSTER`；`FIXED_3X3` 保留用于旧版/C6 对照；`DYNAMIC` 为遗留 16×16 网格 |
 | `regionThreadingDynamicSectionShift` | `3` | `2..4` | 是 | `DYNAMIC_CLUSTER` 基础 Section 边长位偏移：`1 << shift` chunks（`2`=4×4、`3`=8×8 推荐、`4`=16×16） |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | `0..1200` | 是 | `DYNAMIC_CLUSTER` 空 Section 分离并触发连通分量拆分的迟滞等待 tick 数 |
 | `regionThreadingFixedRegionChunks` | `3` | `3..32` | 是 | `FIXED_3X3` 模式下单个固定区域的边长（chunk 数） |
@@ -176,7 +176,7 @@ regionThreadingFixedRegionChunks = 3
 regionThreadingWorkerThreads = 0                  # 0 表示自动按物理核数计算；也可显式指定
 
 # --- Phase 2: 独立 Region 异步时钟与全服 BE 沙盒 [重启] ---
-enableIndependentRegionTickClock = true           # 启用 Folia 式 per-region 异步时钟（消除 BE 全局 Barrier）
+enableIndependentRegionTickClock = true           # 启用 Folia 式 per-region 时钟调度；全局状态仍需协调
 independentRegionTickIntervalNanos = 50000000     # 目标周期 50ms (20 TPS)
 independentRegionMaxCatchUpTicks = 4              # 滞后时最大追帧上限
 enableRegionSandboxAllBlockEntities = true        # 默认把全服所有非移动活塞/非黑名单 BE 丢进 Region Worker 沙盒
