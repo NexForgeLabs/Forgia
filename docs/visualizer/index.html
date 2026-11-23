@@ -230,7 +230,7 @@
   <div class="chips">
     <span class="chip">NEOFORGE 1.21.1</span>
     <button class="chip-btn active" id="btn-mode-dyn" title="Switch to DYNAMIC_CLUSTER loaded-island layout">DYNAMIC_CLUSTER (8×8)</button>
-    <button class="chip-btn" id="btn-mode-fix" title="Switch to FIXED_3X3 static grid baseline">FIXED_3X3 (3×3)</button>
+    <button class="chip-btn" id="btn-mode-fix" title="Switch to legacy FIXED_3X3 layout for conceptual comparison">FIXED_3X3 (3×3)</button>
     <button class="chip-btn" id="btn-lang">EN / 中</button>
     <span class="chip chip--phase" id="phase-chip">GLOBAL</span>
   </div>
@@ -1385,7 +1385,7 @@ function rebuildSidebar() {
 
   document.getElementById('lbl-steps').textContent = lang === 'zh' ? '并行流水线' : 'PIPELINE STAGES';
   document.getElementById('lbl-tel').textContent = lang === 'zh' ? '运行时状态' : 'RUNTIME TELEMETRY';
-  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '全功能模块（点击跳转）' : 'ARCHITECTURE MODULES (CLICK)';
+  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '架构模块（点击查看）' : 'ARCHITECTURE MODULES (CLICK)';
   document.getElementById('lnk-cfg').href = lang === 'zh' ? '../configuration.zh/' : '../configuration.en/';
   document.getElementById('lnk-cfg').textContent = lang === 'zh' ? '配置指南 →' : 'CONFIG GUIDE →';
   document.getElementById('lnk-arch').href = lang === 'zh' ? '../architecture.zh/' : '../architecture.en/';
