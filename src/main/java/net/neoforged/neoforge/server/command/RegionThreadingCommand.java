@@ -220,11 +220,14 @@ final class RegionThreadingCommand {
                 .add(diagnostics.trackedEntityCount() + " entities", ChatFormatting.GRAY)
                 .send(source);
 
+        final boolean fluidEffective = diagnostics.workerExecutionEnabled()
+                && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.fluidTickWorkerExecutionEnabled();
         statusLine("Slices", ChatFormatting.GOLD)
                 .chip("entity", diagnostics.entityTickWorkerExecutionEnabled(), diagnostics.entityTickWorkerExecutionEnabled())
                 .chip("blockEntity", diagnostics.blockEntityTickWorkerExecutionEnabled(), diagnostics.blockEntityTickWorkerExecutionEnabled())
                 .chip("chunk", diagnostics.chunkTickWorkerExecutionEnabled(), diagnostics.chunkTickWorkerDispatchEffective())
                 .chip("spawn", diagnostics.spawnWorkerExecutionEnabled(), diagnostics.spawnWorkerDispatchEffective())
+                .chip("fluid", fluidEffective, fluidEffective)
                 .chip("scheduled", diagnostics.scheduledTickWorkerExecutionEnabled(), diagnostics.scheduledTickWorkerDispatchEffective())
                 .send(source);
 

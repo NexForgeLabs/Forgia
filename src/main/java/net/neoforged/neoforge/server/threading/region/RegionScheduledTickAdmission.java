@@ -102,7 +102,9 @@ final class RegionScheduledTickAdmission {
         for (int i = 0, size = ticks.size(); i < size; ++i) {
             final ScheduledTick<T> tick = ticks.get(i);
             final T type = tick.type();
-            if (type instanceof Fluid fluid && demotedFluids.contains(fluid)) {
+            if (type instanceof Fluid fluid
+                    && (demotedFluids.contains(fluid)
+                            || !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedFluid(level, tick.pos(), fluid))) {
                 borderOut.add(tick);
                 continue;
             }

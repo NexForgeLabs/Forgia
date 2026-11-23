@@ -273,7 +273,7 @@ public final class RegionThreadingHooks {
         if (RegionEntityOwnershipScope.grantsEntityMutation(level, entity, operation)) {
             return;
         }
-        if (RegionBlockEntityTickScope.isActiveForLevel(level)
+        if ((RegionBlockEntityTickScope.isActiveForLevel(level) || regionTickMutationQueue() != null)
                 && !entity.isAddedToLevel()
                 && !RegionEntityOwnershipScope.hasLevelEffects(entity)
                 && "Entity.setPosRaw".equals(operation)) {
@@ -587,6 +587,18 @@ public final class RegionThreadingHooks {
         FurnaceWorkScope.rejectEffect("entity admission");
         RegionBlockEntityWorkGraph.opaqueEffect();
         if (RegionEntityOwnershipScope.deferEntityAddition(level, entity)) {
+            return true;
+        }
+        final java.util.Queue<Runnable> mutations = regionTickMutationQueue();
+        if (mutations != null
+                && !entity.isAddedToLevel()
+                && !entity.isRemoved()
+                && !RegionEntityOwnershipScope.hasLevelEffects(entity)) {
+            mutations.add(() -> {
+                if (!entity.isRemoved() && !entity.isAddedToLevel()) {
+                    level.addFreshEntity(entity);
+                }
+            });
             return true;
         }
         if (RegionBlockEntityTickScope.isActiveForLevel(level)

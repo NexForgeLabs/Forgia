@@ -268,6 +268,7 @@ public final class RegionThreadingDeclarations {
         final Path learnedFile = configFile.resolveSibling(LEARNED_FILE_NAME);
         if (Files.isRegularFile(learnedFile)) {
             sources.add(new Source(LEARNED_SOURCE, learnedFile));
+            loadLearnedFluidDemotions(learnedFile);
         }
         for (final IModInfo mod : ModList.get().getMods()) {
             final String declared = mod.getConfig().<String>getConfigElement(MOD_FILE_ELEMENT).orElse(null);
@@ -352,6 +353,87 @@ public final class RegionThreadingDeclarations {
             return true;
         } catch (IOException | RuntimeException e) {
             return false;
+        }
+    }
+
+    /**
+     * Persists a learned server-thread-only fluid demotion to {@code config/regionthreading-learned.json}.
+     */
+    public static void persistLearnedFluidDemotion(String fluidId, String reason) {
+        final Path learnedFile;
+        try {
+            learnedFile = FMLPaths.CONFIGDIR.get().resolve(LEARNED_FILE_NAME);
+        } catch (RuntimeException unavailable) {
+            return;
+        }
+        persistLearnedFluidDemotion(learnedFile, fluidId, reason);
+    }
+
+    public static synchronized boolean persistLearnedFluidDemotion(Path learnedFile, String fluidId, String reason) {
+        if (learnedFile == null || fluidId == null || fluidId.isBlank() || reason == null || reason.isBlank()) {
+            return false;
+        }
+        try {
+            JsonObject root = new JsonObject();
+            if (Files.isRegularFile(learnedFile)) {
+                try {
+                    final JsonElement parsed = JsonParser.parseString(Files.readString(learnedFile));
+                    if (parsed != null && parsed.isJsonObject()) {
+                        root = parsed.getAsJsonObject();
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
+            JsonArray fluids;
+            final JsonElement existing = root.get("fluids");
+            if (existing != null && existing.isJsonArray()) {
+                fluids = existing.getAsJsonArray();
+            } else {
+                fluids = new JsonArray();
+                root.add("fluids", fluids);
+            }
+            for (final JsonElement elem : fluids) {
+                if (elem.isJsonObject()) {
+                    final String existingType = string(elem.getAsJsonObject(), TYPE);
+                    if (fluidId.equals(existingType)) {
+                        return false;
+                    }
+                }
+            }
+            final JsonObject entry = new JsonObject();
+            entry.addProperty(TYPE, fluidId);
+            entry.addProperty(REASON, reason);
+            fluids.add(entry);
+            final Path parent = learnedFile.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.writeString(learnedFile, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(root) + "\n");
+            return true;
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static void loadLearnedFluidDemotions(Path learnedFile) {
+        try {
+            final JsonElement parsed = JsonParser.parseString(Files.readString(learnedFile));
+            if (parsed == null || !parsed.isJsonObject()) {
+                return;
+            }
+            final JsonElement fluids = parsed.getAsJsonObject().get("fluids");
+            if (fluids == null || !fluids.isJsonArray()) {
+                return;
+            }
+            for (final JsonElement elem : fluids.getAsJsonArray()) {
+                if (elem.isJsonObject()) {
+                    final String fluidId = string(elem.getAsJsonObject(), TYPE);
+                    if (fluidId != null && !fluidId.isBlank()) {
+                        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.denyRegionSandboxedFluid(fluidId);
+                    }
+                }
+            }
+        } catch (IOException | RuntimeException ignored) {
         }
     }
 

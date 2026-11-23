@@ -10596,8 +10596,13 @@ public final class RegionThreadingEngine implements RegionThreading {
         @Override
         public void demoteFluid(net.minecraft.world.level.material.Fluid fluid, Throwable failure) {
             if (RegionThreadingEngine.this.demotedFluidTypes.add(fluid)) {
+                final var key = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid);
+                final String fluidId = key != null ? key.toString() : fluid.getClass().getName();
+                final String reason = "fluid_worker_error:" + failure.getClass().getSimpleName();
+                net.neoforged.neoforge.server.threading.api.RegionAdapterApi.denyRegionSandboxedFluid(fluidId);
+                net.neoforged.neoforge.server.threading.RegionThreadingDeclarations.persistLearnedFluidDemotion(fluidId, reason);
                 LOGGER.warn("[RegionFluidSandbox] Auto-demoted fluid {} to server thread after worker exception: {}",
-                        net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid), failure.toString());
+                        fluidId, failure.toString());
             }
         }
     }

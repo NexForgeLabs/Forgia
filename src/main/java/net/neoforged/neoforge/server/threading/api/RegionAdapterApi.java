@@ -44,6 +44,8 @@ public final class RegionAdapterApi {
     private static final Set<String> SANDBOX_ADMITTED_BE_TYPES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_ADMITTED_NAMESPACES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_DENIED_NAMESPACES = ConcurrentHashMap.newKeySet();
+    private static final Set<String> SANDBOX_DENIED_FLUIDS = ConcurrentHashMap.newKeySet();
+    private static final Map<String, java.util.function.BiPredicate<ServerLevel, BlockPos>> SANDBOX_FLUID_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_TYPE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<ServerLevel, Map<Long, Long>> TRANSIENT_BE_COOLDOWNS = new ConcurrentHashMap<>();
@@ -188,6 +190,57 @@ public final class RegionAdapterApi {
                 SANDBOX_DENIED_NAMESPACES.add(namespace.trim());
             }
         }
+    }
+
+    /**
+     * Excludes one or more fluid registry IDs (e.g. {@code "modid:acid"}) or mod namespaces
+     * (e.g. {@code "modid"}) from parallel region fluid worker execution, routing them to the server thread.
+     */
+    public static void denyRegionSandboxedFluid(String... fluidIdsOrNamespaces) {
+        for (final String entry : fluidIdsOrNamespaces) {
+            if (entry != null && !entry.isBlank()) {
+                SANDBOX_DENIED_FLUIDS.add(entry.trim());
+            }
+        }
+    }
+
+    /**
+     * Registers a per-position safety predicate for a fluid registry ID or mod namespace.
+     * Returning {@code false} routes that fluid tick cleanly to the server thread for that tick.
+     */
+    public static void registerFluidSandboxPredicate(
+            String fluidIdOrNamespace,
+            java.util.function.BiPredicate<ServerLevel, BlockPos> canRunOnWorker) {
+        Objects.requireNonNull(fluidIdOrNamespace, "fluidIdOrNamespace");
+        Objects.requireNonNull(canRunOnWorker, "canRunOnWorker");
+        SANDBOX_FLUID_PREDICATES.put(fluidIdOrNamespace.trim(), canRunOnWorker);
+    }
+
+    public static boolean canRunSandboxedFluid(
+            ServerLevel level,
+            BlockPos pos,
+            net.minecraft.world.level.material.Fluid fluid) {
+        if (fluid == null) {
+            return false;
+        }
+        if (SANDBOX_DENIED_FLUIDS.isEmpty() && SANDBOX_FLUID_PREDICATES.isEmpty()) {
+            return true;
+        }
+        final var key = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid);
+        if (key == null) {
+            return true;
+        }
+        final String fullId = key.toString();
+        final String namespace = key.getNamespace();
+        if (SANDBOX_DENIED_FLUIDS.contains(fullId) || SANDBOX_DENIED_FLUIDS.contains(namespace)) {
+            return false;
+        }
+        final var byId = SANDBOX_FLUID_PREDICATES.get(fullId);
+        if (byId != null && !byId.test(level, pos)) {
+            return false;
+        }
+        final var byNs = SANDBOX_FLUID_PREDICATES.get(namespace);
+        return byNs == null || byNs.test(level, pos);
     }
 
     public static void registerSandboxTypePredicate(
