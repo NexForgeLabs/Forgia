@@ -45,7 +45,7 @@
      public void setId(int p_20235_) {
 +        // Neo: the int id is part of the published identity. A re-id of an admitted entity (player respawn)
 +        // rebinds the published record on the server thread; an entity that is not admitted is a no-op.
-+        if (level() instanceof ServerLevel serverLevel) {
++        if (this.isAddedToLevel() && level() instanceof ServerLevel serverLevel) {
 +            serverLevel.entityIdentityLedger().rebindId(this, this.id, p_20235_);
 +        }
          this.id = p_20235_;
