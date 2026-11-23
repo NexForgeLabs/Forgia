@@ -14,8 +14,8 @@
 
 | 我想…… | 阅读 | 主要类型 |
 |---|---|---|
-| 了解 Forgia 是什么、哪些已认证 | [README](index.md)、[STATUS](status.zh.md) | — |
-| 先用 3D 动画过一遍执行流程 | [3D 架构动画流](visualizer/index.html)（10 步全功能交互演示，支持 `DYNAMIC_CLUSTER` / `FIXED_3X3` 实时切换） | — |
+| 了解 Forgia 当前状态与验证范围 | [README](index.md)、[STATUS](status.zh.md) | — |
+| 先用 3D 动画过一遍执行流程 | [3D 架构动画流](visualizer/index.html)（交互式架构演示；展示概念流程，不代表兼容认证） | — |
 | 了解实验性玩家调度 | [玩家 Tick](modules/player-ticks.zh.md) | `ENTITY`、`CONNECTION`、`CONNECTION_BODY` |
 | 开启服务器 / 调优 `config/forgia.toml` | [配置与硬件调优](configuration.zh.md)、[观测与配置](modules/observability.zh.md) | `forgia.toml`、`/forgia` |
 | 调用面向模组的 API | [API 总览](api/README.zh.md) | `ParallelApi` |
@@ -72,7 +72,7 @@ docs/
 |---|---|---|
 | **基本稳定** | 已随多个构建发布、并有测试覆盖的公开表面。 | 不升主版本就不改签名。 |
 | **实验性** | `@ApiStatus.Experimental`，需要 capability，通常还有配置开关。 | 次版本可能改行为；必须按 capability 协商。 |
-| **已认证（范围）** | 在文档化范围内（例如 C6、Linux/HotSpot 21）通过指定验收。 | 只认证该配置，不认证你的整合包。 |
+| **已验证（范围）** | 在明确记录的构建、负载和配置内通过指定验证（C6 历史验收；C7 188 Mod 生产验证）。 | 证据只适用于该范围，不代表所有整合包。 |
 | **不支持** | 代码或提案里存在，但不是合同。 | 不要依赖。 |
 | **未实现** | RFC 中描述但无代码。 | 没有可调用入口。 |
 
