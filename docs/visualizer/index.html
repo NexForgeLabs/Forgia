@@ -255,7 +255,7 @@
   </aside>
 
   <aside class="panel" id="features">
-    <div class="panel-title"><span id="lbl-feat">全功能模块（点击跳转）</span><span>12</span></div>
+    <div class="panel-title"><span id="lbl-feat">架构模块（点击查看）</span><span>12</span></div>
     <div class="feat-list" id="feat-list"></div>
     <div class="legend">
       <span><i style="background:var(--orange)"></i><em id="lg-lease" style="font-style:normal">租约/REGION</em></span>
@@ -940,7 +940,7 @@ const fenceTag = makeTag('SERIAL FENCE · UNKNOWN MOD / MIXIN (FAIL-CLOSED)', 'b
 fenceTag.position.set(FENCE_X - 2, 16.5, BE.z);
 gBe.add(fenceTag);
 
-const provenTag = makeTag('PROVEN PREFIX (HOPPER / FURNACE / CREATE ADAPTER) → WORKERS', 'green');
+const provenTag = makeTag('SANDBOX / AUDITED BE WORK → WORKERS', 'green');
 provenTag.position.set(beX(2), 7.2, BE.z);
 gBe.add(provenTag);
 
@@ -1060,7 +1060,7 @@ guardTag.position.set(15, 16.8, 6);
 gSchedGuard.add(guardTag);
 
 /* =====================================================================
-   11. 10 步全功能流水线定义（中英双语）
+   11. 10 步架构流程示意（中英双语）
    ===================================================================== */
 const STEPS = [
   {
@@ -1073,8 +1073,8 @@ const STEPS = [
       en: 'OVERVIEW & LAYOUT',
       bullets: [
         'Forgia 将原版单线程 <code>ServerLevel.tick</code> 拆分为严格交替的 <code>GLOBAL</code> 与 <code>REGION</code> 阶段，同一维度同一时刻仅有一个区域批次在飞。',
-        '支持两种分区模式：推荐 <code>DYNAMIC_CLUSTER</code>（8×8 Section 加载岛动态合并/拆分，独立岛间保留 1-Section 空缓冲区）与 C6 基线 <code>FIXED_3X3</code> 静态网格。',
-        '所有并行开关均位于 <code>config/forgia.toml</code> 且默认关闭；点击右上角按钮可实时切换布局观察差异。'
+        '支持两种分区模式：推荐 <code>DYNAMIC_CLUSTER</code>（8×8 Section 加载岛动态合并/拆分，独立岛间保留 1-Section 空缓冲区）与遗留固定布局 <code>FIXED_3X3</code> 静态网格。',
+        '所有并行开关均位于 <code>config/forgia.toml</code> 且默认关闭；当前默认区域策略为 <code>DYNAMIC_CLUSTER</code>。右上角布局切换仅用于概念对比。'
       ]
     },
     enText: {
@@ -1082,8 +1082,8 @@ const STEPS = [
       en: 'OVERVIEW & LAYOUT',
       bullets: [
         'Forgia splits stock single-threaded <code>ServerLevel.tick</code> into alternating <code>GLOBAL</code> and <code>REGION</code> phases; at most one region batch per level is in flight.',
-        'Supports <code>DYNAMIC_CLUSTER</code> (recommended 8×8 section loaded-island merge/split with a 1-section empty buffer) and <code>FIXED_3X3</code> (C6 static grid baseline).',
-        'All parallel switches live in <code>config/forgia.toml</code> and default to <code>false</code>. Toggle layout modes in the top bar to compare.'
+        'Supports <code>DYNAMIC_CLUSTER</code> (recommended 8×8 section loaded-island merge/split with a 1-section empty buffer) and <code>FIXED_3X3</code> (legacy fixed-grid comparison).',
+        'All parallel switches live in <code>config/forgia.toml</code> and default to <code>false</code>. <code>DYNAMIC_CLUSTER</code> is the current default region policy; the visual toggle is a conceptual comparison.'
       ]
     }
   },
@@ -1306,7 +1306,7 @@ const STEPS = [
 ];
 
 /* =====================================================================
-   12. 12 项全功能模块清单（随布局模式动态更新状态徽章）
+   12. 12 项架构模块清单（随布局模式动态更新状态徽章）
    ===================================================================== */
 const FEATURES = [
   { step: 0, color: '#256f7c', zh: '动态加载岛拓扑 (DYNAMIC_CLUSTER)', en: 'Dynamic Island Topology', modeRule: m => m === 'DYNAMIC_CLUSTER' ? ['ACTIVE', 'on'] : ['FIXED GRID', 'off'] },
@@ -1385,7 +1385,7 @@ function rebuildSidebar() {
 
   document.getElementById('lbl-steps').textContent = lang === 'zh' ? '并行流水线' : 'PIPELINE STAGES';
   document.getElementById('lbl-tel').textContent = lang === 'zh' ? '运行时状态' : 'RUNTIME TELEMETRY';
-  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '全功能模块（点击跳转）' : 'ALL FEATURES (CLICK)';
+  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '全功能模块（点击跳转）' : 'ARCHITECTURE MODULES (CLICK)';
   document.getElementById('lnk-cfg').href = lang === 'zh' ? '../configuration.zh/' : '../configuration.en/';
   document.getElementById('lnk-cfg').textContent = lang === 'zh' ? '配置指南 →' : 'CONFIG GUIDE →';
   document.getElementById('lnk-arch').href = lang === 'zh' ? '../architecture.zh/' : '../architecture.en/';
