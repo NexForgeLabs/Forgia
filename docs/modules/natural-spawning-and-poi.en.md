@@ -4,7 +4,7 @@ English | [中文](natural-spawning-and-poi.zh.md) · [Module map](README.en.md)
 Source: [`RegionSpawnPlan`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnPlan.java), [`RegionSpawnAdmissionBarrier`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionSpawnAdmissionBarrier.java), [`LevelSpawnCapCounter`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/LevelSpawnCapCounter.java), [`RegionPoiStorage`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorage.java), [`RegionPoiStorages`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/RegionPoiStorages.java)
 Evidence: [NEARBY-SPAWN-ADMISSION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/NEARBY-SPAWN-ADMISSION.md), [STATUS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/STATUS.md), [MOBSPAWNCONTROLLER-LOCAL-RESULTS](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/MOBSPAWNCONTROLLER-LOCAL-RESULTS.md)
 
-Status: POI **certified within C6**; natural spawning **experimental and outside C6**
+Status: POI passed its **historical C6 acceptance scope**; natural spawning remains **experimental**. MobSpawnController's ordered-spawn adapter is not recommended for production: its recorded A/B was slower and truncated spawn bodies. Keep natural spawning serial unless validating a disposable test instance.
 (`enableRegionThreadingSpawning`, default off; `enableRegionThreadingPoi`, default off but implied by entity ticks).
 
 ---
