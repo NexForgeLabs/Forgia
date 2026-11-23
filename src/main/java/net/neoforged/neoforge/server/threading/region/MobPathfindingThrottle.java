@@ -67,7 +67,9 @@ public final class MobPathfindingThrottle {
             if (scheduler != null) {
                 final RegionCoordinate coord = engine.regionLayout().regionAt(serverLevel, mob.blockPosition());
                 if (scheduler.isHotEntityRegion(coord)) {
-                    return mob.getTarget() instanceof net.minecraft.world.entity.player.Player ? 2 : 4;
+                    return mob.getTarget() instanceof net.minecraft.world.entity.player.Player
+                            ? RegionThreadingConfig.hotRegionCombatMobPathfindingCooldownTicks()
+                            : RegionThreadingConfig.hotRegionMobPathfindingCooldownTicks();
                 }
             }
         }
@@ -79,13 +81,17 @@ public final class MobPathfindingThrottle {
      * cooldown for slow entity types so complex terrain pathfinding does not stall region ticks.
      */
     public static void recordPathfindingDuration(Mob mob, long durationNanos) {
-        if (mob == null || durationNanos < SLOW_PATH_THRESHOLD_NANOS || !ForgiaConfig.SERVER_SPEC.isLoaded()) {
+        if (mob == null || !ForgiaConfig.SERVER_SPEC.isLoaded()) {
             return;
         }
         if (!ForgiaConfig.SERVER.enableMobPathfindingThrottle.get()) {
             return;
         }
-        final int targetCooldown = durationNanos >= SEVERE_PATH_THRESHOLD_NANOS ? 20 : 10;
+        final long slow = RegionThreadingConfig.slowPathfindingLearnThresholdNanos();
+        if (durationNanos < slow) {
+            return;
+        }
+        final int targetCooldown = durationNanos >= RegionThreadingConfig.severePathfindingLearnThresholdNanos() ? 20 : 10;
         AUTO_LEARNED_COOLDOWNS.merge(mob.getType(), targetCooldown, Math::max);
     }
 

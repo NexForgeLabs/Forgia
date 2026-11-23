@@ -205,7 +205,7 @@ public final class RegionAdapterApi {
         final int count = TRANSIENT_BE_BOUNDARY_COUNTS
                 .computeIfAbsent(type, k -> new java.util.concurrent.atomic.AtomicInteger())
                 .incrementAndGet();
-        if (count >= PERMANENT_DEMOTION_THRESHOLD) {
+        if (count >= net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxPermanentDemotionThreshold()) {
             return false;
         }
         TRANSIENT_BE_COOLDOWNS

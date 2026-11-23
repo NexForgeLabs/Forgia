@@ -438,11 +438,12 @@ public final class RegionIndependentTickScheduler {
             return true;
         }
         final long ewma = clock.ewmaEntityNanos;
-        if (ewma <= 15_000_000L) {
+        final long moderate = RegionThreadingConfig.entityTickThrottleModerateNanos();
+        if (ewma <= moderate) {
             return false;
         }
         final long hash = (((long) coordinate.regionX()) * 341873128712L) ^ (((long) coordinate.regionZ()) * 132897987541L);
-        if (ewma > 28_000_000L) {
+        if (ewma > RegionThreadingConfig.entityTickThrottleSevereNanos()) {
             return Math.floorMod(gameTime + hash, 3L) != 0L;
         }
         return ((gameTime ^ hash) & 1L) != 0L;
@@ -450,7 +451,7 @@ public final class RegionIndependentTickScheduler {
 
     public boolean isHotEntityRegion(RegionCoordinate coordinate) {
         final RegionClock clock = this.clocks.get(coordinate);
-        return clock != null && clock.ewmaEntityNanos > 5_000_000L;
+        return clock != null && clock.ewmaEntityNanos > RegionThreadingConfig.hotRegionEntityThresholdNanos();
     }
 
     public boolean shouldStaggerSpawn(RegionCoordinate coordinate, long gameTime) {

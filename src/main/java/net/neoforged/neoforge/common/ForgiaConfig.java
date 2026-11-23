@@ -161,6 +161,24 @@ public final class ForgiaConfig {
 
         public final BooleanValue enableRegionSandboxAllBlockEntities;
 
+        public final LongValue entityTickThrottleModerateNanos;
+
+        public final LongValue entityTickThrottleSevereNanos;
+
+        public final LongValue hotRegionEntityThresholdNanos;
+
+        public final IntValue hotRegionMobPathfindingCooldownTicks;
+
+        public final IntValue hotRegionCombatMobPathfindingCooldownTicks;
+
+        public final LongValue slowPathfindingLearnThresholdNanos;
+
+        public final LongValue severePathfindingLearnThresholdNanos;
+
+        public final IntValue sandboxTransientCooldownTicks;
+
+        public final IntValue sandboxPermanentDemotionThreshold;
+
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment("Collect bounded native tick history and worker task timings. Disabling clears server history; essential scheduler/ownership counters remain active.")
                     .define("runtimeDiagnosticsEnabled", true);
@@ -486,6 +504,42 @@ public final class ForgiaConfig {
                     .comment("EXPERIMENTAL: Admits all block-entity types (except server-thread-only denylisted types) into Region Sandbox parallel execution on region workers. Any type that throws a boundary or runtime exception on a worker is automatically demoted to the server thread and persisted to regionthreading-learned.json without crashing. Default off.")
                     .translation("neoforge.configgui.enableRegionSandboxAllBlockEntities")
                     .define("enableRegionSandboxAllBlockEntities", false);
+
+            entityTickThrottleModerateNanos = builder
+                    .comment("Region entity EWMA threshold (nanoseconds) above which non-player entities in that region run every 2nd tick. Default 15000000 (15ms).")
+                    .defineInRange("entityTickThrottleModerateNanos", 15_000_000L, 1_000_000L, 500_000_000L);
+
+            entityTickThrottleSevereNanos = builder
+                    .comment("Region entity EWMA threshold (nanoseconds) above which non-player entities in that region run every 3rd tick. Default 28000000 (28ms).")
+                    .defineInRange("entityTickThrottleSevereNanos", 28_000_000L, 1_000_000L, 1_000_000_000L);
+
+            hotRegionEntityThresholdNanos = builder
+                    .comment("Region entity EWMA threshold (nanoseconds) above which mobs in that region use lightweight pathfinding cooldowns. Default 5000000 (5ms).")
+                    .defineInRange("hotRegionEntityThresholdNanos", 5_000_000L, 500_000L, 500_000_000L);
+
+            hotRegionMobPathfindingCooldownTicks = builder
+                    .comment("Pathfinding cooldown in ticks applied to idle/non-combat mobs inside hot entity regions. Default 4.")
+                    .defineInRange("hotRegionMobPathfindingCooldownTicks", 4, 0, 100);
+
+            hotRegionCombatMobPathfindingCooldownTicks = builder
+                    .comment("Pathfinding cooldown in ticks applied to mobs actively targeting a player inside hot entity regions. Default 2.")
+                    .defineInRange("hotRegionCombatMobPathfindingCooldownTicks", 2, 0, 100);
+
+            slowPathfindingLearnThresholdNanos = builder
+                    .comment("Single PathFinder.findPath duration (nanoseconds) above which the mob type auto-learns a 10-tick pathfinding cooldown. Default 3000000 (3ms).")
+                    .defineInRange("slowPathfindingLearnThresholdNanos", 3_000_000L, 500_000L, 100_000_000L);
+
+            severePathfindingLearnThresholdNanos = builder
+                    .comment("Single PathFinder.findPath duration (nanoseconds) above which the mob type auto-learns a 20-tick pathfinding cooldown. Default 8000000 (8ms).")
+                    .defineInRange("severePathfindingLearnThresholdNanos", 8_000_000L, 1_000_000L, 500_000_000L);
+
+            sandboxTransientCooldownTicks = builder
+                    .comment("Cooldown in ticks before a sandboxed block entity instance that hit a transient boundary violation returns to region workers. Default 20.")
+                    .defineInRange("sandboxTransientCooldownTicks", 20, 1, 1200);
+
+            sandboxPermanentDemotionThreshold = builder
+                    .comment("Number of transient worker boundary violations for a block entity type before permanently demoting it to the server thread. Default 16.")
+                    .defineInRange("sandboxPermanentDemotionThreshold", 16, 1, 1000);
         }
     }
 }

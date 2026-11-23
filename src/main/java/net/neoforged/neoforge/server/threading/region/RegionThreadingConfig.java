@@ -11,7 +11,7 @@ import net.neoforged.neoforge.common.NeoForgeConfig;
 /**
  * Reads region threading settings, using the declared defaults until the server config is loaded.
  */
-final class RegionThreadingConfig {
+public final class RegionThreadingConfig {
     private RegionThreadingConfig() {}
 
     static boolean playerTicksRequested() {
@@ -148,5 +148,59 @@ final class RegionThreadingConfig {
         return ForgiaConfig.isServerConfigLoaded()
                 ? ForgiaConfig.SERVER.enableRegionThreadingFluidTicks.get()
                 : ForgiaConfig.SERVER.enableRegionThreadingFluidTicks.getDefault();
+    }
+
+    public static long entityTickThrottleModerateNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.entityTickThrottleModerateNanos.get()
+                : ForgiaConfig.SERVER.entityTickThrottleModerateNanos.getDefault();
+    }
+
+    public static long entityTickThrottleSevereNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.entityTickThrottleSevereNanos.get()
+                : ForgiaConfig.SERVER.entityTickThrottleSevereNanos.getDefault();
+    }
+
+    public static long hotRegionEntityThresholdNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.hotRegionEntityThresholdNanos.get()
+                : ForgiaConfig.SERVER.hotRegionEntityThresholdNanos.getDefault();
+    }
+
+    public static int hotRegionMobPathfindingCooldownTicks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.hotRegionMobPathfindingCooldownTicks.get()
+                : ForgiaConfig.SERVER.hotRegionMobPathfindingCooldownTicks.getDefault();
+    }
+
+    public static int hotRegionCombatMobPathfindingCooldownTicks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.hotRegionCombatMobPathfindingCooldownTicks.get()
+                : ForgiaConfig.SERVER.hotRegionCombatMobPathfindingCooldownTicks.getDefault();
+    }
+
+    public static long slowPathfindingLearnThresholdNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.slowPathfindingLearnThresholdNanos.get()
+                : ForgiaConfig.SERVER.slowPathfindingLearnThresholdNanos.getDefault();
+    }
+
+    public static long severePathfindingLearnThresholdNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.severePathfindingLearnThresholdNanos.get()
+                : ForgiaConfig.SERVER.severePathfindingLearnThresholdNanos.getDefault();
+    }
+
+    public static int sandboxTransientCooldownTicks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.sandboxTransientCooldownTicks.get()
+                : ForgiaConfig.SERVER.sandboxTransientCooldownTicks.getDefault();
+    }
+
+    public static int sandboxPermanentDemotionThreshold() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.sandboxPermanentDemotionThreshold.get()
+                : ForgiaConfig.SERVER.sandboxPermanentDemotionThreshold.getDefault();
     }
 }

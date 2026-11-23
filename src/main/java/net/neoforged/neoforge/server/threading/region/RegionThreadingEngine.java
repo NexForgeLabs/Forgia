@@ -11498,7 +11498,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
         if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
-                admission.level(), admission.position(), type, 20L)) {
+                admission.level(), admission.position(), type, RegionThreadingConfig.sandboxTransientCooldownTicks())) {
             final var ticker = admission.ticker();
             net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
                 if (!ticker.isRemoved()) {
