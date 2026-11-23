@@ -6,9 +6,7 @@ These pages describe **how the implemented runtime works**: ownership, tick pipe
 handling, configuration and observation. They are implementation notes, not API tutorials — API contracts
 live in [`docs/api`](../api/README.en.md).
 
-Status labels follow [docs/README](../README.en.md#3-status-legend). Measured numbers are historical
-workload evidence; they are not a promise for your pack, and every region-threading switch is **off by
-default**.
+Status labels follow [docs/README](../README.en.md#3-status-legend). C6 certification labels refer to the historical C6 acceptance profile. C7 separately validated a 188-mod production workload with `DYNAMIC_CLUSTER`, generic BE Sandbox and Independent Region Clock. Historical microbenchmarks below are not current-build speedup claims. Every parallel execution switch remains **off by default**.
 
 ---
 
@@ -54,13 +52,13 @@ Ownership is by lease, not by thread name. `Thread.currentThread().getName()` is
 
 ## 4. Status matrix of the slices
 
-| Slice | Implemented | Measured benefit | Certified scope | Notes |
+| Slice | Implemented | Historical measured result | Validation scope | Notes |
 |---|---|---|---|---|
-| Entity ticks | Yes | 2.5–4.5× on 1024 mobs | C6 | Pinned classes/riding stacks stay serial |
-| Chunk random ticks | Yes | 1.15–1.27× | C6 | 100 % of dispatched chunks on workers after interior-rule lift |
+| Entity ticks | Yes | 2.5–4.5× on 1024 mobs (historical) | C6 historical | Pinned classes/riding stacks stay serial |
+| Chunk random ticks | Yes | 1.15–1.27× (historical) | C6 historical | 100 % of dispatched chunks on workers after interior-rule lift |
 | Natural spawning | Yes | Slice 4.6 → 2.8–3.9 ms | Outside C6 | Requires `DYNAMIC_CLUSTER` or `FIXED_3X3`, spawn gates, caps |
-| POI | Yes | 2.1–3.4× queries | C6 | Snapshot may be one publication old |
-| Block entities | Yes | No whole-server gain claimed | C6 (bounded cohorts) | Hoppers/furnaces can be slower under light load |
+| POI | Yes | 2.1–3.4× queries (historical) | C6 historical | Snapshot may be one publication old |
+| Block entities | Yes | No whole-server gain claimed | C6 historical (bounded cohorts) | Hoppers/furnaces can be slower under light load |
 | Redstone/border | Yes | Same-tick convergence | C6 (fixed layouts) | Fixpoint with cascade budget |
 | Cross-region BE ops | Yes | n/a (correctness) | Experimental | Completion stage serial |
 | Scheduled ticks | Yes | n/a (correctness) | C6 lamp-only cohort | Radius-2 inert footprint |
