@@ -4,8 +4,7 @@
 源码：[`CanonicalBlockEntityCoordinator`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/CanonicalBlockEntityCoordinator.java)、[`NativeBlockEntityPreparation`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/NativeBlockEntityPreparation.java)、[`FurnaceWorkPreparation`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/FurnaceWorkPreparation.java)、[`BlockEntityResourceOwnership`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/BlockEntityResourceOwnership.java)、[`AuditedBlockEntityPreparation`](https://github.com/NexForgeLabs/Forgia/blob/main/src/main/java/net/neoforged/neoforge/server/threading/region/AuditedBlockEntityPreparation.java)
 证据：[BLOCK-ENTITY-PARALLELISM](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-PARALLELISM.md)、[CANONICAL-BLOCK-ENTITY-COORDINATOR](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CANONICAL-BLOCK-ENTITY-COORDINATOR.md)、[BLOCK-ENTITY-WORK-GRAPH](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/BLOCK-ENTITY-WORK-GRAPH.md)、[C6-FINAL-ACCEPTANCE-2026-11-15](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/C6-FINAL-ACCEPTANCE-2026-11-15.md)
 
-状态：有界队列在 C6 内**正确性已认证**；**未声明整服加速**。`enableRegionThreadingBlockEntityTicks` 默认关闭。
-熔炉波次、资源与模组贡献是分别受门控的实验特性。
+状态：C6 正确性结论仅适用于历史有界测试范围。C7 则在 188 Mod 生产整合包上验证了通用 Region Sandbox：普通模组 BE 无需逐个编写 Adapter；该负载中测得 BE Worker 执行占比为 72%–82%。这是执行占比，不是模组兼容率，也不代表所有负载都能获得相同加速。`enableRegionThreadingBlockEntityTicks` 与 `enableRegionSandboxAllBlockEntities` 均需主动启用，默认关闭。Create 等复杂共享状态模组仍需专用兼容处理或串行回退。熔炉波次和旧资源作用域路径仍分别受开关控制。
 
 ---
 
