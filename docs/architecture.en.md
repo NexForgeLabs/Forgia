@@ -111,7 +111,7 @@ Key architectural mechanisms in the block entity pipeline:
 
 ## 4. Phase 1 + Phase 2: Region Sandbox, Independent Clock & Broadcast Adapter
 
-With `DYNAMIC_CLUSTER` as the default region policy, Forgia introduces a Folia-style **Region Sandbox + Broadcast Adapter (`RegionAdapterApi`)** and **Independent Per-Region Tick Clock (`RegionIndependentTickScheduler`)**, allowing ordinary modded Block Entities to parallelize without per-mod adapters (verified in C7 / Issue #5 across a 188-mod pack):
+With `DYNAMIC_CLUSTER` as the default region policy, Forgia introduces a Folia-style **Region Sandbox + Broadcast Adapter (`RegionAdapterApi`)** and **Independent Per-Region Tick Clock (`RegionIndependentTickScheduler`)**, allowing ordinary modded Block Entities to enter the generic Sandbox without per-mod adapters, with ownership guards and serial fallback (validated in C7 / Issue #5 across a 188-mod pack):
 
 1. **Generic BE Sandbox (`enableRegionSandboxAllBlockEntities`)**:
    - All non-piston, non-denylisted modded BEs execute in parallel on region workers via the zero-ticket sandbox fast path (`SANDBOX_NATIVE_INSPECTION`).
