@@ -8042,6 +8042,10 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.tickCanonicalBlockEntities(level, chunks, barrier);
             return;
         }
+        if (this.isIndependentRegionTickEnabled() && RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled()) {
+            this.tickIndexedSandboxBlockEntities(level, chunks);
+            return;
+        }
         if (this.furnaceWorkWavesEnabled && this.layout.isDynamicCluster()) {
             this.tickFurnaceWorkWaves(level, chunks, barrier, canonicalSequence);
             return;
@@ -9393,6 +9397,129 @@ public final class RegionThreadingEngine implements RegionThreading {
             }, now, gameTime);
         }
         return totalUnits;
+    }
+
+    private void tickIndexedSandboxBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks) {
+        if (this.shutdown || this.regionizer.isLevelClosed(level)) {
+            this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
+            return;
+        }
+        final Map<RegionState, List<RegionBlockEntityTickChunk>> sandboxByRegion = new java.util.IdentityHashMap<>();
+        final List<RegionBlockEntityTickAdmission> serialAdmissions = new ArrayList<>();
+        for (int i = 0, size = chunks.size(); i < size; ++i) {
+            final RegionBlockEntityTickChunk chunk = chunks.get(i);
+            final RegionBlockEntityTickChunkCache cache = chunk.cache();
+            if (cache == null) {
+                serialAdmissions.addAll(chunk.admissions());
+                continue;
+            }
+            final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, level));
+            if (region == null || region.isDead()) {
+                serialAdmissions.addAll(chunk.admissions());
+                continue;
+            }
+            if (this.overloadGovernor != null && this.shouldSkipOverloadedRegion(level, region)) {
+                this.skippedBlockEntityTicks.addAndGet(chunk.admissions().size());
+                continue;
+            }
+            if (!cache.sandboxedAdmissions().isEmpty()) {
+                sandboxByRegion.computeIfAbsent(region, unused -> new ArrayList<>()).add(chunk);
+            }
+            if (!cache.nonSandboxedAdmissions().isEmpty()) {
+                serialAdmissions.addAll(cache.nonSandboxedAdmissions());
+            }
+        }
+        if (!sandboxByRegion.isEmpty()) {
+            final long now = System.nanoTime();
+            final long gameTime = level.getGameTime();
+            final boolean borderUpdates = this.borderUpdatesEnabled();
+            this.workerPool.preWake(sandboxByRegion.size());
+            for (final var entry : sandboxByRegion.entrySet()) {
+                final RegionState region = entry.getKey();
+                final List<RegionBlockEntityTickChunk> regionChunks = entry.getValue();
+                final RandomSource random = RandomSource.create(
+                        level.getSeed() ^ gameTime ^ ((long) region.coordinate().regionX() << 32) ^ region.coordinate().regionZ());
+                final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
+                this.independentTickScheduler.submitIfDue(region, () -> {
+                    this.currentBlockEntityTickRandom.set(random);
+                    this.currentRegionTickMutations.set(mutations);
+                    try {
+                        for (int c = 0, cSize = regionChunks.size(); c < cSize; ++c) {
+                            final RegionBlockEntityTickChunk chunk = regionChunks.get(c);
+                            final List<RegionBlockEntityTickAdmission> admissions = chunk.cache().sandboxedAdmissions();
+                            if (!chunk.isCurrent(this.layout, borderUpdates)) {
+                                for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
+                                    final var ticker = admissions.get(a).ticker();
+                                    net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
+                                        if (!ticker.isRemoved()) {
+                                            ticker.tick();
+                                        }
+                                    });
+                                }
+                                continue;
+                            }
+                            for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
+                                final RegionBlockEntityTickAdmission admission = admissions.get(a);
+                                final var ticker = admission.ticker();
+                                if (ticker.isRemoved()) {
+                                    continue;
+                                }
+                                final net.minecraft.world.level.block.entity.BlockEntity be = chunk.chunk().getBlockEntities().get(admission.position());
+                                final boolean instanceAllowed = (be == null
+                                        && !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, admission.position()))
+                                        || (be != null && !be.isRemoved()
+                                                && be.getLevel() == level
+                                                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
+                                if (!instanceAllowed) {
+                                    net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
+                                        if (!ticker.isRemoved()) {
+                                            ticker.tick();
+                                        }
+                                    });
+                                    continue;
+                                }
+                                try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
+                                    this.runBlockEntityBody(ticker, null, true);
+                                    this.blockEntityTicksOnWorkers.incrementAndGet();
+                                } catch (Throwable throwable) {
+                                    if (RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
+                                            || this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
+                                        continue;
+                                    }
+                                    this.demoteSandboxedBlockEntityOnError(admission, throwable);
+                                }
+                            }
+                        }
+                    } finally {
+                        this.currentRegionTickMutations.remove();
+                        this.currentBlockEntityTickRandom.remove();
+                    }
+                }, () -> {
+                    if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                        this.applyRegionTickMutations(mutations);
+                    }
+                }, now, gameTime);
+            }
+        }
+        if (!serialAdmissions.isEmpty()) {
+            final String dimensionId = level.dimension().location().toString();
+            for (int i = 0, size = serialAdmissions.size(); i < size; ++i) {
+                final RegionBlockEntityTickAdmission admission = serialAdmissions.get(i);
+                final var ticker = admission.ticker();
+                if (ticker.isRemoved()) {
+                    continue;
+                }
+                this.fallbackBlockEntityTicks.incrementAndGet();
+                final long start = System.nanoTime();
+                try {
+                    ticker.tick();
+                } finally {
+                    final long elapsed = System.nanoTime() - start;
+                    final RegionCoordinate coord = this.layout.regionAt(level, admission.position());
+                    this.fenceMetrics.recordFence(dimensionId, coord.regionX(), coord.regionZ(), admission.type(), elapsed);
+                }
+            }
+        }
     }
 
     private void deliverCanonicalMailbox(RegionBlockEntityTickBatch batch, RegionState region) {

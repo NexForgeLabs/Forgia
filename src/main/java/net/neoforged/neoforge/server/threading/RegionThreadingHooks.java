@@ -1040,6 +1040,12 @@ public final class RegionThreadingHooks {
      * @return the plan to fill, or {@code null} when block-entity ticks have to stay on the server thread
      */
     @Nullable
+    public static boolean useChunkIndexedSandboxBlockEntities(ServerLevel level) {
+        return RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine
+                && engine.isIndependentRegionTickEnabled()
+                && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled();
+    }
+
     public static RegionBlockEntityTickPlan beginBlockEntityTickPlan(ServerLevel level, RegionTickBarrier barrier) {
         RegionBlockEntityTickAttribution.beginSlice();
         final RegionThreading threading = RegionThreadingManager.currentOrNull();

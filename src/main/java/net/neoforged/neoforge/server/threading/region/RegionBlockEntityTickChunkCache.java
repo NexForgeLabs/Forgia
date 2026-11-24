@@ -66,6 +66,8 @@ public final class RegionBlockEntityTickChunkCache {
     private final boolean interiorChunk;
     private final boolean borderUpdatesEnabled;
     private final List<RegionBlockEntityTickAdmission> admissions;
+    private final List<RegionBlockEntityTickAdmission> sandboxedAdmissions;
+    private final List<RegionBlockEntityTickAdmission> nonSandboxedAdmissions;
     @Nullable
     private final java.util.IdentityHashMap<TickingBlockEntity, RegionBlockEntityTickAdmission> byTicker;
     private final boolean allAdmitted;
@@ -83,17 +85,34 @@ public final class RegionBlockEntityTickChunkCache {
         final java.util.IdentityHashMap<TickingBlockEntity, RegionBlockEntityTickAdmission> index = size > 4
                 ? new java.util.IdentityHashMap<>(size)
                 : null;
+        List<RegionBlockEntityTickAdmission> sandboxed = null;
+        List<RegionBlockEntityTickAdmission> nonSandboxed = null;
         boolean admitted = true;
+        final var serverOnly = RegionTickCompatibility.serverThreadOnlyTypes();
         for (int i = 0; i < size; ++i) {
             final RegionBlockEntityTickAdmission admission = admissions.get(i);
             if (index != null) {
                 index.put(admission.ticker(), admission);
             }
-            // A capture that is already stale, or a declaration that does not admit the type or the chunk,
-            // keeps the whole chunk on the server thread, exactly like a collected ticker the
-            // declaration does not admit.
             admitted &= admission.isAdmitted() && admission.isCurrent();
+            final boolean isSandboxed = admission.isAdmitted()
+                    && admission.isCurrent()
+                    && !serverOnly.containsKey(admission.type())
+                    && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionSandboxedBlockEntity(admission.type());
+            if (isSandboxed) {
+                if (sandboxed == null) {
+                    sandboxed = new ArrayList<>(size);
+                }
+                sandboxed.add(admission);
+            } else {
+                if (nonSandboxed == null) {
+                    nonSandboxed = new ArrayList<>(4);
+                }
+                nonSandboxed.add(admission);
+            }
         }
+        this.sandboxedAdmissions = sandboxed == null ? List.of() : List.copyOf(sandboxed);
+        this.nonSandboxedAdmissions = nonSandboxed == null ? List.of() : List.copyOf(nonSandboxed);
         this.byTicker = index;
         this.allAdmitted = admitted;
         LIVE_SNAPSHOTS.incrementAndGet();
@@ -156,6 +175,14 @@ public final class RegionBlockEntityTickChunkCache {
     /** {@return the admissions of this chunk, ordered like the level's own ticker list} */
     public List<RegionBlockEntityTickAdmission> admissions() {
         return this.admissions;
+    }
+
+    public List<RegionBlockEntityTickAdmission> sandboxedAdmissions() {
+        return this.sandboxedAdmissions;
+    }
+
+    public List<RegionBlockEntityTickAdmission> nonSandboxedAdmissions() {
+        return this.nonSandboxedAdmissions;
     }
 
     /**
