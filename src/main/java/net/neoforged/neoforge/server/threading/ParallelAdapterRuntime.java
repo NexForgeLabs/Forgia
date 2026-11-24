@@ -681,14 +681,23 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
             return this.workerReady;
         }
 
-        /** Returns false for retired work; no callback and no stale snapshot access on the next server. */
+        /**
+         * Runs the prepared spawn action. When {@code allowAsyncTickDrift} is true, the action may execute
+         * asynchronously on a region worker after {@code level.getGameTime()} has advanced by a few ticks,
+         * so long as the server/level remain open.
+         */
         public boolean run(ServerLevel level, Runnable action) {
+            return this.run(level, action, false);
+        }
+
+        public boolean run(ServerLevel level, Runnable action, boolean allowAsyncTickDrift) {
             if (this.runtime == null) {
                 runSerial(action);
                 return true;
             }
             if (!this.runtime.open || level != this.level || level.getServer() != this.runtime.server
-                    || !level.dimension().equals(this.unit.dimension()) || level.getGameTime() != this.unit.gameTime()) {
+                    || !level.dimension().equals(this.unit.dimension())
+                    || (!allowAsyncTickDrift && level.getGameTime() != this.unit.gameTime())) {
                 return false;
             }
             final boolean orderedServer = RegionThreadingManager.currentOrNull() instanceof RegionThreadingEngine engine
@@ -712,6 +721,30 @@ public final class ParallelAdapterRuntime implements ParallelApi.Server, Paralle
                 }
             }
             return true;
+        }
+
+        /**
+         * Captures the currently active prepared spawn context so a deferred main-thread commit task
+         * (e.g. async ordered spawn finalization) can invoke mod listeners on the server thread with
+         * the exact frozen rule snapshot that admitted the candidate.
+         */
+        public static Runnable captureAsyncCommitContext(ServerLevel level, Runnable action) {
+            final PreparedSpawn captured = CURRENT.get();
+            return () -> {
+                if (captured != null && captured.runtime != null
+                        && (!captured.runtime.open || captured.level != level || captured.runtime.server != level.getServer())) {
+                    return;
+                }
+                final PreparedSpawn previous = CURRENT.get();
+                if (captured == null) CURRENT.remove();
+                else CURRENT.set(captured);
+                try {
+                    action.run();
+                } finally {
+                    if (previous == null) CURRENT.remove();
+                    else CURRENT.set(previous);
+                }
+            };
         }
     }
 

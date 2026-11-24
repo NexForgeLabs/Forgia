@@ -88,15 +88,77 @@ public final class RegionSpawnPlan {
     private final java.util.concurrent.ConcurrentHashMap<Long, LevelChunk> fullChunkCache = new java.util.concurrent.ConcurrentHashMap<>(512);
     private final java.util.Set<Long> absentFullChunks = java.util.concurrent.ConcurrentHashMap.newKeySet(128);
     private final java.util.concurrent.ConcurrentHashMap<Long, Byte> spawnableChunkCache = new java.util.concurrent.ConcurrentHashMap<>(512);
+    /**
+     * Thread-safe snapshot of non-spectator players and their positions, captured once on the server thread
+     * when the spawn plan starts so async spawn workers never touch mutable {@code ChunkMap.playerMap} or
+     * {@code DistanceManager.naturalSpawnChunkCounter}.
+     */
+    private final List<PlayerSnapshot> playerSnapshots;
     /** Shared read-only neighborhood populated on the server thread before workers start. */
     private final RegionSpawnNeighborhood sharedNeighborhood = new RegionSpawnNeighborhood(512);
     private boolean executed;
+
+    private record PlayerSnapshot(net.minecraft.server.level.ServerPlayer player, double x, double z) {}
+
+    private static List<PlayerSnapshot> capturePlayerSnapshots(ServerLevel level) {
+        final List<net.minecraft.server.level.ServerPlayer> players = level.players();
+        if (players == null || players.isEmpty()) {
+            return List.of();
+        }
+        final List<PlayerSnapshot> result = new ArrayList<>(players.size());
+        for (int i = 0, size = players.size(); i < size; i++) {
+            final net.minecraft.server.level.ServerPlayer player = players.get(i);
+            if (player != null && !player.isSpectator()) {
+                result.add(new PlayerSnapshot(player, player.getX(), player.getZ()));
+            }
+        }
+        return result;
+    }
+
+    private List<net.minecraft.server.level.ServerPlayer> playersCloseToChunkSnapshot(long chunkKey) {
+        if (this.playerSnapshots.isEmpty()) {
+            return List.of();
+        }
+        final double centerX = net.minecraft.core.SectionPos.sectionToBlockCoord(ChunkPos.getX(chunkKey), 8);
+        final double centerZ = net.minecraft.core.SectionPos.sectionToBlockCoord(ChunkPos.getZ(chunkKey), 8);
+        List<net.minecraft.server.level.ServerPlayer> matched = null;
+        for (int i = 0, size = this.playerSnapshots.size(); i < size; i++) {
+            final PlayerSnapshot snap = this.playerSnapshots.get(i);
+            final double dx = centerX - snap.x;
+            final double dz = centerZ - snap.z;
+            if (dx * dx + dz * dz < 16384.0) {
+                if (matched == null) {
+                    matched = new ArrayList<>(2);
+                }
+                matched.add(snap.player);
+            }
+        }
+        return matched != null ? matched : List.of();
+    }
+
+    private boolean hasAnyPlayerCloseSnapshot(long chunkKey) {
+        if (this.playerSnapshots.isEmpty()) {
+            return false;
+        }
+        final double centerX = net.minecraft.core.SectionPos.sectionToBlockCoord(ChunkPos.getX(chunkKey), 8);
+        final double centerZ = net.minecraft.core.SectionPos.sectionToBlockCoord(ChunkPos.getZ(chunkKey), 8);
+        for (int i = 0, size = this.playerSnapshots.size(); i < size; i++) {
+            final PlayerSnapshot snap = this.playerSnapshots.get(i);
+            final double dx = centerX - snap.x;
+            final double dz = centerZ - snap.z;
+            if (dx * dx + dz * dz < 16384.0) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     RegionSpawnPlan(RegionThreadingEngine engine, ServerLevel level, RegionSpawnSource source, boolean spawnFriendlies,
             boolean spawnEnemies, boolean spawnPersistent, RegionTickBarrier barrier, ParallelAdapterRuntime.PreparedSpawnPlan preparedPlan) {
         this.preparedPlan = preparedPlan;
         this.engine = engine;
         this.level = level;
+        this.playerSnapshots = capturePlayerSnapshots(level);
         final NaturalSpawner.ChunkGetter rawGetter = source.chunkGetter();
         final NaturalSpawner.ChunkGetter cachedGetter = (chunkKey, consumer) -> {
             final LevelChunk cached = this.fullChunkCache.get(chunkKey);
@@ -123,13 +185,20 @@ public final class RegionSpawnPlan {
             if (cached != null) {
                 return cached == 1;
             }
-            final boolean allowed = rawSpawnable.test(chunkKey);
+            final boolean allowed = net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                    ? this.hasAnyPlayerCloseSnapshot(chunkKey)
+                    : rawSpawnable.test(chunkKey);
             this.spawnableChunkCache.put(chunkKey, (byte) (allowed ? 1 : 2));
             return allowed;
         };
+        final var rawPlayersNear = source.playersNearForSpawning();
+        final java.util.function.LongFunction<List<net.minecraft.server.level.ServerPlayer>> safePlayersNear = chunkKey ->
+                net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                        ? this.playersCloseToChunkSnapshot(chunkKey)
+                        : rawPlayersNear.apply(chunkKey);
         this.source = new RegionSpawnSource(
                 cachedGetter,
-                source.playersNearForSpawning(),
+                safePlayersNear,
                 cachedSpawnable,
                 source.naturalSpawnChunkCount());
         this.spawnFriendlies = spawnFriendlies;

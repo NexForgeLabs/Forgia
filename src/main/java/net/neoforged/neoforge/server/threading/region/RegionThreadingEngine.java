@@ -5509,6 +5509,51 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     @ApiStatus.Internal
+    public boolean isAsyncOrderedSpawnWorker(ServerLevel level) {
+        final var batch = RegionTickBatch.current();
+        return batch instanceof RegionSpawnBatch spawnBatch
+                && spawnBatch.level() == level
+                && spawnBatch.isAsyncOrderedFinalization();
+    }
+
+    @ApiStatus.Internal
+    public net.neoforged.neoforge.server.threading.RegionThreadingHooks.SpawnFinalization deferAsyncOrderedSpawnFinalization(
+            ServerLevel level, net.minecraft.world.entity.Mob mob, @Nullable net.minecraft.world.entity.SpawnGroupData groupData,
+            net.minecraft.world.level.chunk.ChunkAccess chunk,
+            net.minecraft.world.level.NaturalSpawner.AfterSpawnCallback afterSpawn, int total, int groupCount) {
+        final var batch = RegionTickBatch.current();
+        if (!(batch instanceof RegionSpawnBatch spawnBatch) || spawnBatch.level() != level
+                || !spawnBatch.isAsyncOrderedFinalization()) {
+            throw new IllegalStateException("No matching async ordered spawn group");
+        }
+        final Runnable commitAction = net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.PreparedSpawn.captureAsyncCommitContext(
+                level, () -> {
+                    if (this.shutdown || this.regionizer.isLevelClosed(level)) {
+                        return;
+                    }
+                    final long start = System.nanoTime();
+                    this.orderedSpawnTransactions.incrementAndGet();
+                    try {
+                        if (!mob.isRemoved()) {
+                            net.neoforged.neoforge.event.EventHooks.finalizeMobSpawn(
+                                    mob, level, level.getCurrentDifficultyAt(mob.blockPosition()),
+                                    net.minecraft.world.entity.MobSpawnType.NATURAL, groupData);
+                            if (!mob.isRemoved() && !mob.isSpawnCancelled()) {
+                                level.addFreshEntityWithPassengers(mob);
+                            }
+                            afterSpawn.run(mob, chunk);
+                        }
+                    } finally {
+                        this.orderedSpawnServiceNanos.addAndGet(System.nanoTime() - start);
+                    }
+                });
+        spawnBatch.enqueueDeferredOrderedFinalization(commitAction);
+        final boolean stop = total >= net.neoforged.neoforge.event.EventHooks.getMaxSpawnClusterSize(mob);
+        return new net.neoforged.neoforge.server.threading.RegionThreadingHooks.SpawnFinalization(
+                groupData, stop, !stop && mob.isMaxGroupSizeReached(groupCount));
+    }
+
+    @ApiStatus.Internal
     public void spawnAdmissionCheckpoint() {
         final var batch = RegionTickBatch.current();
         if (batch instanceof RegionSpawnBatch) batch.spawnAdmissionCheckpoint();
@@ -11213,7 +11258,6 @@ public final class RegionThreadingEngine implements RegionThreading {
 
         if (this.isIndependentRegionTickEnabled()
                 && RegionThreadingConfig.asyncRegionSpawningEnabled()
-                && !plan.orderedFinalization()
                 && !RegionSpawnAttribution.isEnabled()) {
             this.executeAsyncSpawnBatch(level, plan, chunks);
             return;
@@ -11410,11 +11454,15 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
         final LevelSpawnCapCounter sharedCapCounter = plan.capCounter();
+        final boolean orderedFinalization = plan.orderedFinalization();
         int dispatchedChunks = 0;
         for (final RegionState region : grouping.regions()) {
             final List<RegionSpawnChunk> regionChunks = grouping.items(region);
             final RegionSpawnBatch regionBatch = new RegionSpawnBatch(level, plan.spawnFriendlies(), plan.spawnEnemies(),
                     plan.spawnPersistent(), perRegionBudget);
+            if (orderedFinalization) {
+                regionBatch.enableAsyncOrderedFinalization();
+            }
             regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
             final RegionSpawnBatch.Group group = regionBatch.createAsyncGroup(
                     region, regionChunks, () -> plan.buildRegionStateAsync(region, regionChunks, sharedCapCounter));
@@ -11422,6 +11470,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             final Runnable commit = () -> {
                 try {
                     if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                        regionBatch.drainDeferredOrderedFinalizations();
                         this.applyDeferredSpawnRemovals(regionBatch);
                         this.applyDeferredSpawnAdditions(regionBatch);
                         this.applyDeferredBlockUpdates(regionBatch);
@@ -11431,7 +11480,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     regionBatch.finish();
                 }
             };
-            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async spawn", wrappedWork, commit);
+            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async spawn", wrappedWork, commit, gameTime);
             if (outcome == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
                 dispatchedChunks += regionChunks.size();
             } else {
@@ -11501,7 +11550,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                                                 spawnFriendlies, spawnEnemies, spawnPersistent);
                                         if (chunk.prepared() == null) {
                                             net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.runSerial(body);
-                                        } else if (!chunk.prepared().run(level, body)) {
+                                        } else if (!chunk.prepared().run(level, body, !manageRegionLifecycle)) {
                                             this.skippedSpawnChunks.incrementAndGet();
                                             continue;
                                         }

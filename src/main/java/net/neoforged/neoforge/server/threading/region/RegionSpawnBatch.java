@@ -66,12 +66,38 @@ final class RegionSpawnBatch extends RegionTickBatch {
     private final RegionDeferredEntityRemovals deferredRemovals = new RegionDeferredEntityRemovals(this);
     /** Admissions a spawn body deferred to the barrier; every mob a chunk spawns is one record. */
     private final RegionDeferredEntityAdditions deferredAdditions = new RegionDeferredEntityAdditions(this);
+    /**
+     * When true, this async spawn batch runs with ordered finalization: workers evaluate candidate positions
+     * and rules in parallel, then defer {@code mob.finalizeSpawn + addFreshEntityWithPassengers} to the
+     * server-thread commit phase instead of parking all workers at a synchronous barrier.
+     */
+    private volatile boolean asyncOrderedFinalization;
+    private final Queue<Runnable> deferredOrderedFinalizations = new ConcurrentLinkedQueue<>();
 
     RegionSpawnBatch(ServerLevel level, boolean spawnFriendlies, boolean spawnEnemies, boolean spawnPersistent, int blockUpdateEntryBudget) {
         super(level, RegionTickSlice.SPAWN, blockUpdateEntryBudget);
         this.spawnFriendlies = spawnFriendlies;
         this.spawnEnemies = spawnEnemies;
         this.spawnPersistent = spawnPersistent;
+    }
+
+    void enableAsyncOrderedFinalization() {
+        this.asyncOrderedFinalization = true;
+    }
+
+    boolean isAsyncOrderedFinalization() {
+        return this.asyncOrderedFinalization;
+    }
+
+    void enqueueDeferredOrderedFinalization(Runnable task) {
+        this.deferredOrderedFinalizations.add(task);
+    }
+
+    void drainDeferredOrderedFinalizations() {
+        Runnable task;
+        while ((task = this.deferredOrderedFinalizations.poll()) != null) {
+            task.run();
+        }
     }
 
     /** {@return whether the friends categories may spawn in this tick} */

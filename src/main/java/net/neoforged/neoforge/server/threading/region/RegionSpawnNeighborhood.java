@@ -101,12 +101,13 @@ public final class RegionSpawnNeighborhood {
         if (this.spawnAllowed.containsKey(chunkKey)) {
             return;
         }
-        boolean allowed = false;
-        try {
+        final boolean allowed;
+        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
+            // Avoid triggering server-owned entity storage violation checks for outer reach chunks
+            // that lie outside the current region worker's lease.
+            allowed = net.neoforged.neoforge.server.threading.RegionThreadingHooks.isChunkOwnedByCurrentRegionWorker(chunkKey);
+        } else {
             allowed = level.isNaturalSpawningAllowed(new ChunkPos(chunkKey));
-        } catch (RegionWorkerBoundaryException ignored) {
-            // An outer reach chunk beyond the current worker's region lease is not owned by this worker
-            // and must not spawn from this region's worker.
         }
         this.spawnAllowed.put(chunkKey, allowed);
         final List<ServerPlayer> players = source.playersNearForSpawning().apply(chunkKey);

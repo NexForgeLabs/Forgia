@@ -1460,9 +1460,15 @@ public final class RegionThreadingHooks {
             net.minecraft.world.entity.SpawnGroupData groupData, net.minecraft.world.level.chunk.ChunkAccess chunk,
             net.minecraft.world.level.NaturalSpawner.AfterSpawnCallback afterSpawn, int total, int groupCount) {
         final var threading = RegionThreadingManager.currentOrNull();
-        if (!(threading instanceof RegionThreadingEngine engine) || !engine.isOrderedSpawnWorker()) return null;
-        return engine.orderedSpawnTransaction(level, () -> net.minecraft.world.level.NaturalSpawner.finalizeSpawnForRegion(
-                level, mob, groupData, chunk, afterSpawn, total, groupCount));
+        if (!(threading instanceof RegionThreadingEngine engine)) return null;
+        if (engine.isOrderedSpawnWorker()) {
+            return engine.orderedSpawnTransaction(level, () -> net.minecraft.world.level.NaturalSpawner.finalizeSpawnForRegion(
+                    level, mob, groupData, chunk, afterSpawn, total, groupCount));
+        }
+        if (engine.isAsyncOrderedSpawnWorker(level)) {
+            return engine.deferAsyncOrderedSpawnFinalization(level, mob, groupData, chunk, afterSpawn, total, groupCount);
+        }
+        return null;
     }
 
     /**
