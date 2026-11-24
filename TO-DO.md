@@ -43,7 +43,8 @@
 
 ---
 
-## 2. 其余待观察性能点
-- **验证 `21.1.250.283-beta` 线上表现**：观察 `fxntstorage:storage_box_entity` 放行与 `skipUnloadedNeighborhoodSpawning` 生效后的 `beSerial` 与 `chunkChunks` 下降幅度；
-- **`RegionSpawnState.buildForPlan` 并行化**：将 `executeAsyncSpawnBatch` 中主线程串行遍历各区域构建刷怪状态的工作进一步移入 Worker；
-- **Create 剩余主线程方块实体研究**：排查 `create:mechanical_crafter`、`create:mechanical_mixer`、`create:blaze_heater` 在 `forgia fences` 中的实际瓶颈，评估是否可在 `forgia-create-parallel-compat` 中安全并行化。
+## 2. 其余待研究性能优化方向
+- **边界区块 `CHUNK_TICK` 上 Worker**：当前 `4×4` 网格下约 `45%` 的区块处于区域边界（`boundary 278,788` vs `workers 339,217`），随机刻留在主线程；后续可借助 `RegionNeighborUpdateScope` / 4 色棋盘波次将其下放到 Worker。
+- **跨维度 `ServerLevel` 独立准备阶段并行化**：探索在 `DimensionDataStorage` 安全前提下，将多维度的 `chunkSource` 准备等互不干扰阶段并发派发。
+- **`Lootr` `NewTickingData` 并发保护**：在外部兼容模组中为 `NewTickingData` 的全局 `Object2ObjectOpenHashMap` 加并发保护，将 `lootr` 容器也放回 Worker。
+- **Create 剩余主线程方块实体研究**：排查 `create:mechanical_crafter`、`create:mechanical_mixer`、`create:blaze_heater` 等在少数场景回退的原因。

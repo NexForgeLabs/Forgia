@@ -45,7 +45,8 @@ class ForgiaConfigTest {
                     && !entry.getKey().equals("enableLowTpsProbe")
                     && !entry.getKey().equals("enableSandboxDemotionProbe")
                     && !entry.getKey().equals("enableRegionThreadingFluidTicks")
-                    && !entry.getKey().equals("enableAsyncRegionSpawning")) {
+                    && !entry.getKey().equals("enableAsyncRegionSpawning")
+                    && !entry.getKey().equals("enableSelectiveAsyncEntityTicks")) {
                 assertEquals(false, ((ModConfigSpec.ConfigValue<?>) entry.getValue()).getDefault(), entry.getKey());
             }
         }

@@ -234,6 +234,16 @@ public final class RegionThreadingConfig {
                 : ForgiaConfig.SERVER.enableAsyncRegionEntityTicks.getDefault();
     }
 
+    public static boolean selectiveAsyncEntityTicksEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.selectiveAsyncEntityTicks");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableSelectiveAsyncEntityTicks.get()
+                : ForgiaConfig.SERVER.enableSelectiveAsyncEntityTicks.getDefault();
+    }
+
     public static boolean asyncRegionFluidTicksEnabled() {
         final String prop = System.getProperty("neoforge.regionthreading.asyncFluidTicks");
         if (prop != null) {

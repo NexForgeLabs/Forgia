@@ -3914,13 +3914,36 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
 
         if (this.isIndependentRegionTickEnabled()
-                && RegionThreadingConfig.asyncRegionEntityTicksEnabled()
                 && !RegionEntityTickAttribution.isEnabled()
                 && this.entityTickFailureObserverForTesting == null
                 && !this.shutdown
                 && !this.regionizer.isLevelClosed(level)) {
-            this.executeAsyncSelfDrivenEntities(level, activations, chunksByRegion, pendingChunks, batch);
-            return;
+            if (RegionThreadingConfig.asyncRegionEntityTicksEnabled()) {
+                this.executeAsyncSelfDrivenEntities(level, activations, chunksByRegion, pendingChunks, batch, true);
+                return;
+            }
+            if (RegionThreadingConfig.selectiveAsyncEntityTicksEnabled() && !activations.isEmpty()) {
+                final List<RegionEntityTickActivation> asyncActivations = new ArrayList<>();
+                final List<RegionEntityTickActivation> syncActivations = new ArrayList<>();
+                for (int i = 0, size = activations.size(); i < size; ++i) {
+                    final RegionEntityTickActivation activation = activations.get(i);
+                    if (isPureAsyncEntityRegion(activation.region())) {
+                        asyncActivations.add(activation);
+                    } else {
+                        syncActivations.add(activation);
+                    }
+                }
+                if (!asyncActivations.isEmpty()) {
+                    final boolean allAsync = syncActivations.isEmpty();
+                    final RegionEntityTickBatch asyncBatch = allAsync ? batch : new RegionEntityTickBatch(level, this.deferredBlockUpdateBudget);
+                    this.executeAsyncSelfDrivenEntities(level, asyncActivations, chunksByRegion, pendingChunks, asyncBatch, allAsync);
+                    if (allAsync) {
+                        return;
+                    }
+                    activations.clear();
+                    activations.addAll(syncActivations);
+                }
+            }
         }
 
         final TickBatchPublication publication = this.publishTickBatch(batch, level);
@@ -7431,12 +7454,27 @@ public final class RegionThreadingEngine implements RegionThreading {
      * per-entity server-thread collection from the entity pass: the server thread never iterated the level's
      * entity tick list for this region.
      */
+    private static boolean isPureAsyncEntityRegion(RegionState region) {
+        if (region.serverThreadOnlyEntityCount() > 0) {
+            return false;
+        }
+        final List<RegionEntityTickEntry> entries = region.entityTickEntries();
+        for (int i = 0, size = entries.size(); i < size; ++i) {
+            final Entity entity = entries.get(i).entity();
+            if (entity instanceof ServerPlayer || entity.countPlayerPassengers() > 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private void executeAsyncSelfDrivenEntities(
             ServerLevel level,
             List<RegionEntityTickActivation> activations,
             @Nullable Map<RegionState, List<RegionChunkTickEntry>> chunksByRegion,
             @Nullable FusedRegionTickSession.PendingChunkWork pendingChunks,
-            RegionEntityTickBatch playerBatch) {
+            RegionEntityTickBatch playerBatch,
+            boolean drainRemainingChunks) {
         // 1. Tick all players (and player-carrying vehicles) synchronously on the server thread at full 20 TPS.
         for (final RegionEntityTickActivation activation : activations) {
             this.collectSkippedRegionPlayers(playerBatch, activation.region());
@@ -7496,7 +7534,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             }
         }
         // Any remaining chunk-only regions without active entity activations
-        if (chunksByRegion != null && !chunksByRegion.isEmpty() && pendingChunks != null) {
+        if (drainRemainingChunks && chunksByRegion != null && !chunksByRegion.isEmpty() && pendingChunks != null) {
             for (final var entry : chunksByRegion.entrySet()) {
                 final RegionState region = entry.getKey();
                 final List<RegionChunkTickEntry> regionChunks = entry.getValue();

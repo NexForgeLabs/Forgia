@@ -180,6 +180,7 @@ public final class ForgiaConfig {
         public final BooleanValue skipUnloadedNeighborhoodSpawning;
 
         public final BooleanValue enableAsyncRegionEntityTicks;
+        public final BooleanValue enableSelectiveAsyncEntityTicks;
 
         public final BooleanValue enableAsyncRegionFluidTicks;
 
@@ -628,6 +629,12 @@ public final class ForgiaConfig {
                             "EXPERIMENTAL (Phase 3B): Dispatches non-player entity ticks asynchronously per region via RegionIndependentTickScheduler without blocking the server thread barrier. Default false.",
                             "[中文] 实验性（Phase 3B）：将各区域非玩家实体异步脱离 Barrier 分发到 Region Worker（默认关闭，使用带 Barrier 的多核实体并行）。")
                     .define("enableAsyncRegionEntityTicks", false);
+
+            enableSelectiveAsyncEntityTicks = builder
+                    .comment(
+                            "Selectively dispatches player-free and contraption-free entity regions asynchronously without waiting on the main-thread barrier while keeping player/physics regions synchronized. Default true.",
+                            "[中文] 选择性异步实体切片：在未开启全量 Phase 3B 时，将无玩家且无特殊物理耦合的区域优先放入异步队列脱离同步栅栏，仅对有玩家或特殊结构的区域保留同步栅栏（默认开启）。")
+                    .define("enableSelectiveAsyncEntityTicks", true);
 
             enableAsyncRegionFluidTicks = builder
                     .comment(
