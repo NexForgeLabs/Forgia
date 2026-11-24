@@ -463,6 +463,10 @@ public final class RegionThreadingDeclarations {
             readEntries(source, root, BLOCK_ENTITIES, ignored, entry -> {
                 final BlockEntityDeclaration declaration = blockEntityDeclaration(source, entry, ignored, lookup);
                 if (declaration != null) {
+                    if (LEARNED_SOURCE.equals(source.name())
+                            && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isExplicitlySandboxedBlockEntity(declaration.type())) {
+                        return;
+                    }
                     blockEntities.add(declaration);
                 }
             });

@@ -11329,6 +11329,8 @@ public final class RegionThreadingEngine implements RegionThreading {
 
             final List<RegionSpawnChunk> next = new ArrayList<>(retry);
             boolean leasedAny = false;
+            final LevelSpawnCapCounter sharedCapCounter = plan.capCounter();
+            final boolean tryLeaseOnly = this.isIndependentRegionTickEnabled();
             for (final RegionState region : grouping.regions()) {
                 final List<RegionSpawnChunk> regionChunks = grouping.items(region);
                 if (batch.leases(region)) {
@@ -11337,18 +11339,21 @@ public final class RegionThreadingEngine implements RegionThreading {
                     batch.group(region).ifPresent(group -> group.addChunks(regionChunks));
                     continue;
                 }
-                if (!this.acquireRegionLease(region, barrier)) {
+                if (tryLeaseOnly) {
+                    if (region.isDead() || !region.tryMarkRunning()) {
+                        this.skippedSpawnChunks.addAndGet(regionChunks.size());
+                        continue;
+                    }
+                } else if (!this.acquireRegionLease(region, barrier)) {
                     next.addAll(regionChunks);
                     continue;
                 }
                 leasedAny = true;
                 batchedChunks += regionChunks.size();
                 this.addLeasedGroup(region, () -> {
-                    // The state of the region is built from the region's own entities, on the server thread, from
-                    // the same full-chunk getter the vanilla state uses; its cap is the level-wide counter of the
-                    // tick, which the plan counted before any worker ran.
-                    final RegionSpawnState.Built built = plan.buildRegionState(region, regionChunks);
-                    batch.addGroup(region, regionChunks, built.state(), built.neighborhood(), this::spawnGroup);
+                    batch.addGroup(region, regionChunks,
+                            () -> plan.buildRegionStateAsync(region, regionChunks, sharedCapCounter),
+                            this::spawnGroup);
                 });
             }
             remaining = next;
@@ -12043,6 +12048,18 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
         final String reason = "sandbox_runtime_error:" + root.getClass().getSimpleName();
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isExplicitlySandboxedBlockEntity(type)) {
+            final boolean transientCooldown = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientBoundaryFallback(
+                    admission.level(), admission.position(), type, RegionThreadingConfig.sandboxTransientCooldownTicks());
+            final var ticker = admission.ticker();
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
+                if (!ticker.isRemoved()) {
+                    ticker.tick();
+                }
+            });
+            SandboxDemotionProbe.record(admission.level(), admission.position(), type, reason, !transientCooldown, root);
+            return;
+        }
         SandboxDemotionProbe.record(admission.level(), admission.position(), type, reason, true, root);
         RegionTickCompatibility.declareServerThreadOnlyType(type, reason);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {

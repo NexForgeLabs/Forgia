@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "dev.forgia.compat.lootr.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "NewTickingDataMixin",
+    "NewTickingDataSectionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

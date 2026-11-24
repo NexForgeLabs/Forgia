@@ -85,9 +85,9 @@ public final class RegionSpawnPlan {
     /** Tick-scoped caches avoiding repeated chunk-map and player-distance scans across regions. */
     private final it.unimi.dsi.fastutil.longs.LongOpenHashSet loadedChunkCache = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(512);
     private final it.unimi.dsi.fastutil.longs.LongOpenHashSet verifiedNeighborhoods = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(512);
-    private final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> fullChunkCache = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>(512);
-    private final it.unimi.dsi.fastutil.longs.LongOpenHashSet absentFullChunks = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(128);
-    private final it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap spawnableChunkCache = new it.unimi.dsi.fastutil.longs.Long2ByteOpenHashMap(512);
+    private final java.util.concurrent.ConcurrentHashMap<Long, LevelChunk> fullChunkCache = new java.util.concurrent.ConcurrentHashMap<>(512);
+    private final java.util.Set<Long> absentFullChunks = java.util.concurrent.ConcurrentHashMap.newKeySet(128);
+    private final java.util.concurrent.ConcurrentHashMap<Long, Byte> spawnableChunkCache = new java.util.concurrent.ConcurrentHashMap<>(512);
     /** Shared read-only neighborhood populated on the server thread before workers start. */
     private final RegionSpawnNeighborhood sharedNeighborhood = new RegionSpawnNeighborhood(512);
     private boolean executed;
@@ -119,8 +119,8 @@ public final class RegionSpawnPlan {
         };
         final var rawSpawnable = source.spawnableChunk();
         final java.util.function.LongPredicate cachedSpawnable = chunkKey -> {
-            final byte cached = this.spawnableChunkCache.get(chunkKey);
-            if (cached != 0) {
+            final Byte cached = this.spawnableChunkCache.get(chunkKey);
+            if (cached != null) {
                 return cached == 1;
             }
             final boolean allowed = rawSpawnable.test(chunkKey);

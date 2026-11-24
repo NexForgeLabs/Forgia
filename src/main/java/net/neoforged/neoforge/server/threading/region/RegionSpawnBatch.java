@@ -107,6 +107,15 @@ final class RegionSpawnBatch extends RegionTickBatch {
         return group;
     }
 
+    Group addGroup(RegionState region, List<RegionSpawnChunk> chunks,
+            java.util.function.Supplier<RegionSpawnState.Built> stateSupplier, Function<Group, Runnable> workFactory) {
+        this.leasedRegions.add(region);
+        final Group group = new Group(this, region, chunks, stateSupplier);
+        this.groups.add(group);
+        this.addTask(region, "spawn " + region.coordinate(), this.groupWork(workFactory.apply(group), region::clearRunning));
+        return group;
+    }
+
     Group createAsyncGroup(RegionState region, List<RegionSpawnChunk> chunks,
             java.util.function.Supplier<RegionSpawnState.Built> stateSupplier) {
         this.leasedRegions.add(region);

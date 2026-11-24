@@ -367,6 +367,20 @@ public final class RegionAdapterApi {
         return Set.copyOf(SANDBOX_ADMITTED_NAMESPACES);
     }
 
+    public static boolean isExplicitlySandboxedBlockEntity(@org.jetbrains.annotations.Nullable String type) {
+        if (type == null || SANDBOX_DENIED_BE_TYPES.contains(type)) {
+            return false;
+        }
+        final int colon = type.indexOf(':');
+        if (colon > 0 && SANDBOX_DENIED_NAMESPACES.contains(type.substring(0, colon))) {
+            return false;
+        }
+        if (SANDBOX_ADMITTED_BE_TYPES.contains(type)) {
+            return true;
+        }
+        return colon > 0 && SANDBOX_ADMITTED_NAMESPACES.contains(type.substring(0, colon));
+    }
+
     public static boolean isRegionSandboxedBlockEntity(String type) {
         if (type == null || RegionTickCompatibility.serverThreadOnlyTypes().containsKey(type)
                 || SANDBOX_DENIED_BE_TYPES.contains(type)) {

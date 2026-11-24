@@ -7,6 +7,7 @@ package dev.forgia.compat.createparallel;
 
 import com.simibubi.create.content.kinetics.base.GeneratingKineticBlockEntity;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
+import com.simibubi.create.content.kinetics.belt.BeltBlockEntity;
 import com.simibubi.create.content.kinetics.crank.HandCrankBlockEntity;
 import com.simibubi.create.foundation.blockEntity.SmartBlockEntity;
 import dev.forgia.compat.createparallel.mixin.KineticBlockEntityAccessor;
@@ -56,6 +57,9 @@ public final class ForgiaCreateParallelCompat {
                     return false;
                 }
                 if (kbe instanceof HandCrankBlockEntity crank && crank.inUse > 0) {
+                    return false;
+                }
+                if (kbe instanceof BeltBlockEntity belt && belt.beltLength <= 0) {
                     return false;
                 }
             }
