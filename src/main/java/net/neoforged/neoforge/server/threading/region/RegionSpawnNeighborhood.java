@@ -101,7 +101,14 @@ public final class RegionSpawnNeighborhood {
         if (this.spawnAllowed.containsKey(chunkKey)) {
             return;
         }
-        this.spawnAllowed.put(chunkKey, level.isNaturalSpawningAllowed(new ChunkPos(chunkKey)));
+        boolean allowed = false;
+        try {
+            allowed = level.isNaturalSpawningAllowed(new ChunkPos(chunkKey));
+        } catch (RegionWorkerBoundaryException ignored) {
+            // An outer reach chunk beyond the current worker's region lease is not owned by this worker
+            // and must not spawn from this region's worker.
+        }
+        this.spawnAllowed.put(chunkKey, allowed);
         final List<ServerPlayer> players = source.playersNearForSpawning().apply(chunkKey);
         if (players != null && !players.isEmpty()) {
             this.playersNear.put(chunkKey, players);

@@ -211,7 +211,7 @@
          LongSet longset = this.getAllChunksToSave();
  
          while (!longset.isEmpty()) {
-@@ -280,31 +_,72 @@
+@@ -280,31 +_,78 @@
  
      @Override
      public void close() throws IOException {
@@ -263,11 +263,17 @@
      }
  
      public boolean canPositionTick(BlockPos p_202168_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isChunkOwnedByCurrentRegionWorker(ChunkPos.asLong(p_202168_))) {
++            return true;
++        }
 +        this.checkStorageAccess("PersistentEntitySectionManager.canPositionTick");
          return this.chunkVisibility.get(ChunkPos.asLong(p_202168_)).isTicking();
      }
  
      public boolean canPositionTick(ChunkPos p_202166_) {
++        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isChunkOwnedByCurrentRegionWorker(p_202166_.toLong())) {
++            return true;
++        }
 +        this.checkStorageAccess("PersistentEntitySectionManager.canPositionTick");
          return this.chunkVisibility.get(p_202166_.toLong()).isTicking();
      }
