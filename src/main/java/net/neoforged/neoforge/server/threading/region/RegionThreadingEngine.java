@@ -2450,6 +2450,9 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> invalidated = null;
         for (final RegionState region : List.copyOf(regions)) {
+            if (region.isRunning() && !region.isDead()) {
+                continue;
+            }
             regions.remove(region);
             if (region.isDead()) {
                 this.discardForeignReads(region);
@@ -2482,14 +2485,12 @@ public final class RegionThreadingEngine implements RegionThreading {
     @Nullable
     private List<RegionBorderUpdates.BorderUpdate> invalidatedForeignRead(ServerLevel level, RegionState region,
             List<RegionBorderUpdates.BorderUpdate> applied) {
-        final it.unimi.dsi.fastutil.longs.Long2LongMap reads = region.foreignChunkReads();
-        final boolean changed = this.foreignReadRerunEnabled && this.foreignReadVersionsChanged(level, reads);
-        final List<RegionBorderUpdates.BorderUpdate> payload = changed ? this.rerunPayload(applied, region.rerunSeeds()) : null;
-        final int dropped = region.clearRerunSeeds();
-        if (dropped > 0) {
-            this.foreignReadSeedsDropped.addAndGet(dropped);
+        final RegionState.ForeignReadSnapshot snapshot = region.consumeForeignReadsAndSeeds();
+        final boolean changed = this.foreignReadRerunEnabled && this.foreignReadVersionsChanged(level, snapshot.reads());
+        final List<RegionBorderUpdates.BorderUpdate> payload = changed ? this.rerunPayload(applied, snapshot.seeds()) : null;
+        if (snapshot.droppedSeeds() > 0) {
+            this.foreignReadSeedsDropped.addAndGet(snapshot.droppedSeeds());
         }
-        region.clearForeignChunkReads();
         return payload == null || payload.isEmpty() ? null : payload;
     }
 
@@ -2552,11 +2553,10 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     /** Forgets the foreign reads and the written positions of {@code region}, counting the dropped seeds. */
     private void discardForeignReads(RegionState region) {
-        final int dropped = region.clearRerunSeeds();
+        final int dropped = region.discardForeignReads();
         if (dropped > 0) {
             this.foreignReadSeedsDropped.addAndGet(dropped);
         }
-        region.clearForeignChunkReads();
     }
 
     /**
@@ -2789,10 +2789,13 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Production uses the level's chunk-source barrier, exactly like a tick batch. A mechanics test whose mock
      * level has no chunk source parks until the group finishes.
      */
-    private static RegionTickBarrier borderFixpointBarrier(ServerLevel level) {
-        final RegionTickBarrier barrier = levelBarrier(level);
+    private RegionTickBarrier borderFixpointBarrier(ServerLevel level) {
+        final RegionTickBarrier barrier = this.levelBarrier(level);
         return barrier != null ? barrier : condition -> {
             while (!condition.getAsBoolean()) {
+                if (this.independentTickScheduler != null && level != null) {
+                    this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+                }
                 LockSupport.parkNanos(100_000L);
             }
         };
@@ -4930,7 +4933,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             return;
         }
         final RegionState region = basicContext.regionState;
-        if (region.foreignChunkReads().isEmpty() || !region.isOwnedByCurrentThread()) {
+        if (!region.hasForeignChunkReads() || !region.isOwnedByCurrentThread()) {
             return;
         }
         // A position past the bound is counted by the region and drained with its next check.
@@ -8306,6 +8309,9 @@ public final class RegionThreadingEngine implements RegionThreading {
         if (!this.regionWorkAdmission.tryEnter(this::canonicalBoundaryIdle)) {
             try {
                 barrier.await(() -> {
+                    if (this.independentTickScheduler != null) {
+                        this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+                    }
                     if (this.regionWorkAdmission.isOwner()) return true;
                     for (final var active : this.activeTickBatches) active.servicePendingServerWork();
                     return this.regionWorkAdmission.tryEnter(this::canonicalBoundaryIdle);
@@ -9083,7 +9089,12 @@ public final class RegionThreadingEngine implements RegionThreading {
             submitted = true;
             batch.activeCanonicalBarrier(joined);
             try {
-                barrier.await(joined::isComplete);
+                barrier.await(() -> {
+                    if (this.independentTickScheduler != null) {
+                        this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
+                    }
+                    return joined.isComplete();
+                });
             } catch (Throwable failed) {
                 failure = failed;
             } finally {
@@ -9224,7 +9235,12 @@ public final class RegionThreadingEngine implements RegionThreading {
             submitted = true;
             batch.activeCanonicalBarrier(joined);
             try {
-                barrier.await(joined::isComplete);
+                barrier.await(() -> {
+                    if (this.independentTickScheduler != null) {
+                        this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
+                    }
+                    return joined.isComplete();
+                });
             } catch (Throwable failed) {
                 failure = failed;
             } finally {
@@ -9339,6 +9355,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                 batch.activeCanonicalBarrier(joined);
                 try {
                     barrier.await(() -> {
+                        if (this.independentTickScheduler != null) {
+                            this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
+                        }
                         batch.servicePendingServerWork();
                         return joined.isComplete();
                     });
@@ -9960,7 +9979,12 @@ public final class RegionThreadingEngine implements RegionThreading {
         final var joined = work.submit(this.workerPool);
         Throwable failure = null;
         try {
-            barrier.await(joined::isComplete);
+            barrier.await(() -> {
+                if (this.independentTickScheduler != null) {
+                    this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
+                }
+                return joined.isComplete();
+            });
         } catch (Throwable throwable) {
             failure = throwable;
         } finally {
@@ -12656,20 +12680,42 @@ public final class RegionThreadingEngine implements RegionThreading {
         completion.throwIfFailed();
     }
 
-    private static RegionTickBarrier levelBarrier(ServerLevel level) {
+    private RegionTickBarrier levelBarrier(ServerLevel level) {
         final ServerChunkCache chunkSource = level.getChunkSource();
-        return chunkSource == null ? null : chunkSource::managedBlockOnMainThread;
+        if (chunkSource == null) {
+            return null;
+        }
+        return condition -> chunkSource.managedBlockOnMainThread(() -> {
+            if (this.independentTickScheduler != null) {
+                this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+            }
+            return condition.getAsBoolean();
+        });
     }
 
     private void awaitRegionQuiescent(RegionState region, @Nullable RegionTickBarrier barrier) {
         if (region.isOwnedByCurrentThread()) {
             return;
         }
+        final ServerLevel level = region.coordinate().level();
         if (barrier == null) {
-            region.awaitQuiescent();
+            while (region.isWorkerSubmitted() || region.isRunning()) {
+                if (this.independentTickScheduler != null && level != null) {
+                    this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+                }
+                if (!region.isWorkerSubmitted() && !region.isRunning()) {
+                    return;
+                }
+                LockSupport.parkNanos("waiting for region quiescence", 100_000L);
+            }
             return;
         }
-        barrier.await(() -> !region.isWorkerSubmitted() && !region.isRunning());
+        barrier.await(() -> {
+            if (this.independentTickScheduler != null && level != null) {
+                this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+            }
+            return !region.isWorkerSubmitted() && !region.isRunning();
+        });
     }
 
     /**
