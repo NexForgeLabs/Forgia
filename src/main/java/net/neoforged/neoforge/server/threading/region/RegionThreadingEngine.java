@@ -11629,6 +11629,7 @@ public final class RegionThreadingEngine implements RegionThreading {
 
             final List<RegionChunkTickEntry> next = new ArrayList<>(retry);
             boolean leasedAny = false;
+            final boolean tryLeaseOnly = this.isIndependentRegionTickEnabled();
             for (final RegionState region : grouping.regions()) {
                 final List<RegionChunkTickEntry> regionChunks = grouping.items(region);
                 if (batch.leases(region)) {
@@ -11637,7 +11638,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                     batch.group(region).ifPresent(group -> group.addChunks(regionChunks));
                     continue;
                 }
-                if (!this.acquireRegionLease(region, barrier)) {
+                if (tryLeaseOnly) {
+                    if (region.isDead() || !region.tryMarkRunning()) {
+                        this.skippedChunkTicks.addAndGet(regionChunks.size());
+                        continue;
+                    }
+                } else if (!this.acquireRegionLease(region, barrier)) {
                     next.addAll(regionChunks);
                     continue;
                 }
@@ -14573,6 +14579,12 @@ public final class RegionThreadingEngine implements RegionThreading {
                 return;
             }
             if (region.isWorkerSubmitted() || region.isRunning()) {
+                if (!region.isWorkerSubmitted()
+                        && this.isIndependentRegionTickEnabled()
+                        && this.independentTickScheduler != null
+                        && this.independentTickScheduler.isRegionInFlight(region.coordinate())) {
+                    return;
+                }
                 // An accepted worker that has not started yet is not a rejection. Await it instead of
                 // draining its queue here, which would run the snapshot twice and advance the queue
                 // tick twice.
@@ -14592,7 +14604,11 @@ public final class RegionThreadingEngine implements RegionThreading {
             if (region.tryMarkWorkerSubmitted()) {
                 if (this.tryCompleteEmptyRegionDrain(region, nowNanos)) return;
                 submissions.add("region drain " + region.coordinate(), () -> this.runSubmittedRegionTick(region, nowNanos));
-            } else if (region.isWorkerSubmitted() || region.isRunning()) {
+            } else if (region.isWorkerSubmitted()
+                    || (region.isRunning()
+                            && !(this.isIndependentRegionTickEnabled()
+                                    && this.independentTickScheduler != null
+                                    && this.independentTickScheduler.isRegionInFlight(region.coordinate())))) {
                 // Another drain won the submission between the idle check and the CAS; await its worker
                 // instead of returning while that accepted drain is still running.
                 alreadyActive.add(region);
