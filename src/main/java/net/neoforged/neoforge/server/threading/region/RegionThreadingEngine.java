@@ -3921,31 +3921,10 @@ public final class RegionThreadingEngine implements RegionThreading {
                 && this.entityTickFailureObserverForTesting == null
                 && !this.shutdown
                 && !this.regionizer.isLevelClosed(level)) {
-            if (RegionThreadingConfig.asyncRegionEntityTicksEnabled()) {
+            if (RegionThreadingConfig.asyncRegionEntityTicksEnabled()
+                    || RegionThreadingConfig.selectiveAsyncEntityTicksEnabled()) {
                 this.executeAsyncSelfDrivenEntities(level, activations, chunksByRegion, pendingChunks, batch, true);
                 return;
-            }
-            if (RegionThreadingConfig.selectiveAsyncEntityTicksEnabled() && !activations.isEmpty()) {
-                final List<RegionEntityTickActivation> asyncActivations = new ArrayList<>();
-                final List<RegionEntityTickActivation> syncActivations = new ArrayList<>();
-                for (int i = 0, size = activations.size(); i < size; ++i) {
-                    final RegionEntityTickActivation activation = activations.get(i);
-                    if (isPureAsyncEntityRegion(activation.region())) {
-                        asyncActivations.add(activation);
-                    } else {
-                        syncActivations.add(activation);
-                    }
-                }
-                if (!asyncActivations.isEmpty()) {
-                    final boolean allAsync = syncActivations.isEmpty();
-                    final RegionEntityTickBatch asyncBatch = allAsync ? batch : new RegionEntityTickBatch(level, this.deferredBlockUpdateBudget);
-                    this.executeAsyncSelfDrivenEntities(level, asyncActivations, chunksByRegion, pendingChunks, asyncBatch, allAsync);
-                    if (allAsync) {
-                        return;
-                    }
-                    activations.clear();
-                    activations.addAll(syncActivations);
-                }
             }
         }
 
@@ -4302,8 +4281,17 @@ public final class RegionThreadingEngine implements RegionThreading {
         int playersAdded = 0;
         for (int i = 0, size = entries.size(); i < size; ++i) {
             final RegionEntityTickEntry entry = entries.get(i);
-            if (entry.ticking() && entry.entity() instanceof ServerPlayer) {
-                batch.addSelfDrivenFallback(entry.entity());
+            if (!entry.ticking()) {
+                continue;
+            }
+            final Entity entity = entry.entity();
+            if (carriesPlayer(entity)) {
+                if (!ridesLiveVehicle(entity)) {
+                    batch.addSelfDrivenFallback(entity);
+                    ++playersAdded;
+                }
+            } else if ((entry.serverThreadOnly() || entity instanceof ServerPlayer) && !ridesLiveVehicle(entity)) {
+                batch.addSelfDrivenFallback(entity);
                 ++playersAdded;
             }
         }
@@ -4311,6 +4299,49 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.serverThreadOnlyEntityTicks.addAndGet(playersAdded);
         }
         return playersAdded;
+    }
+
+    /**
+     * Collects players, player-carrying vehicles, and server-thread-only policy entities (e.g. Create contraptions,
+     * projectiles) for immediate synchronous execution on the server thread before dispatching the region's
+     * remaining worker-eligible entities asynchronously.
+     *
+     * @return the number of remaining worker-eligible ticking entities in {@code region}
+     */
+    private int collectSynchronousRegionEntities(RegionEntityTickBatch batch, RegionState region) {
+        final List<RegionEntityTickEntry> entries = region.entityTickEntries();
+        int syncPlayersAdded = 0;
+        int workerEligible = 0;
+        for (int i = 0, size = entries.size(); i < size; ++i) {
+            final RegionEntityTickEntry entry = entries.get(i);
+            if (!entry.ticking()) {
+                continue;
+            }
+            final Entity entity = entry.entity();
+            if (entry.serverThreadOnly() || entity instanceof ServerPlayer) {
+                if (!ridesLiveVehicle(entity)) {
+                    batch.addSelfDrivenFallback(entity);
+                }
+                ++syncPlayersAdded;
+                continue;
+            }
+            if (carriesPlayer(entity)) {
+                if (!ridesLiveVehicle(entity)) {
+                    batch.addSelfDrivenFallback(entity);
+                }
+                ++syncPlayersAdded;
+                continue;
+            }
+            if (!ridesLiveVehicle(entity) && this.entityTickPolicy.recordServerThreadOnly(entity) != null) {
+                batch.addSelfDrivenFallback(entity);
+                continue;
+            }
+            ++workerEligible;
+        }
+        if (syncPlayersAdded > 0) {
+            this.serverThreadOnlyEntityTicks.addAndGet(syncPlayersAdded);
+        }
+        return workerEligible;
     }
 
     /**
@@ -7457,20 +7488,6 @@ public final class RegionThreadingEngine implements RegionThreading {
      * per-entity server-thread collection from the entity pass: the server thread never iterated the level's
      * entity tick list for this region.
      */
-    private static boolean isPureAsyncEntityRegion(RegionState region) {
-        if (region.serverThreadOnlyEntityCount() > 0) {
-            return false;
-        }
-        final List<RegionEntityTickEntry> entries = region.entityTickEntries();
-        for (int i = 0, size = entries.size(); i < size; ++i) {
-            final Entity entity = entries.get(i).entity();
-            if (entity instanceof ServerPlayer || entity.countPlayerPassengers() > 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private void executeAsyncSelfDrivenEntities(
             ServerLevel level,
             List<RegionEntityTickActivation> activations,
@@ -7478,22 +7495,30 @@ public final class RegionThreadingEngine implements RegionThreading {
             @Nullable FusedRegionTickSession.PendingChunkWork pendingChunks,
             RegionEntityTickBatch playerBatch,
             boolean drainRemainingChunks) {
-        // 1. Tick all players (and player-carrying vehicles) synchronously on the server thread at full 20 TPS.
-        for (final RegionEntityTickActivation activation : activations) {
-            this.collectSkippedRegionPlayers(playerBatch, activation.region());
+        // 1. Tick all players, player-carrying vehicles, and server-thread-only policy entities (e.g. contraptions)
+        // synchronously on the server thread at full 20 TPS.
+        final int[] workerEligibleCounts = new int[activations.size()];
+        for (int i = 0, size = activations.size(); i < size; ++i) {
+            workerEligibleCounts[i] = this.collectSynchronousRegionEntities(playerBatch, activations.get(i).region());
         }
         this.tickSelfDrivenFallbacks(playerBatch);
         playerBatch.finish();
 
-        // 2. Dispatch non-player entities (+ fused chunk random ticks) asynchronously per region without barrier.
+        // 2. Dispatch remaining worker-eligible entities (+ fused chunk random ticks) asynchronously per region without barrier.
+        final long gameTime = level.getGameTime();
         final int perRegionBudget = Math.max(128, this.deferredBlockUpdateBudget / Math.max(1, activations.size()));
         final int randomTickSpeed = pendingChunks != null ? pendingChunks.randomTickSpeed() : 0;
-        for (final RegionEntityTickActivation activation : activations) {
+        for (int i = 0, size = activations.size(); i < size; ++i) {
+            final RegionEntityTickActivation activation = activations.get(i);
             final RegionState region = activation.region();
             final List<RegionChunkTickEntry> regionChunks = chunksByRegion != null ? chunksByRegion.remove(region) : null;
+            final boolean hasChunks = regionChunks != null && !regionChunks.isEmpty();
+            if (workerEligibleCounts[i] <= 0 && !hasChunks) {
+                continue;
+            }
             final RegionEntityTickBatch regionBatch = new RegionEntityTickBatch(level, perRegionBudget);
             regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
-            final FusedRegionTickBatch regionFused = (regionChunks != null && !regionChunks.isEmpty())
+            final FusedRegionTickBatch regionFused = hasChunks
                     ? new FusedRegionTickBatch(level, randomTickSpeed, perRegionBudget)
                     : null;
             final RegionEntityTickBatch.Group group = regionBatch.registerGroup(region, List.of());
@@ -7528,11 +7553,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                     regionBatch.finish();
                 }
             };
-            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async entity", wrappedWork, commit);
+            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async entity", wrappedWork, commit, gameTime);
             if (outcome == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
                 this.entityTickRegionsOnWorkers.incrementAndGet();
             } else {
-                this.skippedEntityTicks.addAndGet(region.tickingEntityCount());
+                this.skippedEntityTicks.addAndGet(workerEligibleCounts[i]);
                 regionBatch.finish();
             }
         }
@@ -7563,7 +7588,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         regionBatch.finish();
                     }
                 };
-                if (this.independentTickScheduler.submitAsyncSlice(region, "async chunk", wrappedWork, commit)
+                if (this.independentTickScheduler.submitAsyncSlice(region, "async chunk", wrappedWork, commit, gameTime)
                         != RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
                     this.skippedChunkTicks.addAndGet(regionChunks.size());
                     regionBatch.finish();
@@ -7634,7 +7659,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                             // ticked on the server thread after the batch instead of on this worker; an
                             // entity that rides a live vehicle is decided at the vehicle, whose entry covers
                             // the riding stack.
-                            if (this.entityTickPolicy.recordServerThreadOnly(entry.entity()) != null) {
+                            if (skipPlayersAlreadyTicked) {
+                                if (this.entityTickPolicy.reasonFor(entry.entity()) != null) {
+                                    continue;
+                                }
+                            } else if (this.entityTickPolicy.recordServerThreadOnly(entry.entity()) != null) {
                                 group.batch().addSelfDrivenFallback(entry.entity());
                                 continue;
                             }

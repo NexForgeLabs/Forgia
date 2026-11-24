@@ -31,20 +31,19 @@
 - 已在 `21.1.250.287-beta` 落地 `SandboxDemotionProbe`（`logs/forgia-sandbox-demotions.jsonl`）；
 - 并发原语（分段锁 / 快照集合）保留待后续新模组适配时按需补充。
 
-### 1.5 [进行中 / 高优] 削减主线程规划与准备开销（`tickBlockEntities` + `RegionSpawnState`）
+### 1.5 [已完成] 削减主线程规划与准备开销（`tickBlockEntities` + `RegionSpawnState`）
 - 将沙箱方块实体的逐实例状态检查（`canRunSandboxedBlockEntityInstance`）从主线程 `prepareNative` 下放到 Worker 侧执行前；
 - 将异步刷怪的 `RegionSpawnState.buildForPlan`（区域实体计数与局部邻域构建）从主线程下放到 8 个 Region Worker 并行执行。
 
-### 1.5 基于 `DYNAMIC_CLUSTER` 的选择性异步实体切片（`ENTITY_TICK` 演进）
-- **背景**：当前因主线程 `PlayerTick`、Contraption、Sable 物理与后台实体争抢租约，`enableAsyncRegionEntityTicks` 保持关闭，导致单个热点区（如 `overworld@-38,-54`）仍会在栅栏处拖慢全局 Tick。
-- **方案**：
-  - 探索将无玩家、无 Contraption/物理耦合的野外区域优先放入异步实体调度，仅对高耦合区域保留同步栅栏；
-  - 评估在 `RegionOverloadGovernor` 中计入 `RegionIndependentTickScheduler` 异步方块实体耗时（可配置权重/开关），避免重负载基地长期绕过过载隔离。
+### 1.6 [已完成] 基于 `DYNAMIC_CLUSTER` 的选择性异步实体切片与有玩家区域实体解耦（`ENTITY_TICK` 演进）
+- 将区域内的 `ServerPlayer`、载具以及 `entityTickPolicy`（Create Contraption / 弹射物等主线程专属实体）在主线程第 1 步以 20 TPS 同步优先执行；
+- 将包括有玩家所在区域在内的所有常规生物/掉落物全部通过 `RegionIndependentTickScheduler.submitAsyncSlice(..., gameTime)` 异步派发到 Region Worker，并与同 Tick 的沙箱方块实体子波次（`pendingSubWaves`）自动合并，彻底消除主线程在 `ENTITY_TICK` 同步栅栏上的等待。
 
 ---
 
 ## 2. 其余待研究性能优化方向
-- **边界区块 `CHUNK_TICK` 上 Worker**：当前 `4×4` 网格下约 `45%` 的区块处于区域边界（`boundary 278,788` vs `workers 339,217`），随机刻留在主线程；后续可借助 `RegionNeighborUpdateScope` / 4 色棋盘波次将其下放到 Worker。
+- **`CHUNK_SOURCE_BROADCAST`（区块方块/光照变更发包组装）下放 Region Worker**：在每个 Region Worker 完成该区域的 `CHUNK_TICK` / `BLOCK_ENTITY` 后，直接在 Worker 线程预构建有变更的 `ChunkHolder` 数据包（`ClientboundSectionBlocksUpdatePacket` / `BlockEntityInfo`），最后通过线程安全的 Netty 通道直接入队发送，削减多人在线跑图/机器高频改方块时的主线程发包开销。
+- **排查 `ServerChunkCache.tickChunks()`（`main chunkChunks`）跑图尖峰**：经核实，边界区块 `CHUNK_TICK` 其实**已经在 Worker 上执行**（`forgia status` 中的 `boundary` 仅是已派发到 Worker 的边界区块子计数，并非留在主线程）。后续可在跑图高负载时细拆 `chunkChunks` 内部（`chunkMap.getChunks` / `isLoadedChunkNeighborhoodCached` / `tickCustomSpawners` / 边缘 `unloadedNeighborhood` 区块内联 `tickChunk`）定位真实耗时。
 - **跨维度 `ServerLevel` 独立准备阶段并行化**：探索在 `DimensionDataStorage` 安全前提下，将多维度的 `chunkSource` 准备等互不干扰阶段并发派发。
 - **`Lootr` `NewTickingData` 并发保护**：在外部兼容模组中为 `NewTickingData` 的全局 `Object2ObjectOpenHashMap` 加并发保护，将 `lootr` 容器也放回 Worker。
 - **Create 剩余主线程方块实体研究**：排查 `create:mechanical_crafter`、`create:mechanical_mixer`、`create:blaze_heater` 等在少数场景回退的原因。

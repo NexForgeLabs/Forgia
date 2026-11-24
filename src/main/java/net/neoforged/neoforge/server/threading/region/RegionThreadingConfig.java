@@ -240,8 +240,7 @@ public final class RegionThreadingConfig {
             return Boolean.parseBoolean(prop);
         }
         return ForgiaConfig.isServerConfigLoaded()
-                ? ForgiaConfig.SERVER.enableSelectiveAsyncEntityTicks.get()
-                : ForgiaConfig.SERVER.enableSelectiveAsyncEntityTicks.getDefault();
+                && ForgiaConfig.SERVER.enableSelectiveAsyncEntityTicks.get();
     }
 
     public static boolean asyncRegionFluidTicksEnabled() {
