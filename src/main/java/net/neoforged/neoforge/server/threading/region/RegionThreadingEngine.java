@@ -8549,6 +8549,11 @@ public final class RegionThreadingEngine implements RegionThreading {
 
                     @Override
                     public int prefixLimit(CanonicalBlockEntityCoordinator.Unit first) {
+                        if (first instanceof NativeInvocation nativeInv
+                                && nativeInv.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate
+                                && RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
+                            return Integer.MAX_VALUE;
+                        }
                         return first instanceof ModInvocation || first instanceof ExecutionInvocation execution
                                 && execution.inspection().descriptor().mode() == Mode.REGION_OWNER
                                         ? workerPool.threadCount()
@@ -8602,12 +8607,17 @@ public final class RegionThreadingEngine implements RegionThreading {
                             return this.prefixResources.tryAppend(nextFurnace.claims());
                         }
                         if (!(next instanceof NativeInvocation nextNative)) return false;
+                        final var firstNative = (NativeInvocation) prefix.getFirst();
+                        if (firstNative.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate
+                                && nextNative.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate
+                                && RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
+                            return true;
+                        }
                         if (this.nativeRegions == null) {
                             this.nativeRegions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
                             this.nativeSources = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
                         }
                         if (prefix.size() == 1) {
-                            final var firstNative = (NativeInvocation) prefix.getFirst();
                             this.nativeRegions.clear();
                             this.nativeSources.clear();
                             if (this.auditedNativeCandidates != null) this.auditedNativeCandidates.clear();
@@ -9342,6 +9352,23 @@ public final class RegionThreadingEngine implements RegionThreading {
                         final var admission = unit.admission();
                         if (!unit.proof().fresh()) {
                             continue;
+                        }
+                        if (unit.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate candidate) {
+                            final net.minecraft.world.level.block.entity.BlockEntity be = candidate.chunk().getBlockEntities().get(admission.position());
+                            final boolean instanceAllowed = (be == null
+                                    && !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, admission.position()))
+                                    || (be != null && !be.isRemoved()
+                                            && be.getLevel() == admission.level()
+                                            && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
+                            if (!instanceAllowed) {
+                                final var ticker = admission.ticker();
+                                net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
+                                    if (!ticker.isRemoved()) {
+                                        ticker.tick();
+                                    }
+                                });
+                                continue;
+                            }
                         }
                         try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
                             this.runBlockEntityBody(admission.ticker(), graph, true);

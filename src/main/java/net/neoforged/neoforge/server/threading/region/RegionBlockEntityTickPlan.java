@@ -126,7 +126,7 @@ public final class RegionBlockEntityTickPlan {
             throw new IllegalStateException("A canonical phase must collect exactly once from Level membership");
         }
         this.canonicalSequence = true;
-        this.canonicalTickers = List.copyOf(this.level.snapshotBlockEntityTickers());
+        this.canonicalTickers = this.level.snapshotBlockEntityTickers();
         final boolean runsNormally = this.level.tickRateManager().runsNormally();
         List<TickingBlockEntity> removed = null;
         long lastKey = Long.MIN_VALUE;
