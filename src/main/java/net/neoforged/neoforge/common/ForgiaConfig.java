@@ -184,6 +184,7 @@ public final class ForgiaConfig {
         public final BooleanValue enableAsyncRegionFluidTicks;
 
         public final BooleanValue enableLowTpsProbe;
+        public final BooleanValue enableSandboxDemotionProbe;
         public final DoubleValue lowTpsProbeThreshold;
         public final IntValue lowTpsProbeDurationSeconds;
         public final IntValue lowTpsProbeCooldownSeconds;
@@ -236,6 +237,10 @@ public final class ForgiaConfig {
                     "Number of top regions, main-thread phases, and slices included in each low-TPS probe report.",
                     "[中文] 每次低 TPS 探针报告中记录的最重区域 / 主线程阶段 / 切片数量（默认 5）。")
                     .defineInRange("lowTpsProbeTopCount", 5, 1, 20);
+            enableSandboxDemotionProbe = builder.comment(
+                    "Records deduplicated stack traces of Region Sandbox block-entity demotions and worker boundary violations to logs/forgia-sandbox-demotions.jsonl.",
+                    "[中文] 沙箱降级堆栈探针：异步记录方块实体沙箱异常与边界回退的去重调用栈到 logs/forgia-sandbox-demotions.jsonl（默认开启）。")
+                    .define("enableSandboxDemotionProbe", true);
 
             enableRegionThreadingBridge = builder
                     .comment("EXPERIMENTAL: Enables the temporary single-thread region threading bridge. This exposes the region scheduler API before the full Folia-style tick scheduler is ported.")

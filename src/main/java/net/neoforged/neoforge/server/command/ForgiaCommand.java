@@ -26,6 +26,7 @@ import net.neoforged.neoforge.server.threading.region.RegionBottleneckAnalysis;
 import net.neoforged.neoforge.server.threading.region.RegionThreadingEngine;
 import net.neoforged.neoforge.server.threading.region.RuntimeObservability;
 import net.neoforged.neoforge.server.threading.region.RuntimeRegionSnapshot;
+import net.neoforged.neoforge.server.threading.region.TickEventProfiler;
 import org.jetbrains.annotations.ApiStatus;
 
 /** Administrative views of the native tick ring and the existing canonical engine. */
@@ -77,6 +78,25 @@ public final class ForgiaCommand {
                         .then(Commands.literal("top").executes(context -> fences(context.getSource(), PAGE_SIZE, false))
                                 .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
                                         .executes(context -> fences(context.getSource(), IntegerArgumentType.getInteger(context, "count"), false)))))
+                .then(Commands.literal("events").executes(context -> eventsTop(context.getSource(), PAGE_SIZE))
+                        .then(Commands.literal("start").executes(context -> {
+                            TickEventProfiler.setEnabled(true);
+                            line(context.getSource(), "Tick event listener profiler enabled.");
+                            return 1;
+                        }))
+                        .then(Commands.literal("stop").executes(context -> {
+                            TickEventProfiler.setEnabled(false);
+                            line(context.getSource(), "Tick event listener profiler disabled.");
+                            return 1;
+                        }))
+                        .then(Commands.literal("reset").executes(context -> {
+                            TickEventProfiler.reset();
+                            line(context.getSource(), "Tick event listener profiler counters reset.");
+                            return 1;
+                        }))
+                        .then(Commands.literal("top").executes(context -> eventsTop(context.getSource(), PAGE_SIZE))
+                                .then(Commands.argument("count", IntegerArgumentType.integer(1, 100))
+                                        .executes(context -> eventsTop(context.getSource(), IntegerArgumentType.getInteger(context, "count"))))))
                 .then(Commands.literal("itemclear").executes(context -> itemClearStatus(context.getSource()))
                         .then(Commands.literal("status").executes(context -> itemClearStatus(context.getSource())))
                         .then(Commands.literal("now").executes(context -> itemClearNow(context.getSource(), null))
@@ -578,6 +598,31 @@ public final class ForgiaCommand {
 
     private static void line(CommandSourceStack source, String line) {
         source.sendSuccess(() -> Component.literal(line), false);
+    }
+
+    private static int eventsTop(CommandSourceStack source, int count) {
+        final var snap = TickEventProfiler.snapshot(count);
+        final long ticks = Math.max(1L, snap.profiledInvocations());
+        line(source, "TickEventProfiler: enabled=" + snap.enabled()
+                + " ticks=" + snap.profiledInvocations()
+                + " total=" + number(snap.totalNanos() / 1e6) + "ms"
+                + " avgPerTick=" + number((snap.totalNanos() / 1e6) / ticks) + "ms");
+        if (snap.top().isEmpty()) {
+            line(source, "  (no samples yet; run /forgia events start to begin profiling)");
+            return 1;
+        }
+        int rank = 1;
+        for (final var entry : snap.top()) {
+            final double totalMs = entry.totalNanos() / 1e6;
+            final double perTickMs = totalMs / ticks;
+            final double maxMs = entry.maxNanos() / 1e6;
+            line(source, "  #" + rank++ + " [" + entry.event() + "] " + entry.listener()
+                    + " perTick=" + number(perTickMs) + "ms"
+                    + " total=" + number(totalMs) + "ms"
+                    + " max=" + number(maxMs) + "ms"
+                    + " calls=" + entry.calls());
+        }
+        return 1;
     }
 
     private static int noEngine(CommandSourceStack source) {

@@ -994,7 +994,8 @@ public class EventHooks {
             // queued region work of this tick starts.
             RegionThreadingHooks.beginLevelTick(serverLevel);
             RegionThreadingHooks.drainLevelRegionTasks(serverLevel);
-            RegionThreadingHooks.runLevelTickTask(serverLevel, () -> NeoForge.EVENT_BUS.post(new LevelTickEvent.Pre(haveTime, level)));
+            RegionThreadingHooks.runLevelTickTask(serverLevel, () -> net.neoforged.neoforge.server.threading.region.TickEventProfiler.postTickEvent(
+                    NeoForge.EVENT_BUS, new LevelTickEvent.Pre(haveTime, level), "LevelTick.Pre"));
         } else {
             NeoForge.EVENT_BUS.post(new LevelTickEvent.Pre(haveTime, level));
         }
@@ -1008,7 +1009,8 @@ public class EventHooks {
      */
     public static void fireLevelTickPost(Level level, BooleanSupplier haveTime) {
         if (level instanceof ServerLevel serverLevel) {
-            RegionThreadingHooks.runLevelTickTask(serverLevel, () -> NeoForge.EVENT_BUS.post(new LevelTickEvent.Post(haveTime, level)));
+            RegionThreadingHooks.runLevelTickTask(serverLevel, () -> net.neoforged.neoforge.server.threading.region.TickEventProfiler.postTickEvent(
+                    NeoForge.EVENT_BUS, new LevelTickEvent.Post(haveTime, level), "LevelTick.Post"));
             RegionThreadingHooks.endLevelTick(serverLevel);
         } else {
             NeoForge.EVENT_BUS.post(new LevelTickEvent.Post(haveTime, level));
@@ -1022,8 +1024,10 @@ public class EventHooks {
      * @param server   The current server
      */
     public static void fireServerTickPre(BooleanSupplier haveTime, MinecraftServer server) {
+        net.neoforged.neoforge.server.threading.region.TickEventProfiler.countTick();
         RegionThreadingHooks.drainGlobalTasks();
-        RegionThreadingHooks.runGlobalTask(() -> NeoForge.EVENT_BUS.post(new ServerTickEvent.Pre(haveTime, server)));
+        RegionThreadingHooks.runGlobalTask(() -> net.neoforged.neoforge.server.threading.region.TickEventProfiler.postTickEvent(
+                NeoForge.EVENT_BUS, new ServerTickEvent.Pre(haveTime, server), "ServerTick.Pre"));
     }
 
     /**
@@ -1033,7 +1037,8 @@ public class EventHooks {
      * @param server   The current server
      */
     public static void fireServerTickPost(BooleanSupplier haveTime, MinecraftServer server) {
-        RegionThreadingHooks.runGlobalTask(() -> NeoForge.EVENT_BUS.post(new ServerTickEvent.Post(haveTime, server)));
+        RegionThreadingHooks.runGlobalTask(() -> net.neoforged.neoforge.server.threading.region.TickEventProfiler.postTickEvent(
+                NeoForge.EVENT_BUS, new ServerTickEvent.Post(haveTime, server), "ServerTick.Post"));
     }
 
     private static final WeightedRandomList<MobSpawnSettings.SpawnerData> NO_SPAWNS = WeightedRandomList.create();

@@ -11781,6 +11781,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.boundaryFallbackBlockEntityTicks.incrementAndGet();
         final String type = admission.type();
         final String reason = "sandbox_runtime_error:" + root.getClass().getSimpleName();
+        SandboxDemotionProbe.record(admission.level(), admission.position(), type, reason, true, root);
         RegionTickCompatibility.declareServerThreadOnlyType(type, reason);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {
             net.neoforged.neoforge.server.threading.RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(type, reason);
@@ -11819,9 +11820,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                     || "minecraft:hopper".equals(type)
                     || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.hasSandboxTypePredicate(type);
             if (spatialOrInstanceSpecific) {
+                SandboxDemotionProbe.record(admission.level(), admission.position(), type, category, true, throwable);
                 return true;
             }
         }
+        SandboxDemotionProbe.record(admission.level(), admission.position(), type, violation.category(), true, throwable);
         RegionTickCompatibility.declareServerThreadOnlyType(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
         if (this.boundaryFallbackBlockEntityTypes.add(type)) {
             net.neoforged.neoforge.server.threading.RegionThreadingDeclarations.persistLearnedBlockEntityDemotion(type, BOUNDARY_VIOLATION_BLOCK_ENTITY_REASON);
