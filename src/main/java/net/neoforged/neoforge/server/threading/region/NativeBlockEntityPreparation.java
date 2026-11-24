@@ -86,12 +86,7 @@ public final class NativeBlockEntityPreparation {
                 chunk = chunkSource == null ? null : chunkSource.getChunkNow(position.getX() >> 4, position.getZ() >> 4);
             }
             if (chunk != null && chunk.isLoaded()) {
-                final BlockEntity be = chunk.getBlockEntities().get(position);
-                if (be == null || (!be.isRemoved()
-                        && be.getLevel() == admission.level()
-                        && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be))) {
-                    return new RegionSandboxedCandidate(admission, be != null ? be : admission.ticker(), be, chunk);
-                }
+                return new RegionSandboxedCandidate(admission, admission.ticker(), null, chunk);
             }
             if ("minecraft:hopper".equals(admission.type())
                     && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled()) {

@@ -288,6 +288,15 @@ public final class RegionSpawnPlan {
      * @param regionChunks the chunks this tick hands to the region's worker
      */
     RegionSpawnState.Built buildRegionState(RegionState region, List<RegionSpawnChunk> regionChunks) {
+        return this.buildRegionState(region, regionChunks, this.capCounter(), this.sharedNeighborhood);
+    }
+
+    RegionSpawnState.Built buildRegionStateAsync(RegionState region, List<RegionSpawnChunk> regionChunks, LevelSpawnCapCounter capCounter) {
+        return this.buildRegionState(region, regionChunks, capCounter, new RegionSpawnNeighborhood());
+    }
+
+    private RegionSpawnState.Built buildRegionState(RegionState region, List<RegionSpawnChunk> regionChunks,
+            LevelSpawnCapCounter capCounter, RegionSpawnNeighborhood neighborhood) {
         final Iterable<Entity> entities = () -> {
             final java.util.Iterator<RegionEntityTickEntry> it = region.entityTickEntries().iterator();
             return new java.util.Iterator<>() {
@@ -302,8 +311,8 @@ public final class RegionSpawnPlan {
                 }
             };
         };
-        return RegionSpawnState.buildForPlan(this.level, this.source, region, entities, regionChunks, this.capCounter(),
-                this.sharedNeighborhood);
+        return RegionSpawnState.buildForPlan(this.level, this.source, region, entities, regionChunks, capCounter,
+                neighborhood);
     }
 
     private boolean isLoadedChunkNeighborhoodCached(ChunkPos chunkPos) {

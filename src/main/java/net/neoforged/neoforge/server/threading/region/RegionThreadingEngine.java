@@ -9435,7 +9435,22 @@ public final class RegionThreadingEngine implements RegionThreading {
                             if (entry.offset() >= gate.admitted.get()) break;
                             final var unit = entry.invocation();
                             final var admission = unit.admission();
-                            if (unit.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate) {
+                            if (unit.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate candidate) {
+                                final net.minecraft.world.level.block.entity.BlockEntity be = candidate.chunk().getBlockEntities().get(admission.position());
+                                final boolean instanceAllowed = (be == null
+                                        && !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(admission.level(), admission.position()))
+                                        || (be != null && !be.isRemoved()
+                                                && be.getLevel() == admission.level()
+                                                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
+                                if (!instanceAllowed) {
+                                    final var ticker = admission.ticker();
+                                    net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
+                                        if (!ticker.isRemoved()) {
+                                            ticker.tick();
+                                        }
+                                    });
+                                    continue;
+                                }
                                 try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
                                     this.runBlockEntityBody(admission.ticker(), graph, true);
                                     this.blockEntityTicksOnWorkers.incrementAndGet();
@@ -11144,14 +11159,15 @@ public final class RegionThreadingEngine implements RegionThreading {
             return;
         }
         final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
+        final LevelSpawnCapCounter sharedCapCounter = plan.capCounter();
         int dispatchedChunks = 0;
         for (final RegionState region : grouping.regions()) {
             final List<RegionSpawnChunk> regionChunks = grouping.items(region);
-            final RegionSpawnState.Built built = plan.buildRegionState(region, regionChunks);
             final RegionSpawnBatch regionBatch = new RegionSpawnBatch(level, plan.spawnFriendlies(), plan.spawnEnemies(),
                     plan.spawnPersistent(), perRegionBudget);
             regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
-            final RegionSpawnBatch.Group group = regionBatch.createAsyncGroup(region, regionChunks, built.state(), built.neighborhood());
+            final RegionSpawnBatch.Group group = regionBatch.createAsyncGroup(
+                    region, regionChunks, () -> plan.buildRegionStateAsync(region, regionChunks, sharedCapCounter));
             final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(this.spawnGroup(group, false));
             final Runnable commit = () -> {
                 try {
@@ -11210,6 +11226,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                         final RegionNeighborUpdateScope previousNeighbors = RegionNeighborUpdateScope.enter(new RegionNeighborUpdateScope());
                         try {
                             this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), () -> {
+                                group.ensureBuilt();
                                 for (final RegionSpawnChunk chunk : chunks) {
                                     group.batch().spawnAdmissionCheckpoint();
                                     if (!region.isOwnedByCurrentThread() || this.regionizer.isLevelClosed(level)

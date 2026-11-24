@@ -107,10 +107,10 @@ final class RegionSpawnBatch extends RegionTickBatch {
         return group;
     }
 
-    Group createAsyncGroup(RegionState region, List<RegionSpawnChunk> chunks, NaturalSpawner.SpawnState state,
-            RegionSpawnNeighborhood neighborhood) {
+    Group createAsyncGroup(RegionState region, List<RegionSpawnChunk> chunks,
+            java.util.function.Supplier<RegionSpawnState.Built> stateSupplier) {
         this.leasedRegions.add(region);
-        final Group group = new Group(this, region, chunks, state, neighborhood);
+        final Group group = new Group(this, region, chunks, stateSupplier);
         this.groups.add(group);
         return group;
     }
@@ -206,8 +206,9 @@ final class RegionSpawnBatch extends RegionTickBatch {
         private final RegionSpawnBatch batch;
         private final RegionState region;
         private final List<RegionSpawnChunk> chunks = new ArrayList<>();
-        private final NaturalSpawner.SpawnState state;
-        private final RegionSpawnNeighborhood neighborhood;
+        private NaturalSpawner.SpawnState state;
+        private RegionSpawnNeighborhood neighborhood;
+        private final java.util.function.Supplier<RegionSpawnState.Built> stateSupplier;
 
         Group(RegionSpawnBatch batch, RegionState region, List<RegionSpawnChunk> chunks, NaturalSpawner.SpawnState state,
                 RegionSpawnNeighborhood neighborhood) {
@@ -216,6 +217,25 @@ final class RegionSpawnBatch extends RegionTickBatch {
             this.chunks.addAll(chunks);
             this.state = state;
             this.neighborhood = neighborhood;
+            this.stateSupplier = null;
+        }
+
+        Group(RegionSpawnBatch batch, RegionState region, List<RegionSpawnChunk> chunks,
+                java.util.function.Supplier<RegionSpawnState.Built> stateSupplier) {
+            this.batch = batch;
+            this.region = region;
+            this.chunks.addAll(chunks);
+            this.state = null;
+            this.neighborhood = null;
+            this.stateSupplier = stateSupplier;
+        }
+
+        void ensureBuilt() {
+            if (this.state == null && this.stateSupplier != null) {
+                final RegionSpawnState.Built built = this.stateSupplier.get();
+                this.state = built.state();
+                this.neighborhood = built.neighborhood();
+            }
         }
 
         RegionSpawnBatch batch() {

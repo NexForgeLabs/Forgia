@@ -17,29 +17,23 @@
 
 ## 1. 进一步减少模组对主线程的依赖（核心研究方向）
 
-### 1.1 原生放行 NeoForge `FakePlayer` 区域沙箱权限（高收益、低风险）
-- **背景**：`create:deployer`（机械手）及各类模组自动化放置/破坏器内部依赖 `net.neoforged.neoforge.common.util.FakePlayer`（继承自 `ServerPlayer`），在 Worker 上触发玩家状态保护后全数退回主线程。
-- **方案**：
-  - 在 `RegionPlayerStateScope`、`ServerPlayer` 边界守卫中对 `FakePlayer` 放开当前区域内自有状态读写（背包、手持物品、属性、位置）；
-  - 仅将其向真实客户端发送的音效、粒子、方块更新包经由 `RegionAdapterApi.postGlobal` 延迟提交；
-  - 100% 基于 NeoForge 自带类，完全符合核心模组无关原则。
+### 1.1 [已完成] 原生放行 NeoForge `FakePlayer` 区域沙箱权限
+- 已在 `21.1.250.286-beta` 落地并上线验证：全局 MSPT 从 `48.56ms` 降至 `39.35ms`，方块实体并行率提升至 `89.0%`。
 
-### 1.2 跨区边界“有序双区租约 / 4 色棋盘波次”（消灭边界回退）
-- **背景**：位于区域边界上的方块实体（跨区漏斗、溜槽、传送带、管道、机械合成器等）因读写相邻 1 格方块或 `BlockCapability` 触发 `storage_access` / `capability_access`，被永久固定到主线程 `beSerial`。
-- **方案**：
-  - 新增边界并行波次：按 `(regionX, regionZ)` 全局全序同时获取相邻区域租约（严格有序加锁防止 A-B 死锁），或按 4 色棋盘分组执行，让边界机器也能在 Worker 上安全并发读写两侧状态。
+### 1.2 [暂缓] 跨区边界“有序双区租约 / 4 色棋盘波次”
+- 实测 `forgia fences` 数据表明：所有边界串行方块实体实际执行总计仅占 `0.85 ms/tick`（`create:belt` 约 `0.54 ms/tick`），收益远低于主线程规划与刷怪计数开销，暂缓实施。
 
-### 1.3 `LevelTickEvent` / `ServerTickEvent` 逐监听器剖析与跨维度并行
-- **背景**：线上 `levelTickEvents` 曾达 `~5.27 ms/tick`、`serverTickEvents` 约 `1~2 ms/tick`，当前缺少逐监听器维度的细粒度耗时归因；同时 4 个维度的主线程准备阶段目前完全串行。
-- **方案**：
-  1. 增加轻量级事件监听器计时命令（如 `/forgia events top 10`），直接定位最耗时的模组事件监听器；
-  2. 评估对彼此独立的维度并发派发维度级非全局准备任务（如 `chunkSource` 准备与互不干扰的维度事件）。
+### 1.3 [已完成剖析] `LevelTickEvent` / `ServerTickEvent` 逐监听器剖析与跨维度并行
+- 已在 `21.1.250.287-beta` 落地 `/forgia events start|stop|top|reset`（`TickEventProfiler`）；
+- 实测 6,287 Tick 所有模组 `ServerTick` + `LevelTick` 监听器合计仅 `1.332 ms/tick` 且高度分散，跨维度事件并行暂无必要。
 
-### 1.4 沙箱异常自动堆栈落盘 & `RegionAdapterApi` 并发工具原语
-- **背景**：目前 `demoteSandboxedBlockEntityOnError` 仅在 `regionthreading-learned.json` 记录异常类名（如 `NullPointerException`），缺乏触发堆栈上下文；第三方模组常因全局 `HashMap`/`ArrayList` 单例引发并发异常。
-- **方案**：
-  1. 将沙箱降级的前几帧关键调用栈异步写入 `logs/forgia-sandbox-demotions.jsonl`，实现新模组问题一键归因；
-  2. 在 `RegionAdapterApi` 中暴露标准分段锁（Striped Lock）和快照集合工具，降低 `tools/forgia-*-compat` 适配外部模组全局状态的开发成本。
+### 1.4 [已完成堆栈探针] 沙箱异常自动堆栈落盘 & `RegionAdapterApi` 并发工具原语
+- 已在 `21.1.250.287-beta` 落地 `SandboxDemotionProbe`（`logs/forgia-sandbox-demotions.jsonl`）；
+- 并发原语（分段锁 / 快照集合）保留待后续新模组适配时按需补充。
+
+### 1.5 [进行中 / 高优] 削减主线程规划与准备开销（`tickBlockEntities` + `RegionSpawnState`）
+- 将沙箱方块实体的逐实例状态检查（`canRunSandboxedBlockEntityInstance`）从主线程 `prepareNative` 下放到 Worker 侧执行前；
+- 将异步刷怪的 `RegionSpawnState.buildForPlan`（区域实体计数与局部邻域构建）从主线程下放到 8 个 Region Worker 并行执行。
 
 ### 1.5 基于 `DYNAMIC_CLUSTER` 的选择性异步实体切片（`ENTITY_TICK` 演进）
 - **背景**：当前因主线程 `PlayerTick`、Contraption、Sable 物理与后台实体争抢租约，`enableAsyncRegionEntityTicks` 保持关闭，导致单个热点区（如 `overworld@-38,-54`）仍会在栅栏处拖慢全局 Tick。
