@@ -34,6 +34,14 @@ final class RegionChunkTickCoordinator {
         /** Performs the original ordered effects, finishes the original batch and retires its marker. */
         @Nullable
         Throwable complete(RegionChunkTickBatch batch, @Nullable Throwable failure);
+
+        /**
+         * Attempts to dispatch chunk ticks asynchronously via the independent region tick scheduler.
+         * Returns {@code true} when async dispatch handled the batch so no synchronous barrier is needed.
+         */
+        default boolean tryExecuteAsync(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed) {
+            return false;
+        }
     }
 
     private final Host host;
@@ -45,6 +53,9 @@ final class RegionChunkTickCoordinator {
     void executeAndAwait(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed, RegionTickBarrier barrier) {
         RegionChunkTickAttribution.endPlanSegment();
         if (chunks.isEmpty()) {
+            return;
+        }
+        if (!RegionChunkTickAttribution.isEnabled() && this.host.tryExecuteAsync(level, chunks, randomTickSpeed)) {
             return;
         }
 

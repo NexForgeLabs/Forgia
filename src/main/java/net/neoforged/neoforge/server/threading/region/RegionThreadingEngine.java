@@ -11232,6 +11232,15 @@ public final class RegionThreadingEngine implements RegionThreading {
             batch.clearExecutingOnCurrentThread();
             return failure;
         }
+
+        @Override
+        public boolean tryExecuteAsync(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed) {
+            if (!RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
+                return false;
+            }
+            RegionThreadingEngine.this.executeAsyncChunkTickBatch(level, chunks, randomTickSpeed);
+            return true;
+        }
     }
 
     /**
@@ -11730,7 +11739,70 @@ public final class RegionThreadingEngine implements RegionThreading {
      * ran would run twice - so the chunk's tick stops where the refusal happened and the chunk is counted as
      * truncated.
      */
+    private void executeAsyncChunkTickBatch(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed) {
+        if (this.shutdown || this.regionizer.isLevelClosed(level)) {
+            this.skippedChunkTicks.addAndGet(chunks.size());
+            return;
+        }
+        final RegionTickGrouping<RegionState, RegionChunkTickEntry> grouping = new RegionTickGrouping<>();
+        final long gameTime = level.getGameTime();
+        for (final RegionChunkTickEntry chunk : chunks) {
+            final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, level));
+            if (region == null || region.isDead()) {
+                this.skippedChunkTicks.incrementAndGet();
+                continue;
+            }
+            if (this.shouldSkipOverloadedRegion(level, region)) {
+                this.skippedChunkTicks.incrementAndGet();
+                continue;
+            }
+            grouping.add(region, chunk);
+        }
+        if (grouping.isEmpty()) {
+            return;
+        }
+        final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
+        int dispatchedChunks = 0;
+        for (final RegionState region : grouping.regions()) {
+            final List<RegionChunkTickEntry> regionChunks = grouping.items(region);
+            final RegionChunkTickBatch regionBatch = new RegionChunkTickBatch(level, randomTickSpeed, perRegionBudget);
+            regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
+            final RegionChunkTickBatch.Group group = regionBatch.createAsyncGroup(region, regionChunks);
+            final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(
+                    this.withRegionMailboxDelivery(level, region, this.chunkTickGroup(group, false)));
+            final Runnable commit = () -> {
+                try {
+                    if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                        this.applyDeferredChunkTickSectionUpdates(regionBatch);
+                        this.applyDeferredChunkTickRemovals(regionBatch);
+                        this.applyDeferredChunkTickAdditions(regionBatch);
+                        this.applyDeferredBlockUpdates(regionBatch);
+                        this.applyChunkTickLightning(regionBatch);
+                        this.tickFallbackChunkTicks(regionBatch);
+                        this.applyRegionTickMutations(regionBatch.regionTickMutations());
+                    }
+                } finally {
+                    regionBatch.finish();
+                }
+            };
+            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async chunk", wrappedWork, commit, gameTime);
+            if (outcome == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
+                dispatchedChunks += regionChunks.size();
+            } else {
+                this.skippedChunkTicks.addAndGet(regionChunks.size());
+                regionBatch.finish();
+            }
+        }
+        if (dispatchedChunks > 0 && this.chunkTickWorkersNoticeLogged.compareAndSet(false, true)) {
+            LOGGER.info("Region chunk ticks are now executing asynchronously on region workers: {} chunks", dispatchedChunks);
+        }
+    }
+
     private Runnable chunkTickGroup(RegionChunkTickBatch.Group group) {
+        return this.chunkTickGroup(group, true);
+    }
+
+    private Runnable chunkTickGroup(RegionChunkTickBatch.Group group, boolean manageRegionLifecycle) {
         final RegionState region = group.region();
         final RegionCoordinate coordinate = region.coordinate();
         final ServerLevel level = group.batch().level();
@@ -11740,7 +11812,9 @@ public final class RegionThreadingEngine implements RegionThreading {
             final long start = System.nanoTime();
             final int[] ticked = { 0 };
             try {
-                region.beginOwnership();
+                if (manageRegionLifecycle) {
+                    region.beginOwnership();
+                }
                 // LevelTicks is server-owned storage: a scheduled tick a random tick starts is recorded here and
                 // applied by the publishing server thread after the batch, never from a worker.
                 this.currentRegionTickMutations.set(group.batch().regionTickMutations());
@@ -11771,7 +11845,8 @@ public final class RegionThreadingEngine implements RegionThreading {
                                     } catch (Throwable throwable) {
                                         // A chunk request the chunk source refused is a truncation, not a
                                         // failure: the random ticks that already ran must not run again.
-                                        if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)) {
+                                        if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
+                                                && RegionWorkerBoundaryException.findBoundaryViolation(throwable) == null) {
                                             // The failure is recorded for the server thread instead of failing the
                                             // group with it; the group stops at its first failing chunk.
                                             this.recordWorkerTickFailure(group.batch(), coordinate, null, throwable);
@@ -11795,13 +11870,17 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.currentRegionTickMutations.remove();
                 }
             } finally {
-                region.endOwnership();
-                region.clearRunning();
-                final long duration = System.nanoTime() - start;
-                region.tickMetrics().recordTick(duration);
-                RegionTickWatchdog.warnIfLongTick("chunk tick batch " + coordinate, duration);
+                if (manageRegionLifecycle) {
+                    region.endOwnership();
+                    region.clearRunning();
+                    final long duration = System.nanoTime() - start;
+                    region.tickMetrics().recordTick(duration);
+                    RegionTickWatchdog.warnIfLongTick("chunk tick batch " + coordinate, duration);
+                }
                 this.chunkTicksOnWorkers.addAndGet(ticked[0]);
-                this.regionizer.removeIfEmpty(region);
+                if (manageRegionLifecycle) {
+                    this.regionizer.removeIfEmpty(region);
+                }
             }
         };
     }

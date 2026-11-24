@@ -96,6 +96,17 @@ final class RegionChunkTickBatch extends RegionTickBatch {
         return group;
     }
 
+    Group createAsyncGroup(RegionState region, List<RegionChunkTickEntry> chunks) {
+        this.leasedRegions.add(region);
+        final Group group = new Group(this, region, chunks);
+        this.groups.add(group);
+        return group;
+    }
+
+    Runnable wrapAsyncGroupWork(Runnable body) {
+        return this.groupWork(body);
+    }
+
     /**
      * Records a chunk whose region could not be leased safely; it is ticked on the server thread after the
      * batch completed instead of being dropped.
