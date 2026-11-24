@@ -12455,6 +12455,20 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     private void runQueuedBlockTask(ServerLevel level, BlockPos pos, Runnable task) {
         if (this.isOwnedByCurrentRegion(level, pos)) {
+            if (RegionWorkerScope.isNativeWorkerThread() && this.currentRegionTickMutations.get() == null) {
+                final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
+                this.currentRegionTickMutations.set(mutations);
+                try {
+                    task.run();
+                } finally {
+                    this.currentRegionTickMutations.remove();
+                    if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
+                                level, () -> this.applyRegionTickMutations(mutations));
+                    }
+                }
+                return;
+            }
             task.run();
             return;
         }
