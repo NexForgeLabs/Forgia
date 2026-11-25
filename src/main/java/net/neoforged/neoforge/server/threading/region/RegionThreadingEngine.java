@@ -201,6 +201,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private volatile boolean independentRegionTickOverride;
     private final boolean chunkTickWorkerExecutionEnabled;
     private final RegionChunkTickCoordinator chunkTickCoordinator;
+    private final RegionSpawnCoordinator spawnCoordinator;
     private final RegionDiagnosticsCollector diagnosticsCollector;
     private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
     private final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
@@ -1157,6 +1158,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             });
         });
         this.chunkTickCoordinator = new RegionChunkTickCoordinator(new ChunkTickHost());
+        this.spawnCoordinator = new RegionSpawnCoordinator(new SpawnHost());
         this.diagnosticsCollector = new RegionDiagnosticsCollector(
                 new RegionDiagnosticsCollector.BorderSources(
                         this.borderUpdatesRecorded,
@@ -5521,36 +5523,7 @@ public final class RegionThreadingEngine implements RegionThreading {
             ServerLevel level, net.minecraft.world.entity.Mob mob, @Nullable net.minecraft.world.entity.SpawnGroupData groupData,
             net.minecraft.world.level.chunk.ChunkAccess chunk,
             net.minecraft.world.level.NaturalSpawner.AfterSpawnCallback afterSpawn, int total, int groupCount) {
-        final var batch = RegionTickBatch.current();
-        if (!(batch instanceof RegionSpawnBatch spawnBatch) || spawnBatch.level() != level
-                || !spawnBatch.isAsyncOrderedFinalization()) {
-            throw new IllegalStateException("No matching async ordered spawn group");
-        }
-        final Runnable commitAction = net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.PreparedSpawn.captureAsyncCommitContext(
-                level, () -> {
-                    if (this.shutdown || this.regionizer.isLevelClosed(level)) {
-                        return;
-                    }
-                    final long start = System.nanoTime();
-                    this.orderedSpawnTransactions.incrementAndGet();
-                    try {
-                        if (!mob.isRemoved()) {
-                            net.neoforged.neoforge.event.EventHooks.finalizeMobSpawn(
-                                    mob, level, level.getCurrentDifficultyAt(mob.blockPosition()),
-                                    net.minecraft.world.entity.MobSpawnType.NATURAL, groupData);
-                            if (!mob.isRemoved() && !mob.isSpawnCancelled()) {
-                                level.addFreshEntityWithPassengers(mob);
-                            }
-                            afterSpawn.run(mob, chunk);
-                        }
-                    } finally {
-                        this.orderedSpawnServiceNanos.addAndGet(System.nanoTime() - start);
-                    }
-                });
-        spawnBatch.enqueueDeferredOrderedFinalization(commitAction);
-        final boolean stop = total >= net.neoforged.neoforge.event.EventHooks.getMaxSpawnClusterSize(mob);
-        return new net.neoforged.neoforge.server.threading.RegionThreadingHooks.SpawnFinalization(
-                groupData, stop, !stop && mob.isMaxGroupSizeReached(groupCount));
+        return this.spawnCoordinator.deferAsyncOrderedSpawnFinalization(level, mob, groupData, chunk, afterSpawn, total, groupCount);
     }
 
     @ApiStatus.Internal
@@ -11212,8 +11185,45 @@ public final class RegionThreadingEngine implements RegionThreading {
     /** Narrow bridge to the original runtime; the coordinator owns no independent execution authority. */
     private final class ChunkTickHost implements RegionChunkTickCoordinator.Host {
         @Override
+        public boolean isShutdown() {
+            return RegionThreadingEngine.this.shutdown;
+        }
+
+        @Override
+        public boolean isLevelClosed(ServerLevel level) {
+            return RegionThreadingEngine.this.regionizer.isLevelClosed(level);
+        }
+
+        @Override
+        public boolean isIndependentRegionTickEnabled() {
+            return RegionThreadingEngine.this.isIndependentRegionTickEnabled();
+        }
+
+        @Override
+        @Nullable
+        public RegionIndependentTickScheduler independentTickScheduler() {
+            return RegionThreadingEngine.this.independentTickScheduler;
+        }
+
+        @Override
+        public RegionLayout layout() {
+            return RegionThreadingEngine.this.layout;
+        }
+
+        @Override
         public int blockUpdateEntryBudget() {
             return RegionThreadingEngine.this.deferredBlockUpdateBudget;
+        }
+
+        @Override
+        @Nullable
+        public RegionState getOrCreateRegion(RegionCoordinate coordinate) {
+            return RegionThreadingEngine.this.regionizer.getOrCreate(coordinate);
+        }
+
+        @Override
+        public boolean shouldSkipOverloadedRegion(ServerLevel level, RegionState region) {
+            return RegionThreadingEngine.this.shouldSkipOverloadedRegion(level, region);
         }
 
         @Override
@@ -11227,13 +11237,106 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
 
         @Override
+        public void countUnleasedChunkTick() {
+            RegionThreadingEngine.this.unleasedChunkTicks.incrementAndGet();
+        }
+
+        @Override
+        public void countChunkTicksOnWorkers(int count) {
+            RegionThreadingEngine.this.chunkTicksOnWorkers.addAndGet(count);
+        }
+
+        @Override
+        public void countTruncatedChunkTick() {
+            RegionThreadingEngine.this.truncatedChunkTicks.incrementAndGet();
+        }
+
+        @Override
+        public boolean markChunkTickWorkersNoticeLogged() {
+            return RegionThreadingEngine.this.chunkTickWorkersNoticeLogged.compareAndSet(false, true);
+        }
+
+        @Override
         public void tickOnServerThread(ServerLevel level, RegionChunkTickEntry chunk, int randomTickSpeed) {
             RegionThreadingEngine.this.tickChunkOnServerThread(level, chunk, randomTickSpeed);
         }
 
         @Override
-        public void leaseGroups(RegionChunkTickBatch batch, List<RegionChunkTickEntry> chunks, RegionTickBarrier barrier) {
-            RegionThreadingEngine.this.leaseChunkTickGroups(batch, chunks, barrier);
+        public boolean acquireRegionLease(RegionState region, RegionTickBarrier barrier) {
+            return RegionThreadingEngine.this.acquireRegionLease(region, barrier);
+        }
+
+        @Override
+        public void addLeasedGroup(RegionState region, Runnable registration) {
+            RegionThreadingEngine.this.addLeasedGroup(region, registration);
+        }
+
+        @Override
+        public Runnable withRegionMailboxDelivery(ServerLevel level, RegionState region, Runnable body) {
+            return RegionThreadingEngine.this.withRegionMailboxDelivery(level, region, body);
+        }
+
+        @Override
+        public void runInRegionContext(ServerLevel level, RegionCoordinate coordinate, RegionState region, Runnable action) {
+            RegionThreadingEngine.this.runWithContext(
+                    new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), action);
+        }
+
+        @Override
+        public void setCurrentRegionTickMutations(@Nullable Queue<Runnable> mutations) {
+            if (mutations == null) {
+                RegionThreadingEngine.this.currentRegionTickMutations.remove();
+            } else {
+                RegionThreadingEngine.this.currentRegionTickMutations.set(mutations);
+            }
+        }
+
+        @Override
+        public void setCurrentChunkTickRandom(@Nullable RandomSource random) {
+            if (random == null) {
+                RegionThreadingEngine.this.currentChunkTickRandom.remove();
+            } else {
+                RegionThreadingEngine.this.currentChunkTickRandom.set(random);
+            }
+        }
+
+        @Override
+        public void setCurrentChunkTickPositionRandom(@Nullable RandomSource random) {
+            if (random == null) {
+                RegionThreadingEngine.this.currentChunkTickPositionRandom.remove();
+            } else {
+                RegionThreadingEngine.this.currentChunkTickPositionRandom.set(random);
+            }
+        }
+
+        @Override
+        public void setCurrentChunkTickLightning(@Nullable Queue<BlockPos> strikes) {
+            if (strikes == null) {
+                RegionThreadingEngine.this.currentChunkTickLightning.remove();
+            } else {
+                RegionThreadingEngine.this.currentChunkTickLightning.set(strikes);
+            }
+        }
+
+        @Override
+        public void recordWorkerTickFailure(RegionTickBatch batch, RegionCoordinate coordinate, Throwable throwable) {
+            RegionThreadingEngine.this.recordWorkerTickFailure(batch, coordinate, null, throwable);
+        }
+
+        @Override
+        public void removeIfEmpty(RegionState region) {
+            RegionThreadingEngine.this.regionizer.removeIfEmpty(region);
+        }
+
+        @Override
+        public void applyAsyncCommitEffects(RegionChunkTickBatch batch) {
+            RegionThreadingEngine.this.applyDeferredChunkTickSectionUpdates(batch);
+            RegionThreadingEngine.this.applyDeferredChunkTickRemovals(batch);
+            RegionThreadingEngine.this.applyDeferredChunkTickAdditions(batch);
+            RegionThreadingEngine.this.applyDeferredBlockUpdates(batch);
+            RegionThreadingEngine.this.applyChunkTickLightning(batch);
+            RegionThreadingEngine.this.tickFallbackChunkTicks(batch);
+            RegionThreadingEngine.this.applyRegionTickMutations(batch.regionTickMutations());
         }
 
         @Override
@@ -11256,677 +11359,201 @@ public final class RegionThreadingEngine implements RegionThreading {
             batch.clearExecutingOnCurrentThread();
             return failure;
         }
+    }
+
+    /** Narrow bridge for {@link RegionSpawnCoordinator}. */
+    private final class SpawnHost implements RegionSpawnCoordinator.Host {
+        @Override
+        public boolean isShutdown() {
+            return RegionThreadingEngine.this.shutdown;
+        }
 
         @Override
-        public boolean tryExecuteAsync(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed) {
-            if (!RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
-                return false;
+        public boolean isLevelClosed(ServerLevel level) {
+            return RegionThreadingEngine.this.regionizer.isLevelClosed(level);
+        }
+
+        @Override
+        public boolean isIndependentRegionTickEnabled() {
+            return RegionThreadingEngine.this.isIndependentRegionTickEnabled();
+        }
+
+        @Override
+        @Nullable
+        public RegionIndependentTickScheduler independentTickScheduler() {
+            return RegionThreadingEngine.this.independentTickScheduler;
+        }
+
+        @Override
+        public RegionLayout layout() {
+            return RegionThreadingEngine.this.layout;
+        }
+
+        @Override
+        public RegionWorkerPool workerPool() {
+            return RegionThreadingEngine.this.workerPool;
+        }
+
+        @Override
+        public int deferredBlockUpdateBudget() {
+            return RegionThreadingEngine.this.deferredBlockUpdateBudget;
+        }
+
+        @Override
+        @Nullable
+        public RegionState getOrCreateRegion(RegionCoordinate coordinate) {
+            return RegionThreadingEngine.this.regionizer.getOrCreate(coordinate);
+        }
+
+        @Override
+        public boolean shouldSkipOverloadedRegion(ServerLevel level, RegionState region) {
+            return RegionThreadingEngine.this.shouldSkipOverloadedRegion(level, region);
+        }
+
+        @Override
+        public TickBatchPublication publishTickBatch(RegionTickBatch batch, ServerLevel level) {
+            return RegionThreadingEngine.this.publishTickBatch(batch, level);
+        }
+
+        @Override
+        public void retireTickBatch(RegionTickBatch batch) {
+            RegionThreadingEngine.this.activeTickBatches.remove(batch);
+        }
+
+        @Override
+        public boolean acquireRegionLease(RegionState region, RegionTickBarrier barrier) {
+            return RegionThreadingEngine.this.acquireRegionLease(region, barrier);
+        }
+
+        @Override
+        public void addLeasedGroup(RegionState region, Runnable registration) {
+            RegionThreadingEngine.this.addLeasedGroup(region, registration);
+        }
+
+        @Override
+        public void runRegionBatch(ServerLevel level, Runnable action) {
+            RegionThreadingEngine.this.runRegionBatch(level, action);
+        }
+
+        @Override
+        public void deliverRegionMessages(ServerLevel level, RegionState region, Runnable after) {
+            RegionThreadingEngine.this.deliverRegionMessages(level, region, after);
+        }
+
+        @Override
+        public void runInRegionContext(ServerLevel level, RegionCoordinate coordinate, RegionState region, Runnable action) {
+            RegionThreadingEngine.this.runWithContext(
+                    new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), action);
+        }
+
+        @Override
+        public void setCurrentRegionTickMutations(@Nullable Queue<Runnable> mutations) {
+            if (mutations == null) {
+                RegionThreadingEngine.this.currentRegionTickMutations.remove();
+            } else {
+                RegionThreadingEngine.this.currentRegionTickMutations.set(mutations);
             }
-            RegionThreadingEngine.this.executeAsyncChunkTickBatch(level, chunks, randomTickSpeed);
-            return true;
+        }
+
+        @Override
+        public void setCurrentSpawnRandom(@Nullable RandomSource random) {
+            if (random == null) {
+                RegionThreadingEngine.this.currentSpawnRandom.remove();
+            } else {
+                RegionThreadingEngine.this.currentSpawnRandom.set(random);
+            }
+        }
+
+        @Override
+        public void setCurrentSpawnNeighborhood(@Nullable RegionSpawnNeighborhood neighborhood) {
+            if (neighborhood == null) {
+                RegionThreadingEngine.this.currentSpawnNeighborhood.remove();
+            } else {
+                RegionThreadingEngine.this.currentSpawnNeighborhood.set(neighborhood);
+            }
+        }
+
+        @Override
+        public void recordWorkerTickFailure(RegionTickBatch batch, RegionCoordinate coordinate, Throwable throwable) {
+            RegionThreadingEngine.this.recordWorkerTickFailure(batch, coordinate, null, throwable);
+        }
+
+        @Override
+        public void removeIfEmpty(RegionState region) {
+            RegionThreadingEngine.this.regionizer.removeIfEmpty(region);
+        }
+
+        @Override
+        public void countSkippedSpawnChunks(int count) {
+            RegionThreadingEngine.this.skippedSpawnChunks.addAndGet(count);
+        }
+
+        @Override
+        public void countUnleasedSpawnChunk() {
+            RegionThreadingEngine.this.unleasedSpawnChunks.incrementAndGet();
+        }
+
+        @Override
+        public void countRefusedSpawnBlockUpdate() {
+            RegionThreadingEngine.this.countRefusedDeferredBlockUpdate(RegionTickSlice.SPAWN);
+        }
+
+        @Override
+        public void countSpawnChunksOnWorkers(int count) {
+            RegionThreadingEngine.this.spawnChunksOnWorkers.addAndGet(count);
+        }
+
+        @Override
+        public void countTruncatedSpawnChunks(int count) {
+            RegionThreadingEngine.this.truncatedSpawnChunks.addAndGet(count);
+        }
+
+        @Override
+        public boolean markSpawnWorkersNoticeLogged() {
+            return RegionThreadingEngine.this.spawnWorkersNoticeLogged.compareAndSet(false, true);
+        }
+
+        @Override
+        public void applyDeferredSpawnRemovals(RegionSpawnBatch batch) {
+            RegionThreadingEngine.this.applyDeferredSpawnRemovals(batch);
+        }
+
+        @Override
+        public void applyDeferredSpawnAdditions(RegionSpawnBatch batch) {
+            RegionThreadingEngine.this.applyDeferredSpawnAdditions(batch);
+        }
+
+        @Override
+        public void applyDeferredBlockUpdates(RegionTickBatch batch) {
+            RegionThreadingEngine.this.applyDeferredBlockUpdates(batch);
+        }
+
+        @Override
+        public void applyRegionTickMutations(Queue<Runnable> mutations) {
+            RegionThreadingEngine.this.applyRegionTickMutations(mutations);
+        }
+
+        @Override
+        public void recordOrderedSpawnTransaction(long serviceNanos) {
+            RegionThreadingEngine.this.orderedSpawnTransactions.incrementAndGet();
+            RegionThreadingEngine.this.orderedSpawnServiceNanos.addAndGet(serviceNanos);
         }
     }
 
     /**
      * Spawns for {@code chunks} on the workers of their regions and waits for the batch.
-     * <p>
-     * Runs on the server thread: the batch is published under the lifecycle read gate before any region lease is
-     * acquired, exactly like the other slices, so a concurrent shutdown or level unload waits for it instead of
-     * retiring a region the batch still holds. The per-region spawn state and the per-chunk answers are built
-     * here, on the server thread, while the groups are leased: they read the region entity index and the chunk
-     * map, which only the server thread may touch.
-     * <p>
-     * The worker bodies only read chunks and mutate entities they create, so the batch runs before the chunk tick
-     * batch of the same level tick: no worker of this slice writes a block that another region's spawn body could
-     * read. Every chunk a worker cannot spawn for - an unleased region, a truncated body, a closed level - is
-     * spawned on the server thread after the barrier instead of being dropped.
+     * Delegated to {@link RegionSpawnCoordinator}.
      */
     void spawnChunks(ServerLevel level, List<RegionSpawnChunk> chunks, RegionSpawnPlan plan, RegionTickBarrier barrier) {
-        // The server thread is done deciding which chunks may spawn; the attribution of the slice closes its plan
-        // segment here, before the batch is published.
-        RegionSpawnAttribution.endPlanSegment();
-        if (chunks.isEmpty()) {
-            return;
-        }
-
-        if (this.isIndependentRegionTickEnabled()
-                && RegionThreadingConfig.asyncRegionSpawningEnabled()
-                && !RegionSpawnAttribution.isEnabled()) {
-            this.executeAsyncSpawnBatch(level, plan, chunks);
-            return;
-        }
-
-        final RegionSpawnBatch batch = new RegionSpawnBatch(level, plan.spawnFriendlies(), plan.spawnEnemies(),
-                plan.spawnPersistent(), this.deferredBlockUpdateBudget);
-        if (plan.orderedFinalization()) {
-            batch.enableOrderedSpawnAdmissions(this.workerPool.threadCount(), () -> {
-                if (this.shutdown || this.regionizer.isLevelClosed(level)) throw new IllegalStateException("Ordered spawn level retired");
-                this.applyDeferredSpawnRemovals(batch);
-                this.applyDeferredSpawnAdditions(batch);
-                this.applyDeferredBlockUpdates(batch);
-                this.applyRegionTickMutations(batch.regionTickMutations());
-            });
-        }
-        final TickBatchPublication publication = this.publishTickBatch(batch, level);
-        if (publication == TickBatchPublication.LEVEL_CLOSED) {
-            // The level clear completed after this collection. Its region state is retired and no batch may be
-            // published for it: the collected chunks must not spawn for a level that already unloaded.
-            this.skippedSpawnChunks.addAndGet(chunks.size());
-            return;
-        }
-        if (publication == TickBatchPublication.SHUTDOWN) {
-            // The engine was shut down between the collection and the batch; the collected chunks still have to
-            // spawn, but no batch may be published after shutdown started.
-            for (final RegionSpawnChunk chunk : chunks) {
-                plan.spawnInline(chunk.chunk());
-            }
-            return;
-        }
-        batch.markExecutingOnCurrentThread();
-        final boolean attribution = RegionSpawnAttribution.isEnabled();
-        Throwable failure = null;
-        try {
-            final long leaseStart = attribution ? System.nanoTime() : 0L;
-            try {
-                this.leaseSpawnGroups(batch, plan, chunks, barrier);
-            } catch (Throwable throwable) {
-                failure = throwable;
-            } finally {
-                if (attribution) {
-                    RegionSpawnAttribution.recordLease(System.nanoTime() - leaseStart);
-                }
-            }
-            final long awaitStart = attribution ? System.nanoTime() : 0L;
-            try {
-                this.runRegionBatch(level, () -> batch.submitAndAwait(this.workerPool, barrier));
-            } catch (Throwable throwable) {
-                if (failure == null) {
-                    failure = throwable;
-                }
-            } finally {
-                if (attribution) {
-                    RegionSpawnAttribution.recordAwait(System.nanoTime() - awaitStart);
-                }
-            }
-        } finally {
-            final long handoffStart = attribution ? System.nanoTime() : 0L;
-            try {
-                failure = runBatchCompletion(failure, () -> this.applyDeferredSpawnRemovals(batch));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredSpawnAdditions(batch));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-                failure = runBatchCompletion(failure, () -> this.spawnFallbackChunks(batch, plan));
-                failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
-                batch.finish();
-                this.activeTickBatches.remove(batch);
-                batch.clearExecutingOnCurrentThread();
-            } finally {
-                if (attribution) {
-                    RegionSpawnAttribution.recordHandoff(System.nanoTime() - handoffStart);
-                }
-            }
-        }
-
-        if (failure != null) {
-            throwUnchecked(failure);
-        }
-        batch.throwIfFailed();
+        this.spawnCoordinator.spawnChunks(level, chunks, plan, barrier);
     }
 
-    /**
-     * Groups the collected chunks by their authoritative region, takes the lease of every group and builds the
-     * spawn state of that region.
-     * <p>
-     * Runs after the batch was published, so cleanup already waits for it and no lifecycle read gate may be taken
-     * here. A region that dies while its lease is acquired is re-resolved on the next attempt. Anything that
-     * cannot be resolved to a live, leasable region is spawned on the server thread instead.
-     */
-    private void leaseSpawnGroups(RegionSpawnBatch batch, RegionSpawnPlan plan, List<RegionSpawnChunk> pending, RegionTickBarrier barrier) {
-        List<RegionSpawnChunk> remaining = pending;
-        int batchedChunks = 0;
-        for (int attempt = 0; attempt < MAX_REGION_LEASE_ATTEMPTS && !remaining.isEmpty(); attempt++) {
-            final RegionTickGrouping<RegionState, RegionSpawnChunk> grouping = new RegionTickGrouping<>();
-            final List<RegionSpawnChunk> retry = new ArrayList<>();
-            for (final RegionSpawnChunk chunk : remaining) {
-                final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, batch.level()));
-                if (region == null || region.isDead()) {
-                    retry.add(chunk);
-                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)
-                        || (RegionThreadingConfig.independentRegionTickClockEnabled()
-                        && this.independentTickScheduler != null
-                        && this.independentTickScheduler.shouldStaggerSpawn(region.coordinate(), batch.level().getGameTime()))) {
-                    this.skippedSpawnChunks.incrementAndGet();
-                } else {
-                    grouping.add(region, chunk);
-                }
-            }
-            if (grouping.isEmpty()) {
-                remaining = retry;
-                break;
-            }
-
-            final List<RegionSpawnChunk> next = new ArrayList<>(retry);
-            boolean leasedAny = false;
-            final LevelSpawnCapCounter sharedCapCounter = plan.capCounter();
-            final boolean tryLeaseOnly = this.isIndependentRegionTickEnabled();
-            for (final RegionState region : grouping.regions()) {
-                final List<RegionSpawnChunk> regionChunks = grouping.items(region);
-                if (batch.leases(region)) {
-                    // An earlier group of this same batch already owns the lease. It cannot be acquired again
-                    // and must never be awaited on this thread.
-                    batch.group(region).ifPresent(group -> group.addChunks(regionChunks));
-                    continue;
-                }
-                if (tryLeaseOnly) {
-                    if (region.isDead() || !region.tryMarkRunning()) {
-                        this.skippedSpawnChunks.addAndGet(regionChunks.size());
-                        continue;
-                    }
-                } else if (!this.acquireRegionLease(region, barrier)) {
-                    next.addAll(regionChunks);
-                    continue;
-                }
-                leasedAny = true;
-                batchedChunks += regionChunks.size();
-                this.addLeasedGroup(region, () -> {
-                    batch.addGroup(region, regionChunks,
-                            () -> plan.buildRegionStateAsync(region, regionChunks, sharedCapCounter),
-                            this::spawnGroup);
-                });
-            }
-            remaining = next;
-            if (!leasedAny) {
-                // Every candidate region died during lease acquisition; fall back instead of spinning.
-                break;
-            }
-        }
-
-        for (final RegionSpawnChunk chunk : remaining) {
-            batch.addFallback(chunk);
-            this.unleasedSpawnChunks.incrementAndGet();
-        }
-        if (batchedChunks > 0 && this.spawnWorkersNoticeLogged.compareAndSet(false, true)) {
-            LOGGER.info("Region natural spawning is now executing on region workers: {} chunks", batchedChunks);
-        }
-    }
-
-    /**
-     * The worker task of one region: it spawns for the chunks of that region in collection order.
-     * <p>
-     * The group holds the lease of the region and the entity ownership lease of the entities stored in it, so a
-     * spawn body reaches entity storage only through the region-scoped query and every admission it makes is
-     * deferred to the barrier. The chunk's own random source is installed for the whole spawn body, so every
-     * {@code level.random} draw of the body resolves it instead of the shared vanilla source, and the per-chunk
-     * answers of the region are installed so the body never reads the server-owned chunk map or the entity
-     * manager's visibility map.
-     * <p>
-     * A spawn body that needs a chunk the worker may not load cannot be re-run - the mobs that already spawned
-     * would spawn twice - so the chunk's body stops where the refusal happened and the chunk is counted as
-     * truncated.
-     */
-    private void executeAsyncSpawnBatch(ServerLevel level, RegionSpawnPlan plan, List<RegionSpawnChunk> chunks) {
-        if (this.shutdown || this.regionizer.isLevelClosed(level)) {
-            return;
-        }
-        final RegionTickGrouping<RegionState, RegionSpawnChunk> grouping = new RegionTickGrouping<>();
-        final long gameTime = level.getGameTime();
-        for (final RegionSpawnChunk chunk : chunks) {
-            final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, level));
-            if (region == null || region.isDead()) {
-                continue;
-            }
-            if (this.shouldSkipOverloadedRegion(level, region)
-                    || (this.independentTickScheduler != null
-                            && this.independentTickScheduler.shouldStaggerSpawn(region.coordinate(), gameTime))) {
-                this.skippedSpawnChunks.incrementAndGet();
-                continue;
-            }
-            grouping.add(region, chunk);
-        }
-        if (grouping.isEmpty()) {
-            return;
-        }
-        final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
-        final LevelSpawnCapCounter sharedCapCounter = plan.capCounter();
-        final boolean orderedFinalization = plan.orderedFinalization();
-        final int regionCount = grouping.regions().size();
-        final List<RegionIndependentTickScheduler.AsyncBatchItem> spawnItems = new ArrayList<>(regionCount);
-        final List<RegionSpawnBatch> spawnBatches = new ArrayList<>(regionCount);
-        final List<Integer> spawnChunkCounts = new ArrayList<>(regionCount);
-        for (final RegionState region : grouping.regions()) {
-            final List<RegionSpawnChunk> regionChunks = grouping.items(region);
-            final RegionSpawnBatch regionBatch = new RegionSpawnBatch(level, plan.spawnFriendlies(), plan.spawnEnemies(),
-                    plan.spawnPersistent(), perRegionBudget);
-            if (orderedFinalization) {
-                regionBatch.enableAsyncOrderedFinalization();
-            }
-            regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
-            final RegionSpawnBatch.Group group = regionBatch.createAsyncGroup(
-                    region, regionChunks, () -> plan.buildRegionStateAsync(region, regionChunks, sharedCapCounter));
-            final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(this.spawnGroup(group, false));
-            final Runnable commit = () -> {
-                try {
-                    if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                        regionBatch.drainDeferredOrderedFinalizations();
-                        this.applyDeferredSpawnRemovals(regionBatch);
-                        this.applyDeferredSpawnAdditions(regionBatch);
-                        this.applyDeferredBlockUpdates(regionBatch);
-                        this.applyRegionTickMutations(regionBatch.regionTickMutations());
-                    }
-                } finally {
-                    regionBatch.finish();
-                }
-            };
-            spawnItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
-                    region, "async spawn", wrappedWork, commit, false, 0L, gameTime));
-            spawnBatches.add(regionBatch);
-            spawnChunkCounts.add(regionChunks.size());
-        }
-        int dispatchedChunks = 0;
-        final var spawnOutcomes = this.independentTickScheduler.submitBatchOptimized(spawnItems);
-        for (int i = 0; i < spawnOutcomes.length; ++i) {
-            if (spawnOutcomes[i] == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
-                dispatchedChunks += spawnChunkCounts.get(i);
-            } else {
-                this.skippedSpawnChunks.addAndGet(spawnChunkCounts.get(i));
-                spawnBatches.get(i).finish();
-            }
-        }
-        if (dispatchedChunks > 0 && this.spawnWorkersNoticeLogged.compareAndSet(false, true)) {
-            LOGGER.info("Region natural spawning is now executing asynchronously on region workers: {} chunks", dispatchedChunks);
-        }
-    }
-
-    private Runnable spawnGroup(RegionSpawnBatch.Group group) {
-        return this.spawnGroup(group, true);
-    }
-
-    private Runnable spawnGroup(RegionSpawnBatch.Group group, boolean manageRegionLifecycle) {
-        final RegionState region = group.region();
-        final RegionCoordinate coordinate = region.coordinate();
-        final ServerLevel level = group.batch().level();
-        final List<RegionSpawnChunk> chunks = group.chunks();
-        final boolean spawnFriendlies = group.batch().spawnFriendlies();
-        final boolean spawnEnemies = group.batch().spawnEnemies();
-        final boolean spawnPersistent = group.batch().spawnPersistent();
-        return () -> {
-            final long start = System.nanoTime();
-            final int[] spawned = { 0 };
-            final int[] truncated = { 0 };
-            RegionSpawnAdmissionBarrier.Worker admissionWorker = null;
-            try {
-                admissionWorker = group.batch().enterOrderedSpawnGroup();
-                this.deliverRegionMessages(level, region, () -> {});
-                if (manageRegionLifecycle) {
-                    region.beginOwnership();
-                }
-                // A spawn body writes no scheduled tick in vanilla, but a modded spawn hook can; the queue is the
-                // one every slice defers into, so nothing has to be special-cased if it does.
-                this.currentRegionTickMutations.set(group.batch().regionTickMutations());
-                try {
-                    final RegionEntityOwnershipScope ownership = RegionEntityOwnershipScope.open(coordinate, group);
-                    try {
-                        final RegionNeighborUpdateScope previousNeighbors = RegionNeighborUpdateScope.enter(new RegionNeighborUpdateScope());
-                        try {
-                            this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), () -> {
-                                group.ensureBuilt();
-                                for (final RegionSpawnChunk chunk : chunks) {
-                                    group.batch().spawnAdmissionCheckpoint();
-                                    if (!region.isOwnedByCurrentThread() || this.regionizer.isLevelClosed(level)
-                                            || group.batch().isAdditionSeamClosed()) {
-                                        // The lease is gone, the level unloaded or the batch can no longer admit:
-                                        // the remaining chunks of the region keep the server-thread body.
-                                        group.batch().addFallback(chunk);
-                                        continue;
-                                    }
-                                    if (!group.batch().tryReserveBlockUpdates()) {
-                                        // The batch cannot reserve the block-write effects of this chunk, so its
-                                        // spawn body is refused before it starts and spawns on the server thread.
-                                        group.batch().addFallback(chunk);
-                                        this.countRefusedDeferredBlockUpdate(RegionTickSlice.SPAWN);
-                                        continue;
-                                    }
-                                    final RandomSource random = chunk.random(level, coordinate);
-                                    this.currentSpawnRandom.set(random);
-                                    this.currentSpawnNeighborhood.set(group.neighborhood());
-                                    try {
-                                        final Runnable body = () -> net.minecraft.world.level.NaturalSpawner.spawnForChunk(level, chunk.chunk(), group.state(),
-                                                spawnFriendlies, spawnEnemies, spawnPersistent);
-                                        if (chunk.prepared() == null) {
-                                            net.neoforged.neoforge.server.threading.ParallelAdapterRuntime.runSerial(body);
-                                        } else if (!chunk.prepared().run(level, body, !manageRegionLifecycle)) {
-                                            this.skippedSpawnChunks.incrementAndGet();
-                                            continue;
-                                        }
-                                        ++spawned[0];
-                                    } catch (Throwable throwable) {
-                                        if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
-                                                && RegionWorkerBoundaryException.findBoundaryViolation(throwable) == null) {
-                                            // The failure is recorded for the server thread instead of failing the
-                                            // group with it; the group stops at its first failing chunk.
-                                            this.recordWorkerTickFailure(group.batch(), coordinate, null, throwable);
-                                            return;
-                                        }
-                                        // The spawns this body already deferred stay deferred; the rest of the
-                                        // chunk's spawn attempt is lost and counted.
-                                        ++truncated[0];
-                                    } finally {
-                                        this.currentSpawnNeighborhood.remove();
-                                        this.currentSpawnRandom.remove();
-                                    }
-                                }
-                            });
-                        } finally {
-                            RegionNeighborUpdateScope.exit(previousNeighbors);
-                        }
-                    } finally {
-                        ownership.close();
-                    }
-                } finally {
-                    this.currentRegionTickMutations.remove();
-                }
-            } finally {
-                try {
-                    group.batch().exitOrderedSpawnGroup(admissionWorker);
-                } finally {
-                    if (manageRegionLifecycle) {
-                        region.endOwnership();
-                        region.clearRunning();
-                        final long duration = System.nanoTime() - start;
-                        region.tickMetrics().recordTick(duration);
-                    }
-                    RegionTickWatchdog.warnIfLongTick("spawning batch " + coordinate, System.nanoTime() - start);
-                    this.spawnChunksOnWorkers.addAndGet(spawned[0]);
-                    this.truncatedSpawnChunks.addAndGet(truncated[0]);
-                    if (manageRegionLifecycle) {
-                        this.regionizer.removeIfEmpty(region);
-                    }
-                }
-            }
-        };
-    }
-
-    /**
-     * Spawns for the chunks whose region could not be leased or whose body was truncated on the server thread
-     * after the batch.
-     * <p>
-     * The chunks were decided and collected on the server thread, so they must not go through the generic region
-     * handoff again: that could defer them to a later region tick or drop them on a closed level. A chunk whose
-     * level identity closed while the batch ran is counted as skipped instead of spawning into a retired level.
-     */
-    private void spawnFallbackChunks(RegionSpawnBatch batch, RegionSpawnPlan plan) {
-        final ServerLevel level = batch.level();
-        final Collection<RegionSpawnChunk> fallback = batch.fallbackChunks();
-        if (fallback.isEmpty()) {
-            return;
-        }
-        if (this.regionizer.isLevelClosed(level)) {
-            this.skippedSpawnChunks.addAndGet(fallback.size());
-            fallback.clear();
-            return;
-        }
-        for (final RegionSpawnChunk chunk : fallback) {
-            plan.spawnInline(chunk.chunk());
-        }
-        fallback.clear();
-    }
-
-    /**
-     * Applies the admissions that a spawn body deferred to the barrier.
-     * <p>
-     * Every mob a region spawns is one record of its riding graph; the barrier runs the unmodified vanilla
-     * admission on the server thread. A record that cannot be admitted is counted as dropped, because the entity
-     * never reached the level and nothing retries it.
-     */
     private void applyDeferredSpawnAdditions(RegionSpawnBatch batch) {
         this.applyDeferredAdditions(batch.level(), batch.drainDeferredAdditions(), batch.isAdditionSeamClosed());
     }
 
-    /**
-     * Applies the removals that a spawn body deferred to the barrier.
-     * <p>
-     * A {@code finalizeSpawn} can remove an entity - vanilla does not, but a modded one can - so the slice
-     * carries the same removal seam as the other spawning slices.
-     */
     private void applyDeferredSpawnRemovals(RegionSpawnBatch batch) {
         this.applyDeferredRemovals(batch.level(), batch.drainDeferredRemovals(), batch.isRemovalSeamClosed());
-    }
-
-    /**
-     * Groups {@code pending} chunks by their authoritative region and takes the lease of every group.
-     * <p>
-     * Runs after the batch was published, so cleanup already waits for it and no lifecycle read gate may be
-     * taken here. A region that dies while its lease is acquired is re-resolved on the next attempt. Anything
-     * that cannot be resolved to a live, leasable region is recorded as a server-thread fallback.
-     */
-    private void leaseChunkTickGroups(RegionChunkTickBatch batch, List<RegionChunkTickEntry> pending, RegionTickBarrier barrier) {
-        List<RegionChunkTickEntry> remaining = pending;
-        int batchedChunks = 0;
-        for (int attempt = 0; attempt < MAX_REGION_LEASE_ATTEMPTS && !remaining.isEmpty(); attempt++) {
-            final RegionTickGrouping<RegionState, RegionChunkTickEntry> grouping = new RegionTickGrouping<>();
-            final List<RegionChunkTickEntry> retry = new ArrayList<>();
-            for (final RegionChunkTickEntry chunk : remaining) {
-                final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, batch.level()));
-                if (region == null || region.isDead()) {
-                    retry.add(chunk);
-                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)) {
-                    this.skippedChunkTicks.incrementAndGet();
-                } else {
-                    grouping.add(region, chunk);
-                }
-            }
-            if (grouping.isEmpty()) {
-                remaining = retry;
-                break;
-            }
-
-            final List<RegionChunkTickEntry> next = new ArrayList<>(retry);
-            boolean leasedAny = false;
-            final boolean tryLeaseOnly = this.isIndependentRegionTickEnabled();
-            for (final RegionState region : grouping.regions()) {
-                final List<RegionChunkTickEntry> regionChunks = grouping.items(region);
-                if (batch.leases(region)) {
-                    // An earlier group of this same batch already owns the lease. It cannot be acquired again
-                    // and must never be awaited on this thread.
-                    batch.group(region).ifPresent(group -> group.addChunks(regionChunks));
-                    continue;
-                }
-                if (tryLeaseOnly) {
-                    if (region.isDead() || !region.tryMarkRunning()) {
-                        this.skippedChunkTicks.addAndGet(regionChunks.size());
-                        continue;
-                    }
-                } else if (!this.acquireRegionLease(region, barrier)) {
-                    next.addAll(regionChunks);
-                    continue;
-                }
-                leasedAny = true;
-                batchedChunks += regionChunks.size();
-                this.addLeasedGroup(region, () -> batch.addGroup(region, regionChunks,
-                        group -> this.withRegionMailboxDelivery(batch.level(), region, this.chunkTickGroup(group))));
-            }
-            remaining = next;
-            if (!leasedAny) {
-                // Every candidate region died during lease acquisition; fall back instead of spinning.
-                break;
-            }
-        }
-
-        for (final RegionChunkTickEntry chunk : remaining) {
-            batch.addFallback(chunk);
-            this.unleasedChunkTicks.incrementAndGet();
-        }
-        if (batchedChunks > 0 && this.chunkTickWorkersNoticeLogged.compareAndSet(false, true)) {
-            LOGGER.info("Region chunk ticks are now executing on region workers: {} chunks", batchedChunks);
-        }
-    }
-
-    /**
-     * The worker task of one region: it ticks the chunks of that region in collection order.
-     * <p>
-     * The group holds the lease of the region and the entity ownership lease of the entities stored in it, so a
-     * random tick reaches entity storage only through the region-scoped query and every server-owned effect it
-     * causes is deferred to the barrier. The chunk's own random source is installed for the whole body, so
-     * {@code level.random} draws of the chunk body and the position selection of the level resolve it instead of
-     * the shared vanilla sources.
-     * <p>
-     * A chunk tick that needs a chunk the worker may not load cannot be re-run - the random ticks that already
-     * ran would run twice - so the chunk's tick stops where the refusal happened and the chunk is counted as
-     * truncated.
-     */
-    private void executeAsyncChunkTickBatch(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed) {
-        if (this.shutdown || this.regionizer.isLevelClosed(level)) {
-            this.skippedChunkTicks.addAndGet(chunks.size());
-            return;
-        }
-        final RegionTickGrouping<RegionState, RegionChunkTickEntry> grouping = new RegionTickGrouping<>();
-        final long gameTime = level.getGameTime();
-        for (final RegionChunkTickEntry chunk : chunks) {
-            final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, level));
-            if (region == null || region.isDead()) {
-                this.skippedChunkTicks.incrementAndGet();
-                continue;
-            }
-            if (this.shouldSkipOverloadedRegion(level, region)) {
-                this.skippedChunkTicks.incrementAndGet();
-                continue;
-            }
-            grouping.add(region, chunk);
-        }
-        if (grouping.isEmpty()) {
-            return;
-        }
-        final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
-        final int regionCount = grouping.regions().size();
-        final List<RegionIndependentTickScheduler.AsyncBatchItem> chunkItems = new ArrayList<>(regionCount);
-        final List<RegionChunkTickBatch> chunkBatches = new ArrayList<>(regionCount);
-        final List<Integer> chunkCounts = new ArrayList<>(regionCount);
-        for (final RegionState region : grouping.regions()) {
-            final List<RegionChunkTickEntry> regionChunks = grouping.items(region);
-            final RegionChunkTickBatch regionBatch = new RegionChunkTickBatch(level, randomTickSpeed, perRegionBudget);
-            regionBatch.setAsyncMainThreadWorkSink(task -> this.independentTickScheduler.enqueueCommit(level, task));
-            final RegionChunkTickBatch.Group group = regionBatch.createAsyncGroup(region, regionChunks);
-            final Runnable wrappedWork = regionBatch.wrapAsyncGroupWork(
-                    this.withRegionMailboxDelivery(level, region, this.chunkTickGroup(group, false)));
-            final Runnable commit = () -> {
-                try {
-                    if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                        this.applyDeferredChunkTickSectionUpdates(regionBatch);
-                        this.applyDeferredChunkTickRemovals(regionBatch);
-                        this.applyDeferredChunkTickAdditions(regionBatch);
-                        this.applyDeferredBlockUpdates(regionBatch);
-                        this.applyChunkTickLightning(regionBatch);
-                        this.tickFallbackChunkTicks(regionBatch);
-                        this.applyRegionTickMutations(regionBatch.regionTickMutations());
-                    }
-                } finally {
-                    regionBatch.finish();
-                }
-            };
-            chunkItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
-                    region, "async chunk", wrappedWork, commit, false, 0L, gameTime));
-            chunkBatches.add(regionBatch);
-            chunkCounts.add(regionChunks.size());
-        }
-        int dispatchedChunks = 0;
-        final var chunkOutcomes = this.independentTickScheduler.submitBatchOptimized(chunkItems);
-        for (int i = 0; i < chunkOutcomes.length; ++i) {
-            if (chunkOutcomes[i] == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
-                dispatchedChunks += chunkCounts.get(i);
-            } else {
-                this.skippedChunkTicks.addAndGet(chunkCounts.get(i));
-                chunkBatches.get(i).finish();
-            }
-        }
-        if (dispatchedChunks > 0 && this.chunkTickWorkersNoticeLogged.compareAndSet(false, true)) {
-            LOGGER.info("Region chunk ticks are now executing asynchronously on region workers: {} chunks", dispatchedChunks);
-        }
-    }
-
-    private Runnable chunkTickGroup(RegionChunkTickBatch.Group group) {
-        return this.chunkTickGroup(group, true);
-    }
-
-    private Runnable chunkTickGroup(RegionChunkTickBatch.Group group, boolean manageRegionLifecycle) {
-        final RegionState region = group.region();
-        final RegionCoordinate coordinate = region.coordinate();
-        final ServerLevel level = group.batch().level();
-        final List<RegionChunkTickEntry> chunks = group.chunks();
-        final int randomTickSpeed = group.batch().randomTickSpeed();
-        return () -> {
-            final long start = System.nanoTime();
-            final int[] ticked = { 0 };
-            try {
-                if (manageRegionLifecycle) {
-                    region.beginOwnership();
-                }
-                // LevelTicks is server-owned storage: a scheduled tick a random tick starts is recorded here and
-                // applied by the publishing server thread after the batch, never from a worker.
-                this.currentRegionTickMutations.set(group.batch().regionTickMutations());
-                try {
-                    // The ownership lease covers exactly this worker tick loop: it is opened after the region
-                    // lease and closed before it, so a worker task outside the loop never sees it.
-                    final RegionEntityOwnershipScope ownership = RegionEntityOwnershipScope.open(coordinate, group);
-                    try {
-                        // Neighbor cascades of the block writes of a chunk tick stay inside this context, so two
-                        // workers never mutate the same collecting updater.
-                        final RegionNeighborUpdateScope previousNeighbors = RegionNeighborUpdateScope.enter(new RegionNeighborUpdateScope());
-                        try {
-                            this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), () -> {
-                                for (final RegionChunkTickEntry chunk : chunks) {
-                                    if (!region.isOwnedByCurrentThread() || this.regionizer.isLevelClosed(level)) {
-                                        // The lease is gone or the level unloaded underneath the group: the
-                                        // remaining chunks of the region keep the server-thread body.
-                                        group.batch().addFallback(chunk);
-                                        continue;
-                                    }
-                                    final RandomSource random = chunk.random(level);
-                                    this.currentChunkTickRandom.set(random);
-                                    this.currentChunkTickPositionRandom.set(random);
-                                    this.currentChunkTickLightning.set(group.batch().lightningStrikes());
-                                    try {
-                                        level.tickChunk(chunk.chunk(), randomTickSpeed);
-                                        ++ticked[0];
-                                    } catch (Throwable throwable) {
-                                        // A chunk request the chunk source refused is a truncation, not a
-                                        // failure: the random ticks that already ran must not run again.
-                                        if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
-                                                && RegionWorkerBoundaryException.findBoundaryViolation(throwable) == null) {
-                                            // The failure is recorded for the server thread instead of failing the
-                                            // group with it; the group stops at its first failing chunk.
-                                            this.recordWorkerTickFailure(group.batch(), coordinate, null, throwable);
-                                            return;
-                                        }
-                                        this.truncatedChunkTicks.incrementAndGet();
-                                    } finally {
-                                        this.currentChunkTickLightning.remove();
-                                        this.currentChunkTickPositionRandom.remove();
-                                        this.currentChunkTickRandom.remove();
-                                    }
-                                }
-                            });
-                        } finally {
-                            RegionNeighborUpdateScope.exit(previousNeighbors);
-                        }
-                    } finally {
-                        ownership.close();
-                    }
-                } finally {
-                    this.currentRegionTickMutations.remove();
-                }
-            } finally {
-                if (manageRegionLifecycle) {
-                    region.endOwnership();
-                    region.clearRunning();
-                    final long duration = System.nanoTime() - start;
-                    region.tickMetrics().recordTick(duration);
-                    RegionTickWatchdog.warnIfLongTick("chunk tick batch " + coordinate, duration);
-                }
-                this.chunkTicksOnWorkers.addAndGet(ticked[0]);
-                if (manageRegionLifecycle) {
-                    this.regionizer.removeIfEmpty(region);
-                }
-            }
-        };
     }
 
     /**
