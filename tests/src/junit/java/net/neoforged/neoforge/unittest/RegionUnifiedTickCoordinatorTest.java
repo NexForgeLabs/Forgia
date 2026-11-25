@@ -324,6 +324,78 @@ class RegionUnifiedTickCoordinatorTest {
     }
 
     @Test
+    void phase4B42TickStage3SpawnedContraptionMatchesBlockEntityTicksExactly() throws Exception {
+        System.setProperty("neoforge.regionthreading.unifiedRegionTickLoop", "true");
+        System.setProperty("neoforge.regionthreading.singleRegionContraptionWorkers", "true");
+        System.setProperty("neoforge.regionthreading.unifiedRegionEntityContainmentMarginBlocks", "3");
+        System.setProperty("neoforge.regionthreading.sandboxAllBlockEntities", "true");
+        System.setProperty("neoforge.regionthreading.asyncEntityTicks", "true");
+        RegionAdapterApi.registerRegionContainedEntityType("minecraft:cow");
+        RegionAdapterApi.admitRegionSandboxedBlockEntities("test:gearshift_be");
+
+        try (var f = new CanonicalBlockEntityTestSupport()) {
+            f.engine = new RegionThreadingEngine(
+                    2, false, false, true, true, false, false, false,
+                    true, false, RegionLayout.DYNAMIC_CLUSTER_8X8, RegionEntityStorageMode.REGION_OWNED);
+            f.engine.setIndependentRegionTickEnabledForTesting(true);
+            RegionThreadingManager.install(f.engine);
+            this.configureLevelForUnifiedTest(f);
+
+            for (int cx = 0; cx <= 7; ++cx) {
+                for (int cz = 0; cz <= 7; ++cz) {
+                    f.chunk(new BlockPos(cx * 16 + 8, 64, cz * 16 + 8));
+                }
+            }
+            f.engine.addRegionSection(f.level, 0, 0);
+
+            final BlockPos pos = new BlockPos(48, 64, 48);
+            final Cow contraption = this.mockEntity(Cow.class, f, pos, new AABB(47, 64, 47, 49, 66, 49));
+            doReturn(EntityType.COW).when(contraption).getType();
+            when(contraption.isAddedToLevel()).thenReturn(false);
+            when(contraption.getSelfAndPassengers()).thenReturn(java.util.stream.Stream.of(contraption));
+
+            final AtomicInteger beTicks = new AtomicInteger();
+            final AtomicInteger entityTicks = new AtomicInteger();
+            doAnswer(inv -> {
+                entityTicks.incrementAndGet();
+                return null;
+            }).when(contraption).tick();
+
+            doAnswer(inv -> {
+                final Entity e = inv.getArgument(0);
+                this.tickList.add(e);
+                when(e.isAddedToLevel()).thenReturn(true);
+                RegionThreadingHooks.addRegionEntity(e);
+                return Boolean.TRUE;
+            }).when(f.level).addFreshEntity(any(Entity.class));
+
+            f.script("GEARSHIFT_BE", pos, "test:gearshift_be", beTicks::incrementAndGet);
+            this.tickList.add(contraption);
+            when(contraption.isAddedToLevel()).thenReturn(true);
+
+            // Simulate 42 server ticks: both Stage 2 (contraption) and Stage 3 (gearshift BE) must run 42 times each
+            for (int tick = 0; tick < 42; ++tick) {
+                when(f.level.getGameTime()).thenReturn((long) tick);
+                f.engine.beginLevelTick(f.level);
+                final RegionEntityTickPlan entityPlan = f.engine.beginEntityTickPlan(f.level, e -> true, PARKING_BARRIER);
+                assertNotNull(entityPlan);
+                entityPlan.executeAndAwait();
+
+                final RegionBlockEntityTickPlan bePlan = f.engine.beginBlockEntityTickPlan(f.level, PARKING_BARRIER);
+                assertNotNull(bePlan);
+                bePlan.collect();
+                bePlan.executeAndAwait();
+
+                f.engine.endLevelTick(f.level);
+                f.engine.independentTickScheduler().awaitLevelQuiescent(f.level, false);
+            }
+
+            assertEquals(42, beTicks.get(), "BlockEntity must run exactly 42 times");
+            assertEquals(42, entityTicks.get(), "Stage 2 contraption must run exactly 42 times with zero dropped ticks");
+        }
+    }
+
+    @Test
     void phase4CDynamicRegionTopologyPinDefersSplitUntilPinExpires() {
         final DynamicRegionTopology topology = new DynamicRegionTopology(3, 1, 10L);
         topology.addChunk(0, 0);

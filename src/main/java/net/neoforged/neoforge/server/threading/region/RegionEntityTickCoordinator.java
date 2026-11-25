@@ -100,6 +100,10 @@ final class RegionEntityTickCoordinator {
     }
 
     void tickSelfDrivenEntities(ServerLevel level, RegionTickBarrier barrier) {
+        if (this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level)) {
+            this.engine.independentTickScheduler.drainCompletedCommits(
+                    level, RegionThreadingConfig.independentRegionCommitDrainBudgetNanos());
+        }
         FusedRegionTickSession.PendingChunkWork pendingChunks = this.engine.fusedSession.takeStagedChunks(level);
         final List<RegionState> regions = new ArrayList<>();
         this.engine.regionizer.collectActiveEntityTickRegions(level, regions);

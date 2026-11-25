@@ -108,6 +108,7 @@ public final class RegionIndependentTickScheduler {
         final AtomicLong skippedWhileBusy = new AtomicLong();
         final ConcurrentLinkedQueue<Runnable> pendingSubWaves = new ConcurrentLinkedQueue<>();
         final AtomicInteger pendingSubWaveCount = new AtomicInteger();
+        final AtomicInteger pendingCommits = new AtomicInteger();
         volatile long lastDispatchGameTime = Long.MIN_VALUE;
         final long[] completionTimestamps = new long[TPS_WINDOW_SIZE];
         int completionCursor;
@@ -254,7 +255,13 @@ public final class RegionIndependentTickScheduler {
         if (clock.quiescencePins.get() > 0) {
             return DispatchOutcome.PINNED;
         }
-        if (nowNanos < clock.nextDueNanos && (coalesceGameTime < 0L || clock.lastDispatchGameTime != coalesceGameTime)) {
+        if (clock.pendingCommits.get() > 0 && (coalesceGameTime < 0L || clock.lastDispatchGameTime != coalesceGameTime)) {
+            clock.skippedWhileBusy.incrementAndGet();
+            this.totalSkippedBusy.incrementAndGet();
+            return DispatchOutcome.BUSY_SKIPPED;
+        }
+        if (nowNanos < clock.nextDueNanos
+                && coalesceGameTime < 0L) {
             return DispatchOutcome.NOT_DUE;
         }
         if (!clock.inFlight.compareAndSet(false, true)) {
@@ -270,7 +277,7 @@ public final class RegionIndependentTickScheduler {
                 final Runnable subWaveTask = () -> {
                     coalescedBody.run();
                     if (coalescedCommit != null && coord.level() != null) {
-                        this.enqueueCommit(coord.level(), coalescedCommit);
+                        this.enqueueClockCommit(coord.level(), clock, coalescedCommit);
                     }
                 };
                 clock.pendingSubWaveCount.incrementAndGet();
@@ -343,7 +350,7 @@ public final class RegionIndependentTickScheduler {
                 try {
                     this.regionContextRunner.accept(region, initialBody);
                     if (initialCommit != null && coord.level() != null) {
-                        this.enqueueCommit(coord.level(), initialCommit);
+                        this.enqueueClockCommit(coord.level(), clock, initialCommit);
                     }
                     Runnable subWave;
                     while ((subWave = clock.pendingSubWaves.poll()) != null) {
@@ -390,7 +397,7 @@ public final class RegionIndependentTickScheduler {
                 try {
                     this.regionContextRunner.accept(region, initialBody);
                     if (initialCommit != null && coord.level() != null) {
-                        this.enqueueCommit(coord.level(), initialCommit);
+                        this.enqueueClockCommit(coord.level(), clock, initialCommit);
                     }
                     Runnable subWave;
                     while ((subWave = clock.pendingSubWaves.poll()) != null) {
@@ -482,9 +489,15 @@ public final class RegionIndependentTickScheduler {
                 outcomes[idx] = DispatchOutcome.PINNED;
                 continue;
             }
+            if (clock.pendingCommits.get() > 0 && (item.coalesceGameTime() < 0L || clock.lastDispatchGameTime != item.coalesceGameTime())) {
+                clock.skippedWhileBusy.incrementAndGet();
+                this.totalSkippedBusy.incrementAndGet();
+                outcomes[idx] = DispatchOutcome.BUSY_SKIPPED;
+                continue;
+            }
             if (item.advanceClock()
                     && item.nowNanos() < clock.nextDueNanos
-                    && (item.coalesceGameTime() < 0L || clock.lastDispatchGameTime != item.coalesceGameTime())) {
+                    && item.coalesceGameTime() < 0L) {
                 outcomes[idx] = DispatchOutcome.NOT_DUE;
                 continue;
             }
@@ -502,7 +515,7 @@ public final class RegionIndependentTickScheduler {
                     final Runnable subWaveTask = () -> {
                         coalescedBody.run();
                         if (coalescedCommit != null && coord.level() != null) {
-                            this.enqueueCommit(coord.level(), coalescedCommit);
+                            this.enqueueClockCommit(coord.level(), clock, coalescedCommit);
                         }
                     };
                     clock.pendingSubWaveCount.incrementAndGet();
@@ -617,6 +630,11 @@ public final class RegionIndependentTickScheduler {
         if (clock.quiescencePins.get() > 0) {
             return DispatchOutcome.PINNED;
         }
+        if (clock.pendingCommits.get() > 0 && (coalesceGameTime < 0L || clock.lastDispatchGameTime != coalesceGameTime)) {
+            clock.skippedWhileBusy.incrementAndGet();
+            this.totalSkippedBusy.incrementAndGet();
+            return DispatchOutcome.BUSY_SKIPPED;
+        }
         if (!clock.inFlight.compareAndSet(false, true)) {
             if (coalesceGameTime >= 0L
                     && clock.pendingSubWaveCount.get() < 8
@@ -627,7 +645,7 @@ public final class RegionIndependentTickScheduler {
                 final Runnable subWaveTask = () -> {
                     coalescedBody.run();
                     if (coalescedCommit != null && coord.level() != null) {
-                        this.enqueueCommit(coord.level(), coalescedCommit);
+                        this.enqueueClockCommit(coord.level(), clock, coalescedCommit);
                     }
                 };
                 clock.pendingSubWaveCount.incrementAndGet();
@@ -675,6 +693,17 @@ public final class RegionIndependentTickScheduler {
         }
         this.totalSubmitted.incrementAndGet();
         return DispatchOutcome.SUBMITTED;
+    }
+
+    private void enqueueClockCommit(ServerLevel level, RegionClock clock, Runnable commitAction) {
+        clock.pendingCommits.incrementAndGet();
+        this.enqueueCommit(level, () -> {
+            try {
+                commitAction.run();
+            } finally {
+                clock.pendingCommits.decrementAndGet();
+            }
+        });
     }
 
     /** Enqueues a main-thread commit task produced by an asynchronous region worker. */

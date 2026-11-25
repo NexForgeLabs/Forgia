@@ -1602,8 +1602,8 @@ final class RegionBlockEntityTickCoordinator {
         }
         this.engine.currentRegionTickMutations.set(mutations);
         try {
-            for (int c = 0, cSize = regionChunks.size(); c < cSize; ++c) {
-                final RegionBlockEntityTickChunk chunk = regionChunks.get(c);
+            if (regionChunks.size() == 1) {
+                final RegionBlockEntityTickChunk chunk = regionChunks.get(0);
                 final List<RegionBlockEntityTickAdmission> admissions = chunk.cache().sandboxedAdmissions();
                 if (!chunk.isCurrent(this.engine.layout, borderUpdates)) {
                     for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
@@ -1614,42 +1614,44 @@ final class RegionBlockEntityTickCoordinator {
                             }
                         });
                     }
-                    continue;
+                    return;
                 }
+                final var chunkBlockEntities = chunk.chunk().getBlockEntities();
                 for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
-                    final RegionBlockEntityTickAdmission admission = admissions.get(a);
-                    final var ticker = admission.ticker();
-                    if (ticker.isRemoved()) {
-                        continue;
-                    }
-                    // Skip BEs already routed synchronously to serialAdmissions on this tick.
-                    if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isNearServerThreadEntity(level, admission.position())
-                            || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, admission.position())) {
-                        continue;
-                    }
-                    final net.minecraft.world.level.block.entity.BlockEntity be = chunk.chunk().getBlockEntities().get(admission.position());
-                    final boolean instanceAllowed = be == null
-                            || (!be.isRemoved()
-                                    && be.getLevel() == level
-                                    && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
-                    if (!instanceAllowed) {
-                        mutations.add(() -> {
-                            if (!ticker.isRemoved()) {
-                                ticker.tick();
-                            }
-                        });
-                        continue;
-                    }
-                    try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
-                        this.runBlockEntityBody(ticker, null, true);
-                        this.engine.blockEntityTicksOnWorkers.incrementAndGet();
-                    } catch (Throwable throwable) {
-                        if (RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
-                                || this.engine.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
-                            continue;
+                    this.runSingleSandboxedAdmission(level, region, chunkBlockEntities, admissions.get(a), mutations);
+                }
+            } else {
+                record OrderedAdmission(
+                        java.util.Map<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> chunkBlockEntities,
+                        RegionBlockEntityTickAdmission admission) {}
+                int total = 0;
+                for (int c = 0, cSize = regionChunks.size(); c < cSize; ++c) {
+                    total += regionChunks.get(c).cache().sandboxedAdmissions().size();
+                }
+                final List<OrderedAdmission> ordered = new ArrayList<>(total);
+                for (int c = 0, cSize = regionChunks.size(); c < cSize; ++c) {
+                    final RegionBlockEntityTickChunk chunk = regionChunks.get(c);
+                    final List<RegionBlockEntityTickAdmission> admissions = chunk.cache().sandboxedAdmissions();
+                    if (!chunk.isCurrent(this.engine.layout, borderUpdates)) {
+                        for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
+                            final var ticker = admissions.get(a).ticker();
+                            mutations.add(() -> {
+                                if (!ticker.isRemoved()) {
+                                    ticker.tick();
+                                }
+                            });
                         }
-                        this.engine.demoteSandboxedBlockEntityOnError(admission, throwable);
+                        continue;
                     }
+                    final var chunkBlockEntities = chunk.chunk().getBlockEntities();
+                    for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
+                        ordered.add(new OrderedAdmission(chunkBlockEntities, admissions.get(a)));
+                    }
+                }
+                ordered.sort(java.util.Comparator.comparingLong(entry -> entry.admission().sequence()));
+                for (int i = 0, size = ordered.size(); i < size; ++i) {
+                    final OrderedAdmission entry = ordered.get(i);
+                    this.runSingleSandboxedAdmission(level, region, entry.chunkBlockEntities(), entry.admission(), mutations);
                 }
             }
         } finally {
@@ -1657,6 +1659,46 @@ final class RegionBlockEntityTickCoordinator {
             if (random != null) {
                 this.engine.currentBlockEntityTickRandom.remove();
             }
+        }
+    }
+
+    private void runSingleSandboxedAdmission(
+            ServerLevel level,
+            RegionState region,
+            java.util.Map<BlockPos, net.minecraft.world.level.block.entity.BlockEntity> chunkBlockEntities,
+            RegionBlockEntityTickAdmission admission,
+            Queue<Runnable> mutations) {
+        final var ticker = admission.ticker();
+        if (ticker.isRemoved()) {
+            return;
+        }
+        // Skip BEs already routed synchronously to serialAdmissions on this tick.
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isNearServerThreadEntity(level, admission.position())
+                || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, admission.position())) {
+            return;
+        }
+        final net.minecraft.world.level.block.entity.BlockEntity be = chunkBlockEntities.get(admission.position());
+        final boolean instanceAllowed = be == null
+                || (!be.isRemoved()
+                        && be.getLevel() == level
+                        && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
+        if (!instanceAllowed) {
+            mutations.add(() -> {
+                if (!ticker.isRemoved()) {
+                    ticker.tick();
+                }
+            });
+            return;
+        }
+        try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
+            this.runBlockEntityBody(ticker, null, true);
+            this.engine.blockEntityTicksOnWorkers.incrementAndGet();
+        } catch (Throwable throwable) {
+            if (RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
+                    || this.engine.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
+                return;
+            }
+            this.engine.demoteSandboxedBlockEntityOnError(admission, throwable);
         }
     }
 
