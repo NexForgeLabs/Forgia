@@ -1322,6 +1322,11 @@ public final class RegionThreadingHooks {
      * @return {@code true} when the change was deferred, {@code false} when the caller has to call the light
      *         engine itself
      */
+    public static boolean deferLightSectionStatus(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos, boolean empty) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine && engine.deferLightSectionStatus(level, pos, empty);
+    }
+
     public static boolean deferLightSectionStatus(net.minecraft.core.BlockPos pos, boolean empty) {
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         return threading instanceof RegionThreadingEngine engine && engine.deferLightSectionStatus(pos, empty);
@@ -1334,6 +1339,11 @@ public final class RegionThreadingHooks {
      * @return {@code true} when the recheck was deferred, {@code false} when the caller has to call the light
      *         engine itself
      */
+    public static boolean deferLightCheck(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine && engine.deferLightCheck(level, pos);
+    }
+
     public static boolean deferLightCheck(net.minecraft.core.BlockPos pos) {
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         return threading instanceof RegionThreadingEngine engine && engine.deferLightCheck(pos);

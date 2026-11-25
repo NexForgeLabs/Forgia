@@ -3765,6 +3765,29 @@ public final class RegionThreadingEngine implements RegionThreading {
      * @return {@code true} when the change was recorded, {@code false} on a thread that has to call the light
      *         engine itself
      */
+    public boolean deferLightSectionStatus(net.minecraft.world.level.Level level, BlockPos pos, boolean empty) {
+        if (this.deferLightSectionStatus(pos, empty)) {
+            return true;
+        }
+        if (RegionWorkerScope.isNativeWorkerThread() && level instanceof ServerLevel serverLevel) {
+            final BlockPos immutablePos = pos.immutable();
+            final Queue<Runnable> mutations = this.currentRegionTickMutations.get();
+            if (mutations != null) {
+                mutations.add(() -> serverLevel.getChunkSource().getLightEngine().updateSectionStatus(immutablePos, empty));
+                return true;
+            }
+            if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
+                    serverLevel, () -> serverLevel.getChunkSource().getLightEngine().updateSectionStatus(immutablePos, empty))) {
+                return true;
+            }
+            if (serverLevel.getServer() != null) {
+                serverLevel.getServer().execute(() -> serverLevel.getChunkSource().getLightEngine().updateSectionStatus(immutablePos, empty));
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean deferLightSectionStatus(BlockPos pos, boolean empty) {
         final RegionDeferredBlockUpdates updates = RegionTickBatch.currentBlockUpdates();
         if (updates == null) {
@@ -3787,6 +3810,29 @@ public final class RegionThreadingEngine implements RegionThreading {
      * @return {@code true} when the recheck was recorded, {@code false} on a thread that has to call the light
      *         engine itself
      */
+    public boolean deferLightCheck(net.minecraft.world.level.Level level, BlockPos pos) {
+        if (this.deferLightCheck(pos)) {
+            return true;
+        }
+        if (RegionWorkerScope.isNativeWorkerThread() && level instanceof ServerLevel serverLevel) {
+            final BlockPos immutablePos = pos.immutable();
+            final Queue<Runnable> mutations = this.currentRegionTickMutations.get();
+            if (mutations != null) {
+                mutations.add(() -> serverLevel.getChunkSource().getLightEngine().checkBlock(immutablePos));
+                return true;
+            }
+            if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
+                    serverLevel, () -> serverLevel.getChunkSource().getLightEngine().checkBlock(immutablePos))) {
+                return true;
+            }
+            if (serverLevel.getServer() != null) {
+                serverLevel.getServer().execute(() -> serverLevel.getChunkSource().getLightEngine().checkBlock(immutablePos));
+                return true;
+            }
+        }
+        return false;
+    }
+
     public boolean deferLightCheck(BlockPos pos) {
         final RegionDeferredBlockUpdates updates = RegionTickBatch.currentBlockUpdates();
         if (updates == null) {

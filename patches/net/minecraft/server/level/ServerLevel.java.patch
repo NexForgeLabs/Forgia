@@ -579,7 +579,7 @@
          this.server
              .getPlayerList()
              .broadcast(
-@@ -1019,11 +_,27 @@
+@@ -1019,11 +_,34 @@
  
      @Override
      public void gameEvent(Holder<GameEvent> p_316597_, Vec3 p_215042_, GameEvent.Context p_215043_) {
@@ -598,10 +598,17 @@
 +        }
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
 +            final BlockPos immutablePos = p_8755_.immutable();
++            final java.util.Queue<Runnable> mutations = net.neoforged.neoforge.server.threading.RegionThreadingHooks.regionTickMutationQueue();
++            if (mutations != null) {
++                mutations.add(() -> this.sendBlockUpdated(immutablePos, p_8756_, p_8757_, p_8758_));
++                return;
++            }
 +            if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
 +                    this, () -> this.sendBlockUpdated(immutablePos, p_8756_, p_8757_, p_8758_))) {
 +                return;
 +            }
++            this.server.execute(() -> this.sendBlockUpdated(immutablePos, p_8756_, p_8757_, p_8758_));
++            return;
 +        }
 +
          if (this.isUpdatingNavigations) {
