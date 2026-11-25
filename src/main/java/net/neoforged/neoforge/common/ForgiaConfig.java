@@ -177,6 +177,10 @@ public final class ForgiaConfig {
 
         public final IntValue sandboxPermanentDemotionThreshold;
 
+        public final IntValue sandboxEntityProximityLockstepRadius;
+
+        public final IntValue sandboxSideEffectEscalationTicks;
+
         public final BooleanValue enableAsyncRegionSpawning;
 
         public final BooleanValue skipUnloadedNeighborhoodSpawning;
@@ -194,6 +198,10 @@ public final class ForgiaConfig {
         public final IntValue lowTpsProbeTopCount;
 
         public final LongValue independentRegionCommitDrainBudgetNanos;
+
+        public final BooleanValue enableUnifiedRegionTickLoop;
+        public final BooleanValue enableSingleRegionContraptionWorkers;
+        public final IntValue unifiedRegionEntityContainmentMarginBlocks;
 
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment(
@@ -621,6 +629,18 @@ public final class ForgiaConfig {
                             "[中文] 同类型方块实体累计触发边界异常达到此次数后，永久拉黑至主线程并写入 regionthreading-learned.json（默认 16）。")
                     .defineInRange("sandboxPermanentDemotionThreshold", 16, 1, 1000);
 
+            sandboxEntityProximityLockstepRadius = builder
+                    .comment(
+                            "Spatial radius (in blocks) around active non-player, non-projectile, non-item server-thread-only entities (e.g. moving contraptions) within which adjacent sandboxed block entities co-schedule on the server thread for lockstep interaction (0 disables). Only nearby BEs are affected; the rest of the region stays on worker threads. Default 4.",
+                            "[中文] 活跃的非玩家/非抛射物/非掉落物主线程实体（如移动动态结构）周围的局部锁步半径（单位：格，0 为关闭）。仅该半径内紧邻的沙盒方块实体临时与主线程同帧步调，同区域其余方块实体仍留在 Worker 并行，避免单点拖慢全服（默认 4）。")
+                    .defineInRange("sandboxEntityProximityLockstepRadius", 4, 0, 32);
+
+            sandboxSideEffectEscalationTicks = builder
+                    .comment(
+                            "Transient server-thread cooldown (in ticks) applied to a single sandboxed block entity instance when it spawns a non-trivial entity (not ItemEntity/ExperienceOrb) on a worker thread (0 disables). Never permanently demotes the BE type. Default 60.",
+                            "[中文] 沙盒方块实体单实例在 Worker 上触发复杂实体生成（非掉落物/经验球）时，仅对该单实例临时升级主线程的冷却时长（单位：tick，0 为关闭），不会永久拉黑该方块实体类型（默认 60）。")
+                    .defineInRange("sandboxSideEffectEscalationTicks", 60, 0, 600);
+
             enableAsyncRegionSpawning = builder
                     .comment(
                             "Phase 3A: Dispatches natural spawning calculations asynchronously on region workers via RegionIndependentTickScheduler without blocking the server thread barrier. Requires enableIndependentRegionTickClock and enableRegionThreadingSpawning. Default true.",
@@ -656,6 +676,28 @@ public final class ForgiaConfig {
                             "Maximum nanoseconds per server tick spent draining async region worker commit queues (particles, deferred spawns, block events). Default 4000000 (4ms).",
                             "[中文] 主线程每 Tick 排空异步 Region 提交队列的最大时间预算（纳秒，默认 4ms，防止瞬时堆积导致单帧卡死）。")
                     .defineInRange("independentRegionCommitDrainBudgetNanos", 4_000_000L, 500_000L, 50_000_000L);
+
+            enableUnifiedRegionTickLoop = builder
+                    .comment(
+                            "=== [6] Phase 4 Unified Per-Region Tick Loop / Phase 4 区域统一单波 Tick 循环 ===",
+                            "Phase 4A: Executes each region's Chunks -> Entities -> BlockEntities sequentially inside a single asynchronous worker wave per region tick, eliminating inter-slice phase skew and halving worker task submissions. Requires enableIndependentRegionTickClock and enableRegionSandboxAllBlockEntities. Default false.",
+                            "[中文] Phase 4A：启用 Folia 式单区域统一 Tick 循环（同一 Worker 线程按原版顺序依次执行：区域区块随机刻 -> 区域实体 -> 区域方块实体），彻底消除跨阶段相位差与重复任务派发（默认 false）。")
+                    .translation("neoforge.configgui.enableUnifiedRegionTickLoop")
+                    .define("enableUnifiedRegionTickLoop", false);
+
+            enableSingleRegionContraptionWorkers = builder
+                    .comment(
+                            "Phase 4B: Allows region-contained moving-structure entities (whose inflated AABB + velocity remain strictly within one owned region by unifiedRegionEntityContainmentMarginBlocks) to tick inside Stage 2 of their owning region's unified worker loop instead of falling back to the server thread. Default false.",
+                            "[中文] Phase 4B：允许完全处于单一区域内部（包围盒+速度留有安全边距）的移动动态结构实体在所属 Region Worker 的统一循环 Stage 2 中原位运行，与同区域的动力/逻辑方块实体保持同一线程零延迟步调（默认 false）。")
+                    .translation("neoforge.configgui.enableSingleRegionContraptionWorkers")
+                    .define("enableSingleRegionContraptionWorkers", false);
+
+            unifiedRegionEntityContainmentMarginBlocks = builder
+                    .comment(
+                            "Safety margin (in blocks) from region borders required for a region-contained moving-structure entity to tick on its owning region worker under enableSingleRegionContraptionWorkers. Entities closer to a border hand off to the server thread with 0-tick lockstep. Default 8.",
+                            "[中文] Phase 4B 移动动态结构实体留在 Region Worker 运行所需的距区域边界最小安全边距（单位：格，默认 8；靠近或跨越边界时自动 0-tick 同步切回主线程）。")
+                    .translation("neoforge.configgui.unifiedRegionEntityContainmentMarginBlocks")
+                    .defineInRange("unifiedRegionEntityContainmentMarginBlocks", 8, 1, 32);
         }
     }
 }

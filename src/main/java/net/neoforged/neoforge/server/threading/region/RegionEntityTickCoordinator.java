@@ -105,8 +105,31 @@ final class RegionEntityTickCoordinator {
         this.engine.regionizer.collectActiveEntityTickRegions(level, regions);
         if (regions.isEmpty()) {
             if (pendingChunks != null) {
-                this.engine.fusedSession.recordEarlyFlush();
-                this.engine.chunkTickCoordinator.executeAndAwait(level, pendingChunks.chunks(), pendingChunks.randomTickSpeed(), pendingChunks.barrier());
+                if (this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level)) {
+                    final Map<RegionState, List<RegionChunkTickEntry>> chunksByRegion = new java.util.IdentityHashMap<>();
+                    final List<RegionChunkTickEntry> nonFusable = new ArrayList<>();
+                    final long gameTime = level.getGameTime();
+                    for (final RegionChunkTickEntry entry : pendingChunks.chunks()) {
+                        final RegionState region = this.engine.regionizer.getOrCreate(entry.region(this.engine.layout, level));
+                        if (region == null || region.isDead() || this.engine.fusedSession.isNonFusable(region.coordinate(), gameTime)) {
+                            nonFusable.add(entry);
+                        } else if (this.engine.shouldSkipOverloadedRegion(level, region)) {
+                            this.engine.skippedChunkTicks.incrementAndGet();
+                        } else {
+                            chunksByRegion.computeIfAbsent(region, ignored -> new ArrayList<>()).add(entry);
+                        }
+                    }
+                    if (!nonFusable.isEmpty()) {
+                        this.engine.chunkTickCoordinator.executeAndAwait(level, nonFusable, pendingChunks.randomTickSpeed(), pendingChunks.barrier());
+                    }
+                    if (!chunksByRegion.isEmpty()) {
+                        this.engine.unifiedTickCoordinator.stageEntityAndChunkWork(
+                                level, List.of(), new int[0], chunksByRegion, pendingChunks);
+                    }
+                } else {
+                    this.engine.fusedSession.recordEarlyFlush();
+                    this.engine.chunkTickCoordinator.executeAndAwait(level, pendingChunks.chunks(), pendingChunks.randomTickSpeed(), pendingChunks.barrier());
+                }
             }
             return;
         }
@@ -206,13 +229,20 @@ final class RegionEntityTickCoordinator {
             this.tickSelfDrivenFallbacks(batch);
             return;
         }
+        if (activations.isEmpty() && this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level)) {
+            this.tickSelfDrivenFallbacks(batch);
+            this.engine.unifiedTickCoordinator.stageEntityAndChunkWork(
+                    level, List.of(), new int[0], chunksByRegion, pendingChunks);
+            return;
+        }
 
         if (this.engine.isIndependentRegionTickEnabled()
                 && !RegionEntityTickAttribution.isEnabled()
                 && this.engine.entityTickFailureObserverForTesting == null
                 && !this.engine.shutdown
                 && !this.engine.regionizer.isLevelClosed(level)) {
-            if (RegionThreadingConfig.asyncRegionEntityTicksEnabled()
+            if (this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level)
+                    || RegionThreadingConfig.asyncRegionEntityTicksEnabled()
                     || RegionThreadingConfig.selectiveAsyncEntityTicksEnabled()) {
                 this.executeAsyncSelfDrivenEntities(level, activations, chunksByRegion, pendingChunks, batch, true);
                 return;
@@ -404,7 +434,7 @@ final class RegionEntityTickCoordinator {
      * immediately runs {@link #selfDrivenEntityTickGroup} under the same region lease and that stage
      * releases {@code region.clearRunning()}.
      */
-    private void runFusedChunkStage(
+    void runFusedChunkStage(
             FusedRegionTickBatch batch,
             RegionState region,
             RegionOwnershipLeaseGroup group,
@@ -481,7 +511,7 @@ final class RegionEntityTickCoordinator {
         }
     }
 
-    private void applyFusedChunkTickLightning(ServerLevel level, Queue<BlockPos> strikes) {
+    void applyFusedChunkTickLightning(ServerLevel level, Queue<BlockPos> strikes) {
         if (strikes.isEmpty()) {
             return;
         }
@@ -601,6 +631,8 @@ final class RegionEntityTickCoordinator {
      */
     private int collectSynchronousRegionEntities(RegionEntityTickBatch batch, RegionState region) {
         final List<RegionEntityTickEntry> entries = region.entityTickEntries();
+        final boolean singleRegionContraptions = RegionThreadingConfig.singleRegionContraptionWorkersEnabled();
+        final int marginBlocks = singleRegionContraptions ? RegionThreadingConfig.unifiedRegionEntityContainmentMarginBlocks() : 8;
         int syncPlayersAdded = 0;
         int workerEligible = 0;
         for (int i = 0, size = entries.size(); i < size; ++i) {
@@ -623,9 +655,18 @@ final class RegionEntityTickCoordinator {
                 ++syncPlayersAdded;
                 continue;
             }
-            if (!ridesLiveVehicle(entity) && this.engine.entityTickPolicy.recordServerThreadOnly(entity) != null) {
-                batch.addSelfDrivenFallback(entity);
-                continue;
+            if (!ridesLiveVehicle(entity)) {
+                if (singleRegionContraptions && isSingleRegionContainedEntityEligible(batch.level(), region, entity, marginBlocks)) {
+                    ++workerEligible;
+                    continue;
+                }
+                if (this.engine.entityTickPolicy.recordServerThreadOnly(entity) != null) {
+                    if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionContainedEntity(entity)) {
+                        this.pinCrossBorderTouchingSections(batch.level(), region, entity, marginBlocks);
+                    }
+                    batch.addSelfDrivenFallback(entity);
+                    continue;
+                }
             }
             ++workerEligible;
         }
@@ -633,6 +674,86 @@ final class RegionEntityTickCoordinator {
             this.engine.serverThreadOnlyEntityTicks.addAndGet(syncPlayersAdded);
         }
         return workerEligible;
+    }
+
+    /**
+     * Phase 4B: Checks whether a region-contained moving-structure entity's AABB inflated by
+     * {@code marginBlocks + velocity} lies strictly within {@code region}'s chunk bounds so it can
+     * execute in Stage 2 of {@code region}'s unified worker tick loop with zero thread split against
+     * Stage 3 BlockEntities.
+     */
+    boolean isSingleRegionContainedEntityEligible(
+            @Nullable ServerLevel level,
+            RegionState region,
+            Entity entity,
+            int marginBlocks) {
+        if (level == null || region == null || entity == null || entity.isRemoved() || entity.level() != level) {
+            return false;
+        }
+        if (!net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionContainedEntity(entity)) {
+            return false;
+        }
+        final net.minecraft.world.phys.AABB box = entity.getBoundingBox();
+        if (box == null) {
+            return false;
+        }
+        final net.minecraft.world.phys.Vec3 delta = entity.getDeltaMovement();
+        final double vx = delta != null && Double.isFinite(delta.x) ? Math.abs(delta.x) : 0.0;
+        final double vz = delta != null && Double.isFinite(delta.z) ? Math.abs(delta.z) : 0.0;
+        if (vx > 16.0 || vz > 16.0) {
+            return false;
+        }
+        final double padX = Math.max(1, marginBlocks) + vx;
+        final double padZ = Math.max(1, marginBlocks) + vz;
+        final int minChunkX = ((int) Math.floor(box.minX - padX)) >> 4;
+        final int maxChunkX = ((int) Math.floor(box.maxX + padX)) >> 4;
+        final int minChunkZ = ((int) Math.floor(box.minZ - padZ)) >> 4;
+        final int maxChunkZ = ((int) Math.floor(box.maxZ + padZ)) >> 4;
+        final RegionLayout layout = this.engine.layout;
+        final RegionCoordinate coord = region.coordinate();
+        return layout.isInRegion(level, minChunkX, minChunkZ, coord)
+                && layout.isInRegion(level, maxChunkX, minChunkZ, coord)
+                && layout.isInRegion(level, minChunkX, maxChunkZ, coord)
+                && layout.isInRegion(level, maxChunkX, maxChunkZ, coord);
+    }
+
+    /**
+     * Phase 4C: When a moving structure touches or crosses a region border, pins the two adjacent sections
+     * together in the regionizer / dynamic topology for a hysteresis window so split checks are deferred
+     * while the cross-border structure is active.
+     */
+    private void pinCrossBorderTouchingSections(
+            @Nullable ServerLevel level,
+            RegionState region,
+            Entity entity,
+            int marginBlocks) {
+        if (level == null || region == null || entity == null) {
+            return;
+        }
+        final net.minecraft.world.phys.AABB box = entity.getBoundingBox();
+        if (box == null) {
+            return;
+        }
+        final double pad = Math.max(1, marginBlocks);
+        final int minChunkX = ((int) Math.floor(box.minX - pad)) >> 4;
+        final int maxChunkX = ((int) Math.floor(box.maxX + pad)) >> 4;
+        final int minChunkZ = ((int) Math.floor(box.minZ - pad)) >> 4;
+        final int maxChunkZ = ((int) Math.floor(box.maxZ + pad)) >> 4;
+        final RegionLayout layout = this.engine.layout;
+        final RegionCoordinate owner = region.coordinate();
+        final long untilGameTime = level.getGameTime() + Math.max(40L, layout.dynamicSplitDelayTicks());
+        final int[][] corners = {
+                { minChunkX, minChunkZ },
+                { maxChunkX, minChunkZ },
+                { minChunkX, maxChunkZ },
+                { maxChunkX, maxChunkZ }
+        };
+        for (final int[] corner : corners) {
+            final RegionCoordinate target = layout.regionAt(level, corner[0], corner[1]);
+            if (!target.equals(owner)) {
+                this.engine.pinAdjacentSectionsTogether(level, owner, target, untilGameTime);
+            }
+        }
     }
 
     /**
@@ -669,10 +790,11 @@ final class RegionEntityTickCoordinator {
     /**
      * Ticks the entities of this pass that a worker handed back, on the server thread.
      */
-    private void tickSelfDrivenFallbacks(RegionEntityTickBatch batch) {
+    void tickSelfDrivenFallbacks(RegionEntityTickBatch batch) {
         final ServerLevel level = batch.level();
         final List<Entity> deferred = batch.deferredUpdateFallbackEntities();
         final List<Entity> selfDriven = batch.selfDrivenFallbackEntities();
+        publishServerThreadEntityLockstepBoxes(level, deferred, selfDriven);
         if (!this.engine.playerCriterionStorageEnabled()) {
             for (final Entity entity : deferred) this.tickEntityServerSide(level, entity);
             for (final Entity entity : selfDriven) this.tickEntityServerSide(level, entity);
@@ -702,6 +824,65 @@ final class RegionEntityTickCoordinator {
             }
             this.engine.tickPlayerWorldSequence(batch, players);
         }
+    }
+
+    private static void publishServerThreadEntityLockstepBoxes(ServerLevel level, List<Entity> deferred, List<Entity> selfDriven) {
+        final int radius = RegionThreadingConfig.sandboxEntityProximityLockstepRadius();
+        if (radius <= 0) {
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.updateServerThreadEntityLockstepBoxes(level, null);
+            return;
+        }
+        int count = 0;
+        for (int i = 0, s = deferred.size(); i < s; ++i) {
+            if (isLockstepProximityEntity(level, deferred.get(i))) {
+                ++count;
+            }
+        }
+        for (int i = 0, s = selfDriven.size(); i < s; ++i) {
+            if (isLockstepProximityEntity(level, selfDriven.get(i))) {
+                ++count;
+            }
+        }
+        if (count == 0) {
+            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.updateServerThreadEntityLockstepBoxes(level, null);
+            return;
+        }
+        final double[] flat = new double[count * 6];
+        int idx = 0;
+        for (int i = 0, s = deferred.size(); i < s; ++i) {
+            final Entity entity = deferred.get(i);
+            if (isLockstepProximityEntity(level, entity)) {
+                idx = writeInflatedBox(flat, idx, entity, radius);
+            }
+        }
+        for (int i = 0, s = selfDriven.size(); i < s; ++i) {
+            final Entity entity = selfDriven.get(i);
+            if (isLockstepProximityEntity(level, entity)) {
+                idx = writeInflatedBox(flat, idx, entity, radius);
+            }
+        }
+        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.updateServerThreadEntityLockstepBoxes(level, flat);
+    }
+
+    private static boolean isLockstepProximityEntity(ServerLevel level, Entity entity) {
+        return entity != null
+                && !entity.isRemoved()
+                && entity.level() == level
+                && !(entity instanceof net.minecraft.world.entity.player.Player)
+                && !(entity instanceof net.minecraft.world.entity.item.ItemEntity)
+                && !(entity instanceof net.minecraft.world.entity.ExperienceOrb)
+                && !(entity instanceof net.minecraft.world.entity.projectile.Projectile);
+    }
+
+    private static int writeInflatedBox(double[] flat, int idx, Entity entity, double radius) {
+        final net.minecraft.world.phys.AABB box = entity.getBoundingBox();
+        flat[idx] = box.minX - radius;
+        flat[idx + 1] = box.minY - radius;
+        flat[idx + 2] = box.minZ - radius;
+        flat[idx + 3] = box.maxX + radius;
+        flat[idx + 4] = box.maxY + radius;
+        flat[idx + 5] = box.maxZ + radius;
+        return idx + 6;
     }
 
     private static boolean isPlayerEntityWaveCandidate(ServerLevel level, Entity entity, boolean runsNormally) {
@@ -1207,6 +1388,14 @@ final class RegionEntityTickCoordinator {
         this.tickSelfDrivenFallbacks(playerBatch);
         playerBatch.finish();
 
+        // Phase 4A: When the unified per-region tick loop is active, stage the chunk + entity activations
+        // so RegionUnifiedTickCoordinator executes Chunks -> Entities -> BlockEntities in a single worker wave.
+        if (this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level)) {
+            this.engine.unifiedTickCoordinator.stageEntityAndChunkWork(
+                    level, activations, workerEligibleCounts, chunksByRegion, pendingChunks);
+            return;
+        }
+
         // 2. Dispatch remaining worker-eligible entities (+ fused chunk random ticks) asynchronously per region without barrier.
         final long gameTime = level.getGameTime();
         final int perRegionBudget = Math.max(128, this.engine.deferredBlockUpdateBudget / Math.max(1, activations.size()));
@@ -1324,7 +1513,7 @@ final class RegionEntityTickCoordinator {
         return this.selfDrivenEntityTickGroup(group, activation, true, false);
     }
 
-    private Runnable selfDrivenEntityTickGroup(RegionEntityTickBatch.Group group, RegionEntityTickActivation activation,
+    Runnable selfDrivenEntityTickGroup(RegionEntityTickBatch.Group group, RegionEntityTickActivation activation,
             boolean manageRegionLifecycle, boolean skipPlayersAlreadyTicked) {
         final RegionState region = group.region();
         final RegionCoordinate coordinate = region.coordinate();
@@ -1351,6 +1540,8 @@ final class RegionEntityTickCoordinator {
                     // region cannot merge, split or transfer.
                     final List<RegionEntityTickEntry> entries = region.entityTickEntries();
                     final List<Entity> tickable = new ArrayList<>(entries.size());
+                    final boolean singleRegionContraptions = RegionThreadingConfig.singleRegionContraptionWorkersEnabled();
+                    final int marginBlocks = singleRegionContraptions ? RegionThreadingConfig.unifiedRegionEntityContainmentMarginBlocks() : 8;
                     int localServerThreadOnly = 0;
                     for (final RegionEntityTickEntry entry : entries) {
                         if (!entry.ticking()) {
@@ -1378,17 +1569,21 @@ final class RegionEntityTickCoordinator {
                             continue;
                         }
                         if (!ridesLiveVehicle(entry.entity())) {
-                            // The per-type policy is consulted before the body starts. A declared type is
-                            // ticked on the server thread after the batch instead of on this worker; an
-                            // entity that rides a live vehicle is decided at the vehicle, whose entry covers
-                            // the riding stack.
-                            if (skipPlayersAlreadyTicked) {
-                                if (this.engine.entityTickPolicy.reasonFor(entry.entity()) != null) {
+                            final boolean containedMovingStructure = singleRegionContraptions
+                                    && this.isSingleRegionContainedEntityEligible(level, region, entry.entity(), marginBlocks);
+                            if (!containedMovingStructure) {
+                                // The per-type policy is consulted before the body starts. A declared type is
+                                // ticked on the server thread after the batch instead of on this worker; an
+                                // entity that rides a live vehicle is decided at the vehicle, whose entry covers
+                                // the riding stack.
+                                if (skipPlayersAlreadyTicked) {
+                                    if (this.engine.entityTickPolicy.reasonFor(entry.entity()) != null) {
+                                        continue;
+                                    }
+                                } else if (this.engine.entityTickPolicy.recordServerThreadOnly(entry.entity()) != null) {
+                                    group.batch().addSelfDrivenFallback(entry.entity());
                                     continue;
                                 }
-                            } else if (this.engine.entityTickPolicy.recordServerThreadOnly(entry.entity()) != null) {
-                                group.batch().addSelfDrivenFallback(entry.entity());
-                                continue;
                             }
                         }
                         tickable.add(entry.entity());

@@ -171,6 +171,25 @@ final class RegionDeferredEntityAdditions {
         }
     }
 
+    /**
+     * {@return a thread-safe snapshot of all non-removed entities currently waiting in the deferred admission
+     * queue of this batch}
+     */
+    List<Entity> pendingEntities() {
+        synchronized (this.additions) {
+            if (this.recordedMembers.isEmpty()) {
+                return List.of();
+            }
+            final List<Entity> list = new ArrayList<>(this.recordedMembers.size());
+            for (final Entity member : this.recordedMembers) {
+                if (member != null && !member.isRemoved()) {
+                    list.add(member);
+                }
+            }
+            return list;
+        }
+    }
+
     /** Takes the deferred admissions that wait for the end of the batch. */
     Drain drain() {
         synchronized (this.additions) {

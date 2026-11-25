@@ -64,6 +64,14 @@ interface RegionOwnershipLeaseGroup {
     boolean deferAddition(Entity entity, List<Entity> graph);
 
     /**
+     * {@return snapshot of entities whose admission was deferred during the current region tick wave, or an
+     * empty list if none are pending}
+     */
+    default List<Entity> pendingAddedEntities() {
+        return List.of();
+    }
+
+    /**
      * Records the portal transition of one entity for the batch barrier.
      * <p>
      * The destination search of a portal transition ({@code PortalForcer#findClosestPortalPosition}) reads the

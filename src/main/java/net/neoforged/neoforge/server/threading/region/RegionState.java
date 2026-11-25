@@ -102,6 +102,7 @@ final class RegionState {
      * the batch, when no worker of the region runs, so no lock is needed on either side.
      */
     private final it.unimi.dsi.fastutil.longs.Long2LongMap foreignChunkReads = new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap();
+    private final Object foreignReadLock = new Object();
     /**
      * The positions this region wrote since its last check, as packed block positions. A changed foreign chunk
      * makes the border fixpoint re-evaluate these positions on the region's own worker, which is the propagation
@@ -561,24 +562,39 @@ final class RegionState {
      *         the {@link #MAX_FOREIGN_READ_CHUNKS} bound refused it
      */
     boolean recordForeignChunkRead(long chunkKey, long version) {
-        if (this.foreignChunkReads.containsKey(chunkKey)) {
-            return false;
+        synchronized (this.foreignReadLock) {
+            if (this.foreignChunkReads.containsKey(chunkKey)) {
+                return false;
+            }
+            if (this.foreignChunkReads.size() >= MAX_FOREIGN_READ_CHUNKS) {
+                return false;
+            }
+            this.foreignChunkReads.put(chunkKey, version);
+            return true;
         }
-        if (this.foreignChunkReads.size() >= MAX_FOREIGN_READ_CHUNKS) {
-            return false;
+    }
+
+    /** {@return true when any foreign chunk read has been recorded since the last check} */
+    boolean hasForeignChunkReads() {
+        synchronized (this.foreignReadLock) {
+            return !this.foreignChunkReads.isEmpty();
         }
-        this.foreignChunkReads.put(chunkKey, version);
-        return true;
     }
 
     /** {@return the version of every foreign chunk this region read since its last check, by chunk key} */
     it.unimi.dsi.fastutil.longs.Long2LongMap foreignChunkReads() {
-        return this.foreignChunkReads;
+        synchronized (this.foreignReadLock) {
+            return this.foreignChunkReads.isEmpty()
+                    ? it.unimi.dsi.fastutil.longs.Long2LongMaps.EMPTY_MAP
+                    : new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap(this.foreignChunkReads);
+        }
     }
 
     /** Forgets the foreign chunks this region read, so the next check only sees the reads that follow. */
     void clearForeignChunkReads() {
-        this.foreignChunkReads.clear();
+        synchronized (this.foreignReadLock) {
+            this.foreignChunkReads.clear();
+        }
     }
 
     /**
@@ -588,17 +604,23 @@ final class RegionState {
      *         dropped it
      */
     boolean recordRerunSeed(long packedPos) {
-        if (this.rerunSeeds.size() >= MAX_RERUN_SEEDS) {
-            this.droppedRerunSeeds++;
-            return false;
+        synchronized (this.foreignReadLock) {
+            if (this.rerunSeeds.size() >= MAX_RERUN_SEEDS) {
+                this.droppedRerunSeeds++;
+                return false;
+            }
+            this.rerunSeeds.add(packedPos);
+            return true;
         }
-        this.rerunSeeds.add(packedPos);
-        return true;
     }
 
     /** {@return the positions this region wrote since its last check, as packed block positions} */
     it.unimi.dsi.fastutil.longs.LongArrayList rerunSeeds() {
-        return this.rerunSeeds;
+        synchronized (this.foreignReadLock) {
+            return this.rerunSeeds.isEmpty()
+                    ? new it.unimi.dsi.fastutil.longs.LongArrayList(0)
+                    : new it.unimi.dsi.fastutil.longs.LongArrayList(this.rerunSeeds);
+        }
     }
 
     /**
@@ -607,10 +629,49 @@ final class RegionState {
      * @return the number of positions the {@link #MAX_RERUN_SEEDS} bound dropped since the last check
      */
     int clearRerunSeeds() {
-        this.rerunSeeds.clear();
-        final int dropped = this.droppedRerunSeeds;
-        this.droppedRerunSeeds = 0;
-        return dropped;
+        synchronized (this.foreignReadLock) {
+            this.rerunSeeds.clear();
+            final int dropped = this.droppedRerunSeeds;
+            this.droppedRerunSeeds = 0;
+            return dropped;
+        }
+    }
+
+    record ForeignReadSnapshot(
+            it.unimi.dsi.fastutil.longs.Long2LongMap reads,
+            it.unimi.dsi.fastutil.longs.LongArrayList seeds,
+            int droppedSeeds) {}
+
+    /**
+     * Atomically snapshots and clears the recorded foreign chunk reads and rerun seeds.
+     */
+    ForeignReadSnapshot consumeForeignReadsAndSeeds() {
+        synchronized (this.foreignReadLock) {
+            final it.unimi.dsi.fastutil.longs.Long2LongMap readsSnapshot = this.foreignChunkReads.isEmpty()
+                    ? it.unimi.dsi.fastutil.longs.Long2LongMaps.EMPTY_MAP
+                    : new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap(this.foreignChunkReads);
+            final it.unimi.dsi.fastutil.longs.LongArrayList seedsSnapshot = this.rerunSeeds.isEmpty()
+                    ? new it.unimi.dsi.fastutil.longs.LongArrayList(0)
+                    : new it.unimi.dsi.fastutil.longs.LongArrayList(this.rerunSeeds);
+            final int dropped = this.droppedRerunSeeds;
+            this.foreignChunkReads.clear();
+            this.rerunSeeds.clear();
+            this.droppedRerunSeeds = 0;
+            return new ForeignReadSnapshot(readsSnapshot, seedsSnapshot, dropped);
+        }
+    }
+
+    /**
+     * Atomically clears both foreign chunk reads and rerun seeds, returning the dropped seed count.
+     */
+    int discardForeignReads() {
+        synchronized (this.foreignReadLock) {
+            this.foreignChunkReads.clear();
+            this.rerunSeeds.clear();
+            final int dropped = this.droppedRerunSeeds;
+            this.droppedRerunSeeds = 0;
+            return dropped;
+        }
     }
 
     /**

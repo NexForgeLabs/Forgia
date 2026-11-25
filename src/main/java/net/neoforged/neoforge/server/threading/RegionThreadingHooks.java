@@ -603,6 +603,16 @@ public final class RegionThreadingHooks {
         if (RegionEntityOwnershipScope.deferEntityAddition(level, entity)) {
             return true;
         }
+        final var beAdmission = RegionBlockEntityTickScope.currentAdmissionForLevel(level);
+        if (beAdmission != null
+                && !(entity instanceof net.minecraft.world.entity.item.ItemEntity)
+                && !(entity instanceof net.minecraft.world.entity.ExperienceOrb)) {
+            final int escalationTicks = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxSideEffectEscalationTicks();
+            if (escalationTicks > 0) {
+                net.neoforged.neoforge.server.threading.api.RegionAdapterApi.recordTransientSideEffectFallback(
+                        level, beAdmission.position(), escalationTicks);
+            }
+        }
         final java.util.Queue<Runnable> mutations = regionTickMutationQueue();
         if (mutations != null
                 && !entity.isAddedToLevel()

@@ -95,6 +95,23 @@ public final class RegionBlockEntityTickScope implements AutoCloseable {
         return null;
     }
 
+    @Nullable
+    public static RegionBlockEntityTickAdmission currentAdmissionForLevel(ServerLevel level) {
+        if (!RegionWorkerScope.isNativeWorkerThread()) {
+            return null;
+        }
+        final RegionBlockEntityTickScope scope = CURRENT.get();
+        if (scope != null
+                && scope.active
+                && scope.admission != null
+                && scope.admission.level() == level
+                && scope.region != null
+                && scope.region.isOwnedByCurrentThread()) {
+            return scope.admission;
+        }
+        return null;
+    }
+
     public static boolean ownsEntityInCurrentRegion(ServerLevel level, net.minecraft.world.entity.Entity entity) {
         if (entity == null || entity instanceof net.minecraft.world.entity.player.Player || entity.level() != level) {
             return false;

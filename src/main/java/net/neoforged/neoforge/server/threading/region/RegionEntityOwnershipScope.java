@@ -793,6 +793,18 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
         return scope.coordinate.level() == level ? scope.coordinate : null;
     }
 
+    /**
+     * {@return any non-removed entities whose admission was deferred inside the active region ownership lease
+     * during the current region tick wave, or an empty list when no active lease or pending additions exist}
+     */
+    static List<Entity> pendingAddedEntitiesInCurrentScope(ServerLevel level) {
+        final RegionEntityOwnershipScope scope = currentScope();
+        if (scope == null || !scope.isActive() || !RegionWorkerScope.isNativeWorkerThread() || scope.coordinate.level() != level) {
+            return List.of();
+        }
+        return scope.group.pendingAddedEntities();
+    }
+
     static void resetCounters() {
         ALLOWED_MUTATION_COUNT.reset();
         REJECTED_MUTATION_COUNT.reset();

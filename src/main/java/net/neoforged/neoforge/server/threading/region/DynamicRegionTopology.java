@@ -83,6 +83,8 @@ public final class DynamicRegionTopology {
     private final LongOpenHashSet newlyEmptiedSections = new LongOpenHashSet();
     /** Section key -> tick when it became empty (hysteresis queue). */
     private final Long2LongOpenHashMap pendingEmptySinceTick = new Long2LongOpenHashMap();
+    /** Section key -> tick until which split/expiration is deferred due to an active cross-border structure. */
+    private final Long2LongOpenHashMap pinnedSectionsUntilTick = new Long2LongOpenHashMap();
 
     /** Reusable scratch collections for reconcile() to avoid steady-state allocations. */
     private final IntOpenHashSet neighborRegionScratch = new IntOpenHashSet();
@@ -124,6 +126,7 @@ public final class DynamicRegionTopology {
         this.splitDelayTicks = splitDelayTicks;
         this.sectionChunkCounts.defaultReturnValue(0);
         this.pendingEmptySinceTick.defaultReturnValue(Long.MIN_VALUE);
+        this.pinnedSectionsUntilTick.defaultReturnValue(Long.MIN_VALUE);
     }
 
     private static Long2IntOpenHashMap newSectionRegionMap() {
@@ -215,6 +218,32 @@ public final class DynamicRegionTopology {
         return true;
     }
 
+    /**
+     * Phase 4C: Temporarily pins two adjacent sections together until {@code untilGameTime},
+     * deferring split/expiration checks on those sections while a cross-border moving structure is active.
+     */
+    public void pinAdjacentSectionsTogether(int sectionAX, int sectionAZ, int sectionBX, int sectionBZ, long untilGameTime) {
+        if (Math.abs(sectionAX - sectionBX) > this.mergeRadius || Math.abs(sectionAZ - sectionBZ) > this.mergeRadius) {
+            return;
+        }
+        final long keyA = sectionKey(sectionAX, sectionAZ);
+        final long keyB = sectionKey(sectionBX, sectionBZ);
+        this.pinnedSectionsUntilTick.put(keyA, Math.max(this.pinnedSectionsUntilTick.get(keyA), untilGameTime));
+        this.pinnedSectionsUntilTick.put(keyB, Math.max(this.pinnedSectionsUntilTick.get(keyB), untilGameTime));
+    }
+
+    public boolean isSectionPinned(long sectionKey, long currentTick) {
+        final long until = this.pinnedSectionsUntilTick.get(sectionKey);
+        if (until == Long.MIN_VALUE) {
+            return false;
+        }
+        if (currentTick >= until) {
+            this.pinnedSectionsUntilTick.remove(sectionKey);
+            return false;
+        }
+        return true;
+    }
+
     boolean hasPendingChanges() {
         return !this.pendingActivations.isEmpty()
                 || !this.newlyEmptiedSections.isEmpty()
@@ -262,8 +291,10 @@ public final class DynamicRegionTopology {
             final ObjectIterator<Long2LongMap.Entry> it = this.pendingEmptySinceTick.long2LongEntrySet().fastIterator();
             while (it.hasNext()) {
                 final Long2LongMap.Entry entry = it.next();
-                if (currentTick - entry.getLongValue() >= this.splitDelayTicks) {
-                    this.expiredSectionsScratch.add(entry.getLongKey());
+                final long secKey = entry.getLongKey();
+                if (!this.isSectionPinned(secKey, currentTick)
+                        && currentTick - entry.getLongValue() >= this.splitDelayTicks) {
+                    this.expiredSectionsScratch.add(secKey);
                 }
             }
 
@@ -467,6 +498,7 @@ public final class DynamicRegionTopology {
         this.pendingActivations.clear();
         this.newlyEmptiedSections.clear();
         this.pendingEmptySinceTick.clear();
+        this.pinnedSectionsUntilTick.clear();
         this.neighborRegionScratch.clear();
         this.splitCandidateRegionsScratch.clear();
         this.expiredSectionsScratch.clear();

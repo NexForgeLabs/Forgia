@@ -206,7 +206,18 @@ public final class RegionAwareEntityGetter implements LevelEntityGetter<Entity> 
         if (region == null) {
             return null;
         }
-        final Entity entity = uuid != null ? region.entityByUuid(uuid) : region.entityById(id);
+        Entity entity = uuid != null ? region.entityByUuid(uuid) : region.entityById(id);
+        if (entity == null) {
+            for (final Entity pending : RegionEntityOwnershipScope.pendingAddedEntitiesInCurrentScope(this.level)) {
+                if (pending.isRemoved()) {
+                    continue;
+                }
+                if (uuid != null ? uuid.equals(pending.getUUID()) : pending.getId() == id) {
+                    entity = pending;
+                    break;
+                }
+            }
+        }
         if (entity == null || entity.isRemoved()) {
             return null;
         }

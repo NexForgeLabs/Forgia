@@ -40,6 +40,7 @@ final class ThreadedRegionizer {
     private final Map<RegionCoordinate, RegionState> regions = new ConcurrentHashMap<>();
     private final Map<RegionSectionCoordinate, RegionSectionState> sections = new ConcurrentHashMap<>();
     private final Map<RegionSectionCoordinate, RegionState> sectionRegions = new ConcurrentHashMap<>();
+    private final Map<RegionCoordinate, Long> pinnedSectionsUntilTick = new ConcurrentHashMap<>();
     private final Map<Entity, RegionState> entities = new ConcurrentHashMap<>();
     private final Map<Entity, ServerLevel> entityLevels = new ConcurrentHashMap<>();
     /**
@@ -811,6 +812,7 @@ final class ThreadedRegionizer {
                 return false;
             });
             this.indexedEntityCounts.keySet().removeIf(counted -> counted == level);
+            this.pinnedSectionsUntilTick.keySet().removeIf(coordinate -> coordinate.level() == level);
             this.regions.keySet().removeIf(coordinate -> coordinate.level() == level);
             final int currentSize = this.regions.size() + this.sections.size() + this.entities.size();
             if (currentSize != previousSize) {
@@ -835,6 +837,7 @@ final class ThreadedRegionizer {
             this.entityLevels.clear();
             this.entities.clear();
             this.indexedEntityCounts.clear();
+            this.pinnedSectionsUntilTick.clear();
             this.sectionRegions.clear();
             this.sections.clear();
             this.regions.clear();
@@ -950,8 +953,45 @@ final class ThreadedRegionizer {
         return this.writeLockAcquisitionCount.get();
     }
 
+    /**
+     * Phase 4C: Temporarily pins two adjacent sections together until {@code untilGameTime},
+     * deferring split checks between those sections while a cross-border moving structure is active.
+     */
+    void pinAdjacentSectionsTogether(ServerLevel level, RegionCoordinate a, RegionCoordinate b, long untilGameTime) {
+        if (level == null || a == null || b == null || a.level() != level || b.level() != level || a.equals(b)) {
+            return;
+        }
+        final int dx = Math.abs(a.regionX() - b.regionX());
+        final int dz = Math.abs(a.regionZ() - b.regionZ());
+        if (dx > REGION_SECTION_MERGE_RADIUS || dz > REGION_SECTION_MERGE_RADIUS) {
+            return;
+        }
+        this.pinnedSectionsUntilTick.merge(a, untilGameTime, Math::max);
+        this.pinnedSectionsUntilTick.merge(b, untilGameTime, Math::max);
+    }
+
+    boolean isSectionPinned(RegionCoordinate coordinate, long currentGameTime) {
+        if (coordinate == null) {
+            return false;
+        }
+        final Long until = this.pinnedSectionsUntilTick.get(coordinate);
+        if (until == null) {
+            return false;
+        }
+        if (currentGameTime >= until) {
+            this.pinnedSectionsUntilTick.remove(coordinate, until);
+            return false;
+        }
+        return true;
+    }
+
     void requestSplitCheck(RegionState region) {
         if (this.layout.supportsSectionPartitions()) {
+            return;
+        }
+        final ServerLevel level = region.coordinate().level();
+        if (level != null && this.isSectionPinned(region.coordinate(), level.getGameTime())) {
+            region.markPendingRecalculation();
             return;
         }
         this.splitCheckRequestCount.incrementAndGet();

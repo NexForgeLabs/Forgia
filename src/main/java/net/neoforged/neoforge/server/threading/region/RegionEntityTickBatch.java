@@ -761,6 +761,11 @@ sealed class RegionEntityTickBatch extends RegionTickBatch permits FusedRegionTi
         }
 
         @Override
+        public List<Entity> pendingAddedEntities() {
+            return this.batch.deferredAdditions.pendingEntities();
+        }
+
+        @Override
         public boolean deferPortalTransition(Entity entity) {
             return this.batch.deferPortalTransition(entity);
         }

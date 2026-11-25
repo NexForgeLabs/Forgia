@@ -205,6 +205,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final RegionBorderPropagationCoordinator borderPropagationCoordinator;
     private final RegionBlockEntityTickCoordinator blockEntityTickCoordinator;
     private final RegionEntityTickCoordinator entityTickCoordinator;
+    final RegionUnifiedTickCoordinator unifiedTickCoordinator;
     private final RegionEntityTransferCoordinator entityTransferCoordinator;
     private final RegionPlayerPrefixCoordinator playerPrefixCoordinator;
     private final RegionDiagnosticsCollector diagnosticsCollector;
@@ -1167,6 +1168,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.borderPropagationCoordinator = new RegionBorderPropagationCoordinator(new BorderPropagationHost());
         this.blockEntityTickCoordinator = new RegionBlockEntityTickCoordinator(this);
         this.entityTickCoordinator = new RegionEntityTickCoordinator(this);
+        this.unifiedTickCoordinator = new RegionUnifiedTickCoordinator(this);
         this.entityTransferCoordinator = new RegionEntityTransferCoordinator(this);
         this.playerPrefixCoordinator = new RegionPlayerPrefixCoordinator(this);
         this.diagnosticsCollector = new RegionDiagnosticsCollector(
@@ -1280,38 +1282,51 @@ public final class RegionThreadingEngine implements RegionThreading {
                 "firework_attached_and_area_interactions");
         this.entityTickPolicy.serverThreadOnly(net.minecraft.world.entity.projectile.WitherSkull.class,
                 "wither_skull_impact_interactions");
-        this.declareMovingStructureServerThreadOnlyEntities();
+        this.applyAdapterRegisteredEntityPolicies();
     }
 
     /**
-     * Entity types of a moving structure that reaches across region borders, by registry id.
-     * <p>
-     * A Create contraption moves a whole structure and acts on the blocks and entities around it: a deployer
-     * grabs an item from a container in the next region, a saw cuts a tree that straddles a border, and a
-     * deployer constructs a fake player, which publishes an identity. Such a tick mutates entities its own
-     * region does not own - which an ownership lease can never grant, whatever the chunk layout - so every
-     * contraption type ticks on the server thread. The cost is small: a pack runs a handful of contraptions and
-     * thousands of ordinary mobs, and a contraption that did tick on a worker crashed a live server.
-     * <p>
-     * The ids are resolved by registry, so a pack without the mod pays one failed lookup per entry.
+     * Applies any entity type policies registered by compatibility adapters via {@link net.neoforged.neoforge.server.threading.api.RegionAdapterApi}.
      */
-    private static final Map<String, String> MOVING_STRUCTURE_ENTITY_TYPES = Map.of(
-            "create:contraption", "moves its structure and acts on blocks and entities across region borders",
-            "create:stationary_contraption", "acts on blocks and entities across region borders while its structure stands",
-            "create:gantry_contraption", "moves along a gantry and acts across region borders",
-            "create:elevator_contraption", "moves along an elevator and acts across region borders",
-            "create:bearing_contraption", "rotates its structure and acts across region borders",
-            "create:piston_contraption", "pushes its structure and acts across region borders");
-
-    private void declareMovingStructureServerThreadOnlyEntities() {
-        MOVING_STRUCTURE_ENTITY_TYPES.forEach((id, reason) -> {
+    @ApiStatus.Internal
+    public void applyAdapterRegisteredEntityPolicies() {
+        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.registeredServerThreadOnlyEntityTypes().forEach((id, reason) -> {
             final net.minecraft.resources.ResourceLocation key = net.minecraft.resources.ResourceLocation.tryParse(id);
             if (key == null || !net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(key)) {
-                // The mod that owns this structure is not installed.
                 return;
             }
             this.entityTickPolicy.serverThreadOnlyType(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.get(key), reason);
         });
+    }
+
+    RegionEntityTickCoordinator entityTickCoordinator() {
+        return this.entityTickCoordinator;
+    }
+
+    RegionBlockEntityTickCoordinator blockEntityTickCoordinator() {
+        return this.blockEntityTickCoordinator;
+    }
+
+    @ApiStatus.Internal
+    public RegionUnifiedTickCoordinator unifiedTickCoordinator() {
+        return this.unifiedTickCoordinator;
+    }
+
+    /**
+     * Phase 4C: Temporarily pins two adjacent sections together in both the regionizer and the dynamic
+     * cluster topology until {@code untilGameTime}, deferring split checks while a cross-border structure
+     * is active.
+     */
+    @ApiStatus.Internal
+    public void pinAdjacentSectionsTogether(ServerLevel level, RegionCoordinate a, RegionCoordinate b, long untilGameTime) {
+        if (level == null || a == null || b == null) {
+            return;
+        }
+        this.regionizer.pinAdjacentSectionsTogether(level, a, b, untilGameTime);
+        final DynamicRegionTopology topology = this.dynamicTopologies.get(level);
+        if (topology != null) {
+            topology.pinAdjacentSectionsTogether(a.regionX(), a.regionZ(), b.regionX(), b.regionZ(), untilGameTime);
+        }
     }
 
     /**
@@ -1992,6 +2007,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     @ApiStatus.Internal
     public void endLevelTick(ServerLevel level) {
         this.flushStagedFusedChunks(level);
+        this.unifiedTickCoordinator.flushStagedWork(level);
         final LevelTickPhaseState state = this.levelTickPhases.get(level);
         if (state != null) {
             state.endGlobalPhase();
@@ -5821,7 +5837,9 @@ public final class RegionThreadingEngine implements RegionThreading {
      * mutations, so a random tick never mutates a server-owned structure from a worker.
      */
     void tickChunks(ServerLevel level, List<RegionChunkTickEntry> chunks, int randomTickSpeed, RegionTickBarrier barrier) {
-        if ((this.fusedSlicesEnabled || RegionThreadingConfig.fusedSlicesEnabled())
+        if ((this.fusedSlicesEnabled
+                || RegionThreadingConfig.fusedSlicesEnabled()
+                || this.unifiedTickCoordinator.isUnifiedLoopActive(level))
                 && this.entityTickWorkerExecutionEnabled
                 && this.entityStorageMode == RegionEntityStorageMode.REGION_OWNED
                 && !chunks.isEmpty()
@@ -5835,11 +5853,11 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     void flushStagedFusedChunks(ServerLevel level) {
         final FusedRegionTickSession.PendingChunkWork pending = this.fusedSession.takeStagedChunks(level);
-        if (pending == null) {
-            return;
+        if (pending != null) {
+            this.fusedSession.recordEarlyFlush();
+            this.chunkTickCoordinator.executeAndAwait(level, pending.chunks(), pending.randomTickSpeed(), pending.barrier());
         }
-        this.fusedSession.recordEarlyFlush();
-        this.chunkTickCoordinator.executeAndAwait(level, pending.chunks(), pending.randomTickSpeed(), pending.barrier());
+        this.unifiedTickCoordinator.flushStagedWork(level);
     }
 
     /** Narrow bridge to the original runtime; the coordinator owns no independent execution authority. */
@@ -6712,7 +6730,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
         final BlockEventPhase phase = this.blockEventPhase.get();
         if (phase != null && phase.level == level) {
-            if (this.fusedSession.hasStagedChunks(level)) {
+            if (this.fusedSession.hasStagedChunks(level) || this.unifiedTickCoordinator.hasStagedWork(level)) {
                 this.blockEventPhase.remove();
                 try {
                     this.flushStagedFusedChunks(level);
@@ -7031,6 +7049,11 @@ public final class RegionThreadingEngine implements RegionThreading {
             if (RegionWorkerScope.isNativeWorkerThread() && this.currentRegionTickMutations.get() == null) {
                 final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
                 this.currentRegionTickMutations.set(mutations);
+                final boolean boundRandom = this.currentBlockEntityTickRandom.get() == null;
+                if (boundRandom) {
+                    this.currentBlockEntityTickRandom.set(RandomSource.create(
+                            level.getSeed() ^ level.getGameTime() ^ pos.asLong()));
+                }
                 try {
                     task.run();
                 } catch (Throwable throwable) {
@@ -7047,6 +7070,9 @@ public final class RegionThreadingEngine implements RegionThreading {
                     }
                     throw throwable;
                 } finally {
+                    if (boundRandom) {
+                        this.currentBlockEntityTickRandom.remove();
+                    }
                     this.currentRegionTickMutations.remove();
                     if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
                         net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(
@@ -7288,6 +7314,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                     this.playerTicks.clearLevel(level);
                     this.playerRegions.clearLevel(level);
                     this.fusedSession.clearLevel(level);
+                    this.unifiedTickCoordinator.clearLevel(level);
                     RegionPlayerSnapshots.detach(level);
                     this.regionizer.clearLevel(level);
                     final DynamicRegionTopology topology = this.dynamicTopologies.remove(level);

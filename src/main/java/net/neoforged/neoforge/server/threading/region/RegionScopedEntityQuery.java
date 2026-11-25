@@ -106,6 +106,7 @@ public final class RegionScopedEntityQuery {
             });
         }
         appendAnsweredParts(multipartOwners, EntityTypeTest.forClass(Entity.class), excluded, box, predicate, result, Integer.MAX_VALUE);
+        appendPendingAddedEntities(level, leased.box(), EntityTypeTest.forClass(Entity.class), excluded, box, predicate, result, Integer.MAX_VALUE);
         if (timing) {
             RegionBlockEntityTickAttribution.recordTickerQuery(System.nanoTime() - start);
         }
@@ -150,6 +151,7 @@ public final class RegionScopedEntityQuery {
                 RegionBlockEntityTickAttribution.recordTickerQuery(System.nanoTime() - start);
             }
             appendAnsweredParts(multipartOwners, typeTest, null, box, predicate, result, max);
+            appendPendingAddedEntities(level, leased.box(), typeTest, null, box, predicate, result, max);
         }
         if (result.size() < max) {
             final PlayerUnion players = PlayerUnion.prepare(level, box, typeTest.getBaseClass(), RegionEntityQueryCounters.Operation.GET_BY_TYPE_IN_BOX);
@@ -188,6 +190,11 @@ public final class RegionScopedEntityQuery {
                         consumer.accept(entity);
                         return AbortableIterationConsumer.Continuation.CONTINUE;
                     }));
+            for (final Entity pending : RegionEntityOwnershipScope.pendingAddedEntitiesInCurrentScope(level)) {
+                if (!pending.isRemoved() && pending.getBoundingBox().intersects(leased.box())) {
+                    consumer.accept(pending);
+                }
+            }
         }
         return true;
     }
@@ -229,6 +236,17 @@ public final class RegionScopedEntityQuery {
                         return continuation;
                     });
             aborted = stopped[0];
+            if (!aborted) {
+                for (final Entity pending : RegionEntityOwnershipScope.pendingAddedEntitiesInCurrentScope(level)) {
+                    if (!pending.isRemoved() && pending.getBoundingBox().intersects(leased.box())) {
+                        final T cast = typeTest.tryCast(pending);
+                        if (cast != null && consumer.accept(cast) == AbortableIterationConsumer.Continuation.ABORT) {
+                            aborted = true;
+                            break;
+                        }
+                    }
+                }
+            }
         }
         if (!aborted) {
             final PlayerUnion players = PlayerUnion.prepare(level, box, typeTest.getBaseClass(), RegionEntityQueryCounters.Operation.GET_BY_TYPE_IN_BOX);
@@ -256,7 +274,19 @@ public final class RegionScopedEntityQuery {
         if (region == null) {
             return null;
         }
-        return region.indexedEntities();
+        final List<Entity> indexed = region.indexedEntities();
+        final List<Entity> pending = RegionEntityOwnershipScope.pendingAddedEntitiesInCurrentScope(level);
+        if (pending.isEmpty()) {
+            return indexed;
+        }
+        final List<Entity> combined = new ArrayList<>(indexed.size() + pending.size());
+        combined.addAll(indexed);
+        for (final Entity entity : pending) {
+            if (!entity.isRemoved() && !combined.contains(entity)) {
+                combined.add(entity);
+            }
+        }
+        return combined;
     }
 
     /**
@@ -272,10 +302,22 @@ public final class RegionScopedEntityQuery {
         if (region == null) {
             return false;
         }
+        boolean aborted = false;
         for (final Entity entity : region.indexedEntities()) {
             final T cast = typeTest.tryCast(entity);
             if (cast != null && consumer.accept(cast) == AbortableIterationConsumer.Continuation.ABORT) {
+                aborted = true;
                 break;
+            }
+        }
+        if (!aborted) {
+            for (final Entity pending : RegionEntityOwnershipScope.pendingAddedEntitiesInCurrentScope(level)) {
+                if (!pending.isRemoved()) {
+                    final T cast = typeTest.tryCast(pending);
+                    if (cast != null && consumer.accept(cast) == AbortableIterationConsumer.Continuation.ABORT) {
+                        break;
+                    }
+                }
             }
         }
         return true;
@@ -373,6 +415,52 @@ public final class RegionScopedEntityQuery {
                     result.add(cast);
                     if (result.size() >= max) {
                         return;
+                    }
+                }
+            }
+        }
+    }
+
+    private static <T extends Entity> void appendPendingAddedEntities(
+            ServerLevel level,
+            AABB leasedBox,
+            EntityTypeTest<Entity, T> typeTest,
+            @Nullable Entity excluded,
+            AABB originalBox,
+            Predicate<? super T> predicate,
+            List<? super T> result,
+            int max) {
+        if (result.size() >= max) {
+            return;
+        }
+        final List<Entity> pending = RegionEntityOwnershipScope.pendingAddedEntitiesInCurrentScope(level);
+        if (pending.isEmpty()) {
+            return;
+        }
+        for (final Entity entity : pending) {
+            if (entity == excluded || entity.isRemoved()) {
+                continue;
+            }
+            if (entity.getBoundingBox().intersects(leasedBox)) {
+                final T cast = typeTest.tryCast(entity);
+                if (cast != null && predicate.test(cast) && !result.contains(cast)) {
+                    result.add(cast);
+                    if (result.size() >= max) {
+                        return;
+                    }
+                }
+            }
+            if (entity.isMultipartEntity()) {
+                for (final PartEntity<?> part : entity.getParts()) {
+                    if (part == excluded) {
+                        continue;
+                    }
+                    final T cast = typeTest.tryCast(part);
+                    if (cast != null && part.getBoundingBox().intersects(originalBox) && predicate.test(cast) && !result.contains(cast)) {
+                        result.add(cast);
+                        if (result.size() >= max) {
+                            return;
+                        }
                     }
                 }
             }

@@ -204,6 +204,18 @@ public final class RegionThreadingConfig {
                 : ForgiaConfig.SERVER.sandboxPermanentDemotionThreshold.getDefault();
     }
 
+    public static int sandboxEntityProximityLockstepRadius() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.sandboxEntityProximityLockstepRadius.get()
+                : ForgiaConfig.SERVER.sandboxEntityProximityLockstepRadius.getDefault();
+    }
+
+    public static int sandboxSideEffectEscalationTicks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.sandboxSideEffectEscalationTicks.get()
+                : ForgiaConfig.SERVER.sandboxSideEffectEscalationTicks.getDefault();
+    }
+
     public static boolean asyncRegionSpawningEnabled() {
         final String prop = System.getProperty("neoforge.regionthreading.asyncSpawning");
         if (prop != null) {
@@ -257,5 +269,38 @@ public final class RegionThreadingConfig {
         return ForgiaConfig.isServerConfigLoaded()
                 ? ForgiaConfig.SERVER.independentRegionCommitDrainBudgetNanos.get()
                 : ForgiaConfig.SERVER.independentRegionCommitDrainBudgetNanos.getDefault();
+    }
+
+    public static boolean unifiedRegionTickLoopEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.unifiedRegionTickLoop");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableUnifiedRegionTickLoop.get()
+                : ForgiaConfig.SERVER.enableUnifiedRegionTickLoop.getDefault();
+    }
+
+    public static boolean singleRegionContraptionWorkersEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.singleRegionContraptionWorkers");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableSingleRegionContraptionWorkers.get()
+                : ForgiaConfig.SERVER.enableSingleRegionContraptionWorkers.getDefault();
+    }
+
+    public static int unifiedRegionEntityContainmentMarginBlocks() {
+        final String prop = System.getProperty("neoforge.regionthreading.unifiedRegionEntityContainmentMarginBlocks");
+        if (prop != null) {
+            try {
+                return Math.max(1, Math.min(32, Integer.parseInt(prop.trim())));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.unifiedRegionEntityContainmentMarginBlocks.get()
+                : ForgiaConfig.SERVER.unifiedRegionEntityContainmentMarginBlocks.getDefault();
     }
 }

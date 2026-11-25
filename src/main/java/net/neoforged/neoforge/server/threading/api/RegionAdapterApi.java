@@ -46,11 +46,14 @@ public final class RegionAdapterApi {
     private static final Set<String> SANDBOX_DENIED_NAMESPACES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_DENIED_BE_TYPES = ConcurrentHashMap.newKeySet();
     private static final Set<String> SANDBOX_DENIED_FLUIDS = ConcurrentHashMap.newKeySet();
+    private static final Set<String> REGION_CONTAINED_ENTITY_TYPES = ConcurrentHashMap.newKeySet();
+    private static final Map<String, String> SERVER_THREAD_ONLY_ENTITY_TYPES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.BiPredicate<ServerLevel, BlockPos>> SANDBOX_FLUID_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_TYPE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<ServerLevel, Map<Long, Long>> TRANSIENT_BE_COOLDOWNS = new ConcurrentHashMap<>();
     private static final Map<String, java.util.concurrent.atomic.AtomicInteger> TRANSIENT_BE_BOUNDARY_COUNTS = new ConcurrentHashMap<>();
+    private static final Map<ServerLevel, double[]> SERVER_THREAD_ENTITY_LOCKSTEP_BOXES = new ConcurrentHashMap<>();
     private static final int PERMANENT_DEMOTION_THRESHOLD = 16;
     private static final Map<ServerLevel, Map<Long, BlockPos>> VIRTUAL_CHUNK_AFFINITY = new ConcurrentHashMap<>();
 
@@ -269,6 +272,68 @@ public final class RegionAdapterApi {
         return blockEntityTypeId != null && SANDBOX_TYPE_PREDICATES.containsKey(blockEntityTypeId.trim());
     }
 
+    /**
+     * Registers one or more moving-structure entity type IDs (e.g. {@code "modid:contraption"}) as eligible for
+     * Phase 4B single-region worker admission when {@code enableSingleRegionContraptionWorkers} is enabled and
+     * the entity's inflated AABB + velocity remain strictly within one leased region.
+     * <p>
+     * When Phase 4B is disabled or the entity nears/crosses a region border, it automatically routes to the
+     * server thread with 0-tick lockstep proximity co-scheduling.
+     */
+    public static void registerRegionContainedEntityType(String... entityTypeIds) {
+        Objects.requireNonNull(entityTypeIds, "entityTypeIds");
+        for (final String id : entityTypeIds) {
+            if (id != null && !id.isBlank()) {
+                final String trimmed = id.trim();
+                REGION_CONTAINED_ENTITY_TYPES.add(trimmed);
+                SERVER_THREAD_ONLY_ENTITY_TYPES.putIfAbsent(trimmed, "region_contained_moving_structure");
+            }
+        }
+        applyRegisteredServerThreadOnlyEntitiesToCurrentEngine();
+    }
+
+    /**
+     * Registers an entity type ID that must execute on the server thread unless admitted by Phase 4B
+     * single-region containment.
+     */
+    public static void registerServerThreadOnlyEntityType(String entityTypeId, String reason) {
+        Objects.requireNonNull(entityTypeId, "entityTypeId");
+        Objects.requireNonNull(reason, "reason");
+        final String trimmed = entityTypeId.trim();
+        final String trimmedReason = reason.trim();
+        if (!trimmed.isEmpty() && !trimmedReason.isEmpty()) {
+            SERVER_THREAD_ONLY_ENTITY_TYPES.put(trimmed, trimmedReason);
+            applyRegisteredServerThreadOnlyEntitiesToCurrentEngine();
+        }
+    }
+
+    public static boolean isRegionContainedEntityType(@org.jetbrains.annotations.Nullable String entityTypeId) {
+        return entityTypeId != null && REGION_CONTAINED_ENTITY_TYPES.contains(entityTypeId.trim());
+    }
+
+    public static boolean isRegionContainedEntity(@org.jetbrains.annotations.Nullable net.minecraft.world.entity.Entity entity) {
+        if (entity == null) {
+            return false;
+        }
+        final var key = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
+        return key != null && REGION_CONTAINED_ENTITY_TYPES.contains(key.toString());
+    }
+
+    public static Map<String, String> registeredServerThreadOnlyEntityTypes() {
+        return Map.copyOf(SERVER_THREAD_ONLY_ENTITY_TYPES);
+    }
+
+    public static Set<String> registeredRegionContainedEntityTypes() {
+        return Set.copyOf(REGION_CONTAINED_ENTITY_TYPES);
+    }
+
+    private static void applyRegisteredServerThreadOnlyEntitiesToCurrentEngine() {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            engine.applyAdapterRegisteredEntityPolicies();
+        }
+    }
+
     public static boolean recordTransientBoundaryFallback(ServerLevel level, BlockPos pos, String type, long cooldownTicks) {
         if (level == null || pos == null || type == null) {
             return false;
@@ -307,9 +372,100 @@ public final class RegionAdapterApi {
         return true;
     }
 
+    /**
+     * Records a non-permanent transient server-thread fallback for a single block entity instance
+     * (e.g. when it triggers a structural side effect such as spawning a non-trivial entity).
+     * Unlike {@link #recordTransientBoundaryFallback}, this never permanently demotes the BE type.
+     */
+    public static void recordTransientSideEffectFallback(ServerLevel level, BlockPos pos, long cooldownTicks) {
+        if (level == null || pos == null || cooldownTicks <= 0L) {
+            return;
+        }
+        final Map<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS
+                .computeIfAbsent(level, k -> new ConcurrentHashMap<>());
+        final long until = level.getGameTime() + cooldownTicks;
+        byPos.merge(pos.asLong(), until, Math::max);
+    }
+
+    /**
+     * Publishes the current tick's inflated AABBs (flat array of 6 doubles per box:
+     * {@code minX, minY, minZ, maxX, maxY, maxZ}) for active non-player, non-projectile,
+     * non-item server-thread-only entities in {@code level}.
+     */
+    public static void updateServerThreadEntityLockstepBoxes(ServerLevel level, @org.jetbrains.annotations.Nullable double[] flatBoxes) {
+        if (level == null) {
+            return;
+        }
+        if (flatBoxes == null || flatBoxes.length == 0) {
+            SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.remove(level);
+        } else {
+            SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.put(level, flatBoxes);
+        }
+    }
+
+    /**
+     * {@return true when {@code pos} lies within the proximity lockstep radius of any active
+     * server-thread-only entity in {@code level}, so that only adjacent BEs co-schedule on the
+     * server thread without stalling the rest of the region}
+     */
+    public static boolean isNearServerThreadEntity(@org.jetbrains.annotations.Nullable ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null) {
+            return false;
+        }
+        final double[] boxes = SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.get(level);
+        if (boxes == null || boxes.length == 0) {
+            return false;
+        }
+        final double x = pos.getX() + 0.5;
+        final double y = pos.getY() + 0.5;
+        final double z = pos.getZ() + 0.5;
+        for (int i = 0; i + 5 < boxes.length; i += 6) {
+            if (x >= boxes[i] && x <= boxes[i + 3]
+                    && y >= boxes[i + 1] && y <= boxes[i + 4]
+                    && z >= boxes[i + 2] && z <= boxes[i + 5]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Fast chunk-level pre-check on the server thread before dispatching a chunk's sandboxed BEs
+     * asynchronously. Returns {@code true} only when this chunk overlaps an active server-thread
+     * entity lockstep box or when the level has active transient per-position fallbacks, so those
+     * specific BEs can be routed into {@code serialAdmissions} on the <em>current</em> tick with
+     * zero 1-tick {@code postGlobal} phase skew.
+     */
+    public static boolean chunkNeedsSynchronousSandboxSplit(
+            @org.jetbrains.annotations.Nullable ServerLevel level, int chunkX, int chunkZ) {
+        if (level == null) {
+            return false;
+        }
+        final Map<Long, Long> cooldowns = TRANSIENT_BE_COOLDOWNS.get(level);
+        if (cooldowns != null && !cooldowns.isEmpty()) {
+            return true;
+        }
+        final double[] boxes = SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.get(level);
+        if (boxes == null || boxes.length == 0) {
+            return false;
+        }
+        final double minX = chunkX << 4;
+        final double maxX = minX + 16.0;
+        final double minZ = chunkZ << 4;
+        final double maxZ = minZ + 16.0;
+        for (int i = 0; i + 5 < boxes.length; i += 6) {
+            if (boxes[i + 3] >= minX && boxes[i] <= maxX
+                    && boxes[i + 5] >= minZ && boxes[i + 2] <= maxZ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static void clearTransientSandboxedFallbacksForLevel(ServerLevel level) {
         if (level != null) {
             TRANSIENT_BE_COOLDOWNS.remove(level);
+            SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.remove(level);
         }
     }
 
@@ -319,7 +475,9 @@ public final class RegionAdapterApi {
         if (type == null || be == null) {
             return true;
         }
-        if (be.getLevel() instanceof ServerLevel sl && isTransientSandboxedFallback(sl, be.getBlockPos())) {
+        if (be.getLevel() instanceof ServerLevel sl
+                && (isTransientSandboxedFallback(sl, be.getBlockPos())
+                        || isNearServerThreadEntity(sl, be.getBlockPos()))) {
             return false;
         }
         if ("minecraft:hopper".equals(type) && !isHopperSandboxSafe(be)) {
