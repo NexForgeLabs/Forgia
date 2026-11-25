@@ -1,15 +1,25 @@
 # Performance Benchmarks: Stock / Serial vs. Forgia
 
-<div class="lang-pill-bar">
-  <a class="active" href="../benchmarks.en/">English</a>
-  <a href="../benchmarks.zh/">中文</a>
-</div>
-
-This page separates the **latest C7 production validation** from historical controlled tests. Older microbenchmarks describe only their named build, fixture and configuration; they are not current-build speedup claims. In particular, the MobSpawnController ordered-spawn experiment is not recommended for production. All parallel execution switches default to **off**.
+This page separates the **latest Phase 3 production validation (`21.1.250.300-beta`)** from earlier C7 and historical controlled tests. Older microbenchmarks describe only their named build, fixture and configuration; they are not current-build speedup claims.
 
 ---
 
-## Latest C7 Production Modpack Benchmarks (`21.1.250.200-beta` / SkyExplorer 188 Mods)
+## Latest Phase 3 Production Modpack Benchmarks (`21.1.250.300-beta` / SkyExplorer Live Server)
+
+Measured live after **3.6 hours (`12,961s`)** of continuous production uptime on a heavy NeoForge `1.21.1` modpack (Create 6.0.10, Cataclysm, Sable 2.0.5, TacZ, Quark, Lootr, Primal, NetherExp, Spawn, MobSpawnController; 8 Region Workers, `DYNAMIC_CLUSTER/4ch`, `enableIndependentRegionTickClock = true`, `enableRegionSandboxAllBlockEntities = true`, all 5 core slices asynchronous):
+
+| Workload / Metric | Single-Thread / Pre-Phase 3 (`294-beta`) | Phase 3 Live (`21.1.250.300-beta`, 3.6h Soak) | Improvement |
+| :--- | :--- | :--- | :--- |
+| **Multi-player load (82 Regions / 868 chunks / 838 entities)** | `166.03 ms/tick` total region work (~6.0 TPS single-threaded) · `44.4 ms` on `294-beta` | **`20.01 TPS`** / **MSPT `20.13 ms`** (`p95 30.97 ms`, 10s max `45.2 ms`, 15m TPS `19.96`) | **`8.25×` effective multi-core speedup** |
+| **Top-5 hotspot regions (`-38,-54`, `-41,106`, `-37,-54`, `-66,-89`, `-37,-53`)** | `76.90 ms/tick` combined across top 5 regions | Each region runs independently at **`19.996 observedTps`** (`12.1–21.3 ms/region`) | Zero cross-region stall |
+| **Block Entity Parallelism** | `63.4%` on `294-beta` (`create:belt` + `lootr` fallback) | **`99.89%`** on Workers (`168,318,908` worker ticks vs `188,913` fallbacks) | Full sandbox + compat parallelization |
+| **Canonical BE Serial Fences** | `14.63 ms/tick` (`294-beta`) | **`0.021 ms/tick`** (`5,432.8 ms` total over `257,835` ticks) | **-99.86% reduction** |
+| **Sync Slice Barriers (`ENTITY` / `BE` / `SPAWN` / `CHUNK` / `FLUID`)** | `SPAWN 24.3ms max`, `CHUNK 47.9ms max`, `FLUID 17.2ms max` | **`0` sync barrier batches** across all 5 slices (`PROPAGATION` only: `0.036 ms` avg) | **100% zero-barrier async** |
+| **Worker Pool Efficiency (LPT + Affinity + Micro-Packing)** | 1 submission per region tick (`72.6%` OS `parkWakeUps`) | `3,614,596` region ticks in `1,495,671` submissions (**`2.42` ticks/submission**; `42.5%` spin wake-ups) | Process CPU `429%` (~4.3 cores active) |
+
+---
+
+## Earlier C7 Production Modpack Benchmarks (`21.1.250.200-beta` / SkyExplorer 188 Mods)
 
 Validated under **GitHub Issue #5 (C7)** on a live 188-mod production server (Create 6.0.10, Cataclysm, Sable 2.0.5, TacZ, Quark, Lootr, Primal, NetherExp, Spawn; 8 Region Workers, `DYNAMIC_CLUSTER/4ch`, `enableIndependentRegionTickClock = true`, `enableRegionSandboxAllBlockEntities = true`, `simulation-distance = 6`):
 

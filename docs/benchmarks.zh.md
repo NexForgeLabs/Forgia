@@ -1,15 +1,25 @@
 # 性能对比：原版 / 串行 vs. Forgia
 
-<div class="lang-pill-bar">
-  <a href="../benchmarks.en/">English</a>
-  <a class="active" href="../benchmarks.zh/">中文</a>
-</div>
-
-本页将**最新 C7 生产验证**与历史受控测试分开呈现。旧微基准只描述其对应构建、测试夹具和配置，不能作为当前构建的加速结论。特别是 MobSpawnController 有序刷怪实验目前不建议用于生产。所有并行执行开关默认均为 `false`。
+本页将**最新 Phase 3 生产验证（`21.1.250.300-beta`）**与早期 C7 及历史受控测试分开呈现。旧微基准只描述其对应构建、测试夹具和配置，不能作为当前构建的加速结论。
 
 ---
 
-## 最新 C7 真实生产整合包实测（`21.1.250.200-beta` / SkyExplorer 188 Mod）
+## 最新 Phase 3 真实生产整合包实测（`21.1.250.300-beta` / SkyExplorer 线上服）
+
+在重型 NeoForge `1.21.1` 生存整合包（含 Create 6.0.10、Cataclysm、Sable 2.0.5、TacZ、Quark、Lootr、Primal、NetherExp、Spawn、MobSpawnController 等；8 个 Region Worker，`DYNAMIC_CLUSTER/4ch`，开启 `enableIndependentRegionTickClock = true`、`enableRegionSandboxAllBlockEntities = true`，五大核心切片全异步）连续运行 **3.6 小时（`12,961s`）** 下的真实双人跨基地实测：
+
+| 场景 / 指标 | 单线程等效 / Phase 3 前（`294-beta`） | Phase 3 线上实测（`21.1.250.300-beta`，3.6h 长稳） | 变化说明 |
+| :--- | :--- | :--- | :--- |
+| **多基地高负载（82 Regions / 868 区块 / 838 实体）** | 全服总区域工作量 `166.03 ms/tick`（单线程等效仅 ~6.0 TPS）· `294-beta` 约 `44.4 ms` | **`20.01 TPS`** / **主线程 MSPT `20.13 ms`**（`p95 30.97 ms`，10s 最大 `45.2 ms`，15m TPS `19.96`） | **实测 `8.25×` 多核有效加速比** |
+| **Top 5 热点基地（`-38,-54` 等 5 个重区）** | 5 个热点区合计 `76.90 ms/tick` | 每个热点区均独立稳跑 **`19.996 observedTps`**（单区 `12.1~21.3 ms`） | 区域间彻底解耦，互不拖累 |
+| **方块实体 Worker 并行率** | `294-beta` 约 `63.4%`（`create:belt` + `lootr` 回退） | **`99.89%`**（累计 `168,318,908` 次 Worker 执行 vs. 仅 `188,913` 次回退） | 沙箱直发 + 适配器全并行 |
+| **主线程 BE 串行围栏（`Canonical BE Fences`）** | `14.63 ms/tick`（`294-beta`） | **`0.021 ms/tick`**（257,835 tick 累计仅 `5,432.8 ms`） | **下降 99.86%** |
+| **五大核心切片同步栅栏（BE / 实体 / 刷怪 / 随机刻 / 流体）** | `SPAWN 峰值 24.3ms`、`CHUNK 峰值 47.9ms`、`FLUID 峰值 17.2ms` | **全部 `0` 同步栅栏**（仅剩跨区邻居传播 `PROPAGATION` 均值 `0.036 ms`） | **100% 零栅栏全异步** |
+| **Worker 调度利用率（LPT + 亲和性 + 轻区微打包）** | 单区单提交（`72.6%` 触发 OS `parkWakeUps`） | `3,614,596` 次区域 Tick 仅需 `1,495,671` 次提交（**`2.42` 区/提交**，`42.5%` 自旋命中） | 进程 CPU `429%`（~4.3 核稳定并发） |
+
+---
+
+## 早期 C7 真实生产整合包实测（`21.1.250.200-beta` / SkyExplorer 188 Mod）
 
 在 **188 个启用 Mod**（含 Create 6.0.10、Cataclysm、Sable 2.0.5、TacZ、Quark、Lootr、Primal、NetherExp、Spawn 等）的真实线上多玩家整合包（8 个 Region Worker，`DYNAMIC_CLUSTER/4ch`，开启 `enableIndependentRegionTickClock = true`、`enableRegionSandboxAllBlockEntities = true`、`simulation-distance = 6`）下完成 **GitHub Issue #5 (C7)** 验收，实测结果如下：
 

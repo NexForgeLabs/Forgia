@@ -27,14 +27,14 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 <div class="forgia-kpi-grid">
   <div class="forgia-kpi-card">
-    <div class="forgia-kpi-value">6.65×</div>
+    <div class="forgia-kpi-value">8.25×</div>
     <div class="forgia-kpi-label">实测多核有效加速比</div>
-    <div class="forgia-kpi-sub">全服 112.57 ms 区域总负载 → 主线程仅 16.92 ms</div>
+    <div class="forgia-kpi-sub">82 区域总负载 166.03 ms → 主线程仅 20.13 ms</div>
   </div>
   <div class="forgia-kpi-card">
-    <div class="forgia-kpi-value">99.91%</div>
+    <div class="forgia-kpi-value">99.89%</div>
     <div class="forgia-kpi-label">方块实体并行率</div>
-    <div class="forgia-kpi-sub">2,220 万次 Worker 执行 vs. 仅 1.9 万次回退</div>
+    <div class="forgia-kpi-sub">1.68 亿次 Worker 执行 vs. 18.9 万次回退（3.6h 长稳）</div>
   </div>
   <div class="forgia-kpi-card">
     <div class="forgia-kpi-value">5 / 5</div>
@@ -43,34 +43,34 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
   </div>
   <div class="forgia-kpi-card">
     <div class="forgia-kpi-value">20.0 TPS</div>
-    <div class="forgia-kpi-label">300+ 重型模组服实测</div>
-    <div class="forgia-kpi-sub">机械动力 6.0 超大基地稳跑满帧，0 越界告警</div>
+    <div class="forgia-kpi-label">重型模组服多基地实测</div>
+    <div class="forgia-kpi-sub">868 区块 / 838 实体 · 15m TPS 19.96 · 10s 最大 45.2 ms</div>
   </div>
 </div>
 
 ## 真实线上重负载演进对比
 
-实测环境：300+ 模组 NeoForge `1.21.1` 生存服（机械动力大型工厂基地 `@ -38,-54`，`DYNAMIC_CLUSTER/4ch`，8 Worker 线程）：
+实测环境：重型 NeoForge `1.21.1` 生存服（机械动力多大型工厂基地，**82 活跃区域 / 868 区块 / 838 实体**，`DYNAMIC_CLUSTER/4ch`，8 Worker 线程，**3.6 小时连续运行**）：
 
 <div class="forgia-bench-box">
   <div class="forgia-bar-row">
-    <div class="forgia-bar-label">原版单线程等效耗时</div>
+    <div class="forgia-bar-label">原版单线程等效（82 区域）</div>
     <div class="forgia-bar-track"><div class="forgia-bar-fill baseline" style="width: 100%"></div></div>
-    <div class="forgia-bar-num">112.6 ms</div>
+    <div class="forgia-bar-num">166.0 ms</div>
   </div>
   <div class="forgia-bar-row">
     <div class="forgia-bar-label">Forgia 294-beta（解耦前）</div>
-    <div class="forgia-bar-track"><div class="forgia-bar-fill mid" style="width: 39.4%"></div></div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill mid" style="width: 26.7%"></div></div>
     <div class="forgia-bar-num">44.4 ms</div>
   </div>
   <div class="forgia-bar-row">
-    <div class="forgia-bar-label">Forgia 298-beta（异步刷怪+流体）</div>
-    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 16.6%"></div></div>
-    <div class="forgia-bar-num">18.6 ms</div>
+    <div class="forgia-bar-label">Forgia 300-beta（双人 82 区域）</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 12.1%"></div></div>
+    <div class="forgia-bar-num">20.1 ms</div>
   </div>
   <div class="forgia-bar-row" style="margin-bottom: 0">
-    <div class="forgia-bar-label">Forgia 300-beta（LPT+亲和性+打包）</div>
-    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 15.0%"></div></div>
+    <div class="forgia-bar-label">Forgia 300-beta（单人主基地）</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 10.2%"></div></div>
     <div class="forgia-bar-num">16.9 ms</div>
   </div>
 </div>
