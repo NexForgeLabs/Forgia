@@ -6987,6 +6987,19 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.currentRegionTickMutations.set(mutations);
                 try {
                     task.run();
+                } catch (Throwable throwable) {
+                    if (RegionWorkerBoundaryException.findBoundaryViolation(throwable) != null
+                            || RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)) {
+                        // A cross-region capability or storage access inside a queued block task (e.g. a
+                        // border-adjacent energy cable querying neoforge:energy across a region seam) cannot
+                        // complete on a worker; forward cleanly to the server thread instead of spamming errors.
+                        this.boundaryFallbackBlockEntityTicks.incrementAndGet();
+                        if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
+                            net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, task);
+                        }
+                        return;
+                    }
+                    throw throwable;
                 } finally {
                     this.currentRegionTickMutations.remove();
                     if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
