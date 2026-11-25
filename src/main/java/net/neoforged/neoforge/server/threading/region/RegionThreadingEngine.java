@@ -202,6 +202,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final boolean chunkTickWorkerExecutionEnabled;
     private final RegionChunkTickCoordinator chunkTickCoordinator;
     private final RegionSpawnCoordinator spawnCoordinator;
+    private final RegionBorderPropagationCoordinator borderPropagationCoordinator;
     private final RegionDiagnosticsCollector diagnosticsCollector;
     private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
     private final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
@@ -1159,6 +1160,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         });
         this.chunkTickCoordinator = new RegionChunkTickCoordinator(new ChunkTickHost());
         this.spawnCoordinator = new RegionSpawnCoordinator(new SpawnHost());
+        this.borderPropagationCoordinator = new RegionBorderPropagationCoordinator(new BorderPropagationHost());
         this.diagnosticsCollector = new RegionDiagnosticsCollector(
                 new RegionDiagnosticsCollector.BorderSources(
                         this.borderUpdatesRecorded,
@@ -2274,766 +2276,286 @@ public final class RegionThreadingEngine implements RegionThreading {
      * so a region that keeps invalidating converges one tick later instead of spinning.
      */
     private void runBorderUpdateFixpoint(ServerLevel level) {
-        if (!this.borderUpdatesEnabled) {
-            return;
-        }
-        // A quiescent block event phase captures nothing, so it never needs a fixpoint. Counting an entry here
-        // keeps that invariant observable: a phase that reports a fixpoint is a phase that captured something.
-        if (this.blockEntityFallbackPhase.get() != null) {
-            return;
-        }
-        if (this.blockEventPhase.get() != null) {
-            this.blockEventPhaseFixpoints.incrementAndGet();
-        }
-        // The regions whose reads of the worker phase observed a chunk version that changed before the phase
-        // ended. They re-run their propagation in the first pass even when no border update is pending, because
-        // the repair of a stale read is not an update the fixpoint's own queue could carry.
-        final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> invalidated = this.invalidatedForeignReads(level);
-        final RegionBorderUpdates updates = this.borderUpdates.get(level);
-        final List<RegionBorderUpdates.BorderUpdate> pending = updates == null ? List.of() : updates.drain();
-        final List<RegionBorderUpdates.BorderUpdate> overflow = updates == null ? List.of() : updates.drainOverflow();
-        if (pending.isEmpty() && overflow.isEmpty() && invalidated.isEmpty()) {
-            return;
-        }
-        if (this.regionizer.isLevelClosed(level) || this.shutdown) {
-            this.borderUpdatesDropped.addAndGet(pending.size() + overflow.size());
-            if (updates != null) {
-                updates.discard();
-            }
-            return;
-        }
-        this.delayBorderUpdates(level, overflow);
-
-        final int budget = this.chainedUpdateBudget(level);
-        final RegionTickBarrier barrier = borderFixpointBarrier(level);
-        int passes = 0;
-        int applied = 0;
-        List<RegionBorderUpdates.BorderUpdate> deferred = new ArrayList<>();
-        Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> reruns = invalidated;
-        if (!reruns.isEmpty()) {
-            this.foreignReadInvalidatedPasses.incrementAndGet();
-            if (this.activeFusedBatch) {
-                final long gameTime = level.getGameTime();
-                for (final RegionState invalidatedRegion : reruns.keySet()) {
-                    this.fusedSession.recordForeignReadInvalidation(invalidatedRegion.coordinate(), gameTime);
-                }
-            }
-        }
-        List<RegionBorderUpdates.BorderUpdate> nextPending = pending;
-        while ((!nextPending.isEmpty() || !reruns.isEmpty()) && passes < budget && applied < budget) {
-            passes++;
-            final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> byRegion = this.groupBorderUpdatesByRegion(level, nextPending);
-            for (final Map.Entry<RegionState, List<RegionBorderUpdates.BorderUpdate>> rerun : reruns.entrySet()) {
-                final RegionState region = rerun.getKey();
-                if (region.isDead()) {
-                    this.borderUpdatesDropped.addAndGet(rerun.getValue().size());
-                    continue;
-                }
-                byRegion.merge(region, rerun.getValue(), (existing, added) -> {
-                    existing.addAll(added);
-                    return existing;
-                });
-            }
-            reruns = new java.util.LinkedHashMap<>();
-            final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> ranThisPass = new java.util.LinkedHashMap<>();
-            final boolean useParallelFirstPass = passes == 1
-                    && byRegion.size() > 1
-                    && (this.parallelBorderFixpointEnabled || RegionThreadingConfig.parallelBorderFixpointEnabled());
-            if (useParallelFirstPass) {
-                final List<List<RegionState>> colorWaves = RegionAdjacencyColoring.color(byRegion.keySet(), RegionState::coordinate);
-                for (final List<RegionState> wave : colorWaves) {
-                    final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> wavePayloads = new java.util.LinkedHashMap<>();
-                    for (final RegionState region : wave) {
-                        final List<RegionBorderUpdates.BorderUpdate> regionUpdates = byRegion.get(region);
-                        if (applied >= budget) {
-                            deferred.addAll(regionUpdates);
-                            continue;
-                        }
-                        final int allowed = Math.min(regionUpdates.size(), budget - applied);
-                        final List<RegionBorderUpdates.BorderUpdate> apply = regionUpdates.subList(0, allowed);
-                        if (allowed < regionUpdates.size()) {
-                            deferred.addAll(regionUpdates.subList(allowed, regionUpdates.size()));
-                        }
-                        applied += apply.size();
-                        wavePayloads.put(region, apply);
-                    }
-                    if (wavePayloads.isEmpty()) {
-                        continue;
-                    }
-                    if (wavePayloads.size() == 1) {
-                        final var single = wavePayloads.entrySet().iterator().next();
-                        if (this.runBorderPropagationPass(level, single.getKey(), single.getValue(), barrier)) {
-                            this.borderUpdateRegionsRerun.incrementAndGet();
-                            ranThisPass.put(single.getKey(), single.getValue());
-                        } else {
-                            applied -= single.getValue().size();
-                            deferred.addAll(single.getValue());
-                        }
-                    } else {
-                        final Set<RegionState> leased = this.runParallelBorderPropagationWave(level, wavePayloads, barrier);
-                        for (final var entry : wavePayloads.entrySet()) {
-                            if (leased.contains(entry.getKey())) {
-                                this.borderUpdateRegionsRerun.incrementAndGet();
-                                ranThisPass.put(entry.getKey(), entry.getValue());
-                            } else {
-                                applied -= entry.getValue().size();
-                                deferred.addAll(entry.getValue());
-                            }
-                        }
-                    }
-                }
-            } else {
-                for (final Map.Entry<RegionState, List<RegionBorderUpdates.BorderUpdate>> entry : byRegion.entrySet()) {
-                    final List<RegionBorderUpdates.BorderUpdate> regionUpdates = entry.getValue();
-                    if (applied >= budget) {
-                        deferred.addAll(regionUpdates);
-                        continue;
-                    }
-                    final int allowed = Math.min(regionUpdates.size(), budget - applied);
-                    final List<RegionBorderUpdates.BorderUpdate> apply = regionUpdates.subList(0, allowed);
-                    if (allowed < regionUpdates.size()) {
-                        deferred.addAll(regionUpdates.subList(allowed, regionUpdates.size()));
-                    }
-                    if (this.runBorderPropagationPass(level, entry.getKey(), apply, barrier)) {
-                        applied += apply.size();
-                        this.borderUpdateRegionsRerun.incrementAndGet();
-                        ranThisPass.put(entry.getKey(), apply);
-                    } else {
-                        deferred.addAll(apply);
-                    }
-                }
-            }
-            // A region whose propagation read a foreign chunk that changed under the read re-runs in the next
-            // pass, so its cascade sees the state the chunk has now. The check also drains the region's read set
-            // and its written positions, so both are per pass.
-            boolean passInvalidated = false;
-            for (final Map.Entry<RegionState, List<RegionBorderUpdates.BorderUpdate>> entry : ranThisPass.entrySet()) {
-                final List<RegionBorderUpdates.BorderUpdate> payload = this.invalidatedForeignRead(level, entry.getKey(), entry.getValue());
-                if (payload == null) {
-                    continue;
-                }
-                passInvalidated = true;
-                reruns.put(entry.getKey(), payload);
-                this.foreignReadRegionReruns.incrementAndGet();
-                if (this.activeFusedBatch) {
-                    this.fusedSession.recordForeignReadInvalidation(entry.getKey().coordinate(), level.getGameTime());
-                }
-            }
-            if (passInvalidated) {
-                this.foreignReadInvalidatedPasses.incrementAndGet();
-            }
-            // The cascades of this pass recorded new border updates. They run in the next pass, after every
-            // region of this pass saw the writes of the regions before it.
-            nextPending = updates == null ? List.of() : updates.drain();
-        }
-        if (!nextPending.isEmpty()) {
-            deferred.addAll(nextPending);
-        }
-        for (final List<RegionBorderUpdates.BorderUpdate> leftover : reruns.values()) {
-            deferred.addAll(leftover);
-        }
-        this.borderUpdatePasses.addAndGet(passes);
-        this.borderUpdateWorstPasses.accumulateAndGet(passes, Math::max);
-        if (!deferred.isEmpty()) {
-            this.delayBorderUpdates(level, deferred);
-        }
+        this.borderPropagationCoordinator.runBorderUpdateFixpoint(level);
     }
 
-    /**
-     * Checks the foreign chunks every region of {@code level} read during the worker phase that just ended.
-     *
-     * @return the propagation each invalidated region has to re-run, in first-seen order, or an empty map when
-     *         no region read a foreign chunk that changed
-     */
-    private Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> invalidatedForeignReads(ServerLevel level) {
-        final Set<RegionState> regions = this.regionsWithForeignReads.get(level);
-        if (regions == null || regions.isEmpty()) {
-            return Map.of();
-        }
-        Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> invalidated = null;
-        for (final RegionState region : List.copyOf(regions)) {
-            if (region.isRunning() && !region.isDead()) {
-                continue;
-            }
-            regions.remove(region);
-            if (region.isDead()) {
-                this.discardForeignReads(region);
-                continue;
-            }
-            final List<RegionBorderUpdates.BorderUpdate> payload = this.invalidatedForeignRead(level, region, List.of());
-            if (payload != null) {
-                if (invalidated == null) {
-                    invalidated = new java.util.LinkedHashMap<>();
-                }
-                invalidated.put(region, payload);
-                this.foreignReadRegionReruns.incrementAndGet();
-            }
-        }
-        return invalidated == null ? Map.of() : invalidated;
-    }
-
-    /**
-     * Checks the foreign chunks {@code region} read since its last check and builds the propagation it has to
-     * re-run, then forgets both the reads and the reevaluation origins of the region.
-     * <p>
-     * The re-run payload is the propagation the region already ran - the updates it applied in this pass - plus a
-     * re-evaluation of propagation origins and written positions, as self-directed neighbour updates. A block that decided its
-     * state from a foreign read therefore decides it again, against the state the read reports now, without
-     * repeating any entity, block-entity, chunk or spawn work.
-     *
-     * @param applied the border updates the region applied in the checked pass, empty for the worker phase
-     * @return the propagation to re-run, or {@code null} when no observed version changed
-     */
-    @Nullable
-    private List<RegionBorderUpdates.BorderUpdate> invalidatedForeignRead(ServerLevel level, RegionState region,
-            List<RegionBorderUpdates.BorderUpdate> applied) {
-        final RegionState.ForeignReadSnapshot snapshot = region.consumeForeignReadsAndSeeds();
-        final boolean changed = this.foreignReadRerunEnabled && this.foreignReadVersionsChanged(level, snapshot.reads());
-        final List<RegionBorderUpdates.BorderUpdate> payload = changed ? this.rerunPayload(applied, snapshot.seeds()) : null;
-        if (snapshot.droppedSeeds() > 0) {
-            this.foreignReadSeedsDropped.addAndGet(snapshot.droppedSeeds());
-        }
-        return payload == null || payload.isEmpty() ? null : payload;
-    }
-
-    /**
-     * {@return true when the version of any chunk in {@code reads} differs from the version the region observed}
-     * <p>
-     * A chunk that is no longer loaded cannot be shown to be unchanged, so its read counts as changed. A level
-     * without a chunk source - a mechanics test level - verifies nothing and keeps the vanilla behaviour.
-     */
-    private boolean foreignReadVersionsChanged(ServerLevel level, it.unimi.dsi.fastutil.longs.Long2LongMap reads) {
-        if (reads.isEmpty()) {
-            return false;
-        }
-        final ServerChunkCache chunkSource = level.getChunkSource();
-        if (chunkSource == null) {
-            return false;
-        }
-        boolean changed = false;
-        for (final it.unimi.dsi.fastutil.longs.Long2LongMap.Entry read : reads.long2LongEntrySet()) {
-            if (currentChunkVersion(chunkSource, read.getLongKey()) != read.getLongValue()) {
-                changed = true;
-            }
-        }
-        return changed;
-    }
-
-    /**
-     * {@return the version of the chunk with {@code chunkKey}, or {@code -1} when the chunk is not a loaded
-     * {@link LevelChunk}}
-     */
-    private static long currentChunkVersion(@Nullable ServerChunkCache chunkSource, long chunkKey) {
-        if (chunkSource == null) {
-            return -1L;
-        }
-        final LevelChunk chunk = chunkSource.getChunkNow(ChunkPos.getX(chunkKey), ChunkPos.getZ(chunkKey));
-        return chunk == null ? -1L : chunk.chunkVersion();
-    }
-
-    /**
-     * Builds the propagation a re-run of {@code region} repeats: the updates it applied, plus a self-directed
-     * neighbour update for every written position no applied update already targets.
-     */
-    private List<RegionBorderUpdates.BorderUpdate> rerunPayload(List<RegionBorderUpdates.BorderUpdate> applied,
-            it.unimi.dsi.fastutil.longs.LongArrayList seeds) {
-        final List<RegionBorderUpdates.BorderUpdate> payload = new ArrayList<>(applied);
-        if (seeds.isEmpty()) {
-            return payload;
-        }
-        final it.unimi.dsi.fastutil.longs.LongOpenHashSet covered = new it.unimi.dsi.fastutil.longs.LongOpenHashSet(applied.size());
-        for (final RegionBorderUpdates.BorderUpdate update : applied) {
-            covered.add(update.pos().asLong());
-        }
-        for (final long seed : seeds) {
-            if (covered.add(seed)) {
-                payload.add(new RegionBorderUpdates.SelfUpdate(BlockPos.of(seed)));
-            }
-        }
-        return payload;
-    }
-
-    /** Forgets the foreign reads and the written positions of {@code region}, counting the dropped seeds. */
-    private void discardForeignReads(RegionState region) {
-        final int dropped = region.discardForeignReads();
-        if (dropped > 0) {
-            this.foreignReadSeedsDropped.addAndGet(dropped);
-        }
-    }
-
-    /**
-     * Groups the pending border updates by the live region that has to apply them, in first-seen order.
-     * <p>
-     * An update whose target region does not exist or is retired is counted as dropped: no region will ever
-     * run it, and handing it to a different region would apply it to the wrong state. A block write whose
-     * target chunk is no longer loaded is dropped the same way and counted separately: the target region could
-     * only apply it by loading a chunk, which no worker may do while the server thread waits for the barrier.
-     */
-    private Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> groupBorderUpdatesByRegion(ServerLevel level,
-            List<RegionBorderUpdates.BorderUpdate> updates) {
-        final Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> byRegion = new java.util.LinkedHashMap<>();
-        for (final RegionBorderUpdates.BorderUpdate update : updates) {
-            if (update instanceof RegionBorderUpdates.BlockWrite && !level.isLoaded(update.pos())) {
-                this.borderUpdatesDropped.incrementAndGet();
-                this.borderBlockWritesDropped.incrementAndGet();
-                continue;
-            }
-            final RegionState region = this.regionizer.get(this.layout.regionAt(level, update.pos()));
-            if (region == null || region.isDead()) {
-                this.borderUpdatesDropped.incrementAndGet();
-                continue;
-            }
-            byRegion.computeIfAbsent(region, key -> new ArrayList<>()).add(update);
-        }
-        return byRegion;
-    }
-
-    /**
-     * Runs one propagation-only pass of one region for the captured border updates of that region.
-     *
-     * @return {@code true} when the region was leased and the pass ran; {@code false} when the region retired
-     *         or the level closed before the lease, so the caller has to fall back to the next tick
-     */
-    private boolean runBorderPropagationPass(ServerLevel level, RegionState region, List<RegionBorderUpdates.BorderUpdate> updates,
-            RegionTickBarrier barrier) {
-        return this.runPropagationPass(level, region, batch -> this.borderPropagationGroup(batch, region, updates), barrier);
-    }
-
-    /**
-     * Runs one propagation-only pass of one region and waits for it.
-     * <p>
-     * The pass is a batch of exactly one group, published before its lease is acquired, so a concurrent shutdown
-     * or level unload cannot retire the region the pass holds. The batch's completion applies the deferred block
-     * writes and the scheduled ticks its group recorded, exactly like the completion of a tick batch.
-     *
-     * @param body the group body, built once the region is leased so it can bind the batch it runs in
-     * @return {@code true} when the region was leased and the pass ran; {@code false} when the region retired
-     *         or the level closed before the lease, so the caller has to fall back to the next tick
-     */
-    private boolean runPropagationPass(ServerLevel level, RegionState region,
-            java.util.function.Function<RegionBorderPropagationBatch, Runnable> body, RegionTickBarrier barrier) {
-        final RegionBorderPropagationBatch batch = new RegionBorderPropagationBatch(level, this.deferredBlockUpdateBudget);
-        final TickBatchPublication publication = this.publishTickBatch(batch, level);
-        if (publication != TickBatchPublication.PUBLISHED) {
-            return false;
-        }
-        batch.markExecutingOnCurrentThread();
-        Throwable failure = null;
-        boolean ran = false;
-        try {
-            if (this.acquireRegionLease(region, barrier)) {
-                ran = true;
-                this.addLeasedGroup(region, () -> batch.addGroup(region, body.apply(batch)));
-                this.beginRegionPhase(level);
-                try {
-                    batch.submitAndAwait(this.workerPool, barrier);
-                } catch (Throwable throwable) {
-                    failure = throwable;
-                } finally {
-                    this.endRegionPhase(level);
-                }
-            }
-        } catch (Throwable throwable) {
-            failure = accumulateFailure(failure, throwable);
-        } finally {
-            failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-            failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
-            batch.finish();
-            this.activeTickBatches.remove(batch);
-            batch.clearExecutingOnCurrentThread();
-        }
-        if (failure != null) {
-            throwUnchecked(failure);
-        }
-        batch.throwIfFailed();
-        return ran;
-    }
-
-    /**
-     * Runs one graph-colored wave of mutually non-adjacent border-propagation regions in parallel within a single
-     * {@link RegionBorderPropagationBatch} and barrier. Returns the subset of regions that were leased and executed.
-     */
-    private Set<RegionState> runParallelBorderPropagationWave(
-            ServerLevel level,
-            Map<RegionState, List<RegionBorderUpdates.BorderUpdate>> wavePayloads,
-            RegionTickBarrier barrier) {
-        final RegionBorderPropagationBatch batch = new RegionBorderPropagationBatch(level, this.deferredBlockUpdateBudget);
-        final TickBatchPublication publication = this.publishTickBatch(batch, level);
-        if (publication != TickBatchPublication.PUBLISHED) {
-            return Set.of();
-        }
-        batch.markExecutingOnCurrentThread();
-        final Set<RegionState> leased = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        Throwable failure = null;
-        try {
-            for (final RegionState region : RegionLeasePack.canonicalOrder(wavePayloads.keySet())) {
-                if (this.acquireRegionLease(region, barrier)) {
-                    leased.add(region);
-                    final List<RegionBorderUpdates.BorderUpdate> updates = wavePayloads.get(region);
-                    this.addLeasedGroup(region, () -> batch.addGroup(region, this.borderPropagationGroup(batch, region, updates)));
-                }
-            }
-            if (!leased.isEmpty()) {
-                this.beginRegionPhase(level);
-                try {
-                    batch.submitAndAwait(this.workerPool, barrier);
-                } catch (Throwable throwable) {
-                    failure = throwable;
-                } finally {
-                    this.endRegionPhase(level);
-                }
-            }
-        } catch (Throwable throwable) {
-            failure = accumulateFailure(failure, throwable);
-        } finally {
-            failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-            failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
-            batch.finish();
-            this.activeTickBatches.remove(batch);
-            batch.clearExecutingOnCurrentThread();
-        }
-        if (failure != null) {
-            throwUnchecked(failure);
-        }
-        batch.throwIfFailed();
-        return leased;
-    }
-
-    /**
-     * The worker body of one border-propagation group.
-     * <p>
-     * The group holds the lease of the target region, enters the same region execution context and neighbor
-     * update scope as a tick group, and applies the captured vanilla updates in recording order. It installs
-     * the scheduled-tick mutation queue so a cascade that schedules a tick defers it to the server thread, but
-     * it ticks nothing itself.
-     */
-    private Runnable borderPropagationGroup(RegionBorderPropagationBatch batch, RegionState region,
-            List<RegionBorderUpdates.BorderUpdate> updates) {
-        return this.propagationGroup(batch, region, "border propagation", level -> {
-            for (final RegionBorderUpdates.BorderUpdate update : updates) {
-                this.currentPropagationOrigin.set(update.pos());
-                try {
-                    update.apply(level);
-                } catch (Throwable throwable) {
-                    if (!RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)) {
-                        throw throwable;
-                    }
-                } finally {
-                    this.currentPropagationOrigin.remove();
-                }
-                this.borderUpdatesApplied.incrementAndGet();
-                if (update instanceof RegionBorderUpdates.BlockWrite) {
-                    this.borderBlockWritesApplied.incrementAndGet();
-                }
-            }
-        });
-    }
-
-    /**
-     * Wraps one propagation body into the worker body of one region group.
-     * <p>
-     * The group holds the lease of its region, enters the region execution context and the neighbor update scope
-     * of a tick group and installs the scheduled-tick mutation queue, so a body that writes blocks or schedules a
-     * tick behaves exactly like a tick body of that region. It ticks nothing itself: a propagation pass only runs
-     * the work the caller captured.
-     *
-     * @param label the name of the pass in the long-tick warning
-     * @param work  the captured work, run inside the context of the region's lease
-     */
-    private Runnable propagationGroup(RegionBorderPropagationBatch batch, RegionState region, String label,
-            java.util.function.Consumer<ServerLevel> work) {
-        final RegionCoordinate coordinate = region.coordinate();
-        final ServerLevel level = batch.level();
-        return () -> {
-            final long start = System.nanoTime();
-            try {
-                region.beginOwnership();
-                this.currentRegionTickMutations.set(batch.regionTickMutations());
-                try {
-                    final RegionNeighborUpdateScope previousNeighbors = RegionNeighborUpdateScope.enter(new RegionNeighborUpdateScope());
-                    try {
-                        this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null),
-                                () -> work.accept(level));
-                    } finally {
-                        RegionNeighborUpdateScope.exit(previousNeighbors);
-                    }
-                } finally {
-                    this.currentRegionTickMutations.remove();
-                }
-            } finally {
-                region.endOwnership();
-                region.clearRunning();
-                final long duration = System.nanoTime() - start;
-                region.tickMetrics().recordTick(duration);
-                RegionTickWatchdog.warnIfLongTick(label + " " + coordinate, duration);
-                this.regionizer.removeIfEmpty(region);
-            }
-        };
-    }
-
-    /**
-     * {@return the chained-update bound of {@code level}, i.e. vanilla's own limit for one cascade}
-     * <p>
-     * The border fixpoint bounds its passes and its applied updates by it, and the game event delivery bounds
-     * its cascade rounds by it, so neither can spin on a cycle the inline run would have recursed into.
-     */
-    private int chainedUpdateBudget(ServerLevel level) {
-        if (this.borderUpdateBudgetForTesting >= 0) {
-            return this.borderUpdateBudgetForTesting;
-        }
-        final int configured = level.maxChainedNeighborUpdates();
-        return configured >= 0 ? configured : SharedConstants.MAX_CHAINED_NEIGHBOR_UPDATES;
-    }
-
-    /**
-     * {@return the barrier the propagation passes wait on}
-     * <p>
-     * Production uses the level's chunk-source barrier, exactly like a tick batch. A mechanics test whose mock
-     * level has no chunk source parks until the group finishes.
-     */
-    private RegionTickBarrier borderFixpointBarrier(ServerLevel level) {
-        final RegionTickBarrier barrier = this.levelBarrier(level);
-        return barrier != null ? barrier : condition -> {
-            while (!condition.getAsBoolean()) {
-                if (this.independentTickScheduler != null && level != null) {
-                    this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
-                }
-                LockSupport.parkNanos(100_000L);
-            }
-        };
-    }
-
-    /**
-     * Replays the game event columns the workers of the batch that just ended captured for other regions, and
-     * repeats until no captured column and no border update remains or the chained-update bound is reached.
-     * <p>
-     * <strong>Why here.</strong> The replay runs on the server thread after the worker phase returned and before
-     * the next slice of the level tick, so no worker of the batch runs and the target region's worker is the only
-     * thread that touches the target state. That is the same point the border fixpoint runs at, and the game
-     * events follow it, because the deferred block writes of the source are applied before the listener body
-     * reads the world - the order the inline run has, where the write and the dispatch are in one call stack.
-     * <p>
-     * <strong>The ordering requirement.</strong> A vibration listener records a candidate with the level's game
-     * time and {@code VibrationSelector} only compares candidates of the same game time: a candidate of another
-     * tick is refused outright, and {@code chosenCandidate} selects a candidate only in a later game time than
-     * the one it was recorded in. The activation tick of a sculk sensor is therefore fixed by the game time of
-     * the recording and by the distance the candidate carries, and both are decided by the vanilla dispatch - the
-     * source position is captured and the distance is re-measured against the listener's own position on the
-     * target worker. Replaying in the same tick reproduces the recording tick; replaying one tick later would
-     * move every activation by one tick. Within a tick the selector's tie-break (nearest distance, then highest
-     * frequency) is order independent except for the degenerate tie of equal distance and equal frequency, where
-     * the first recorded candidate wins; the delivery keeps the recording order, so the first candidate is the
-     * one the inline dispatch would have recorded first.
-     * <p>
-     * <strong>Order.</strong> A pass groups the pending columns by the region that owns them, in first-seen order,
-     * and replays one region after another, so a listener of the second region sees the state the first region's
-     * listener bodies left. Within one region the columns are replayed in recording order, and the replay of one
-     * column keeps the vanilla iteration order of the column. The listener bodies of a pass can post further game
-     * events for another region and write blocks whose neighbor updates cross a border, so the pass runs the
-     * border fixpoint again and the next pass replays what that produced.
-     * <p>
-     * <strong>Bound.</strong> A pass replays at least one column, so the chained-update bound bounds the rounds
-     * the same way it bounds the border fixpoint's passes. Vanilla has no bound at all here - a chain of listeners
-     * that each post a new event recurses until the stack runs out - so the bound is the engine's safety net
-     * against a cycle, and every column it cuts off is counted as dropped.
-     */
     private void runCrossRegionGameEvents(ServerLevel level) {
-        if (!this.crossRegionGameEventsEnabled) {
-            return;
-        }
-        final RegionBorderGameEvents queue = this.borderGameEvents.get(level);
-        if (queue == null || queue.isEmpty()) {
-            return;
-        }
-        if (this.regionizer.isLevelClosed(level) || this.shutdown) {
-            this.gameEventSectionsDropped.addAndGet(queue.drain().size());
-            queue.discard();
-            return;
-        }
-        final int budget = this.chainedUpdateBudget(level);
-        final RegionTickBarrier barrier = borderFixpointBarrier(level);
-        int passes = 0;
-        while (passes < budget) {
-            final List<RegionBorderGameEvents.SectionColumn> pending = queue.drain();
-            if (pending.isEmpty()) {
-                return;
-            }
-            passes++;
-            this.gameEventDeliveryPasses.incrementAndGet();
-            boolean ranAnyWorkerDelivery = false;
-            for (final Map.Entry<RegionState, List<RegionBorderGameEvents.SectionColumn>> entry : this
-                    .groupGameEventsByRegion(level, pending).entrySet()) {
-                final RegionState region = entry.getKey();
-                final List<RegionBorderGameEvents.SectionColumn> columns = entry.getValue();
-                if (!this.hasActiveGameEventListeners(level, columns)) {
-                    // No worker holds a lease here and none of the target columns have any registered listeners:
-                    // replaying on a worker would visit zero listeners and produce zero mutations.
-                    this.completeEmptyGameEventColumns(level, columns);
-                    continue;
-                }
-                ranAnyWorkerDelivery = true;
-                if (!this.runGameEventDeliveryPass(level, region, columns, barrier)) {
-                    // The region retired or the level closed before its lease: the columns have no owner to
-                    // replay them, and replaying them anywhere else would write another region's state.
-                    this.gameEventSectionsDropped.addAndGet(columns.size());
-                }
-            }
-            // The listener bodies of the pass wrote blocks and posted further events: their cross-region
-            // neighbor updates are the next thing the inline run would have applied.
-            if (ranAnyWorkerDelivery) {
-                this.runBorderUpdateFixpoint(level);
-            }
-        }
-        final int leftover = queue.drain().size();
-        if (leftover > 0) {
-            this.gameEventSectionsDropped.addAndGet(leftover);
-        }
+        this.borderPropagationCoordinator.runCrossRegionGameEvents(level);
     }
 
-    /**
-     * Checks whether any captured cross-region column in {@code columns} targets a loaded chunk with at least
-     * one registered game event listener in its section range. Runs on the server thread outside the worker phase.
-     */
-    private boolean hasActiveGameEventListeners(ServerLevel level, List<RegionBorderGameEvents.SectionColumn> columns) {
-        final ServerChunkCache chunkSource = level.getChunkSource();
-        if (chunkSource == null) {
-            return true;
-        }
-        for (final RegionBorderGameEvents.SectionColumn column : columns) {
-            final net.minecraft.world.level.chunk.ChunkAccess chunk = chunkSource.getChunkNow(column.chunkX(), column.chunkZ());
-            if (chunk == null) {
-                continue;
-            }
-            for (int sectionY = column.minSectionY(); sectionY <= column.maxSectionY(); sectionY++) {
-                if (!chunk.getListenerRegistry(sectionY).isEmpty()) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    private void discardForeignReads(RegionState region) {
+        this.borderPropagationCoordinator.discardForeignReads(region);
     }
 
-    /**
-     * Accounts for cross-region game event columns known to have no active listeners (or whose chunk unloaded),
-     * preserving the exact delivered/dropped diagnostics of {@link #gameEventDeliveryGroup}.
-     */
-    private void completeEmptyGameEventColumns(ServerLevel level, List<RegionBorderGameEvents.SectionColumn> columns) {
-        final ServerChunkCache chunkSource = level.getChunkSource();
-        for (final RegionBorderGameEvents.SectionColumn column : columns) {
-            if (chunkSource != null && chunkSource.getChunkNow(column.chunkX(), column.chunkZ()) != null) {
-                this.gameEventSectionsDelivered.incrementAndGet();
+    /** Narrow bridge for {@link RegionBorderPropagationCoordinator}. */
+    private final class BorderPropagationHost implements RegionBorderPropagationCoordinator.Host {
+        @Override
+        public boolean isShutdown() {
+            return RegionThreadingEngine.this.shutdown;
+        }
+
+        @Override
+        public boolean isLevelClosed(ServerLevel level) {
+            return RegionThreadingEngine.this.regionizer.isLevelClosed(level);
+        }
+
+        @Override
+        public boolean borderUpdatesEnabled() {
+            return RegionThreadingEngine.this.borderUpdatesEnabled;
+        }
+
+        @Override
+        public boolean crossRegionGameEventsEnabled() {
+            return RegionThreadingEngine.this.crossRegionGameEventsEnabled;
+        }
+
+        @Override
+        public boolean foreignReadRerunEnabled() {
+            return RegionThreadingEngine.this.foreignReadRerunEnabled;
+        }
+
+        @Override
+        public boolean parallelBorderFixpointEnabled() {
+            return RegionThreadingEngine.this.parallelBorderFixpointEnabled;
+        }
+
+        @Override
+        public boolean activeFusedBatch() {
+            return RegionThreadingEngine.this.activeFusedBatch;
+        }
+
+        @Override
+        public boolean hasBlockEntityFallbackPhase() {
+            return RegionThreadingEngine.this.blockEntityFallbackPhase.get() != null;
+        }
+
+        @Override
+        public boolean hasBlockEventPhase() {
+            return RegionThreadingEngine.this.blockEventPhase.get() != null;
+        }
+
+        @Override
+        public void countBlockEventPhaseFixpoint() {
+            RegionThreadingEngine.this.blockEventPhaseFixpoints.incrementAndGet();
+        }
+
+        @Override
+        public int borderUpdateBudgetForTesting() {
+            return RegionThreadingEngine.this.borderUpdateBudgetForTesting;
+        }
+
+        @Override
+        public int deferredBlockUpdateBudget() {
+            return RegionThreadingEngine.this.deferredBlockUpdateBudget;
+        }
+
+        @Override
+        public RegionLayout layout() {
+            return RegionThreadingEngine.this.layout;
+        }
+
+        @Override
+        public RegionWorkerPool workerPool() {
+            return RegionThreadingEngine.this.workerPool;
+        }
+
+        @Override
+        @Nullable
+        public RegionIndependentTickScheduler independentTickScheduler() {
+            return RegionThreadingEngine.this.independentTickScheduler;
+        }
+
+        @Override
+        public FusedRegionTickSession fusedSession() {
+            return RegionThreadingEngine.this.fusedSession;
+        }
+
+        @Override
+        @Nullable
+        public RegionBorderUpdates borderUpdates(ServerLevel level) {
+            return RegionThreadingEngine.this.borderUpdates.get(level);
+        }
+
+        @Override
+        public RegionBorderUpdates borderQueue(ServerLevel level) {
+            return RegionThreadingEngine.this.borderQueue(level);
+        }
+
+        @Override
+        @Nullable
+        public RegionBorderGameEvents borderGameEvents(ServerLevel level) {
+            return RegionThreadingEngine.this.borderGameEvents.get(level);
+        }
+
+        @Override
+        @Nullable
+        public Set<RegionState> regionsWithForeignReads(ServerLevel level) {
+            return RegionThreadingEngine.this.regionsWithForeignReads.get(level);
+        }
+
+        @Override
+        @Nullable
+        public RegionState getRegion(RegionCoordinate coordinate) {
+            return RegionThreadingEngine.this.regionizer.get(coordinate);
+        }
+
+        @Override
+        public RegionMailbox mailbox(ServerLevel level) {
+            return RegionThreadingEngine.this.mailbox(level);
+        }
+
+        @Override
+        @Nullable
+        public RegionTickBarrier levelBarrier(ServerLevel level) {
+            return RegionThreadingEngine.this.levelBarrier(level);
+        }
+
+        @Override
+        public TickBatchPublication publishTickBatch(RegionTickBatch batch, ServerLevel level) {
+            return RegionThreadingEngine.this.publishTickBatch(batch, level);
+        }
+
+        @Override
+        public void retireTickBatch(RegionTickBatch batch) {
+            RegionThreadingEngine.this.activeTickBatches.remove(batch);
+        }
+
+        @Override
+        public boolean acquireRegionLease(RegionState region, RegionTickBarrier barrier) {
+            return RegionThreadingEngine.this.acquireRegionLease(region, barrier);
+        }
+
+        @Override
+        public void addLeasedGroup(RegionState region, Runnable registration) {
+            RegionThreadingEngine.this.addLeasedGroup(region, registration);
+        }
+
+        @Override
+        public void beginRegionPhase(ServerLevel level) {
+            RegionThreadingEngine.this.beginRegionPhase(level);
+        }
+
+        @Override
+        public void endRegionPhase(ServerLevel level) {
+            RegionThreadingEngine.this.endRegionPhase(level);
+        }
+
+        @Override
+        public void runInRegionContext(ServerLevel level, RegionCoordinate coordinate, RegionState region, Runnable action) {
+            RegionThreadingEngine.this.runWithContext(
+                    new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), action);
+        }
+
+        @Override
+        public void setCurrentRegionTickMutations(@Nullable Queue<Runnable> mutations) {
+            if (mutations == null) {
+                RegionThreadingEngine.this.currentRegionTickMutations.remove();
             } else {
-                this.gameEventSectionsDropped.incrementAndGet();
-                this.gameEventSectionsDroppedNoChunk.incrementAndGet();
+                RegionThreadingEngine.this.currentRegionTickMutations.set(mutations);
             }
         }
-    }
 
-    /**
-     * Groups the pending columns by the live region that owns them, in first-seen order.
-     * <p>
-     * A column whose target region does not exist or is retired is counted as dropped: no region will ever
-     * replay it, and handing it to a different region would write a listener of the wrong region.
-     */
-    private Map<RegionState, List<RegionBorderGameEvents.SectionColumn>> groupGameEventsByRegion(ServerLevel level,
-            List<RegionBorderGameEvents.SectionColumn> columns) {
-        final Map<RegionState, List<RegionBorderGameEvents.SectionColumn>> byRegion = new LinkedHashMap<>();
-        for (final RegionBorderGameEvents.SectionColumn column : columns) {
-            final RegionState region = this.regionizer.get(this.layout.regionAt(level, column.chunkX(), column.chunkZ()));
-            if (region == null || region.isDead()) {
-                this.gameEventSectionsDropped.incrementAndGet();
-                this.gameEventSectionsDroppedNoRegion.incrementAndGet();
-                continue;
-            }
-            byRegion.computeIfAbsent(region, key -> new ArrayList<>()).add(column);
-        }
-        return byRegion;
-    }
-
-    /**
-     * Replays one region's captured columns on that region's own worker and waits for it.
-     *
-     * @return {@code true} when the region was leased and the pass ran; {@code false} when the region retired
-     *         or the level closed before the lease, so the caller counts the columns as dropped
-     */
-    private boolean runGameEventDeliveryPass(ServerLevel level, RegionState region, List<RegionBorderGameEvents.SectionColumn> columns,
-            RegionTickBarrier barrier) {
-        return this.runPropagationPass(level, region, batch -> this.gameEventDeliveryGroup(batch, region, columns), barrier);
-    }
-
-    /**
-     * The worker body of one game event delivery group.
-     * <p>
-     * The group holds the lease of the target region and replays the captured columns in recording order with the
-     * vanilla dispatcher of the level, so the listener registries, the distance filter, the delivery mode and the
-     * {@code handleGameEvent} body are the vanilla ones. It ticks nothing else.
-     */
-    private Runnable gameEventDeliveryGroup(RegionBorderPropagationBatch batch, RegionState region,
-            List<RegionBorderGameEvents.SectionColumn> columns) {
-        return this.propagationGroup(batch, region, "game event delivery", level -> {
-            final net.minecraft.world.level.gameevent.GameEventDispatcher dispatcher = new net.minecraft.world.level.gameevent.GameEventDispatcher(
-                    level);
-            for (final RegionBorderGameEvents.SectionColumn column : columns) {
-                if (dispatcher.postCaptured(column.event(), column.source(), column.context(), column.chunkX(), column.chunkZ(),
-                        column.minSectionY(), column.maxSectionY())) {
-                    this.gameEventSectionsDelivered.incrementAndGet();
-                } else {
-                    // The target chunk unloaded between the capture and the replay. Vanilla would have delivered
-                    // to the listeners of that chunk; there are none left to deliver to, so the column is
-                    // counted as dropped instead of being replayed into another chunk.
-                    this.gameEventSectionsDropped.incrementAndGet();
-                    this.gameEventSectionsDroppedNoChunk.incrementAndGet();
-                }
-            }
-        });
-    }
-
-    /**
-     * Hands the border updates the fixpoint could not apply this tick to the target regions' mailboxes.
-     * <p>
-     * A message is delivered at the start of the target region's next group, on the worker that holds the
-     * lease, and only records the updates again; the fixpoint of that batch then applies them. The message is
-     * therefore one tick later, never lost. A target region that retired, or a mailbox that is full or closed,
-     * drops the updates and counts them.
-     */
-    private void delayBorderUpdates(ServerLevel level, List<RegionBorderUpdates.BorderUpdate> updates) {
-        if (updates.isEmpty()) {
-            return;
-        }
-        final Map<RegionCoordinate, List<RegionBorderUpdates.BorderUpdate>> byTarget = new java.util.LinkedHashMap<>();
-        for (final RegionBorderUpdates.BorderUpdate update : updates) {
-            final RegionState region = this.regionizer.get(this.layout.regionAt(level, update.pos()));
-            if (region == null || region.isDead()) {
-                this.borderUpdatesDropped.incrementAndGet();
-                continue;
-            }
-            byTarget.computeIfAbsent(region.coordinate(), key -> new ArrayList<>()).add(update);
-        }
-        if (byTarget.isEmpty()) {
-            return;
-        }
-        final RegionMailbox mailbox = this.mailbox(level);
-        for (final Map.Entry<RegionCoordinate, List<RegionBorderUpdates.BorderUpdate>> entry : byTarget.entrySet()) {
-            final List<RegionBorderUpdates.BorderUpdate> message = List.copyOf(entry.getValue());
-            final RegionMailbox.PostResult result = mailbox.post(entry.getKey(), () -> this.recordDelayedBorderUpdates(level, message));
-            if (result == RegionMailbox.PostResult.ACCEPTED) {
-                this.borderUpdatesDelayed.addAndGet(message.size());
+        @Override
+        public void setCurrentPropagationOrigin(@Nullable BlockPos pos) {
+            if (pos == null) {
+                RegionThreadingEngine.this.currentPropagationOrigin.remove();
             } else {
-                this.borderUpdatesDropped.addAndGet(message.size());
+                RegionThreadingEngine.this.currentPropagationOrigin.set(pos);
             }
         }
-    }
 
-    /**
-     * Re-queues the updates a mailbox delivered at the start of the target region's next group, so the fixpoint
-     * of that batch applies them on the target region's worker.
-     */
-    private void recordDelayedBorderUpdates(ServerLevel level, List<RegionBorderUpdates.BorderUpdate> updates) {
-        final RegionBorderUpdates queue = this.borderQueue(level);
-        for (final RegionBorderUpdates.BorderUpdate update : updates) {
-            if (queue.record(update) == RegionBorderUpdates.RecordResult.OVERFLOW) {
-                this.borderUpdatesOverflowed.incrementAndGet();
+        @Override
+        public void applyDeferredBlockUpdates(RegionTickBatch batch) {
+            RegionThreadingEngine.this.applyDeferredBlockUpdates(batch);
+        }
+
+        @Override
+        public void applyRegionTickMutations(Queue<Runnable> mutations) {
+            RegionThreadingEngine.this.applyRegionTickMutations(mutations);
+        }
+
+        @Override
+        public void removeIfEmpty(RegionState region) {
+            RegionThreadingEngine.this.regionizer.removeIfEmpty(region);
+        }
+
+        @Override
+        public void countBorderUpdatesDropped(int count) {
+            RegionThreadingEngine.this.borderUpdatesDropped.addAndGet(count);
+        }
+
+        @Override
+        public void countBorderBlockWriteDropped() {
+            RegionThreadingEngine.this.borderBlockWritesDropped.incrementAndGet();
+        }
+
+        @Override
+        public void countBorderUpdateApplied(boolean isBlockWrite) {
+            RegionThreadingEngine.this.borderUpdatesApplied.incrementAndGet();
+            if (isBlockWrite) {
+                RegionThreadingEngine.this.borderBlockWritesApplied.incrementAndGet();
             }
+        }
+
+        @Override
+        public void countBorderUpdateRegionRerun() {
+            RegionThreadingEngine.this.borderUpdateRegionsRerun.incrementAndGet();
+        }
+
+        @Override
+        public void countBorderUpdatePasses(int passes) {
+            RegionThreadingEngine.this.borderUpdatePasses.addAndGet(passes);
+            RegionThreadingEngine.this.borderUpdateWorstPasses.accumulateAndGet(passes, Math::max);
+        }
+
+        @Override
+        public void countBorderUpdatesDelayed(int count) {
+            RegionThreadingEngine.this.borderUpdatesDelayed.addAndGet(count);
+        }
+
+        @Override
+        public void countBorderUpdatesOverflowed() {
+            RegionThreadingEngine.this.borderUpdatesOverflowed.incrementAndGet();
+        }
+
+        @Override
+        public void countForeignReadInvalidatedPass() {
+            RegionThreadingEngine.this.foreignReadInvalidatedPasses.incrementAndGet();
+        }
+
+        @Override
+        public void countForeignReadRegionRerun() {
+            RegionThreadingEngine.this.foreignReadRegionReruns.incrementAndGet();
+        }
+
+        @Override
+        public void countForeignReadSeedsDropped(int count) {
+            RegionThreadingEngine.this.foreignReadSeedsDropped.addAndGet(count);
+        }
+
+        @Override
+        public void countGameEventDeliveryPass() {
+            RegionThreadingEngine.this.gameEventDeliveryPasses.incrementAndGet();
+        }
+
+        @Override
+        public void countGameEventSectionDelivered() {
+            RegionThreadingEngine.this.gameEventSectionsDelivered.incrementAndGet();
+        }
+
+        @Override
+        public void countGameEventSectionsDropped(int count) {
+            RegionThreadingEngine.this.gameEventSectionsDropped.addAndGet(count);
+        }
+
+        @Override
+        public void countGameEventSectionDroppedNoChunk() {
+            RegionThreadingEngine.this.gameEventSectionsDroppedNoChunk.incrementAndGet();
+        }
+
+        @Override
+        public void countGameEventSectionDroppedNoRegion() {
+            RegionThreadingEngine.this.gameEventSectionsDroppedNoRegion.incrementAndGet();
         }
     }
 
