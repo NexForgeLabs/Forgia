@@ -17,6 +17,26 @@
 | **五大核心切片同步栅栏（BE / 实体 / 刷怪 / 随机刻 / 流体）** | `SPAWN 峰值 24.3ms`、`CHUNK 峰值 47.9ms`、`FLUID 峰值 17.2ms` | **全部 `0` 同步栅栏**（仅剩跨区邻居传播 `PROPAGATION` 均值 `0.036 ms`） | **100% 零栅栏全异步** |
 | **Worker 调度利用率（LPT + 亲和性 + 轻区微打包）** | 单区单提交（`72.6%` 触发 OS `parkWakeUps`） | `3,614,596` 次区域 Tick 仅需 `1,495,671` 次提交（**`2.42` 区/提交**，`42.5%` 自旋命中） | 进程 CPU `429%`（~4.3 核稳定并发） |
 
+### 3 人跨基地重负载实时快照（`21.1.250.314-beta` / SkyExplorer 线上服）
+
+在 `21.1.250.314-beta`（新增异步 `sendBlockUpdated` / `LightEngine` 沙盒防护与边界异常优雅转发）下，**3 名玩家在线**（86 活跃区域 / 852 区块 / 780 实体）的实时负载快照：
+
+- **全服总区域工作量**：`176.98 ms/tick`（`avgMspt = 2.058 ms`）→ **主线程稳跑 `20.00 TPS`**（300s 均值 `24.88 ms`，`p50 = 22.09 ms`，`p95 = 46.01 ms`；`/neoforge tps` 总览 `28.58 ms/tick`，**实测 `7.11×` 300s 有效加速比 / `6.19×` 总览加速比**）。
+  - **原版 / 单线程等效对比**：相同 86 区域负载若跑在原版或单线程 NeoForge 上，仅区域工作量就需 `176.98 ms/tick`，等效帧率仅 **`~5.65 TPS`**（计入 ~15 ms 主线程全局开销后约 **`~5.2 TPS`**），已处于严重卡死状态；Forgia 在同一台 `2.00 GHz` 处理器上将其稳在 **`20.00 TPS`**。
+- **Top 5 热点区域**：`-38,-54`（`21.92 ms`）、`-41,106`（`16.86 ms`）、`-37,-54`（`15.23 ms`）、`-37,-53`（`13.05 ms`）、`-39,-54`（`11.61 ms`），合计 `78.66 ms/tick`，所有热点区独立 `observedTps = 24.812`（`capTps = 20.000`）。
+- **并行度与资源**：方块实体 Worker 并行率 **`99.85%`**（`26,184,715` vs `40,295` 回退），随机刻 Worker 并行率 **`99.31%`**（`2,102,054` vs `14,619` 回退），8 个 Worker 零失败（`failed = 0`、`rejected = 0`），自旋唤醒命中率 `47.9%`，进程 CPU **`488.5%`**（~4.9 核并发）。
+
+#### 生产服务器参考配置（Spark + `forgia.toml` + `server.properties`）
+
+| 参数类别 | 线上实测配置 / 数值 |
+| :--- | :--- |
+| **处理器与系统（Spark 采集）** | `Intel(R) Xeon(R) Gold 6138 CPU @ 2.00GHz`（10 vCPU / Skylake-SP，Ubuntu 22.04.5 LTS，[Spark 报告](https://spark.lucko.me/HgD2z4RTlH)） |
+| **JVM 与 GC** | Java 25 (Zulu `25.0.3`)，`-Xms4G -Xmx16G -XX:+UseZGC -XX:+DisableExplicitGC -XX:ActiveProcessorCount=10`，`-Dforgia.dynamicPlayerSoak=true -Dforgia.mscOrderedSpawning=true` |
+| **Spark 实测（10s / 1m / 15m）** | TPS `20.0 / 20.0 / 19.77`；10s Tick `15.0 / 24.4 / 41.6 / 52.9 ms`（min/med/p95/max）；进程 CPU `44% / 46% / 30%`（10 vCPU）；堆内存 `11.8 / 16.0 GB (73%)`（ZGC Old `2.4 GB` / Young `9.4 GB`） |
+| **原版视距与模拟距离** | `view-distance = 6`、`simulation-distance = 8`、`sync-chunk-writes = false` |
+| **Forgia 区域调度** | `regionThreadingMode = "DYNAMIC_CLUSTER"`、`regionThreadingDynamicSectionShift = 2`（4×4 区块）、`regionThreadingWorkerThreads = 8`、`enableIndependentRegionTickClock = true`、`enableRegionSandboxAllBlockEntities = true` |
+| **防爆箱掉落物保护** | `enableItemCleanup = true`、`itemCleanupIntervalSeconds = 120`、`itemCleanupMaxPerRegion = 128`（软上限）、`itemCleanupEmergencyHardCap = 512`（应急硬上限，忽略 `minAge` 立即清理）、`itemCleanupIgnoreNamedItems = true` |
+
 ---
 
 ## 早期 C7 真实生产整合包实测（`21.1.250.200-beta` / SkyExplorer 188 Mod）

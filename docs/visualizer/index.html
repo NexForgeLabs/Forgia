@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Forgia · 3D Full-Pipeline Architecture Visualizer</title>
+<title>Forgia · 3D Phase 4 Unified Region Architecture Visualizer</title>
 <style>
   :root{
     --paper:#f3f2ed;
-    --panel:rgba(243,242,237,.86);
+    --panel:rgba(243,242,237,.88);
     --panel-solid:#e9e8e1;
     --ink:#202628;
     --mid:#495356;
@@ -65,7 +65,7 @@
   }
 
   /* 左侧步骤列表 */
-  #steps{left:20px;top:64px;width:252px;max-height:calc(100vh - 210px);overflow-y:auto}
+  #steps{left:20px;top:64px;width:256px;max-height:calc(100vh - 210px);overflow-y:auto}
   .step{
     display:flex;align-items:flex-start;gap:9px;padding:6px 7px;cursor:pointer;
     border-left:2px solid transparent;transition:all .16s ease;
@@ -82,7 +82,7 @@
 
   /* 右侧状态 + 全功能面板 */
   #right-col{
-    position:fixed;right:20px;top:64px;width:262px;z-index:10;
+    position:fixed;right:20px;top:64px;width:268px;z-index:10;
     display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 150px);overflow-y:auto;
   }
   #right-col .panel{position:static;width:100%}
@@ -128,7 +128,7 @@
   /* 底部解说字幕 */
   #caption{
     position:fixed;left:20px;bottom:18px;z-index:10;
-    width:min(620px,calc(100vw - 360px));
+    width:min(640px,calc(100vw - 360px));
     background:var(--panel);backdrop-filter:blur(10px);
     border:1px solid var(--line);padding:14px 18px 13px;
   }
@@ -211,7 +211,7 @@
 </script>
 </head>
 <body>
-<div id="boot"><span class="mark"></span><span id="boot-text">Loading Forgia 3D Pipeline</span></div>
+<div id="boot"><span class="mark"></span><span id="boot-text">Loading Forgia Phase 4 Unified 3D Pipeline</span></div>
 <script>
   setTimeout(function () {
     if (document.body.classList.contains('ready')) return;
@@ -226,60 +226,60 @@
 <div id="labels"></div>
 
 <header class="topbar">
-  <div class="brand"><span class="mark"></span><b>FORGIA</b><span class="sep">/</span><span id="brand-sub">3D PARALLEL PIPELINE</span></div>
+  <div class="brand"><span class="mark"></span><b>FORGIA</b><span class="sep">/</span><span id="brand-sub">PHASE 4 UNIFIED REGION ENGINE</span></div>
   <div class="chips">
     <span class="chip">NEOFORGE 1.21.1</span>
-    <button class="chip-btn active" id="btn-mode-dyn" title="Switch to DYNAMIC_CLUSTER loaded-island layout">DYNAMIC_CLUSTER (8×8)</button>
-    <button class="chip-btn" id="btn-mode-fix" title="Switch to legacy FIXED_3X3 layout for conceptual comparison">FIXED_3X3 (3×3)</button>
+    <button class="chip-btn active" id="btn-mode-p4" title="Phase 4 Unified Per-Region Tick Loop (Chunks → Entities → BlockEntities)">PHASE 4 UNIFIED LOOP</button>
+    <button class="chip-btn" id="btn-mode-p3" title="Phase 3 Slice-Dispatched Async Mode for comparison">PHASE 3 SLICE ASYNC</button>
     <button class="chip-btn" id="btn-lang">EN / 中</button>
-    <span class="chip chip--phase" id="phase-chip">GLOBAL</span>
+    <span class="chip chip--phase" id="phase-chip">UNIFIED</span>
   </div>
 </header>
 
 <aside class="panel" id="steps">
-  <div class="panel-title"><span id="lbl-steps">并行流水线</span><span>01—10</span></div>
+  <div class="panel-title"><span id="lbl-steps">Phase 4 架构流水线</span><span>01—10</span></div>
   <div id="step-list"></div>
 </aside>
 
 <div id="right-col">
   <aside class="panel" id="telemetry">
-    <div class="panel-title"><span id="lbl-tel">运行时状态</span><span>LIVE</span></div>
+    <div class="panel-title"><span id="lbl-tel">运行时遥测</span><span>LIVE</span></div>
     <div class="trow"><span>Tick</span><span id="t-tick">000000</span></div>
-    <div class="trow"><span>Layout</span><span id="t-layout">DYNAMIC_CLUSTER</span></div>
-    <div class="trow"><span>Phase</span><span id="t-phase" class="pos">GLOBAL</span></div>
-    <div class="trow"><span>Leases</span><span id="t-lease">0 / 4</span></div>
-    <div class="trow"><span>Workers</span><span id="t-workers">0 / 4</span></div>
-    <div class="trow"><span>Barrier</span><span id="t-barrier">—</span></div>
-    <div class="trow"><span>Fallback / Guard</span><span id="t-guard">0</span></div>
+    <div class="trow"><span>Engine Mode</span><span id="t-layout">PHASE 4 UNIFIED</span></div>
+    <div class="trow"><span>Active Stage</span><span id="t-phase" class="pos">UNIFIED</span></div>
+    <div class="trow"><span>Region Clocks</span><span id="t-lease">4 ASYNC</span></div>
+    <div class="trow"><span>Workers</span><span id="t-workers">4 / 4</span></div>
+    <div class="trow"><span>Isolation</span><span id="t-barrier">NON-BLOCKING</span></div>
+    <div class="trow"><span>Lockstep / Sandbox</span><span id="t-guard">0 DEMOTIONS</span></div>
     <div class="bar"><i id="t-lease-bar"></i></div>
   </aside>
 
   <aside class="panel" id="features">
-    <div class="panel-title"><span id="lbl-feat">架构模块（点击查看）</span><span>12</span></div>
+    <div class="panel-title"><span id="lbl-feat">核心子系统（点击跳转）</span><span>12</span></div>
     <div class="feat-list" id="feat-list"></div>
     <div class="legend">
-      <span><i style="background:var(--orange)"></i><em id="lg-lease" style="font-style:normal">租约/REGION</em></span>
-      <span><i style="background:var(--ink)"></i><em id="lg-global" style="font-style:normal">GLOBAL/串行</em></span>
-      <span><i style="background:var(--teal)"></i><em id="lg-dyn" style="font-style:normal">动态岛/玩家</em></span>
-      <span><i style="background:var(--green)"></i><em id="lg-proven" style="font-style:normal">已证明并行</em></span>
-      <span><i style="background:var(--gold)"></i><em id="lg-poi" style="font-style:normal">刷怪/POI</em></span>
-      <span><i style="background:var(--violet)"></i><em id="lg-evt" style="font-style:normal">事件/计划刻</em></span>
+      <span><i style="background:var(--orange)"></i><em id="lg-lease" style="font-style:normal">统一循环/时钟</em></span>
+      <span><i style="background:var(--ink)"></i><em id="lg-global" style="font-style:normal">主线程/玩家</em></span>
+      <span><i style="background:var(--teal)"></i><em id="lg-dyn" style="font-style:normal">单区结构/4B</em></span>
+      <span><i style="background:var(--green)"></i><em id="lg-proven" style="font-style:normal">全量BE沙盒</em></span>
+      <span><i style="background:var(--gold)"></i><em id="lg-poi" style="font-style:normal">异步刷怪/节流</em></span>
+      <span><i style="background:var(--violet)"></i><em id="lg-evt" style="font-style:normal">适配器/红石</em></span>
     </div>
     <div class="tel-links">
-      <a class="tel-link" href="../configuration.zh/" id="lnk-cfg">配置指南 →</a>
-      <a class="tel-link" href="../architecture.zh/" id="lnk-arch">架构文档 →</a>
+      <a class="tel-link" href="../zh/configuration/" id="lnk-cfg">配置指南 →</a>
+      <a class="tel-link" href="../zh/architecture/" id="lnk-arch">架构文档 →</a>
     </div>
   </aside>
 </div>
 
 <footer id="caption">
-  <div class="cap-index"><span id="cap-index">STEP 01 / 10 · OVERVIEW</span><span id="cap-cfg-key">forgia.toml</span></div>
-  <h1 id="cap-title">全景架构：双布局与交替阶段流水线</h1>
+  <div class="cap-index"><span id="cap-index">STEP 01 / 10 · DYNAMIC TOPOLOGY</span><span id="cap-cfg-key">forgia.toml</span></div>
+  <h1 id="cap-title">动态聚类拓扑与无主结构内核</h1>
   <ul id="cap-list"></ul>
   <div class="cap-progress"><i id="cap-bar"></i></div>
 </footer>
 
-<div class="hint" id="hint-text">拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停 · M 切换布局</div>
+<div class="hint" id="hint-text">拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停 · M 切换 Phase 4 / Phase 3</div>
 <div id="controls">
   <button class="btn" id="btn-prev">‹ PREV</button>
   <button class="btn primary" id="btn-play">❚❚ PAUSE</button>
@@ -305,11 +305,10 @@ const C = {
 };
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
-const easeOut = t => 1 - Math.pow(1 - t, 3);
 const easeInOut = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const pulse = t => Math.sin(t * Math.PI * 2) * 0.5 + 0.5;
 
-let layoutMode = 'DYNAMIC_CLUSTER'; // 'DYNAMIC_CLUSTER' | 'FIXED_3X3'
+let engineMode = 'PHASE4_UNIFIED'; // 'PHASE4_UNIFIED' | 'PHASE3_SLICE'
 let lang = 'zh'; // 'zh' | 'en'
 
 /* =====================================================================
@@ -340,7 +339,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 6, 4);
 controls.enableDamping = true;
 controls.dampingFactor = 0.07;
-controls.minDistance = 28;
+controls.minDistance = 26;
 controls.maxDistance = 260;
 controls.minPolarAngle = 0.12;
 controls.maxPolarAngle = Math.PI * 0.475;
@@ -348,7 +347,7 @@ controls.rotateSpeed = 0.65;
 controls.zoomSpeed = 0.85;
 controls.panSpeed = 0.6;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d8cf, 0.62));
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d8cf, 0.64));
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.7);
 keyLight.position.set(55, 95, 50);
 keyLight.castShadow = true;
@@ -361,7 +360,7 @@ keyLight.shadow.camera.near = 1;
 keyLight.shadow.camera.far = 290;
 keyLight.shadow.bias = -0.0006;
 scene.add(keyLight);
-const fillLight = new THREE.DirectionalLight(0xffffff, 0.28);
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
 fillLight.position.set(-75, 48, -55);
 scene.add(fillLight);
 
@@ -369,7 +368,7 @@ scene.add(fillLight);
    2. 材质与辅助构造
    ===================================================================== */
 const mat = (color, extra = {}) =>
-  new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.03, ...extra });
+  new THREE.MeshStandardMaterial({ color, roughness: 0.88, metalness: 0.04, ...extra });
 
 function makeTag(text, cls = '') {
   const el = document.createElement('div');
@@ -381,7 +380,7 @@ function makeTag(text, cls = '') {
 function makeToken(color, r = 0.42) {
   const m = new THREE.Mesh(
     new THREE.SphereGeometry(r, 14, 14),
-    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.42, roughness: 0.35 })
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.45, roughness: 0.32 })
   );
   m.castShadow = true;
   m.visible = false;
@@ -390,15 +389,19 @@ function makeToken(color, r = 0.42) {
 
 const world = new THREE.Group();
 scene.add(world);
+
 const gRegions = new THREE.Group();
 const gOrch = new THREE.Group();
-const gEntities = new THREE.Group();
-const gSpawnPoi = new THREE.Group();
-const gCross = new THREE.Group();
-const gBe = new THREE.Group();
-const gPlayers = new THREE.Group();
-const gSchedGuard = new THREE.Group();
-world.add(gRegions, gOrch, gEntities, gSpawnPoi, gCross, gBe, gPlayers, gSchedGuard);
+const gUnified = new THREE.Group();    // Phase 4A: 3-stage unified tower per region
+const gClock = new THREE.Group();      // Phase 2: Independent Region Clocks + BUSY_SKIPPED
+const gContraption = new THREE.Group();// Phase 4B & 4C: Single-region contraption + 4-block border lockstep
+const gSandbox = new THREE.Group();    // Universal BE Sandbox + Transient Cooldown
+const gSpawnThrottle = new THREE.Group(); // Phase 3A Async Spawning + Mob Pathfinding Throttle
+const gCross = new THREE.Group();      // Fluid & Redstone Border Fixpoint + Seqlock
+const gAdapter = new THREE.Group();    // RegionAdapterApi + Sable Virtual Affinity + Concurrent Mixins
+const gProbes = new THREE.Group();     // LowTpsProbe + SandboxDemotionProbe + ItemCleanup
+
+world.add(gRegions, gOrch, gUnified, gClock, gContraption, gSandbox, gSpawnThrottle, gCross, gAdapter, gProbes);
 
 /* 地面与网格 */
 const ground = new THREE.Mesh(
@@ -414,13 +417,13 @@ grid.position.y = 0.02;
 world.add(grid);
 
 /* =====================================================================
-   3. 下层世界：4 个区域（支持 DYNAMIC_CLUSTER 加载岛合并 vs FIXED_3X3）
+   3. 下层世界：4 个 DYNAMIC_CLUSTER 区域
    ===================================================================== */
 const REGIONS = [
-  { id: 'R(0,0)', island: 'ISLAND A', cx: -17, cz: -17 },
-  { id: 'R(1,0)', island: 'ISLAND A', cx:  17, cz: -17 },
-  { id: 'R(0,1)', island: 'ISLAND B', cx: -17, cz:  17 },
-  { id: 'R(1,1)', island: 'ISLAND C', cx:  17, cz:  17 }
+  { id: 'R(0,0)', label: 'BASE A (FAST · 20 TPS)', cx: -17, cz: -17 },
+  { id: 'R(1,0)', label: 'BASE B (FAST · 20 TPS)', cx:  17, cz: -17 },
+  { id: 'R(0,1)', label: 'BASE C (CONTRAPTION)',   cx: -17, cz:  17 },
+  { id: 'R(1,1)', label: 'HOTSPOT D (HEAVY · 9 TPS)', cx: 17, cz:  17 }
 ];
 
 const chunkTiles = [];
@@ -439,7 +442,6 @@ REGIONS.forEach((r, ri) => {
   gRegions.add(plinth);
   regionPlinths.push(plinth);
 
-  /* 3×3 chunk tiles inside each region */
   const tiles = [];
   for (let gx = -1; gx <= 1; gx++) {
     for (let gz = -1; gz <= 1; gz++) {
@@ -458,11 +460,10 @@ REGIONS.forEach((r, ri) => {
   }
   chunkTiles.push(tiles);
 
-  /* 租约环 */
   const lg = new THREE.Group();
   const frame = new THREE.Mesh(
     new THREE.RingGeometry(11.7, 12.25, 4),
-    new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.88, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ color: ri === 3 ? C.bright : C.orange, transparent: true, opacity: 0.88, side: THREE.DoubleSide })
   );
   frame.rotation.x = -Math.PI / 2;
   frame.rotation.z = Math.PI / 4;
@@ -472,7 +473,7 @@ REGIONS.forEach((r, ri) => {
   lg.visible = false;
   gRegions.add(lg);
 
-  const ltag = makeTag(`${r.id} · LEASE`, 'orange');
+  const ltag = makeTag(`${r.id} · ${r.label}`, ri === 3 ? 'bright' : 'orange');
   ltag.position.set(r.cx, 3.3, r.cz - 11.8);
   ltag.visible = false;
   gRegions.add(ltag);
@@ -484,64 +485,32 @@ REGIONS.forEach((r, ri) => {
   regionLabels.push(rtag);
 });
 
-/* DYNAMIC_CLUSTER 加载岛合并桥 & 1-Section 空缓冲区可视化 */
+/* DYNAMIC_CLUSTER 1-Section 隔离缓冲带与 Phase 4C 动态防拆分锁扣 */
 const gDynamicOverlay = new THREE.Group();
 gRegions.add(gDynamicOverlay);
 
-const islandBridge = new THREE.Mesh(
-  new THREE.BoxGeometry(12.2, 0.5, 19.6),
-  new THREE.MeshStandardMaterial({ color: C.teal, transparent: true, opacity: 0.28, roughness: 0.6 })
+const bufferZoneH = new THREE.Mesh(
+  new THREE.PlaneGeometry(60, 8.8),
+  new THREE.MeshBasicMaterial({ color: C.tealLight, transparent: true, opacity: 0.13, side: THREE.DoubleSide })
 );
-islandBridge.position.set(0, 0.68, -17);
-gDynamicOverlay.add(islandBridge);
+bufferZoneH.rotation.x = -Math.PI / 2;
+bufferZoneH.position.set(0, 0.16, 0);
+gDynamicOverlay.add(bufferZoneH);
 
-const islandAFrame = new THREE.LineLoop(
-  new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-29.2, 1.4, -29.2),
-    new THREE.Vector3( 29.2, 1.4, -29.2),
-    new THREE.Vector3( 29.2, 1.4,  -4.8),
-    new THREE.Vector3(-29.2, 1.4,  -4.8)
-  ]),
-  new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.9 })
+const bufferZoneV = new THREE.Mesh(
+  new THREE.PlaneGeometry(8.8, 60),
+  new THREE.MeshBasicMaterial({ color: C.tealLight, transparent: true, opacity: 0.13, side: THREE.DoubleSide })
 );
-gDynamicOverlay.add(islandAFrame);
+bufferZoneV.rotation.x = -Math.PI / 2;
+bufferZoneV.position.set(0, 0.16, 0);
+gDynamicOverlay.add(bufferZoneV);
 
-const bufferZonePlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(60, 9.2),
-  new THREE.MeshBasicMaterial({ color: C.tealLight, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
-);
-bufferZonePlane.rotation.x = -Math.PI / 2;
-bufferZonePlane.position.set(0, 0.16, 0);
-gDynamicOverlay.add(bufferZonePlane);
-
-const islandATag = makeTag('DYNAMIC ISLAND A (MERGED 2 SECTIONS)', 'teal');
-islandATag.position.set(0, 3.6, -29.6);
-gDynamicOverlay.add(islandATag);
-
-const bufferTag = makeTag('1-SECTION EMPTY BUFFER ZONE (ISOLATION)', 'teal');
-bufferTag.position.set(0, 1.5, 0);
+const bufferTag = makeTag('DYNAMIC_CLUSTER · FINE-GRAINED ISOLATED REGIONS (SHIFT 1..3)', 'teal');
+bufferTag.position.set(0, 1.8, -28);
 gDynamicOverlay.add(bufferTag);
 
-/* FIXED_3X3 RegionLeasePack 打包框 */
-const gPackOverlay = new THREE.Group();
-gRegions.add(gPackOverlay);
-const packFrame = new THREE.LineLoop(
-  new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-29.5, 1.5, -29.5),
-    new THREE.Vector3( 29.5, 1.5, -29.5),
-    new THREE.Vector3( 29.5, 1.5,  29.5),
-    new THREE.Vector3(-29.5, 1.5,  29.5)
-  ]),
-  new THREE.LineBasicMaterial({ color: C.orange, transparent: true, opacity: 0.7 })
-);
-gPackOverlay.add(packFrame);
-const packTag = makeTag('RegionLeasePack (FIXED_3X3 ONLY · ≤16 REGIONS)', 'orange');
-packTag.position.set(0, 3.8, -30.5);
-gPackOverlay.add(packTag);
-gPackOverlay.visible = false;
-
 /* =====================================================================
-   4. 上层编排：Server 主线程 (GLOBAL) + 持久化 Work-Stealing Worker 池
+   4. 上层编排：Server 主线程 + 4 个 Affinity Worker + 无锁 Commit 漏斗
    ===================================================================== */
 const SERVER_POS = new THREE.Vector3(0, 24, -18);
 const serverGroup = new THREE.Group();
@@ -562,8 +531,7 @@ const gRing = new THREE.Mesh(
 gRing.rotation.x = Math.PI / 2;
 serverGroup.add(gRing);
 
-/* 6 个全局独占状态位 */
-const GLOBAL_NAMES = ['TIME', 'WEATHER', 'BORDER', 'SCORE', 'PLAYERS', 'CHUNKS'];
+const GLOBAL_NAMES = ['TIME', 'WEATHER', 'PLAYERS', 'PACKETS', 'COMMITS', 'SAVES'];
 const globalMarks = GLOBAL_NAMES.map((name, i) => {
   const a = (i / 6) * Math.PI * 2;
   const m = new THREE.Mesh(
@@ -575,16 +543,15 @@ const globalMarks = GLOBAL_NAMES.map((name, i) => {
   return m;
 });
 
-const globalTag = makeTag('SERVER THREAD · GLOBAL SAFE POINT', 'ink');
+const globalTag = makeTag('SERVER THREAD · 20 TPS PLAYERS & 4MS COMMIT DRAIN', 'ink');
 globalTag.position.set(0, 28.4, -18);
 gOrch.add(globalTag);
 
-/* 4 个 Worker + Per-Worker Deque（Work-Stealing） */
 const WORKER_POS = [
-  new THREE.Vector3(-22, 16.5, -6),
-  new THREE.Vector3( 22, 16.5, -6),
-  new THREE.Vector3(-22, 16.5, 16),
-  new THREE.Vector3( 22, 16.5, 16)
+  new THREE.Vector3(-22, 16.5, -10),
+  new THREE.Vector3( 22, 16.5, -10),
+  new THREE.Vector3(-22, 16.5,  16),
+  new THREE.Vector3( 22, 16.5,  16)
 ];
 
 const workers = WORKER_POS.map((p, i) => {
@@ -611,47 +578,13 @@ const workers = WORKER_POS.map((p, i) => {
   ring.rotation.x = Math.PI / 2;
   g.add(ring);
 
-  /* 每 Worker 的任务 Deque 槽位 */
-  const dequeSlots = [];
-  for (let d = 0; d < 4; d++) {
-    const slot = new THREE.Mesh(
-      new THREE.BoxGeometry(0.75, 0.35, 0.75),
-      new THREE.MeshStandardMaterial({ color: C.green, emissive: C.green, emissiveIntensity: 0.15, roughness: 0.45 })
-    );
-    slot.position.set(-1.35 + d * 0.9, -1.05, 0);
-    slot.visible = false;
-    g.add(slot);
-    dequeSlots.push(slot);
-  }
-
   gOrch.add(g);
-  const tag = makeTag(`WORKER ${i} · DEQUE`, 'dim');
+  const tag = makeTag(`WORKER ${i} · AFFINITY LEASE`, 'dim');
   tag.position.set(p.x, p.y + 3.0, p.z);
   gOrch.add(tag);
-  return { g, core, coreMat, ring, tag, dequeSlots };
+  return { g, core, coreMat, ring, tag };
 });
 
-/* Work-stealing 窃取弧线（Worker 1 从 Worker 0 的 Deque 窃取半段任务） */
-const stealCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-20.5, 15.4, -6),
-  new THREE.Vector3(0, 19.2, -6),
-  new THREE.Vector3(20.5, 15.4, -6)
-]);
-const stealLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(stealCurve.getPoints(32)),
-  new THREE.LineDashedMaterial({ color: C.green, dashSize: 0.9, gapSize: 0.5, transparent: true, opacity: 0.85 })
-);
-stealLine.computeLineDistances();
-stealLine.visible = false;
-gOrch.add(stealLine);
-const stealToken = makeToken(C.green, 0.48);
-gOrch.add(stealToken);
-const stealTag = makeTag('WORK-STEALING · HALF-RANGE STEAL', 'green');
-stealTag.position.set(0, 20.5, -6);
-stealTag.visible = false;
-gOrch.add(stealTag);
-
-/* 派发弧线、返回弧线、投射光束、屏障平面 */
 const dispatchCurves = WORKER_POS.map(wp => new THREE.CatmullRomCurve3([
   SERVER_POS.clone(),
   new THREE.Vector3(wp.x * 0.55, 22.8, lerp(SERVER_POS.z, wp.z, 0.5)),
@@ -677,32 +610,19 @@ const beams = WORKER_POS.map((wp, i) => {
 });
 const beamPulses = WORKER_POS.map(() => { const t = makeToken(C.bright, 0.36); gOrch.add(t); return t; });
 
-const barrierPlane = new THREE.Mesh(
-  new THREE.PlaneGeometry(66, 56),
-  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.04, side: THREE.DoubleSide, depthWrite: false })
-);
-barrierPlane.rotation.x = -Math.PI / 2;
-barrierPlane.position.set(0, 11.2, 2);
-gOrch.add(barrierPlane);
-const barrierTag = makeTag('REGION TICK BARRIER · JOIN & HANDOFF', 'orange');
-barrierTag.position.set(-28, 12.2, -24);
-gOrch.add(barrierTag);
-
-/* 顶部时间轴（8 个交替阶段） */
-const SEG_LABELS = ['GLOBAL', 'ENTITY', 'PLAYER', 'SPAWN/POI', 'CHUNK', 'SCHED', 'BE/OPS', 'GLOBAL'];
+/* 顶部时间轴（8 个架构视点段） */
+const SEG_LABELS = ['TOPOLOGY', 'UNIFIED 4A', 'CLOCKS 2', 'CREATE 4B', 'LOCKSTEP', 'BE SANDBOX', 'SPAWN/AI', 'ADAPTERS'];
 const segs = SEG_LABELS.map((lbl, i) => {
-  const isGlobal = i === 0 || i === 7;
   const x = -28 + i * 8;
   const m = new THREE.Mesh(
     new THREE.BoxGeometry(6.8, 0.5, 1.1),
     new THREE.MeshStandardMaterial({
-      color: isGlobal ? C.ink : C.bright,
-      emissive: C.orange, emissiveIntensity: isGlobal ? 0 : 0.15, roughness: 0.5
+      color: C.bright, emissive: C.orange, emissiveIntensity: 0.15, roughness: 0.5
     })
   );
   m.position.set(x, 30.8, -32);
   gOrch.add(m);
-  return { m, isGlobal, lbl };
+  return { m, lbl };
 });
 const playhead = new THREE.Mesh(
   new THREE.ConeGeometry(0.7, 1.5, 4),
@@ -713,52 +633,273 @@ playhead.position.set(-28, 32.5, -32);
 gOrch.add(playhead);
 
 /* =====================================================================
-   5. 实体并行 + 玩家快照 + 跨区转移日志 (Step 04)
+   5. Phase 4A: 单区域统一三阶立柱 (Stage 1 Chunks -> Stage 2 Entities -> Stage 3 BEs)
    ===================================================================== */
-const entityCapsules = [];
+const unifiedTowers = [];
+const STAGE_COLORS = [C.gold, C.teal, C.green];
 REGIONS.forEach((r, ri) => {
-  for (let k = 0; k < 4; k++) {
-    const a = (k / 4) * Math.PI * 2 + ri * 0.5;
-    const cap = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.45, 0.9, 6, 10),
-      new THREE.MeshStandardMaterial({ color: C.green, emissive: C.green, emissiveIntensity: 0.2, roughness: 0.4 })
-    );
-    const base = new THREE.Vector3(r.cx + Math.cos(a) * 5.2, 2.1, r.cz + Math.sin(a) * 5.2);
-    cap.position.copy(base);
-    cap.castShadow = true;
-    gEntities.add(cap);
-    entityCapsules.push({ mesh: cap, base, ri, k });
+  const tg = new THREE.Group();
+  tg.position.set(r.cx, 1.4, r.cz);
+
+  const stages = [0, 1, 2].map(si => {
+    const m = new THREE.MeshStandardMaterial({
+      color: STAGE_COLORS[si], emissive: STAGE_COLORS[si], emissiveIntensity: 0.15,
+      roughness: 0.4, transparent: true, opacity: 0.92
+    });
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(9.2 - si * 1.2, 1.25, 9.2 - si * 1.2), m);
+    slab.position.y = 1.0 + si * 2.2;
+    slab.castShadow = true;
+    tg.add(slab);
+    return { slab, m };
+  });
+
+  /* 贯穿三层的同线程激光柱 */
+  const spineMat = new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.85 });
+  const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 7.6, 12), spineMat);
+  spine.position.y = 3.6;
+  tg.add(spine);
+
+  /* 单次统一提升脉冲环 */
+  const elevatorRing = new THREE.Mesh(
+    new THREE.TorusGeometry(4.8, 0.14, 10, 32),
+    new THREE.MeshBasicMaterial({ color: C.bright })
+  );
+  elevatorRing.rotation.x = Math.PI / 2;
+  tg.add(elevatorRing);
+
+  gUnified.add(tg);
+  unifiedTowers.push({ tg, stages, spine, elevatorRing, ri });
+});
+
+const stage1Tag = makeTag('STAGE 1: CHUNKS & RANDOM TICKS', 'gold');
+stage1Tag.position.set(-17, 2.4, -9);
+gUnified.add(stage1Tag);
+
+const stage2Tag = makeTag('STAGE 2: ENTITIES & CONTAINED CONTRAPTIONS', 'teal');
+stage2Tag.position.set(-17, 4.6, -9);
+gUnified.add(stage2Tag);
+
+const stage3Tag = makeTag('STAGE 3: BLOCK ENTITIES (SAME THREAD · 0 SKEW)', 'green');
+stage3Tag.position.set(-17, 6.8, -9);
+gUnified.add(stage3Tag);
+
+const unifiedBannerTag = makeTag('RegionUnifiedTickCoordinator · 1 WORKER WAVE + 1 SHARED COMMIT', 'bright');
+unifiedBannerTag.position.set(0, 11.2, 0);
+gUnified.add(unifiedBannerTag);
+
+/* =====================================================================
+   6. Phase 2: 独立区域异步时钟 (RegionClock) 与慢区 BUSY_SKIPPED 隔离
+   ===================================================================== */
+const clockRings = [];
+REGIONS.forEach((r, ri) => {
+  const isSlow = ri === 3;
+  const cg = new THREE.Group();
+  cg.position.set(r.cx, 2.2, r.cz);
+
+  const dial = new THREE.Mesh(
+    new THREE.RingGeometry(6.2, 7.1, 36),
+    new THREE.MeshBasicMaterial({
+      color: isSlow ? C.bright : C.green,
+      transparent: true, opacity: 0.85, side: THREE.DoubleSide
+    })
+  );
+  dial.rotation.x = -Math.PI / 2;
+  cg.add(dial);
+
+  const hand = new THREE.Mesh(
+    new THREE.BoxGeometry(0.45, 0.25, 6.2),
+    new THREE.MeshBasicMaterial({ color: isSlow ? C.bright : C.greenDeep })
+  );
+  hand.geometry.translate(0, 0, 2.6);
+  hand.position.y = 0.15;
+  cg.add(hand);
+
+  const ctag = makeTag(
+    isSlow ? 'HOTSPOT CLOCK · IN-FLIGHT → BUSY_SKIPPED (9 TPS)' : 'FAST CLOCK · 20.0 TPS NON-BLOCKING',
+    isSlow ? 'bright' : 'green'
+  );
+  ctag.position.set(0, 3.6, 0);
+  cg.add(ctag);
+
+  gClock.add(cg);
+  clockRings.push({ cg, dial, hand, ctag, isSlow });
+});
+
+/* 站在慢区 R(1,1) 里的玩家：仍然保持 20 TPS 主线程直连 */
+const slowRegionPlayer = new THREE.Mesh(
+  new THREE.CapsuleGeometry(0.65, 1.3, 8, 12),
+  new THREE.MeshStandardMaterial({ color: C.teal, emissive: C.tealLight, emissiveIntensity: 0.45, roughness: 0.3 })
+);
+slowRegionPlayer.position.set(17, 3.0, 17);
+gClock.add(slowRegionPlayer);
+
+const playerFastLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(17, 4.2, 17),
+    new THREE.Vector3(9, 15.0, 0),
+    SERVER_POS.clone()
+  ]),
+  new THREE.LineDashedMaterial({ color: C.tealLight, dashSize: 0.8, gapSize: 0.4 })
+);
+playerFastLine.computeLineDistances();
+gClock.add(playerFastLine);
+const playerFastToken = makeToken(C.tealLight, 0.48);
+gClock.add(playerFastToken);
+
+const playerImmuneTag = makeTag('PLAYER IN SLOW REGION STILL TICKS AT 20 TPS ON SERVER THREAD', 'teal');
+playerImmuneTag.position.set(14, 9.5, 14);
+gClock.add(playerImmuneTag);
+
+/* =====================================================================
+   7. Phase 4B & 4C: 单区域内部动态结构 (Worker 原位) vs 跨边界 4 格局部锁步
+   ===================================================================== */
+/* 7A: R(0,1) 内部安全边距框 (margin >= 8 blocks) 与单区桁架滑车 */
+const safeMarginBox = new THREE.LineLoop(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-24.5, 1.6,  9.5),
+    new THREE.Vector3( -9.5, 1.6,  9.5),
+    new THREE.Vector3( -9.5, 1.6, 24.5),
+    new THREE.Vector3(-24.5, 1.6, 24.5)
+  ]),
+  new THREE.LineBasicMaterial({ color: C.teal })
+);
+gContraption.add(safeMarginBox);
+
+const gantryTrack = new THREE.Mesh(
+  new THREE.BoxGeometry(12.5, 0.4, 0.9),
+  mat(C.orange)
+);
+gantryTrack.position.set(-17, 2.2, 17);
+gContraption.add(gantryTrack);
+
+const interiorContraption = new THREE.Group();
+const carriageMesh = new THREE.Mesh(
+  new THREE.BoxGeometry(3.2, 2.2, 2.8),
+  new THREE.MeshStandardMaterial({ color: C.teal, emissive: C.tealLight, emissiveIntensity: 0.35, roughness: 0.35 })
+);
+interiorContraption.add(carriageMesh);
+interiorContraption.position.set(-17, 3.6, 17);
+gContraption.add(interiorContraption);
+
+/* 同区域内的 SequencedGearshift / PSI 方块实体 */
+const localGearshiftBe = new THREE.Mesh(
+  new THREE.BoxGeometry(1.8, 1.8, 1.8),
+  new THREE.MeshStandardMaterial({ color: C.green, emissive: C.green, emissiveIntensity: 0.4 })
+);
+localGearshiftBe.position.set(-23.2, 2.3, 17);
+gContraption.add(localGearshiftBe);
+
+const interiorContraptionTag = makeTag('PHASE 4B: CONTAINED CONTRAPTION (MARGIN ≥8) → STAGE 2+3 ON SAME WORKER', 'teal');
+interiorContraptionTag.position.set(-17, 7.2, 17);
+gContraption.add(interiorContraptionTag);
+
+/* 7B: 跨越 R(0,0) 与 R(1,0) 边界的动态结构 + 4格微距锁步球 + Phase 4C Section Pin */
+const borderContraption = new THREE.Mesh(
+  new THREE.BoxGeometry(4.4, 2.4, 2.8),
+  new THREE.MeshStandardMaterial({ color: C.bright, emissive: C.orange, emissiveIntensity: 0.45, roughness: 0.35 })
+);
+borderContraption.position.set(0, 3.2, -17);
+gContraption.add(borderContraption);
+
+const lockstepSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(5.2, 24, 18),
+  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.18, wireframe: true })
+);
+lockstepSphere.position.set(0, 3.2, -17);
+gContraption.add(lockstepSphere);
+
+/* 跨界处紧邻的 2 个接口方块实体（被 4 格锁步半径圈中） */
+const borderAdjacentBeA = new THREE.Mesh(
+  new THREE.BoxGeometry(1.5, 1.5, 1.5),
+  new THREE.MeshStandardMaterial({ color: C.bright, emissive: C.orange, emissiveIntensity: 0.5 })
+);
+borderAdjacentBeA.position.set(-2.8, 2.0, -14.5);
+gContraption.add(borderAdjacentBeA);
+
+const borderAdjacentBeB = new THREE.Mesh(
+  new THREE.BoxGeometry(1.5, 1.5, 1.5),
+  new THREE.MeshStandardMaterial({ color: C.bright, emissive: C.orange, emissiveIntensity: 0.5 })
+);
+borderAdjacentBeB.position.set(2.8, 2.0, -14.5);
+gContraption.add(borderAdjacentBeB);
+
+/* 0-tick 主线程同步弧线 */
+const borderHandoffCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(0, 4.6, -17),
+  new THREE.Vector3(0, 14.5, -17.5),
+  SERVER_POS.clone()
+]);
+const borderHandoffLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(borderHandoffCurve.getPoints(26)),
+  new THREE.LineDashedMaterial({ color: C.bright, dashSize: 0.8, gapSize: 0.4 })
+);
+borderHandoffLine.computeLineDistances();
+gContraption.add(borderHandoffLine);
+const borderHandoffToken = makeToken(C.bright, 0.5);
+gContraption.add(borderHandoffToken);
+
+/* Phase 4C 相邻 Section 临时防拆分锁扣 */
+const sectionPinBridge = new THREE.Mesh(
+  new THREE.BoxGeometry(11.5, 0.45, 3.2),
+  new THREE.MeshStandardMaterial({ color: C.gold, emissive: C.gold, emissiveIntensity: 0.35 })
+);
+sectionPinBridge.position.set(0, 1.15, -17);
+gContraption.add(sectionPinBridge);
+
+const borderLockstepTag = makeTag('CROSS-BORDER: 0-TICK SERVER LOCKSTEP (4-BLOCK RADIUS ONLY · REST OF REGIONS STAY PARALLEL!)', 'bright');
+borderLockstepTag.position.set(0, 9.8, -17);
+gContraption.add(borderLockstepTag);
+
+const pinTag = makeTag('PHASE 4C: pinAdjacentSectionsTogether (HYSTERESIS ANTI-SPLIT)', 'gold');
+pinTag.position.set(0, 2.4, -11.5);
+gContraption.add(pinTag);
+
+/* =====================================================================
+   8. 全量方块实体沙盒 (enableRegionSandboxAllBlockEntities) 与单实例瞬态冷却
+   ===================================================================== */
+const sandboxCubes = [];
+REGIONS.forEach((r, ri) => {
+  for (let i = 0; i < 6; i++) {
+    const gx = (i % 3) - 1;
+    const gz = Math.floor(i / 3) * 1.4 - 0.7;
+    const isTransient = ri === 1 && i === 4;
+    const m = new THREE.MeshStandardMaterial({
+      color: isTransient ? C.goldLight : C.green,
+      emissive: isTransient ? C.gold : C.green,
+      emissiveIntensity: 0.28, roughness: 0.4
+    });
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(2.1, 2.1, 2.1), m);
+    cube.position.set(r.cx + gx * 5.8, 2.2, r.cz + gz * 6.5);
+    cube.castShadow = true;
+    gSandbox.add(cube);
+    sandboxCubes.push({ cube, m, isTransient, ri, i });
   }
 });
 
-/* 跨区实体交接弧线 (RegionEntityTransferJournal) */
-const transferCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-10, 2.6, -15),
-  new THREE.Vector3(0, 7.8, -15),
-  new THREE.Vector3(10, 2.6, -15)
+const transientCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(17, 3.4, -12.5),
+  new THREE.Vector3(10, 15.5, -15),
+  SERVER_POS.clone()
 ]);
-const transferLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(transferCurve.getPoints(30)),
-  new THREE.LineDashedMaterial({ color: C.teal, dashSize: 0.7, gapSize: 0.45 })
+const transientLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(transientCurve.getPoints(26)),
+  new THREE.LineDashedMaterial({ color: C.gold, dashSize: 0.7, gapSize: 0.4 })
 );
-transferLine.computeLineDistances();
-gEntities.add(transferLine);
-const transferToken = makeToken(C.teal, 0.52);
-gEntities.add(transferToken);
-const transferTag = makeTag('RegionEntityTransferJournal · HANDOFF', 'teal');
-transferTag.position.set(0, 8.9, -15);
-gEntities.add(transferTag);
+transientLine.computeLineDistances();
+gSandbox.add(transientLine);
+const transientToken = makeToken(C.goldLight, 0.46);
+gSandbox.add(transientToken);
 
-const snapTag = makeTag('RegionPlayerSnapshots · IMMUTABLE TICK-HEAD VIEW', 'ink');
-snapTag.position.set(0, 14.2, -16);
-gEntities.add(snapTag);
+const sandboxAllTag = makeTag('enableRegionSandboxAllBlockEntities = true · ALL MODDED BES IN REGION SANDBOX', 'green');
+sandboxAllTag.position.set(-17, 6.5, -17);
+gSandbox.add(sandboxAllTag);
 
-const pinnedTag = makeTag('PINNED / RIDING → SERIAL FALLBACK', 'orange');
-pinnedTag.position.set(17, 4.5, 24);
-gEntities.add(pinnedTag);
+const transientTag = makeTag('SINGLE-INSTANCE TRANSIENT COOLDOWN (20–60 TICKS) · NEVER DEMOTES MOD TYPE', 'gold');
+transientTag.position.set(17, 7.8, -12);
+gSandbox.add(transientTag);
 
 /* =====================================================================
-   6. 自然刷怪 (LevelSpawnCapCounter + Ordered Barrier) & POI 分区 (Step 05)
+   9. Phase 3A 异步自然刷怪 + 生物寻路自学习节流 (MobPathfindingThrottle)
    ===================================================================== */
 const capTower = new THREE.Mesh(
   new THREE.CylinderGeometry(1.7, 2.0, 4.2, 8),
@@ -766,25 +907,33 @@ const capTower = new THREE.Mesh(
 );
 capTower.position.set(0, 4.2, 0);
 capTower.castShadow = true;
-gSpawnPoi.add(capTower);
-const capTowerTag = makeTag('LevelSpawnCapCounter · ATOMIC CHECK-AND-RESERVE', 'gold');
+gSpawnThrottle.add(capTower);
+const capTowerTag = makeTag('PHASE 3A: ASYNC NATURAL SPAWNING + ATOMIC LevelSpawnCapCounter', 'gold');
 capTowerTag.position.set(0, 7.6, 0);
-gSpawnPoi.add(capTowerTag);
+gSpawnThrottle.add(capTowerTag);
 
-const poiCrystals = [];
+const mobCapsules = [];
 const spawnCurves = [];
 const spawnTokens = [];
-REGIONS.forEach((r, i) => {
-  /* POI 水晶节点 */
-  const cry = new THREE.Mesh(
-    new THREE.OctahedronGeometry(1.3, 0),
-    new THREE.MeshStandardMaterial({ color: C.goldLight, emissive: C.gold, emissiveIntensity: 0.35, roughness: 0.3 })
-  );
-  cry.position.set(r.cx + (i % 2 === 0 ? -4.5 : 4.5), 3.4, r.cz + (i < 2 ? -4.5 : 4.5));
-  gSpawnPoi.add(cry);
-  poiCrystals.push(cry);
+REGIONS.forEach((r, ri) => {
+  const isHot = ri === 3;
+  for (let k = 0; k < 4; k++) {
+    const a = (k / 4) * Math.PI * 2 + ri * 0.5;
+    const cap = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.45, 0.9, 6, 10),
+      new THREE.MeshStandardMaterial({
+        color: isHot ? C.bright : C.green,
+        emissive: isHot ? C.orange : C.green,
+        emissiveIntensity: 0.25, roughness: 0.4
+      })
+    );
+    const base = new THREE.Vector3(r.cx + Math.cos(a) * 5.2, 2.1, r.cz + Math.sin(a) * 5.2);
+    cap.position.copy(base);
+    cap.castShadow = true;
+    gSpawnThrottle.add(cap);
+    mobCapsules.push({ mesh: cap, base, ri, k, isHot });
+  }
 
-  /* 刷怪名额预留脉冲 */
   const c = new THREE.CatmullRomCurve3([
     new THREE.Vector3(r.cx, 2.4, r.cz),
     new THREE.Vector3(r.cx * 0.5, 7.2, r.cz * 0.5),
@@ -795,25 +944,22 @@ REGIONS.forEach((r, i) => {
     new THREE.BufferGeometry().setFromPoints(c.getPoints(24)),
     new THREE.LineBasicMaterial({ color: C.gold, transparent: true, opacity: 0.45 })
   );
-  gSpawnPoi.add(line);
+  gSpawnThrottle.add(line);
   const tok = makeToken(C.goldLight, 0.42);
-  gSpawnPoi.add(tok);
+  gSpawnThrottle.add(tok);
   spawnTokens.push(tok);
 });
 
-const poiTag = makeTag('RegionPoiStorage · PUBLISHED SNAPSHOT + LIVE TICKETS', 'gold');
-poiTag.position.set(-17, 6.2, -23);
-gSpawnPoi.add(poiTag);
-const orderedTag = makeTag('RegionSpawnAdmissionBarrier (MSC ORDERED FINALIZE)', 'ink');
-orderedTag.position.set(17, 6.2, 23);
-gSpawnPoi.add(orderedTag);
+const throttleTag = makeTag('MobPathfindingThrottle (>3MS/8MS AUTO-LEARN) + HOT REGION ENTITY THROTTLE (1/2 OR 1/3 TICK)', 'bright');
+throttleTag.position.set(17, 6.8, 22);
+gSpawnThrottle.add(throttleTag);
 
 /* =====================================================================
-   7. 跨区：红石边界定点数传播 + GameEvent (Sculk) + Seqlock + Mailbox (Step 06)
+   10. 并行流体 + 红石同 Tick 8邻域图着色收敛 + Seqlock
    ===================================================================== */
 const borderCurve = new THREE.CatmullRomCurve3([
   new THREE.Vector3(-8, 2.0, 14),
-  new THREE.Vector3(0, 5.2, 14),
+  new THREE.Vector3(0, 5.4, 14),
   new THREE.Vector3(8, 2.0, 14)
 ]);
 const borderLine = new THREE.Line(
@@ -823,508 +969,352 @@ const borderLine = new THREE.Line(
 gCross.add(borderLine);
 const borderToken = makeToken(C.bright, 0.48);
 gCross.add(borderToken);
-const borderTag = makeTag('RegionBorderUpdates · SAME-TICK FIXPOINT', 'orange');
-borderTag.position.set(0, 6.4, 14);
+const borderTag = makeTag('8-NEIGHBOR GRAPH-COLORED BORDER FIXPOINT + PARALLEL FLUIDS', 'orange');
+borderTag.position.set(0, 6.6, 14);
 gCross.add(borderTag);
 
-/* GameEvent / Sculk 振动波 */
-const sculkRing = new THREE.Mesh(
-  new THREE.RingGeometry(1.2, 1.7, 36),
-  new THREE.MeshBasicMaterial({ color: C.violetLight, transparent: true, opacity: 0.85, side: THREE.DoubleSide })
-);
-sculkRing.rotation.x = -Math.PI / 2;
-sculkRing.position.set(-14, 1.5, 14);
-gCross.add(sculkRing);
-const sculkCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-14, 1.9, 14),
-  new THREE.Vector3(-14, 6.4, 0),
-  new THREE.Vector3(-14, 1.9, -14)
-]);
-const sculkLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(sculkCurve.getPoints(28)),
-  new THREE.LineDashedMaterial({ color: C.violet, dashSize: 0.7, gapSize: 0.45 })
-);
-sculkLine.computeLineDistances();
-gCross.add(sculkLine);
-const sculkToken = makeToken(C.violetLight, 0.45);
-gCross.add(sculkToken);
-const sculkTag = makeTag('RegionBorderGameEvents · SCULK COLUMN REPLAY', 'violet');
-sculkTag.position.set(-16, 7.6, 0);
-gCross.add(sculkTag);
-
-/* Seqlock 跨区读 + RegionMailbox */
 const seqCurve = new THREE.CatmullRomCurve3([
   new THREE.Vector3(-14, 2.2, -16),
-  new THREE.Vector3(0, 5.0, -21),
+  new THREE.Vector3(0, 5.2, -21),
   new THREE.Vector3(14, 2.2, -16)
 ]);
 const seqLine = new THREE.Line(
   new THREE.BufferGeometry().setFromPoints(seqCurve.getPoints(28)),
-  new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.7 })
+  new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.75 })
 );
 gCross.add(seqLine);
-const seqToken = makeToken(C.teal, 0.42);
+const seqToken = makeToken(C.teal, 0.44);
 gCross.add(seqToken);
-const seqTag = makeTag('SEQLOCK CROSS-REGION READ (STALE → RERUN)', 'teal');
-seqTag.position.set(0, 6.5, -22);
+const seqTag = makeTag('SEQLOCK CROSS-REGION READ & RegionScopedEntityQuery INSTANT VISIBILITY', 'teal');
+seqTag.position.set(0, 6.6, -22);
 gCross.add(seqTag);
 
-const mailCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(14, 2.4, 10),
-  new THREE.Vector3(8, 15.0, -2),
-  SERVER_POS.clone()
-]);
-const mailLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(mailCurve.getPoints(28)),
-  new THREE.LineDashedMaterial({ color: C.ink, dashSize: 0.8, gapSize: 0.5 })
-);
-mailLine.computeLineDistances();
-gCross.add(mailLine);
-const mailToken = makeToken(C.ink, 0.42);
-gCross.add(mailToken);
-const mailTag = makeTag('RegionMailbox → GLOBAL DRAIN', 'ink');
-mailTag.position.set(11, 15.8, -2);
-gCross.add(mailTag);
-
 /* =====================================================================
-   8. Canonical BE 流水线 + 熔炉波次/资源 + 串行围栏 + 双 Owner 操作 (Step 07)
+   11. Mod-Agnostic RegionAdapterApi + Sable 虚拟子世界亲和绑定 + Create/TACZ 兼容
    ===================================================================== */
-const BE = { count: 14, z: 44, y: 1.8, step: 4.1, serialFrom: 6, serialTo: 9 };
-const beX = i => (i - (BE.count - 1) / 2) * BE.step;
-
-const beTrack = new THREE.Mesh(
-  new THREE.BoxGeometry(BE.count * BE.step + 4, 0.55, 4.2),
-  mat(0xe4e3db)
+/* 悬浮在 R(0,0) 上方的 Sable 虚拟子世界地块 */
+const sablePlot = new THREE.Mesh(
+  new THREE.BoxGeometry(10.5, 0.6, 10.5),
+  new THREE.MeshStandardMaterial({ color: C.violetLight, emissive: C.violet, emissiveIntensity: 0.25, transparent: true, opacity: 0.85 })
 );
-beTrack.position.set(0, BE.y - 0.3, BE.z);
-beTrack.receiveShadow = true;
-gBe.add(beTrack);
+sablePlot.position.set(-17, 10.2, -17);
+gAdapter.add(sablePlot);
 
-const beUnits = [];
-for (let i = 0; i < BE.count; i++) {
-  const isSerial = i >= BE.serialFrom && i < BE.serialTo;
-  const isCreate = i === 3 || i === 4;
-  const m = new THREE.MeshStandardMaterial({
-    color: 0xe4e3db, roughness: 0.65, metalness: 0.05,
-    emissive: isSerial ? C.orange : isCreate ? C.teal : C.green, emissiveIntensity: 0.05
-  });
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(2.4, isSerial ? 3.2 : 2.1, 2.4), m);
-  mesh.position.set(beX(i), BE.y + (isSerial ? 1.6 : 1.05), BE.z);
-  mesh.castShadow = true;
-  gBe.add(mesh);
-  beUnits.push({ mesh, m, isSerial, isCreate });
-}
-
-const beCursor = new THREE.Mesh(
-  new THREE.BoxGeometry(0.16, 6.4, 3.6),
-  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.55 })
-);
-beCursor.position.set(beX(0), BE.y + 3.2, BE.z);
-gBe.add(beCursor);
-
-const cursorTag = makeTag('CanonicalBlockEntityCoordinator CURSOR', 'orange');
-cursorTag.position.set(beX(0), 0.7, BE.z + 2.5);
-gBe.add(cursorTag);
-
-const FENCE_X = beX(BE.serialFrom) - 2.0;
-const FENCE_END_X = beX(BE.serialTo - 1) + 2.0;
-const fence = new THREE.Mesh(
-  new THREE.PlaneGeometry(10, 13.5),
-  new THREE.MeshBasicMaterial({ color: C.bright, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })
-);
-fence.rotation.y = Math.PI / 2;
-fence.position.set(FENCE_X, BE.y + 6.75, BE.z);
-gBe.add(fence);
-
-const fenceTag = makeTag('SERIAL FENCE · UNKNOWN MOD / MIXIN (FAIL-CLOSED)', 'bright');
-fenceTag.position.set(FENCE_X - 2, 16.5, BE.z);
-gBe.add(fenceTag);
-
-const provenTag = makeTag('SANDBOX / AUDITED BE WORK → WORKERS', 'green');
-provenTag.position.set(beX(2), 7.2, BE.z);
-gBe.add(provenTag);
-
-const opsTag = makeTag('BlockEntityOperations · TWO-OWNER SERIAL COMPLETION', 'teal');
-opsTag.position.set(beX(11), 7.2, BE.z);
-gBe.add(opsTag);
-
-const serverLane = new THREE.Line(
+const sableTether = new THREE.Line(
   new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(FENCE_X, 4.5, BE.z),
-    new THREE.Vector3(FENCE_X, 14.5, BE.z),
-    new THREE.Vector3(FENCE_END_X, 14.5, BE.z),
-    new THREE.Vector3(FENCE_END_X, 4.5, BE.z)
+    new THREE.Vector3(-17, 9.8, -17),
+    new THREE.Vector3(-17, 1.5, -17)
   ]),
-  new THREE.LineDashedMaterial({ color: C.ink, dashSize: 0.8, gapSize: 0.5 })
+  new THREE.LineDashedMaterial({ color: C.violet, dashSize: 0.7, gapSize: 0.4 })
 );
-serverLane.computeLineDistances();
-gBe.add(serverLane);
-const serverToken = makeToken(C.ink, 0.48);
-gBe.add(serverToken);
+sableTether.computeLineDistances();
+gAdapter.add(sableTether);
+const sableToken = makeToken(C.violetLight, 0.45);
+gAdapter.add(sableToken);
 
-const lanePads = [-18, -6, 6, 18].map((x, i) => {
-  const pad = new THREE.Mesh(
-    new THREE.CylinderGeometry(1.7, 1.7, 0.36, 6),
-    mat(C.dark, { roughness: 0.55 })
-  );
-  pad.position.set(x, 10.6, BE.z);
-  gBe.add(pad);
-  const tag = makeTag(`WAVE LANE ${i}`, 'dim');
-  tag.position.set(x, 12.4, BE.z);
-  gBe.add(tag);
-  return { pad, tag, x };
-});
-const laneTokens = lanePads.map(() => { const t = makeToken(C.green, 0.38); gBe.add(t); return t; });
+const sableTag = makeTag('bindVirtualRegionAffinity · SABLE SUB-LEVEL BOUND TO HOST REGION', 'violet');
+sableTag.position.set(-17, 12.2, -17);
+gAdapter.add(sableTag);
 
-/* =====================================================================
-   9. 实验性玩家并行 + 网络门 (Step 08)
-   ===================================================================== */
-const playerMeshes = [];
-const netGateCurves = [];
-const netGateTokens = [];
-REGIONS.forEach((r, i) => {
-  const pm = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 2.4, 1.2),
-    new THREE.MeshStandardMaterial({ color: C.teal, emissive: C.tealLight, emissiveIntensity: 0.25, roughness: 0.35 })
-  );
-  pm.position.set(r.cx, 2.5, r.cz);
-  pm.castShadow = true;
-  gPlayers.add(pm);
-  playerMeshes.push(pm);
-
-  /* CONNECTION_BODY 同步发包交回 Server Thread */
-  const c = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(r.cx, 3.8, r.cz),
-    new THREE.Vector3(r.cx * 0.55, 16.5, lerp(r.cz, SERVER_POS.z, 0.5)),
-    SERVER_POS.clone()
-  ]);
-  netGateCurves.push(c);
-  const l = new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints(c.getPoints(26)),
-    new THREE.LineDashedMaterial({ color: C.tealLight, dashSize: 0.7, gapSize: 0.45 })
-  );
-  l.computeLineDistances();
-  gPlayers.add(l);
-  const tok = makeToken(C.tealLight, 0.42);
-  gPlayers.add(tok);
-  netGateTokens.push(tok);
-});
-
-const playerPhaseTag = makeTag('ENTITY (WORKERS) → CONNECTION (SERVER) → CONNECTION_BODY (WORKER + NET GATE)', 'teal');
-playerPhaseTag.position.set(0, 29.8, 0);
-gPlayers.add(playerPhaseTag);
-const playerFlagTag = makeTag('DYNAMIC_CLUSTER REQUIRES -Dforgia.dynamicPlayerSoak=true', 'orange');
-playerFlagTag.position.set(0, 12.2, 22);
-gPlayers.add(playerFlagTag);
-
-/* =====================================================================
-   10. Scheduled Ticks (红石灯半径2足迹) & 边界守卫回退 (Step 09)
-   ===================================================================== */
-const lampCube = new THREE.Mesh(
-  new THREE.BoxGeometry(5.6, 5.6, 5.6),
-  new THREE.MeshBasicMaterial({ color: C.violetLight, transparent: true, opacity: 0.18, wireframe: false })
-);
-lampCube.position.set(-17, 4.1, -17);
-gSchedGuard.add(lampCube);
-const lampWire = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.BoxGeometry(5.6, 5.6, 5.6)),
-  new THREE.LineBasicMaterial({ color: C.violet })
-);
-lampWire.position.copy(lampCube.position);
-gSchedGuard.add(lampWire);
-const lampCore = new THREE.Mesh(
-  new THREE.BoxGeometry(1.4, 1.4, 1.4),
-  new THREE.MeshStandardMaterial({ color: C.goldLight, emissive: C.gold, emissiveIntensity: 0.6 })
-);
-lampCore.position.copy(lampCube.position);
-gSchedGuard.add(lampCore);
-
-const lampTag = makeTag('RegionScheduledTickAdmission · RADIUS-2 INERT LAMP FOOTPRINT', 'violet');
-lampTag.position.set(-17, 8.2, -17);
-gSchedGuard.add(lampTag);
-
-const guardCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(17, 2.4, 17),
-  new THREE.Vector3(12, 16.0, 2),
-  SERVER_POS.clone()
+/* 跨基地并发容器总线 (Create TorquePropagator / RedstoneLink / GlobalLogistics) */
+const busCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-17, 3.0, -17),
+  new THREE.Vector3(0, 8.5, 0),
+  new THREE.Vector3(17, 3.0, 17)
 ]);
-const guardLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(guardCurve.getPoints(28)),
-  new THREE.LineBasicMaterial({ color: C.bright, transparent: true, opacity: 0.9 })
+const busLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(busCurve.getPoints(32)),
+  new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.85 })
 );
-gSchedGuard.add(guardLine);
-const guardToken = makeToken(C.bright, 0.5);
-gSchedGuard.add(guardToken);
-const guardTag = makeTag('RegionWorkerBoundaryException → FAIL-CLOSED SERVER FALLBACK', 'bright');
-guardTag.position.set(15, 16.8, 6);
-gSchedGuard.add(guardTag);
+gAdapter.add(busLine);
+const busToken = makeToken(C.tealLight, 0.48);
+gAdapter.add(busToken);
+
+const adapterBusTag = makeTag('MOD-AGNOSTIC RegionAdapterApi · CONCURRENT CREATE / REDSTONELINK / TACZ ADAPTERS', 'teal');
+adapterBusTag.position.set(0, 9.8, 0);
+gAdapter.add(adapterBusTag);
 
 /* =====================================================================
-   11. 10 步架构流程示意（中英双语）
+   12. 可观测性自愈探针 (LowTpsProbe + SandboxDemotionProbe + 区域掉落物硬上限清理)
+   ===================================================================== */
+const probeRing = new THREE.Mesh(
+  new THREE.RingGeometry(18, 19.2, 64),
+  new THREE.MeshBasicMaterial({ color: C.orange, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+);
+probeRing.rotation.x = -Math.PI / 2;
+probeRing.position.set(0, 1.6, 0);
+gProbes.add(probeRing);
+
+const probeTag = makeTag('LowTpsProbe + SandboxDemotionProbe (.JSONL) + PER-REGION ITEM HARD CAP (512)', 'ink');
+probeTag.position.set(0, 12.5, 18);
+gProbes.add(probeTag);
+
+/* =====================================================================
+   13. 10 步 Phase 4 架构流程解说（中英双语）
    ===================================================================== */
 const STEPS = [
   {
-    key: 'overview', seg: 0, phase: 'GLOBAL', dur: 10,
-    cfg: 'regionThreadingMode · enableRegionThreadingBridge',
+    key: 'topology', seg: 0, phase: 'DYNAMIC_CLUSTER', dur: 11,
+    cfg: 'regionThreadingMode · regionThreadingDynamicSectionShift',
     cam: { pos: [78, 64, 132], target: [0, 6, 4] },
-    hud: { phase: 'GLOBAL', lease: '0 / 4', workers: '0 / 4', barrier: 'IDLE', guard: '0', bar: 0 },
+    hud: { phase: 'TOPOLOGY', lease: '4 REGIONS', workers: '4 / 4', barrier: 'ISOLATED', guard: '0', bar: 1 },
     zh: {
-      title: '全景架构：双布局与交替阶段流水线',
-      en: 'OVERVIEW & LAYOUT',
+      title: '全景架构：细粒度动态区域拓扑与 Mod-Agnostic 内核',
+      en: 'DYNAMIC TOPOLOGY & CORE',
       bullets: [
-        'Forgia 将原版单线程 <code>ServerLevel.tick</code> 拆分为严格交替的 <code>GLOBAL</code> 与 <code>REGION</code> 阶段，同一维度同一时刻仅有一个区域批次在飞。',
-        '支持两种分区模式：推荐 <code>DYNAMIC_CLUSTER</code>（8×8 Section 加载岛动态合并/拆分，独立岛间保留 1-Section 空缓冲区）与遗留固定布局 <code>FIXED_3X3</code> 静态网格。',
-        '所有并行开关均位于 <code>config/forgia.toml</code> 且默认关闭；当前默认区域策略为 <code>DYNAMIC_CLUSTER</code>。右上角布局切换仅用于概念对比。'
+        '<code>DynamicRegionTopology</code> 将世界划分为可配置粒度（<code>shift=1..3</code>，即 2×2 至 8×8 区块）的独立动态区域，把大型工业基地拆散到多核 Worker 并行执行。',
+        '严格遵循<b>第一纪律（Core Must Stay Mod-Agnostic）</b>：核心绝不硬编码任何第三方模组 ID，所有隔离、沙盒与结构策略均通过通用 <code>RegionAdapterApi</code> 暴露。',
+        '点击右上角可在 <b>Phase 4 统一单区域循环</b> 与 <b>Phase 3 切片异步模式</b> 之间实时对比。'
       ]
     },
     enText: {
-      title: 'Architecture Overview: Dual Layouts & Alternating Phases',
-      en: 'OVERVIEW & LAYOUT',
+      title: 'Architecture Overview: Fine-Grained Dynamic Topology & Mod-Agnostic Core',
+      en: 'DYNAMIC TOPOLOGY & CORE',
       bullets: [
-        'Forgia splits stock single-threaded <code>ServerLevel.tick</code> into alternating <code>GLOBAL</code> and <code>REGION</code> phases; at most one region batch per level is in flight.',
-        'Supports <code>DYNAMIC_CLUSTER</code> (recommended 8×8 section loaded-island merge/split with a 1-section empty buffer) and <code>FIXED_3X3</code> (legacy fixed-grid comparison).',
-        'All parallel switches live in <code>config/forgia.toml</code> and default to <code>false</code>. <code>DYNAMIC_CLUSTER</code> is the current default region policy; the visual toggle is a conceptual comparison.'
+        '<code>DynamicRegionTopology</code> partitions worlds into configurable 2×2 to 8×8 chunk sections (<code>shift=1..3</code>), distributing massive industrial bases across multi-core workers.',
+        'Strictly enforces <b>Rule #1 (Core Must Stay Mod-Agnostic)</b>: zero hardcoded mod IDs in core; all sandbox, affinity and entity containment policies are exposed via <code>RegionAdapterApi</code>.',
+        'Use the top-right toggle to compare the <b>Phase 4 Unified Per-Region Loop</b> against <b>Phase 3 Slice-Dispatched Async</b>.'
       ]
     }
   },
   {
-    key: 'global', seg: 0, phase: 'GLOBAL', dur: 10,
-    cfg: 'LevelTickPhase · GlobalRegionState',
-    cam: { pos: [26, 42, 46], target: [0, 22, -16] },
-    hud: { phase: 'GLOBAL', lease: '0 / 4', workers: 'IDLE', barrier: 'QUIESCENT', guard: 'ASSERTED', bar: 0 },
+    key: 'unified4a', seg: 1, phase: 'PHASE 4A UNIFIED', dur: 13,
+    cfg: 'enableUnifiedRegionTickLoop = true',
+    cam: { pos: [48, 36, 68], target: [-6, 5, -6] },
+    hud: { phase: 'CHUNKS→ENT→BE', lease: '1 WAVE/REG', workers: '4 / 4', barrier: '-50% TASKS', guard: '0 SKEW', bar: 1 },
     zh: {
-      title: 'GLOBAL 阶段：全局状态唯一写入者',
-      en: 'GLOBAL SAFE POINT',
+      title: 'Phase 4A：单区域统一 Tick 循环（Chunks → Entities → BEs）',
+      en: 'PHASE 4A UNIFIED LOOP',
       bullets: [
-        '时间、天气、世界边界、计分板、玩家列表与区块源（节点周围 6 个状态位）只在 <code>GLOBAL</code> 安全点由主线程独占写入。',
-        '<code>LevelTickPhase</code> 显式追踪阶段状态：任何 Worker 在 <code>REGION</code> 阶段写入时间/天气或未租出存储均触发所有权断言。',
-        '<code>DynamicRegionTopology</code> 的加载岛合并/延迟拆分与 <code>RegionMailbox</code> 排空也在全局安全点完成。'
+        '<code>RegionUnifiedTickCoordinator</code> 将每个区域原本拆开的异步波次合并为<b>单次 Worker 租约</b>，在同一线程内严格按原版顺序依次执行：<b>Stage 1 区块随机刻 → Stage 2 区域实体 → Stage 3 区域方块实体</b>。',
+        '三个阶段共享同一个 <code>RegionEntityOwnershipScope</code>、同一个 <code>mutations</code> 队列与单次主线程 <code>unifiedCommit</code>，彻底消除跨阶段相位差并将任务派发开销砍半。',
+        'Stage 2/Stage 3 同帧新增的实体通过 <code>pendingAddedEntitiesInCurrentScope</code> 对当前区域的 <code>getEntities(AABB)</code> / UUID 查询<b>立即可见</b>（解决强力胶与同帧组装漏检）。'
       ]
     },
     enText: {
-      title: 'GLOBAL Phase: Exclusive Level-Wide Writer',
-      en: 'GLOBAL SAFE POINT',
+      title: 'Phase 4A: Unified Per-Region Tick Loop (Chunks → Entities → BEs)',
+      en: 'PHASE 4A UNIFIED LOOP',
       bullets: [
-        'Time, weather, world border, scoreboard, player list and chunk source (the 6 orbiting cubes) are written exclusively at <code>GLOBAL</code> safe points.',
-        '<code>LevelTickPhase</code> enforces phase transitions: any worker write to time/weather or unleased storage triggers an ownership assertion.',
-        '<code>DynamicRegionTopology</code> island merges/delayed splits and <code>RegionMailbox</code> drains also commit here.'
+        '<code>RegionUnifiedTickCoordinator</code> merges separate sub-waves into <b>one worker lease per region</b>, executing strictly in vanilla order on the same thread: <b>Stage 1 Chunks → Stage 2 Entities → Stage 3 BlockEntities</b>.',
+        'All three stages share one <code>RegionEntityOwnershipScope</code>, one <code>mutations</code> queue and one <code>unifiedCommit</code>, eliminating inter-slice phase skew and halving worker submissions.',
+        'Entities freshly added in Stage 2/3 are immediately visible to same-region <code>getEntities(AABB)</code> & UUID queries via <code>pendingAddedEntitiesInCurrentScope</code>.'
       ]
     }
   },
   {
-    key: 'dispatch', seg: 1, phase: 'DISPATCH', dur: 11,
-    cfg: 'PersistentWorkers · PackedRegionLeases',
-    cam: { pos: [58, 52, 102], target: [0, 10, 0] },
-    hud: { phase: 'DISPATCH', lease: '4 / 4', workers: '4 / 4', barrier: 'ARMED', guard: '0', bar: 1 },
+    key: 'clocks', seg: 2, phase: 'ASYNC CLOCKS', dur: 12,
+    cfg: 'enableIndependentRegionTickClock · CommitDrainBudget',
+    cam: { pos: [56, 42, 76], target: [4, 5, 4] },
+    hud: { phase: 'ASYNC CLOCK', lease: '3 FAST / 1 BUSY', workers: 'NON-BLOCKING', barrier: '4MS BUDGET', guard: 'ISOLATED', bar: 0.75 },
     zh: {
-      title: '派发与工作窃取：空间租约与持久 Deque',
-      en: 'LEASES & WORK-STEALING',
+      title: '独立区域异步时钟：慢区局部降频，绝不拖慢全服',
+      en: 'INDEPENDENT REGION CLOCKS',
       bullets: [
-        '<code>RegionWorkStealingDispatcher</code> 为每个持久 Worker 维护独立 Deque；批次提交前 <code>preWake</code> 唤醒线程，空闲 Worker 自动窃取忙碌 Worker 一半未开始任务区段。',
-        '在 <code>DYNAMIC_CLUSTER</code> 下使用加权岛内合包（保留每 Section 独立租约），并自动绕过 <code>PackedRegionLeases</code>。',
-        '在 <code>FIXED_3X3</code> 下可开启 <code>enableRegionThreadingPackedRegionLeases</code>，每任务全有或全无打包获取最多 16 个区域租约。'
+        '<code>RegionIndependentTickScheduler</code> 为每个区域维护独立的 50ms（20 TPS）<code>RegionClock</code> 与原子 <code>inFlight</code> 锁；主线程非阻塞投递，<b>零全局 Barrier 等待</b>。',
+        '当右下角热点区域 <code>R(1,1)</code> 因机器过多仍在执行上一帧时，新帧自动触发 <code>BUSY_SKIPPED</code> 局部降频（如 9 TPS），而其余快区依然以 <b>20.0 TPS</b> 满速运行。',
+        '<b>玩家绝不跟随慢区卡顿</b>：即便玩家站在最卡的 <code>R(1,1)</code> 内，玩家自身移动、交互与发包仍先行在主线程以 20 TPS 同步完成；异步 Commit 队列受 <code>4ms</code> 硬预算保护。'
       ]
     },
     enText: {
-      title: 'Dispatch & Work-Stealing: Leases & Persistent Deques',
-      en: 'LEASES & WORK-STEALING',
+      title: 'Independent Region Clocks: Slow Regions Never Stall the Server',
+      en: 'INDEPENDENT REGION CLOCKS',
       bullets: [
-        '<code>RegionWorkStealingDispatcher</code> maintains per-worker deques, <code>preWake</code>s persistent threads, and lets idle workers steal half of another runner\'s unstarted range.',
-        'Under <code>DYNAMIC_CLUSTER</code>, weighted island coalescing runs automatically and <code>PackedRegionLeases</code> is bypassed.',
-        'Under <code>FIXED_3X3</code>, <code>enableRegionThreadingPackedRegionLeases</code> acquires up to 16 regions all-or-none per task.'
+        '<code>RegionIndependentTickScheduler</code> gives each region an independent 50ms (20 TPS) <code>RegionClock</code> and atomic <code>inFlight</code> guard with non-blocking dispatch and <b>zero global barrier</b>.',
+        'When hotspot <code>R(1,1)</code> is still running its previous tick, new dispatches return <code>BUSY_SKIPPED</code> (throttling only that region to ~9 TPS) while fast regions stay at <b>20.0 TPS</b>.',
+        '<b>Players never lag in slow regions</b>: players standing inside <code>R(1,1)</code> still tick at full 20 TPS on the server thread; async commit draining is capped by a <code>4ms</code> budget.'
       ]
     }
   },
   {
-    key: 'entities', seg: 1, phase: 'ENTITY', dur: 11,
-    cfg: 'enableRegionThreadingEntityTicks',
-    cam: { pos: [52, 38, 72], target: [0, 4, -2] },
-    hud: { phase: 'ENTITY', lease: '4 / 4', workers: '4 / 4', barrier: 'JOIN', guard: '0', bar: 1 },
+    key: 'contraption4b', seg: 3, phase: 'PHASE 4B CREATE', dur: 13,
+    cfg: 'enableSingleRegionContraptionWorkers · MarginBlocks = 8',
+    cam: { pos: [-42, 30, 56], target: [-17, 4, 17] },
+    hud: { phase: 'STAGE 2→3 WORKER', lease: 'IN-REGION', workers: 'SAME THREAD', barrier: '0 DELAY', guard: 'EXACT 5 BLOCKS', bar: 1 },
     zh: {
-      title: '实体并行：分区存储、玩家快照与跨区交接',
-      en: 'ENTITY TICKS & STORAGE',
+      title: 'Phase 4B：单区域动态结构 Worker 原位闭环运行',
+      en: 'SINGLE-REGION CONTRAPTIONS',
       bullets: [
-        '<code>DYNAMIC_CLUSTER</code> 与 <code>FIXED_3X3</code> 均启用 <code>REGION_OWNED</code> 实体存储（<code>FixedEntitySectionPartitions</code>），Worker 仅读写本区 bucket。',
-        'tick 头部发布不可变 <code>RegionPlayerSnapshots</code> 供 Worker 查询最近玩家；跨区移动通过 <code>RegionEntityTransferJournal</code> 在屏障处统一交接。',
-        '被固定类型（如史莱姆分裂、鱼钩）与骑乘栈保持主线程串行；实体切片自动隐含开启区域 POI 存储。'
+        '适配模组通过 <code>RegionAdapterApi.registerRegionContainedEntityType</code> 注册移动动态结构（如 Create 的 6 种 <code>ContraptionEntity</code>）。',
+        '当动态结构的包围盒 + 速度距区域边界 <code>≥ 8</code> 格（位于青色安全框内）时，它直接进入所属 Region Worker 的 <b>Stage 2</b> 运行，紧接着在同一线程进入 <b>Stage 3</b> 执行可编程齿轮箱、桁架小齿轮与移动存储接口（PSI）。',
+        '实体与方块实体在<b>同一 Worker 线程、同一 Tick</b> 按原版顺序无缝衔接：可编程齿轮箱走 5 格精确走 5 格，PSI 对接零抽搐，且完全不占用主线程！'
       ]
     },
     enText: {
-      title: 'Entity Ticks: Partitioned Storage, Snapshots & Handoff',
-      en: 'ENTITY TICKS & STORAGE',
+      title: 'Phase 4B: Single-Region Moving Structures on Region Workers',
+      en: 'SINGLE-REGION CONTRAPTIONS',
       bullets: [
-        'Both <code>DYNAMIC_CLUSTER</code> and <code>FIXED_3X3</code> enable <code>REGION_OWNED</code> storage (<code>FixedEntitySectionPartitions</code>); workers query only their leased bucket.',
-        'Immutable <code>RegionPlayerSnapshots</code> answer player queries; cross-region entity moves commit via <code>RegionEntityTransferJournal</code> at the barrier.',
-        'Pinned classes and riding stacks stay serial; enabling Entity Ticks implicitly enables region-partitioned POI storage.'
+        'Adapters declare moving structures (e.g., Create\'s 6 <code>ContraptionEntity</code> types) via <code>RegionAdapterApi.registerRegionContainedEntityType</code>.',
+        'Whenever a structure\'s AABB + velocity stays <code>≥ 8</code> blocks inside its region border (the teal margin box), it ticks in <b>Stage 2</b> on the region worker right before <b>Stage 3</b> (<code>SequencedGearshift</code>, <code>GantryPinion</code>, <code>PSI</code>) on the <b>exact same thread</b>.',
+        'Zero thread split and zero <code>postGlobal</code> delay: gantry carriages move exact block distances and PSIs dock smoothly with zero main-thread cost.'
       ]
     }
   },
   {
-    key: 'spawnpoi', seg: 3, phase: 'SPAWN / POI', dur: 11,
-    cfg: 'enableRegionThreadingSpawning · Poi',
-    cam: { pos: [54, 42, 74], target: [0, 5, 0] },
-    hud: { phase: 'SPAWN/POI', lease: '4 / 4', workers: '4 / 4', barrier: 'ATOMIC CAP', guard: '0', bar: 1 },
+    key: 'lockstep4c', seg: 4, phase: 'BORDER LOCKSTEP', dur: 13,
+    cfg: 'sandboxEntityProximityLockstepRadius = 4 · Phase 4C Pin',
+    cam: { pos: [0, 32, 32], target: [0, 4, -17] },
+    hud: { phase: '0-TICK LOCKSTEP', lease: 'NO MEGA-MERGE', workers: '4 / 4 PARALLEL', barrier: '4-BLOCK RADIUS', guard: 'PINNED', bar: 1 },
     zh: {
-      title: '自然刷怪与兴趣点：原子 Mob Cap 与分区 POI',
-      en: 'SPAWNING & POI',
+      title: '跨区域搬运：4 格微距局部锁步 + Phase 4C 防拆分（绝不合并大区）',
+      en: 'CROSS-REGION MICRO-LOCKSTEP',
       bullets: [
-        '各区域 Worker 并行执行刷怪选点，向中央 <code>LevelSpawnCapCounter</code> 执行原子 check-and-reserve，确保全维度生物上限绝不双拿名额。',
-        '支持 <code>RegionSpawnAdmissionBarrier</code> 有序最终化（供 MobSpawnController 适配器在主线程安全完成规则裁决）。',
-        '<code>RegionPoiStorage</code> 按区域分区存储村民/铁傀儡/蜜蜂 POI，跨区查询读取已发布快照 + 实时 ticket 检查（实测 2.1–3.4×）。'
+        '当动态结构靠近或横跨两个区域的边界（距边界 <code>&lt; 8</code> 格）时，<b>绝不把两个玩家的大区域合并成单核串行</b>——两边的其余数百台机器照常在各自 Worker 并行！',
+        '仅将<b>正在跨界的这 1 台动态结构</b>及其周围 <b>4 格半径（橙色线框球）内紧挨着的接口方块实体</b>在当前 Tick（0-tick 延迟）提取到主线程按 <code>Entity → BE</code> 同步交接，跨过边界后立刻放回目标区 Worker。',
+        '同时 Phase 4C 调用 <code>pinAdjacentSectionsTogether</code> 在滞后窗口内临时锁定相邻 Section 防止拓扑抖动。'
       ]
     },
     enText: {
-      title: 'Natural Spawning & POI: Atomic Mob Cap & Partitioned POI',
-      en: 'SPAWNING & POI',
+      title: 'Cross-Region Handoff: 4-Block Micro-Lockstep & Phase 4C Anti-Split',
+      en: 'CROSS-REGION MICRO-LOCKSTEP',
       bullets: [
-        'Workers run per-region spawn selection against the central atomic <code>LevelSpawnCapCounter</code> (check-and-reserve), preventing double-takes on the level-wide mob cap.',
-        '<code>RegionSpawnAdmissionBarrier</code> supports ordered finalization on the server thread for adapters like MobSpawnController.',
-        '<code>RegionPoiStorage</code> partitions villager/golem/bee POIs per region using published snapshots + live ticket checks (2.1–3.4× measured).'
+        'When a moving structure approaches or crosses a region border (<code>&lt; 8</code> blocks), Forgia <b>never merges the two bases into a single-core mega-region</b>—hundreds of other machines in both regions keep running in parallel!',
+        'Only the <b>1 border-crossing structure</b> and block entities within its <b>4-block lockstep sphere</b> co-schedule on the server thread with 0-tick delay, returning to the destination region worker once across.',
+        'Phase 4C invokes <code>pinAdjacentSectionsTogether</code> to prevent section split thrashing while a cross-border structure is active.'
       ]
     }
   },
   {
-    key: 'chunkborder', seg: 4, phase: 'CHUNK / BORDER', dur: 12,
-    cfg: 'RandomTicks · BorderUpdates · GameEvents',
+    key: 'sandbox', seg: 5, phase: 'BE SANDBOX', dur: 11,
+    cfg: 'enableRegionSandboxAllBlockEntities · TransientCooldown',
+    cam: { pos: [46, 36, 62], target: [2, 4, -6] },
+    hud: { phase: 'ALL-BE SANDBOX', lease: '4 / 4', workers: '4 / 4', barrier: 'AUTO-ISOLATED', guard: '1 TRANSIENT', bar: 1 },
+    zh: {
+      title: '全量通用方块实体沙盒与单实例瞬态冷却',
+      en: 'UNIVERSAL BE SANDBOX',
+      bullets: [
+        '<code>enableRegionSandboxAllBlockEntities</code> 默认将所有非黑名单模组方块实体放入 Region Worker 沙盒并行，自动提供区域局部 <code>SavedData</code> 副本、安全跨区 Capability 跳过与区域玩家视图。',
+        '当某个方块实体单实例触发复杂实体生成或偶发跨区越界（右上金色方块）时，仅对该<b>单个坐标实例</b>施加 20~60 tick 的主线程瞬态冷却，到期自动重返 Worker。',
+        '不会因为单次瞬态副作用就永久拉黑整类模组方块实体，最大化多核覆盖率。'
+      ]
+    },
+    enText: {
+      title: 'Universal Block-Entity Sandbox & Single-Instance Transient Cooldown',
+      en: 'UNIVERSAL BE SANDBOX',
+      bullets: [
+        '<code>enableRegionSandboxAllBlockEntities</code> runs all non-denylisted modded BEs on region workers with region-local <code>SavedData</code> replicas, safe cross-region capability skips, and scoped player views.',
+        'If a single BE instance triggers a complex side effect or boundary violation (the gold cube), only that <b>single BlockPos</b> enters a 20–60 tick server-thread cooldown before returning to workers.',
+        'Never permanently demotes an entire BE type for transient side effects, preserving maximum multi-core offload.'
+      ]
+    }
+  },
+  {
+    key: 'spawnai', seg: 6, phase: 'ASYNC SPAWN & AI', dur: 11,
+    cfg: 'enableAsyncRegionSpawning · MobPathfindingThrottle',
+    cam: { pos: [52, 40, 72], target: [0, 5, 2] },
+    hud: { phase: 'SPAWN / AI', lease: '4 / 4', workers: '4 / 4', barrier: 'ASYNC COMMIT', guard: 'THROTTLED', bar: 1 },
+    zh: {
+      title: 'Phase 3A 异步自然刷怪与生物寻路自适应节流',
+      en: 'ASYNC SPAWNING & AI THROTTLE',
+      bullets: [
+        '<code>enableAsyncRegionSpawning</code> 将自然刷怪计算完全脱离主线程 Barrier 异步分发到 Region Worker，向中央 <code>LevelSpawnCapCounter</code> 原子预留名额后由 Commit 队列入表，并自动跳过最外圈未加载邻域区块。',
+        '<code>MobPathfindingThrottle</code> 监控单次 <code>PathFinder.findPath</code> 耗时：超过 3ms/8ms 的慢速生物类型自动学习 10/20 tick 寻路冷却。',
+        '实体热点区域（EWMA &gt; 15ms/28ms，如右下 <code>R(1,1)</code>）自动将非玩家生物降频为 1/2 或 1/3 Tick，平抑实体洪峰。'
+      ]
+    },
+    enText: {
+      title: 'Phase 3A Async Natural Spawning & Adaptive AI Throttle',
+      en: 'ASYNC SPAWNING & AI THROTTLE',
+      bullets: [
+        '<code>enableAsyncRegionSpawning</code> dispatches natural spawning asynchronously without blocking the server barrier, reserving slots atomically in <code>LevelSpawnCapCounter</code> and skipping unloaded outer border chunks.',
+        '<code>MobPathfindingThrottle</code> monitors <code>PathFinder.findPath</code> duration: mob types exceeding 3ms/8ms auto-learn 10/20-tick pathfinding cooldowns.',
+        'Hot entity regions (EWMA &gt; 15ms/28ms like <code>R(1,1)</code>) automatically step down non-player entities to 1/2 or 1/3 tick frequency.'
+      ]
+    }
+  },
+  {
+    key: 'fluidborder', seg: 7, phase: 'FLUID & BORDER', dur: 11,
+    cfg: 'enableRegionThreadingFluidTicks · ParallelBorderFixpoint',
     cam: { pos: [44, 38, 66], target: [-2, 4, 2] },
-    hud: { phase: 'CHUNK', lease: '4 / 4', workers: '4 / 4', barrier: 'FIXPOINT', guard: '1 seqlock', bar: 1 },
+    hud: { phase: 'FLUID / BORDER', lease: '4 / 4', workers: '4 / 4', barrier: '8-COLOR FIXPOINT', guard: 'SEQLOCK OK', bar: 1 },
     zh: {
-      title: '区块刻、红石同 Tick 收敛与跨区 Game Event',
-      en: 'CHUNKS, BORDER & SCULK',
+      title: '区域并行流体、8 邻域图着色红石收敛与 Seqlock',
+      en: 'FLUIDS, BORDER & SEQLOCK',
       bullets: [
-        '<code>RegionChunkTickCoordinator</code> 并行执行随机刻、冰雪与雷击（每区块独立确定性 <code>RegionAwareRandomSource</code>），要求 3×3 邻域已加载。',
-        '跨区红石/方块邻居写入被 <code>RegionBorderUpdates</code> 捕获，在同一 tick 由目标区域 Worker 定点收敛（49 布局 5,880 tick 与原版一致）。',
-        '<code>RegionBorderGameEvents</code> 按列捕获跨区幽匿振动并按发布顺序投递；跨区读走 <code>Seqlock</code> 版本校验，过期则重跑发起方区域。'
+        '<code>enableRegionThreadingFluidTicks</code> 按区域并行执行水/岩浆及模组流体流动（支持 <code>registerFluidSandboxPredicate</code>），同时保持红石计划刻顺序确定性。',
+        '跨区方块/红石更新由 <code>RegionBorderUpdates</code> 捕获，首轮采用 <b>8 邻域图着色并行收敛</b>（<code>enableRegionThreadingParallelBorderFixpoint</code>），不相邻目标区域在 Worker 上并行传播。',
+        '跨区区块读取通过乐观 <code>Seqlock</code> 版本号校验，确保无锁读取一致性。'
       ]
     },
     enText: {
-      title: 'Chunk Ticks, Same-Tick Redstone Fixpoint & Game Events',
-      en: 'CHUNKS, BORDER & SCULK',
+      title: 'Parallel Fluid Ticks, 8-Color Border Fixpoint & Seqlock',
+      en: 'FLUIDS, BORDER & SEQLOCK',
       bullets: [
-        '<code>RegionChunkTickCoordinator</code> runs random ticks, snow/ice and lightning in parallel with deterministic per-chunk RNG whenever the 3×3 neighborhood is loaded.',
-        'Cross-region neighbor updates are captured by <code>RegionBorderUpdates</code> and converged in the same tick via fixpoint (identical to vanilla across 49 redstone layouts).',
-        '<code>RegionBorderGameEvents</code> replays foreign sculk vibrations in posting order; cross-region reads verify <code>Seqlock</code> versions and rerun on stale reads.'
+        '<code>enableRegionThreadingFluidTicks</code> executes water, lava and modded fluid ticks in parallel per region (with <code>registerFluidSandboxPredicate</code> support) while preserving redstone determinism.',
+        'Cross-region neighbor updates use <b>8-neighbor graph-colored parallel fixpoint propagation</b> (<code>enableRegionThreadingParallelBorderFixpoint</code>) so non-adjacent regions converge in parallel.',
+        'Foreign chunk reads validate optimistic <code>Seqlock</code> versions for lock-free read consistency.'
       ]
     }
   },
   {
-    key: 'be', seg: 6, phase: 'BE PIPELINE', dur: 14,
-    cfg: 'BlockEntityTicks · FurnaceWaves · Create Adapter',
-    cam: { pos: [26, 34, 114], target: [0, 8, 44] },
-    hud: { phase: 'BE / OPS', lease: '1 / 4', workers: '4 / 4', barrier: 'SERIAL FENCE', guard: 'FENCED', bar: 0.75 },
+    key: 'adapters', seg: 7, phase: 'ADAPTERS & SABLE', dur: 12,
+    cfg: 'RegionAdapterApi · Create / RedstoneLink / TACZ Compat',
+    cam: { pos: [48, 42, 74], target: [-6, 7, -6] },
+    hud: { phase: 'ADAPTER API', lease: 'AFFINITY BOUND', workers: 'CONCURRENT', barrier: 'SHARED DATA', guard: '0 CONFLICTS', bar: 1 },
     zh: {
-      title: 'Canonical 方块实体：前缀并行、熔炉波次与串行围栏',
-      en: 'BE PIPELINE & ADAPTERS',
+      title: '通用 Adapter 生态：Sable 子世界亲和与跨基地并发容器',
+      en: 'ADAPTERS & VIRTUAL AFFINITY',
       bullets: [
-        '<code>CanonicalBlockEntityCoordinator</code> 用单调游标保持原版顺序：已证明前缀（原版漏斗/熔炉 + Create 6.0.10 受审计适配器）派发到并行车道。',
-        '仅在 <code>FIXED_3X3</code> 下可开启 <code>FurnaceWorkWaves</code> 与 <code>BlockEntityResources</code>（对象级 READ/WRITE 资源波次；<code>DYNAMIC_CLUSTER</code> 下自动忽略）。',
-        '遇未知模组/Mixin 立即触发 <b>Fail-Closed 串行围栏</b>：物理 join，主线程完整执行一次原 ticker 后重查后缀；批尾串行完成双 Owner <code>BlockEntityOperations</code>。'
+        '<code>bindVirtualRegionAffinity</code> 将 Sable 虚拟子世界地块（左上方紫色浮岛）绑定到宿主主世界坐标所属 Region，使子世界内的无线红石终端与宿主区域共享同一所有权与生命周期。',
+        '由于 Phase 4 已在单区域内实现原版单线程顺序，<code>forgia-create-parallel-compat</code> 彻底退役了齿轮箱/桁架黑名单与临时 Accessor！',
+        '兼容层仅保留极薄的<b>跨区域全局单例并发容器替换</b>（<code>TorquePropagator</code>、<code>RedstoneLinkNetworkHandler</code>、<code>GlobalLogisticsManager</code>、<code>BeltInventory</code> 与 TACZ 网络守卫），让不同玩家的基地安全并发读写。'
       ]
     },
     enText: {
-      title: 'Canonical Block Entities: Proven Prefix, Waves & Serial Fence',
-      en: 'BE PIPELINE & ADAPTERS',
+      title: 'Adapter Ecosystem: Sable Virtual Affinity & Concurrent Singletons',
+      en: 'ADAPTERS & VIRTUAL AFFINITY',
       bullets: [
-        '<code>CanonicalBlockEntityCoordinator</code> uses a monotonic cursor: proven prefixes (vanilla Hopper/Furnace + audited Create 6.0.10 adapter) dispatch to parallel wave lanes.',
-        '<code>FurnaceWorkWaves</code> & <code>BlockEntityResources</code> (READ/WRITE resource waves) apply to <code>FIXED_3X3</code> only (ignored in <code>DYNAMIC_CLUSTER</code>).',
-        'Unknown mods/Mixins hit a <b>Fail-Closed Serial Fence</b>: physical join, run once on Server Thread, re-inspect suffix; two-owner <code>BlockEntityOperations</code> finish at batch end.'
+        '<code>bindVirtualRegionAffinity</code> binds virtual sub-level plots (e.g., Sable, the violet floating island) to their host world region so sub-level blocks share the host region\'s ownership.',
+        'With Phase 4 restoring exact vanilla single-thread order inside each region, <code>forgia-create-parallel-compat</code> retires all per-BE deny-lists and state Accessors!',
+        'Compat mods keep only thin <b>concurrent-collection Mixins</b> for global static singletons (<code>TorquePropagator</code>, <code>RedstoneLink</code>, <code>GlobalLogistics</code>, <code>BeltInventory</code>, TACZ) across separate bases.'
       ]
     }
   },
   {
-    key: 'players', seg: 2, phase: 'PLAYER', dur: 12,
-    cfg: 'enableRegionThreadingPlayerTicks',
-    cam: { pos: [54, 46, 86], target: [0, 12, 0] },
-    hud: { phase: 'PLAYER', lease: '4 / 4', workers: '4 / 4', barrier: 'NET GATE', guard: '0', bar: 1 },
-    zh: {
-      title: '实验性玩家并行：ENTITY / CONNECTION / 网络门',
-      en: 'PLAYER TICKS & NET GATE',
-      bullets: [
-        '玩家 tick 分为三段：<code>ENTITY</code>（<code>ServerPlayer.tick</code> 批次并行）、<code>CONNECTION</code>（主线程有序遍历连接）、<code>CONNECTION_BODY</code>（<code>doTick</code> 派发到 Worker）。',
-        '等待期间 <code>RegionPlayerNetworkGate</code> 将血量/经验/冷却同步发包与 <code>PacketDistributor</code> 广播交回主线程，并支持 <code>IRegionPayloadHandler</code>。',
-        '重要配置：<code>FIXED_3X3</code> 直接生效；<code>DYNAMIC_CLUSTER</code> 下必须同时传入 JVM 参数 <code>-Dforgia.dynamicPlayerSoak=true</code>，否则保持串行。'
-      ]
-    },
-    enText: {
-      title: 'Experimental Player Ticks: ENTITY / CONNECTION / Network Gate',
-      en: 'PLAYER TICKS & NET GATE',
-      bullets: [
-        'Three phases: <code>ENTITY</code> (<code>ServerPlayer.tick</code> in region batches), <code>CONNECTION</code> (server-thread traversal), and <code>CONNECTION_BODY</code> (<code>doTick</code> on workers).',
-        '<code>RegionPlayerNetworkGate</code> services synchronous health/XP/cooldown sends & <code>PacketDistributor</code> broadcasts on the server thread; supports <code>IRegionPayloadHandler</code>.',
-        'Prerequisite: works out of the box in <code>FIXED_3X3</code>; in <code>DYNAMIC_CLUSTER</code> you must also pass <code>-Dforgia.dynamicPlayerSoak=true</code>.'
-      ]
-    }
-  },
-  {
-    key: 'schedguard', seg: 5, phase: 'SCHED / GUARD', dur: 11,
-    cfg: 'ScheduledTicks · Boundary Guards',
-    cam: { pos: [50, 40, 76], target: [0, 8, -2] },
-    hud: { phase: 'SCHED', lease: '2 / 4', workers: '2 / 4', barrier: 'GUARDED', guard: 'FALLBACK', bar: 0.5 },
-    zh: {
-      title: '计划刻准入、边界守卫与至多一次容错',
-      en: 'SCHEDULED & FAIL-CLOSED',
-      bullets: [
-        '<code>enableRegionThreadingScheduledTicks</code>（支持 <code>DYNAMIC_CLUSTER</code>/<code>FIXED_3X3</code>）仅准入单区域内半径 2 惰性足迹的红石灯阶段，流体/混合回调保留原 <code>LevelTicks</code> 串行队列。',
-        'Worker 越界访问 <code>BlockCapabilityCache</code>、Attachment 或 <code>SavedData</code> 时，<code>RegionWorkerBoundaryException</code> 立即截断并 fail-closed 回退主线程。',
-        '严格坚持「至多一次、绝不重放」：正文启动后抛出的异常在物理 join 后由主线程报告；卸载/停服时物理等待所有已受理工作完成。'
-      ]
-    },
-    enText: {
-      title: 'Scheduled Ticks, Boundary Guards & At-Most-Once Recovery',
-      en: 'SCHEDULED & FAIL-CLOSED',
-      bullets: [
-        '<code>enableRegionThreadingScheduledTicks</code> (<code>DYNAMIC_CLUSTER</code>/<code>FIXED_3X3</code>) admits only single-region radius-2 inert redstone-lamp phases; others stay in serial <code>LevelTicks</code>.',
-        'Off-region <code>BlockCapabilityCache</code>, Attachment or <code>SavedData</code> access raises <code>RegionWorkerBoundaryException</code> for fail-closed server fallback.',
-        'Strict at-most-once semantics (no replay): started failures report on the server thread after join; unload/shutdown physically awaits accepted work.'
-      ]
-    }
-  },
-  {
-    key: 'observability', seg: 7, phase: 'OBSERVABILITY', dur: 12,
-    cfg: '/forgia · /neoforge regionthreading',
+    key: 'probes', seg: 7, phase: 'OBSERVABILITY', dur: 12,
+    cfg: 'LowTpsProbe · SandboxDemotionProbe · ItemCleanup',
     cam: { pos: [92, 72, 148], target: [0, 8, 8] },
-    hud: { phase: 'FULL TICK', lease: '4 / 4', workers: '4 / 4', barrier: '0 VIOLATIONS', guard: 'OK', bar: 1 },
+    hud: { phase: 'FULL PIPELINE', lease: '4 / 4', workers: '4 / 4', barrier: '20.0 TPS', guard: 'PROBES ARMED', bar: 1 },
     zh: {
-      title: '全链路观测与硬件调优（/forgia & forgia.toml）',
-      en: 'OBSERVABILITY & TUNING',
+      title: '全链路自愈与诊断探针：Low-TPS 快照、降级堆栈与掉落物硬上限',
+      en: 'PROBES & SELF-HEALING',
       bullets: [
-        '内置零磁盘开销监控：<code>/forgia performance</code>（12,000 tick 原生 MSPT 环与 JVM 采样）、<code>/forgia regions</code>（动态岛数/合包节省）、<code>/forgia workers</code> 与 <code>/neoforge regionthreading compat</code>。',
-        '硬件调优原则：推荐 <code>DYNAMIC_CLUSTER</code>（<code>shift=3</code>），Worker 数显式固定为 <code>物理核数 - 1~2</code>（给主线程留足 1 个完整物理核）。',
-        '一键回滚：将 <code>enableRegionThreadingBridge = false</code> 并重启 JVM 即可 100% 退回原版串行路径。'
+        '<code>enableLowTpsProbe</code> 在全局 TPS 持续低于阈值时自动输出最重 Region、主线程阶段与切片快照至 <code>logs/forgia-low-tps-probe.jsonl</code>；<code>enableSandboxDemotionProbe</code> 异步记录沙盒回退去重调用栈。',
+        '<code>enableItemCleanup</code> 提供多区域感知的掉落物定期清理与<b>单区域紧急硬上限（默认 512）</b>：单区瞬间炸箱爆出海量掉落物时立即截断最旧物品（保护命名/白名单物品），防止发包与 GC 卡死全服。',
+        '配合 <code>/forgia status</code>、<code>/forgia bottleneck</code>、<code>/forgia workers</code> 与 <code>/forgia regions</code> 实时掌控全服多核负载。'
       ]
     },
     enText: {
-      title: 'End-to-End Observability & Hardware Tuning (/forgia)',
-      en: 'OBSERVABILITY & TUNING',
+      title: 'Self-Healing & Diagnostics: Low-TPS Probe, Demotion Logs & Item Caps',
+      en: 'PROBES & SELF-HEALING',
       bullets: [
-        'Zero-disk telemetry: <code>/forgia performance</code> (12,000-tick native MSPT ring & JVM sampling), <code>/forgia regions</code> (islands & submissionsSaved), <code>/forgia workers</code>, and <code>compat</code>.',
-        'Tuning rule: prefer <code>DYNAMIC_CLUSTER</code> (<code>shift=3</code>) and pin <code>regionThreadingWorkerThreads</code> to <code>physicalCores - 1..2</code> (reserve ≥1 core for Server Thread).',
-        'Instant rollback: set <code>enableRegionThreadingBridge = false</code> and restart JVM to return 100% to vanilla serial execution.'
+        '<code>enableLowTpsProbe</code> automatically records top regions, main-thread phases and slices to <code>logs/forgia-low-tps-probe.jsonl</code> during sustained slowdowns; <code>enableSandboxDemotionProbe</code> logs deduplicated boundary stack traces.',
+        '<code>enableItemCleanup</code> enforces per-region scheduled sweeps and an <b>emergency hard cap (default 512)</b> to absorb sudden item explosions while protecting custom-named and whitelisted items.',
+        'Use <code>/forgia status</code>, <code>/forgia bottleneck</code>, <code>/forgia workers</code> and <code>/forgia regions</code> for live multi-core telemetry.'
       ]
     }
   }
 ];
 
 /* =====================================================================
-   12. 12 项架构模块清单（随布局模式动态更新状态徽章）
+   14. 12 项核心子系统矩阵（随 Phase 4 / Phase 3 模式动态切换徽章）
    ===================================================================== */
 const FEATURES = [
-  { step: 0, color: '#256f7c', zh: '动态加载岛拓扑 (DYNAMIC_CLUSTER)', en: 'Dynamic Island Topology', modeRule: m => m === 'DYNAMIC_CLUSTER' ? ['ACTIVE', 'on'] : ['FIXED GRID', 'off'] },
-  { step: 1, color: '#202628', zh: 'GLOBAL/REGION 阶段断言', en: 'GLOBAL/REGION Phase Guard', modeRule: () => ['ALWAYS', 'on'] },
-  { step: 2, color: '#4d6d43', zh: '持久 Work-Stealing 派发器', en: 'Work-Stealing Dispatcher', modeRule: () => ['BOTH', 'on'] },
-  { step: 2, color: '#b94b2c', zh: '租约打包 (PackedRegionLeases)', en: 'Packed Region Leases', modeRule: m => m === 'FIXED_3X3' ? ['FIXED ONLY', 'on'] : ['BYPASSED', 'off'] },
-  { step: 3, color: '#628654', zh: '实体并行 + 分区存储', en: 'Entity Ticks + Storage', modeRule: () => ['BOTH', 'on'] },
-  { step: 4, color: '#a87a22', zh: '自然刷怪 + 原子 Mob Cap', en: 'Spawning + Atomic Cap', modeRule: () => ['BOTH', 'on'] },
-  { step: 4, color: '#dfb14c', zh: '区域分区 POI 快照', en: 'Region POI Snapshots', modeRule: () => ['BOTH', 'on'] },
-  { step: 5, color: '#ed7950', zh: '区块刻 + 红石边界收敛 + 幽匿', en: 'Chunks + Border + Sculk', modeRule: () => ['BOTH', 'on'] },
-  { step: 6, color: '#4d6d43', zh: 'BE 游标 + Create 适配器 + 围栏', en: 'BE Cursor + Create + Fence', modeRule: () => ['BOTH', 'on'] },
-  { step: 6, color: '#b94b2c', zh: '熔炉资源波次 (FurnaceWaves)', en: 'Furnace Resource Waves', modeRule: m => m === 'FIXED_3X3' ? ['FIXED ONLY', 'on'] : ['IGNORED', 'off'] },
-  { step: 7, color: '#256f7c', zh: '实验性玩家并行 + 网络门', en: 'Player Ticks + Net Gate', modeRule: m => m === 'DYNAMIC_CLUSTER' ? ['JVM FLAG', 'warn'] : ['FIXED OK', 'on'] },
-  { step: 8, color: '#6b4e8d', zh: '计划刻 + 边界守卫 + /forgia', en: 'Scheduled + Guards + /forgia', modeRule: () => ['BOTH', 'on'] }
+  { step: 0, color: '#256f7c', zh: '细粒度动态区域拓扑 (DYNAMIC_CLUSTER)', en: 'Fine-Grained Dynamic Topology', modeRule: () => ['SHIFT 1..3', 'on'] },
+  { step: 1, color: '#b94b2c', zh: 'Phase 4A 单区域统一 Tick 循环', en: 'Phase 4A Unified Region Loop', modeRule: m => m === 'PHASE4_UNIFIED' ? ['1 WAVE/REG', 'on'] : ['SPLIT WAVES', 'warn'] },
+  { step: 1, color: '#256f7c', zh: '同帧新实体区域内立即可见', en: 'Same-Tick Local Entity Visibility', modeRule: m => m === 'PHASE4_UNIFIED' ? ['INSTANT', 'on'] : ['NEXT BARRIER', 'warn'] },
+  { step: 2, color: '#ed7950', zh: 'Phase 2 独立区域异步时钟 (防慢区拖累)', en: 'Independent Region Async Clocks', modeRule: () => ['BUSY_SKIP', 'on'] },
+  { step: 3, color: '#256f7c', zh: 'Phase 4B 单区动态结构 Worker 原位运行', en: 'Phase 4B Single-Region Contraptions', modeRule: m => m === 'PHASE4_UNIFIED' ? ['ON WORKER', 'on'] : ['MAIN THREAD', 'warn'] },
+  { step: 4, color: '#b94b2c', zh: '跨界 4 格微距锁步 + Phase 4C 防拆分', en: '4-Block Border Lockstep + 4C Pin', modeRule: () => ['0-TICK SYNC', 'on'] },
+  { step: 5, color: '#4d6d43', zh: '全量通用方块实体沙盒 + 瞬态冷却', en: 'Universal BE Sandbox + Cooldown', modeRule: () => ['ALL MODS', 'on'] },
+  { step: 6, color: '#a87a22', zh: 'Phase 3A 异步刷怪 + 原子 Mob Cap', en: 'Phase 3A Async Spawning + Cap', modeRule: () => ['NON-BLOCK', 'on'] },
+  { step: 6, color: '#ed7950', zh: '生物寻路自学习冷却 + 热点区实体降频', en: 'AI Path Throttle + Hot Region Step', modeRule: () => ['AUTO-LEARN', 'on'] },
+  { step: 7, color: '#b94b2c', zh: '区域并行流体 + 8 邻域图着色边界收敛', en: 'Parallel Fluids + 8-Color Fixpoint', modeRule: () => ['PARALLEL', 'on'] },
+  { step: 8, color: '#6b4e8d', zh: 'Sable 子世界亲和 + Create 并发容器适配', en: 'Sable Affinity + Create Compat', modeRule: () => ['MOD-AGNOSTIC', 'on'] },
+  { step: 9, color: '#202628', zh: '低 TPS/沙盒降级探针 + 单区掉落物硬上限', en: 'Low-TPS/Demotion Probes + Item Cap', modeRule: () => ['SELF-HEAL', 'on'] }
 ];
 
 /* =====================================================================
-   13. 相机补间 & UI 控制
+   15. 相机补间 & UI 控制
    ===================================================================== */
 let camTween = null;
 function tweenCamera(pos, target, dur = 1.15) {
@@ -1356,8 +1346,8 @@ const el = {
   guard: document.getElementById('t-guard'),
   leaseBar: document.getElementById('t-lease-bar'),
   play: document.getElementById('btn-play'),
-  btnDyn: document.getElementById('btn-mode-dyn'),
-  btnFix: document.getElementById('btn-mode-fix')
+  btnP4: document.getElementById('btn-mode-p4'),
+  btnP3: document.getElementById('btn-mode-p3')
 };
 
 function rebuildSidebar() {
@@ -1374,7 +1364,7 @@ function rebuildSidebar() {
 
   el.featList.innerHTML = '';
   FEATURES.forEach(f => {
-    const [badgeText, badgeCls] = f.modeRule(layoutMode);
+    const [badgeText, badgeCls] = f.modeRule(engineMode);
     const b = document.createElement('button');
     b.className = 'feat-item' + (f.step === stepIndex ? ' active' : '');
     b.innerHTML = `<span class="feat-name"><i class="fdot" style="background:${f.color}"></i>${lang === 'zh' ? f.zh : f.en}</span>
@@ -1383,16 +1373,16 @@ function rebuildSidebar() {
     el.featList.appendChild(b);
   });
 
-  document.getElementById('lbl-steps').textContent = lang === 'zh' ? '并行流水线' : 'PIPELINE STAGES';
-  document.getElementById('lbl-tel').textContent = lang === 'zh' ? '运行时状态' : 'RUNTIME TELEMETRY';
-  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '架构模块（点击查看）' : 'ARCHITECTURE MODULES (CLICK)';
-  document.getElementById('lnk-cfg').href = lang === 'zh' ? '../configuration.zh/' : '../configuration.en/';
+  document.getElementById('lbl-steps').textContent = lang === 'zh' ? 'Phase 4 架构流水线' : 'PHASE 4 PIPELINE';
+  document.getElementById('lbl-tel').textContent = lang === 'zh' ? '运行时遥测' : 'RUNTIME TELEMETRY';
+  document.getElementById('lbl-feat').textContent = lang === 'zh' ? '核心子系统（点击跳转）' : 'CORE SUBSYSTEMS (CLICK)';
+  document.getElementById('lnk-cfg').href = lang === 'zh' ? '../zh/configuration/' : '../configuration/';
   document.getElementById('lnk-cfg').textContent = lang === 'zh' ? '配置指南 →' : 'CONFIG GUIDE →';
-  document.getElementById('lnk-arch').href = lang === 'zh' ? '../architecture.zh/' : '../architecture.en/';
+  document.getElementById('lnk-arch').href = lang === 'zh' ? '../zh/architecture/' : '../architecture/';
   document.getElementById('lnk-arch').textContent = lang === 'zh' ? '架构文档 →' : 'ARCHITECTURE →';
   document.getElementById('hint-text').innerHTML = lang === 'zh'
-    ? '拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停 · M 切换布局'
-    : 'Drag orbit · Scroll zoom · Right-drag pan<br />← → Step · Space pause · M toggle layout';
+    ? '拖拽旋转 · 滚轮缩放 · 右键平移<br />← → 切换步骤 · 空格暂停 · M 切换 Phase 4 / Phase 3'
+    : 'Drag orbit · Scroll zoom · Right-drag pan<br />← → Step · Space pause · M toggle Phase 4 / Phase 3';
 }
 
 function syncActiveHighlights() {
@@ -1413,7 +1403,7 @@ function updateHud(t) {
   const s = STEPS[stepIndex];
   const h = s.hud;
   el.tick.textContent = String(tickCount).padStart(6, '0');
-  el.layout.textContent = layoutMode;
+  el.layout.textContent = engineMode === 'PHASE4_UNIFIED' ? 'PHASE 4 UNIFIED' : 'PHASE 3 SLICE ASYNC';
   el.phase.textContent = h.phase;
   el.lease.textContent = h.lease;
   el.workers.textContent = h.workers;
@@ -1440,10 +1430,10 @@ function goToStep(i) {
   updateHud(0);
 }
 
-function setLayoutMode(mode) {
-  layoutMode = mode;
-  el.btnDyn.classList.toggle('active', mode === 'DYNAMIC_CLUSTER');
-  el.btnFix.classList.toggle('active', mode === 'FIXED_3X3');
+function setEngineMode(mode) {
+  engineMode = mode;
+  el.btnP4.classList.toggle('active', mode === 'PHASE4_UNIFIED');
+  el.btnP3.classList.toggle('active', mode === 'PHASE3_SLICE');
   rebuildSidebar();
   updateHud(stepTime / STEPS[stepIndex].dur);
 }
@@ -1453,7 +1443,7 @@ function syncAutoBtn() {
 }
 
 /* =====================================================================
-   14. 每帧动画编排（10 个阶段完整驱动）
+   16. 每帧动画编排（10 个 Phase 4 架构步骤完整驱动）
    ===================================================================== */
 function resetVisuals() {
   leaseRings.forEach(l => { l.g.visible = false; l.tag.visible = false; });
@@ -1461,143 +1451,225 @@ function resetVisuals() {
   returnTokens.forEach(t => (t.visible = false));
   beamPulses.forEach(t => (t.visible = false));
   beams.forEach(b => (b.material.opacity = 0));
-  workers.forEach(w => {
-    w.coreMat.emissiveIntensity = 0.2;
-    w.dequeSlots.forEach(s => (s.visible = false));
-  });
-  stealLine.visible = false; stealToken.visible = false; stealTag.visible = false;
+  workers.forEach(w => { w.coreMat.emissiveIntensity = 0.22; });
 
-  gEntities.visible = false; transferToken.visible = false;
-  gSpawnPoi.visible = false; spawnTokens.forEach(t => (t.visible = false));
-  gCross.visible = false; borderToken.visible = false; sculkToken.visible = false; seqToken.visible = false; mailToken.visible = false;
-  gBe.visible = false; serverToken.visible = false; laneTokens.forEach(t => (t.visible = false));
-  gPlayers.visible = false; netGateTokens.forEach(t => (t.visible = false));
-  gSchedGuard.visible = false; guardToken.visible = false;
+  gUnified.visible = false;
+  gClock.visible = false; playerFastToken.visible = false;
+  gContraption.visible = false; borderHandoffToken.visible = false;
+  gSandbox.visible = false; transientToken.visible = false;
+  gSpawnThrottle.visible = false; spawnTokens.forEach(t => (t.visible = false));
+  gCross.visible = false; borderToken.visible = false; seqToken.visible = false;
+  gAdapter.visible = false; sableToken.visible = false; busToken.visible = false;
+  gProbes.visible = false;
 
   chunkTiles.forEach(tiles => tiles.forEach(tile => {
     tile.m.emissiveIntensity = 0;
     tile.mesh.position.y = tile.base.y;
   }));
   globalMarks.forEach(m => { m.material.emissiveIntensity = 0; m.material.color.setHex(C.muted); });
-  barrierPlane.material.opacity = 0.03;
   gCoreMat.emissiveIntensity = 0.25;
 }
 
 function updateScene(t, time) {
   resetVisuals();
   const s = STEPS[stepIndex];
+  const isP4 = engineMode === 'PHASE4_UNIFIED';
 
-  /* 布局叠加层 */
-  const isDyn = layoutMode === 'DYNAMIC_CLUSTER';
-  gDynamicOverlay.visible = isDyn && (stepIndex === 0 || stepIndex === 2 || stepIndex === 9);
-  gPackOverlay.visible = !isDyn && (stepIndex === 0 || stepIndex === 2 || stepIndex === 9);
-  islandATag.visible = gDynamicOverlay.visible;
-  bufferTag.visible = gDynamicOverlay.visible;
-  packTag.visible = gPackOverlay.visible;
+  gDynamicOverlay.visible = stepIndex === 0 || stepIndex === 4 || stepIndex === 9;
+  bufferTag.visible = stepIndex === 0;
 
-  /* 时间轴高亮 */
+  /* 顶部进度指示器 */
   segs.forEach((seg, i) => {
     const active = i === s.seg;
-    seg.m.material.color.setHex(active ? C.orange : seg.isGlobal ? C.ink : C.bright);
-    seg.m.material.emissiveIntensity = active ? 0.45 : seg.isGlobal ? 0 : 0.15;
+    seg.m.material.color.setHex(active ? C.orange : C.bright);
+    seg.m.material.emissiveIntensity = active ? 0.5 : 0.15;
     seg.m.scale.y = active ? 2.1 : 1;
   });
   playhead.position.x = segs[s.seg].m.position.x;
 
-  /* Worker 常驻轻微悬浮 */
   workers.forEach((w, i) => {
     w.g.position.y = WORKER_POS[i].y + Math.sin(time * 1.2 + i * 1.5) * 0.12;
-    w.tag.visible = stepIndex === 0 || stepIndex === 2 || stepIndex === 9;
+    w.tag.visible = stepIndex <= 2 || stepIndex === 9;
   });
   regionLabels.forEach(l => (l.visible = stepIndex === 0 || stepIndex === 9));
-  globalTag.visible = stepIndex <= 2 || stepIndex === 7 || stepIndex === 8 || stepIndex === 9;
-  barrierTag.visible = stepIndex === 2 || stepIndex === 3 || stepIndex === 9;
+  globalTag.visible = stepIndex === 0 || stepIndex === 2 || stepIndex === 4 || stepIndex === 9;
 
-  /* Step 0: 全景 */
+  /* Step 0: 动态聚类拓扑总览 */
   if (stepIndex === 0) {
-    gCoreMat.emissiveIntensity = 0.35 + 0.25 * pulse(time * 0.5);
+    gCoreMat.emissiveIntensity = 0.4 + 0.25 * pulse(time * 0.5);
+    leaseRings.forEach(l => { l.g.visible = true; l.tag.visible = true; });
     chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
-      tile.m.emissiveIntensity = (0.5 + 0.5 * Math.sin(time * 0.9 + k * 0.5 + r)) * 0.08;
+      tile.m.emissiveIntensity = (0.5 + 0.5 * Math.sin(time * 0.9 + k * 0.5 + r)) * 0.09;
     }));
-  }
-
-  /* Step 1: GLOBAL 阶段 */
-  else if (stepIndex === 1) {
-    gCoreMat.emissiveIntensity = 0.75;
-    const ph = ((time * 0.65) % 1) * 6;
-    globalMarks.forEach((m, i) => {
-      const d = Math.abs(((ph - i + 6) % 6 + 6) % 6);
-      const v = Math.max(0, 1 - Math.min(d, 6 - d) * 1.4);
-      m.material.emissiveIntensity = v * 0.95;
-      m.material.color.setHex(v > 0.3 ? C.orange : C.ink);
-      m.scale.setScalar(1 + v * 0.45);
+    workers.forEach((w, i) => {
+      w.coreMat.emissiveIntensity = 0.55;
+      beams[i].material.opacity = 0.35;
+      const p = (time * 0.5 + i * 0.2) % 1;
+      dispatchTokens[i].visible = true;
+      dispatchTokens[i].position.copy(dispatchCurves[i].getPoint(p));
     });
   }
 
-  /* Step 2: 派发 + 租约 + Work-Stealing */
-  else if (stepIndex === 2) {
-    barrierPlane.material.opacity = 0.08;
+  /* Step 1: Phase 4A 单区域统一三阶循环 (Chunks -> Entities -> BEs) */
+  else if (stepIndex === 1) {
+    gUnified.visible = true;
+    leaseRings.forEach(l => (l.g.visible = true));
+    const cyc = (time * 0.45) % 1; // 0..0.33 Stage1, 0.33..0.66 Stage2, 0.66..1.0 Stage3
+    const activeStage = Math.min(2, Math.floor(cyc * 3));
+
+    unifiedTowers.forEach((ut, ri) => {
+      ut.elevatorRing.position.y = isP4 ? (0.8 + cyc * 6.0) : (0.8 + ((time * 0.9 + ri * 0.3) % 1) * 6.0);
+      ut.spine.visible = isP4;
+      ut.stages.forEach((st, si) => {
+        const isCurrent = si === activeStage;
+        st.m.emissiveIntensity = isCurrent ? 0.65 : 0.15;
+        st.slab.scale.setScalar(isCurrent ? 1.07 : 1.0);
+      });
+    });
+
     workers.forEach((w, i) => {
-      w.coreMat.emissiveIntensity = 0.65;
-      leaseRings[i].g.visible = true;
-      leaseRings[i].tag.visible = true;
-      const p = (time * 0.55 + i * 0.18) % 1;
-      dispatchTokens[i].visible = true;
-      dispatchTokens[i].position.copy(dispatchCurves[i].getPoint(p));
-      beams[i].material.opacity = 0.45;
+      w.coreMat.emissiveIntensity = 0.7;
+      beams[i].material.opacity = 0.5;
       beamPulses[i].visible = true;
       beamPulses[i].position.lerpVectors(
         new THREE.Vector3(WORKER_POS[i].x, WORKER_POS[i].y - 0.6, WORKER_POS[i].z),
-        new THREE.Vector3(REGIONS[i].cx, 1.5, REGIONS[i].cz),
-        p
+        new THREE.Vector3(REGIONS[i].cx, 7.0, REGIONS[i].cz),
+        cyc
       );
-      /* Deque 展示：Worker 0 满载 4 个，Worker 1 空闲来窃取 */
-      w.dequeSlots.forEach((slot, d) => {
-        slot.visible = (i === 0 && d < 4) || (i === 1 && d < 2 && t > 0.45) || (i >= 2 && d < 2);
-      });
+      if (cyc > 0.75) {
+        returnTokens[i].visible = true;
+        returnTokens[i].position.copy(returnCurves[i].getPoint((cyc - 0.75) / 0.25));
+      }
     });
-    stealLine.visible = true;
-    stealTag.visible = true;
-    stealToken.visible = true;
-    stealToken.position.copy(stealCurve.getPoint((time * 0.6) % 1));
   }
 
-  /* Step 3: 实体并行 + 分区存储 + 跨区交接 */
+  /* Step 2: 独立区域异步时钟 (慢区 BUSY_SKIPPED 隔离 + 玩家 20 TPS 免卡顿) */
+  else if (stepIndex === 2) {
+    gClock.visible = true;
+    leaseRings.forEach(l => { l.g.visible = true; l.tag.visible = true; });
+    clockRings.forEach((cr, i) => {
+      const rate = cr.isSlow ? 0.42 : 2.4;
+      cr.hand.rotation.y = -time * rate;
+      cr.dial.scale.setScalar(cr.isSlow ? (1 + 0.06 * pulse(time * 0.6)) : 1.0);
+      workers[i].coreMat.emissiveIntensity = cr.isSlow ? 0.95 : 0.55;
+      beams[i].material.opacity = cr.isSlow ? 0.75 : 0.35;
+    });
+
+    /* 慢区内的玩家依然 20 TPS 与主线程直连 */
+    slowRegionPlayer.position.y = 3.0 + Math.abs(Math.sin(time * 3.5)) * 0.65;
+    playerFastToken.visible = true;
+    playerFastToken.position.copy(
+      new THREE.Vector3(17, 4.2, 17).lerp(SERVER_POS, (time * 0.95) % 1)
+    );
+
+    const ph = ((time * 0.8) % 1) * 6;
+    globalMarks.forEach((m, i) => {
+      const v = i === 2 || i === 4 ? 0.85 : 0.2;
+      m.material.emissiveIntensity = v;
+      m.material.color.setHex(v > 0.5 ? C.teal : C.ink);
+    });
+  }
+
+  /* Step 3: Phase 4B 单区域内部动态结构 (Worker 原位 Stage 2 -> Stage 3) */
   else if (stepIndex === 3) {
-    gEntities.visible = true;
-    barrierPlane.material.opacity = 0.06;
+    gContraption.visible = true;
+    borderContraption.visible = false;
+    lockstepSphere.visible = false;
+    borderAdjacentBeA.visible = false;
+    borderAdjacentBeB.visible = false;
+    borderHandoffLine.visible = false;
+    sectionPinBridge.visible = false;
+    borderLockstepTag.visible = false;
+    pinTag.visible = false;
+
+    safeMarginBox.visible = true;
+    gantryTrack.visible = true;
+    interiorContraption.visible = true;
+    localGearshiftBe.visible = true;
+    interiorContraptionTag.visible = true;
+    leaseRings[2].g.visible = true;
+
+    /* 桁架滑车在安全边距内精确往返移动 5 格 */
+    const slide = Math.sin(time * 1.4) * 4.2;
+    interiorContraption.position.x = -17 + slide;
+    localGearshiftBe.rotation.x = time * 3.0;
+    workers[2].coreMat.emissiveIntensity = 0.85;
+    beams[2].material.opacity = 0.6;
+    beamPulses[2].visible = true;
+    beamPulses[2].position.lerpVectors(
+      new THREE.Vector3(WORKER_POS[2].x, WORKER_POS[2].y - 0.6, WORKER_POS[2].z),
+      interiorContraption.position,
+      (time * 0.8) % 1
+    );
+  }
+
+  /* Step 4: 跨边界 4 格微距锁步 + Phase 4C 防拆分 (不合并大区) */
+  else if (stepIndex === 4) {
+    gContraption.visible = true;
+    borderContraption.visible = true;
+    lockstepSphere.visible = true;
+    borderAdjacentBeA.visible = true;
+    borderAdjacentBeB.visible = true;
+    borderHandoffLine.visible = true;
+    sectionPinBridge.visible = true;
+    borderLockstepTag.visible = true;
+    pinTag.visible = true;
+    interiorContraptionTag.visible = false;
+
+    leaseRings[0].g.visible = true;
+    leaseRings[1].g.visible = true;
+
+    /* 跨界滑车在 R(0,0) 与 R(1,0) 边界处移动 */
+    const crossX = Math.sin(time * 1.1) * 5.5;
+    borderContraption.position.x = crossX;
+    lockstepSphere.position.x = crossX;
+    lockstepSphere.scale.setScalar(1 + 0.08 * pulse(time * 1.5));
+
+    borderHandoffToken.visible = true;
+    borderHandoffToken.position.copy(borderHandoffCurve.getPoint((time * 0.75) % 1));
+
+    /* 两边区域的 Worker 0 和 Worker 1 照常并行工作，不被跨界打断 */
+    workers[0].coreMat.emissiveIntensity = 0.65;
+    workers[1].coreMat.emissiveIntensity = 0.65;
+    beams[0].material.opacity = 0.45;
+    beams[1].material.opacity = 0.45;
+  }
+
+  /* Step 5: 全量通用方块实体沙盒 + 单实例瞬态冷却 */
+  else if (stepIndex === 5) {
+    gSandbox.visible = true;
     leaseRings.forEach(l => (l.g.visible = true));
-    entityCapsules.forEach(ec => {
-      ec.mesh.position.y = ec.base.y + Math.abs(Math.sin(time * 2.6 + ec.ri + ec.k)) * 0.85;
-      ec.mesh.rotation.y = time * 1.4 + ec.k;
+    sandboxCubes.forEach(sc => {
+      const w = 0.5 + 0.5 * Math.sin(time * 2.5 + sc.i + sc.ri);
+      sc.cube.position.y = 2.2 + w * 0.35;
+      sc.m.emissiveIntensity = sc.isTransient ? (0.4 + 0.5 * pulse(time * 1.8)) : (0.2 + w * 0.3);
     });
-    transferToken.visible = true;
-    transferToken.position.copy(transferCurve.getPoint((time * 0.5) % 1));
+    transientToken.visible = true;
+    transientToken.position.copy(transientCurve.getPoint((time * 0.55) % 1));
     workers.forEach((w, i) => {
-      w.coreMat.emissiveIntensity = 0.6;
-      beams[i].material.opacity = 0.25;
-      returnTokens[i].visible = t > 0.6;
-      if (returnTokens[i].visible) returnTokens[i].position.copy(returnCurves[i].getPoint((t - 0.6) / 0.4));
+      w.coreMat.emissiveIntensity = 0.65;
+      beams[i].material.opacity = 0.4;
     });
   }
 
-  /* Step 4: 自然刷怪 + 原子 Mob Cap + 分区 POI */
-  else if (stepIndex === 4) {
-    gSpawnPoi.visible = true;
+  /* Step 6: Phase 3A 异步刷怪 + 生物寻路自学习节流 */
+  else if (stepIndex === 6) {
+    gSpawnThrottle.visible = true;
+    leaseRings.forEach(l => (l.g.visible = true));
     capTower.scale.y = 1 + 0.14 * pulse(time * 1.4);
-    poiCrystals.forEach((cry, i) => {
-      cry.rotation.y = time * 1.6 + i;
-      cry.position.y = 3.4 + Math.sin(time * 2.0 + i) * 0.45;
+    mobCapsules.forEach(mc => {
+      const freq = mc.isHot ? 1.1 : 3.0;
+      mc.mesh.position.y = mc.base.y + Math.abs(Math.sin(time * freq + mc.ri + mc.k)) * 0.85;
+      mc.mesh.rotation.y = time * (mc.isHot ? 0.6 : 1.6) + mc.k;
     });
     spawnTokens.forEach((tok, i) => {
       tok.visible = true;
       tok.position.copy(spawnCurves[i].getPoint((time * 0.58 + i * 0.22) % 1));
     });
-    leaseRings.forEach(l => (l.g.visible = true));
   }
 
-  /* Step 5: 区块随机刻 + 红石边界收敛 + 幽匿 GameEvent + Seqlock + Mailbox */
-  else if (stepIndex === 5) {
+  /* Step 7: 并行流体 + 8 邻域图着色红石收敛 + Seqlock */
+  else if (stepIndex === 7) {
     gCross.visible = true;
     chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
       const wave = 0.5 + 0.5 * Math.sin(time * 3.1 + k * 0.8 + r * 1.4);
@@ -1606,101 +1678,47 @@ function updateScene(t, time) {
     }));
     borderToken.visible = true;
     borderToken.position.copy(borderCurve.getPoint((time * 0.7) % 1));
-    sculkToken.visible = true;
-    sculkToken.position.copy(sculkCurve.getPoint((time * 0.55) % 1));
-    const sc = 1 + ((time * 0.9) % 1) * 4.5;
-    sculkRing.scale.setScalar(sc);
-    sculkRing.material.opacity = clamp(1 - (sc - 1) / 4.5, 0, 0.85);
     seqToken.visible = true;
-    seqToken.position.copy(seqCurve.getPoint((time * 0.5) % 1));
-    mailToken.visible = true;
-    mailToken.position.copy(mailCurve.getPoint((time * 0.45) % 1));
+    seqToken.position.copy(seqCurve.getPoint((time * 0.55) % 1));
   }
 
-  /* Step 6: Canonical BE 流水线 + 熔炉波次 + 串行围栏 + 双 Owner 操作 */
-  else if (stepIndex === 6) {
-    gBe.visible = true;
-    const prog = (time * 0.14) % 1;
-    const curUnit = Math.min(BE.count - 1, Math.floor(prog * BE.count));
-    beCursor.position.x = beX(curUnit);
-    cursorTag.position.x = beX(curUnit);
-
-    beUnits.forEach((u, i) => {
-      const done = i <= curUnit;
-      if (u.isSerial) {
-        u.m.color.setHex(done ? C.ink : 0xd5d4cc);
-        u.m.emissiveIntensity = done ? 0.55 : 0.08;
-      } else if (u.isCreate) {
-        u.m.color.setHex(done ? C.teal : 0xe4e3db);
-        u.m.emissiveIntensity = done ? 0.4 : 0.05;
-      } else {
-        u.m.color.setHex(done ? C.green : 0xe4e3db);
-        u.m.emissiveIntensity = done ? 0.35 : 0.04;
-      }
-    });
-
-    /* 并行车道粒子 */
-    laneTokens.forEach((lt, i) => {
-      lt.visible = true;
-      const p = (time * 0.7 + i * 0.23) % 1;
-      lt.position.set(lanePads[i].x, lerp(BE.y + 1.5, 10.8, Math.sin(p * Math.PI)), BE.z);
-    });
-
-    /* 主线程串行旁路 */
-    serverToken.visible = true;
-    const sp = (time * 0.45) % 1;
-    serverToken.position.set(lerp(FENCE_X, FENCE_END_X, sp), 14.5, BE.z);
-  }
-
-  /* Step 7: 实验性玩家并行 + 网络门 */
-  else if (stepIndex === 7) {
-    gPlayers.visible = true;
-    playerFlagTag.visible = isDyn;
-    leaseRings.forEach(l => (l.g.visible = true));
-    playerMeshes.forEach((pm, i) => {
-      pm.position.y = 2.5 + Math.sin(time * 2.5 + i) * 0.4;
-      pm.rotation.y = time * 1.1 + i;
-    });
-    netGateTokens.forEach((tok, i) => {
-      tok.visible = true;
-      tok.position.copy(netGateCurves[i].getPoint((time * 0.6 + i * 0.24) % 1));
-    });
-    gCoreMat.emissiveIntensity = 0.6;
-  }
-
-  /* Step 8: Scheduled Ticks + 边界守卫回退 */
+  /* Step 8: RegionAdapterApi + Sable 虚拟子世界亲和 + Create 并发容器适配 */
   else if (stepIndex === 8) {
-    gSchedGuard.visible = true;
-    lampCore.material.emissiveIntensity = 0.35 + 0.65 * pulse(time * 1.2);
+    gAdapter.visible = true;
     leaseRings[0].g.visible = true;
-    guardToken.visible = true;
-    guardToken.position.copy(guardCurve.getPoint((time * 0.55) % 1));
-    gCoreMat.emissiveIntensity = 0.65;
+    leaseRings[3].g.visible = true;
+    sablePlot.position.y = 10.2 + Math.sin(time * 1.6) * 0.35;
+    sableToken.visible = true;
+    sableToken.position.set(-17, lerp(10.0, 1.8, (time * 0.7) % 1), -17);
+    busToken.visible = true;
+    busToken.position.copy(busCurve.getPoint((time * 0.6) % 1));
   }
 
-  /* Step 9: 全景观测（全流水线同屏跃动） */
+  /* Step 9: 全链路探针 + 掉落物硬上限 + 全景同屏运行 */
   else if (stepIndex === 9) {
-    gEntities.visible = true;
-    gSpawnPoi.visible = true;
-    gBe.visible = true;
-    barrierPlane.material.opacity = 0.06;
+    gUnified.visible = true;
+    gClock.visible = true;
+    gProbes.visible = true;
     leaseRings.forEach(l => (l.g.visible = true));
-    workers.forEach((w, i) => {
-      w.coreMat.emissiveIntensity = 0.6;
-      beams[i].material.opacity = 0.32;
-      dispatchTokens[i].visible = true;
-      dispatchTokens[i].position.copy(dispatchCurves[i].getPoint((time * 0.5 + i * 0.2) % 1));
+
+    const sc = 0.4 + ((time * 0.45) % 1) * 1.4;
+    probeRing.scale.setScalar(sc);
+    probeRing.material.opacity = clamp(1.2 - sc * 0.65, 0, 0.6);
+
+    const cyc = (time * 0.5) % 1;
+    unifiedTowers.forEach(ut => {
+      ut.elevatorRing.position.y = 0.8 + cyc * 6.0;
     });
-    entityCapsules.forEach(ec => { ec.mesh.position.y = ec.base.y + Math.abs(Math.sin(time * 2.2 + ec.k)) * 0.5; });
-    poiCrystals.forEach((cry, i) => { cry.rotation.y = time * 1.5 + i; });
-    chunkTiles.forEach((tiles, r) => tiles.forEach((tile, k) => {
-      tile.m.emissiveIntensity = (0.5 + 0.5 * Math.sin(time * 1.8 + k + r)) * 0.14;
-    }));
+    clockRings.forEach((cr, i) => {
+      cr.hand.rotation.y = -time * (cr.isSlow ? 0.5 : 2.2);
+      workers[i].coreMat.emissiveIntensity = 0.65;
+      beams[i].material.opacity = 0.35;
+    });
   }
 }
 
 /* =====================================================================
-   15. 交互绑定与主循环
+   17. 交互绑定与主循环
    ===================================================================== */
 document.getElementById('btn-prev').addEventListener('click', () => { auto = false; syncAutoBtn(); goToStep(stepIndex - 1); });
 document.getElementById('btn-next').addEventListener('click', () => { auto = false; syncAutoBtn(); goToStep(stepIndex + 1); });
@@ -1717,8 +1735,8 @@ document.getElementById('btn-cam').addEventListener('click', () => {
   const s = STEPS[stepIndex];
   tweenCamera(s.cam.pos, s.cam.target, 0.8);
 });
-el.btnDyn.addEventListener('click', () => setLayoutMode('DYNAMIC_CLUSTER'));
-el.btnFix.addEventListener('click', () => setLayoutMode('FIXED_3X3'));
+el.btnP4.addEventListener('click', () => setEngineMode('PHASE4_UNIFIED'));
+el.btnP3.addEventListener('click', () => setEngineMode('PHASE3_SLICE'));
 document.getElementById('btn-lang').addEventListener('click', () => {
   lang = lang === 'zh' ? 'en' : 'zh';
   rebuildSidebar();
@@ -1730,7 +1748,9 @@ window.addEventListener('keydown', e => {
   if (e.code === 'ArrowRight') { auto = false; syncAutoBtn(); goToStep(stepIndex + 1); }
   else if (e.code === 'ArrowLeft') { auto = false; syncAutoBtn(); goToStep(stepIndex - 1); }
   else if (e.code === 'Space') { e.preventDefault(); el.play.click(); }
-  else if (e.key === 'm' || e.key === 'M') { setLayoutMode(layoutMode === 'DYNAMIC_CLUSTER' ? 'FIXED_3X3' : 'DYNAMIC_CLUSTER'); }
+  else if (e.key === 'm' || e.key === 'M') {
+    setEngineMode(engineMode === 'PHASE4_UNIFIED' ? 'PHASE3_SLICE' : 'PHASE4_UNIFIED');
+  }
 });
 
 window.addEventListener('resize', () => {

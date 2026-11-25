@@ -17,6 +17,26 @@ Measured live after **3.6 hours (`12,961s`)** of continuous production uptime on
 | **Sync Slice Barriers (`ENTITY` / `BE` / `SPAWN` / `CHUNK` / `FLUID`)** | `SPAWN 24.3ms max`, `CHUNK 47.9ms max`, `FLUID 17.2ms max` | **`0` sync barrier batches** across all 5 slices (`PROPAGATION` only: `0.036 ms` avg) | **100% zero-barrier async** |
 | **Worker Pool Efficiency (LPT + Affinity + Micro-Packing)** | 1 submission per region tick (`72.6%` OS `parkWakeUps`) | `3,614,596` region ticks in `1,495,671` submissions (**`2.42` ticks/submission**; `42.5%` spin wake-ups) | Process CPU `429%` (~4.3 cores active) |
 
+### 3-Player Heavy Multi-Base Live Snapshot (`21.1.250.314-beta` / SkyExplorer Live Server)
+
+Measured live on `21.1.250.314-beta` (with sandboxed `sendBlockUpdated` / `LightEngine` deferral and graceful cross-region boundary exception forwarding) with **3 players online** across **86 active regions / 852 chunks / 780 entities**:
+
+- **Total Region Work vs. Main Thread**: `176.98 ms/tick` total region work (`avgMspt = 2.058 ms`) → **`20.00 TPS`** (`300s` avg `24.88 ms`, `p50 = 22.09 ms`, `p95 = 46.01 ms`; `/neoforge tps` overall `28.58 ms/tick`, **`7.11×` 300s effective speedup / `6.19×` overall speedup**).
+  - **Vanilla / Single-Thread Equivalent**: Running this same 86-region workload on stock Vanilla or single-threaded NeoForge would require `176.98 ms/tick` for region work alone — yielding only **`~5.65 TPS`** (**`~5.2 TPS`** including ~15 ms of main-thread global overhead). Forgia sustains **`20.00 TPS`** on the same `2.00 GHz` processor.
+- **Top-5 Hotspot Regions**: `-38,-54` (`21.92 ms`), `-41,106` (`16.86 ms`), `-37,-54` (`15.23 ms`), `-37,-53` (`13.05 ms`), `-39,-54` (`11.61 ms`) — `78.66 ms/tick` combined, each running independently at `observedTps = 24.812` (`capTps = 20.000`).
+- **Parallelism & Resources**: **`99.85%`** Block Entity worker parallelism (`26,184,715` worker ticks vs `40,295` fallbacks), **`99.31%`** Chunk Tick worker parallelism (`2,102,054` vs `14,619`), 8 workers with `failed = 0` / `rejected = 0`, `47.9%` spin wake-ups, and **`488.5%`** process CPU (~4.9 cores active).
+
+#### Production Server Reference Configuration (Spark + `forgia.toml` + `server.properties`)
+
+| Category | Live Production Setting / Reading |
+| :--- | :--- |
+| **CPU & OS (Spark Profile)** | `Intel(R) Xeon(R) Gold 6138 CPU @ 2.00GHz` (10 vCPU / Skylake-SP, Ubuntu 22.04.5 LTS, [Spark Profile](https://spark.lucko.me/HgD2z4RTlH)) |
+| **JVM & GC** | Java 25 (Zulu `25.0.3`), `-Xms4G -Xmx16G -XX:+UseZGC -XX:+DisableExplicitGC -XX:ActiveProcessorCount=10`, `-Dforgia.dynamicPlayerSoak=true -Dforgia.mscOrderedSpawning=true` |
+| **Spark Health (10s / 1m / 15m)** | TPS `20.0 / 20.0 / 19.77`; 10s ticks `15.0 / 24.4 / 41.6 / 52.9 ms` (min/med/p95/max); Process CPU `44% / 46% / 30%` (10 vCPU); Heap `11.8 / 16.0 GB (73%)` (ZGC Old `2.4 GB` / Young `9.4 GB`) |
+| **View & Simulation Distance** | `view-distance = 6`, `simulation-distance = 8`, `sync-chunk-writes = false` |
+| **Forgia Region Scheduling** | `regionThreadingMode = "DYNAMIC_CLUSTER"`, `regionThreadingDynamicSectionShift = 2` (4×4 chunks), `regionThreadingWorkerThreads = 8`, `enableIndependentRegionTickClock = true`, `enableRegionSandboxAllBlockEntities = true` |
+| **Anti-Burst Item Protection** | `enableItemCleanup = true`, `itemCleanupIntervalSeconds = 120`, `itemCleanupMaxPerRegion = 128` (soft cap), `itemCleanupEmergencyHardCap = 512` (emergency hard cap, discards immediately regardless of `minAge`), `itemCleanupIgnoreNamedItems = true` |
+
 ---
 
 ## Earlier C7 Production Modpack Benchmarks (`21.1.250.200-beta` / SkyExplorer 188 Mods)
