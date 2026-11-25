@@ -126,8 +126,8 @@ import org.jetbrains.annotations.Nullable;
  * is the documented baseline of the feature.
  */
 public final class RegionThreadingEngine implements RegionThreading {
-    private static final Logger LOGGER = LogManager.getLogger();
-    private static final int MAX_REGION_LEASE_ATTEMPTS = 4;
+    static final Logger LOGGER = LogManager.getLogger();
+    static final int MAX_REGION_LEASE_ATTEMPTS = 4;
     /**
      * Upper bound of the server thread's wait for a native global drain to release the global region. The
      * drain itself is bounded by the per-drain task limits, so this only guards against a worker that never
@@ -159,13 +159,13 @@ public final class RegionThreadingEngine implements RegionThreading {
     private static final byte NEIGHBORHOOD_NOT_LOADED = 0;
     private static final byte NEIGHBORHOOD_LOADED = 1;
     private static final java.util.concurrent.atomic.AtomicLong DIAG_LAST = new java.util.concurrent.atomic.AtomicLong();
-    private static final BasicRegionThreadingContext NONE_CONTEXT = new BasicRegionThreadingContext(RegionThreadingContext.Kind.NONE, null, null, null, null);
+    static final BasicRegionThreadingContext NONE_CONTEXT = new BasicRegionThreadingContext(RegionThreadingContext.Kind.NONE, null, null, null, null);
     private static final ThreadLocal<RegionThreadingContext> CURRENT_CONTEXT = ThreadLocal.withInitial(() -> NONE_CONTEXT);
 
-    private final RegionLayout layout;
-    private final RegionWorkAdmission regionWorkAdmission = new RegionWorkAdmission();
-    private final GlobalRegionState globalRegion = new GlobalRegionState(this.regionWorkAdmission);
-    private final ThreadedRegionizer regionizer;
+    final RegionLayout layout;
+    final RegionWorkAdmission regionWorkAdmission = new RegionWorkAdmission();
+    final GlobalRegionState globalRegion = new GlobalRegionState(this.regionWorkAdmission);
+    final ThreadedRegionizer regionizer;
     /**
      * Per-level Folia-style dynamic region topology, populated only when {@link #layout} uses
      * {@link RegionPolicy#DYNAMIC_CLUSTER}. Cleared on level unload and engine shutdown.
@@ -182,7 +182,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * with its last wrapper and no entity stays reachable through an empty group.
      */
     private final Map<Entity, Set<EntityRegionScheduledTask>> entityTasksByEntity = new ConcurrentHashMap<>();
-    private final RegionWorkerPool workerPool;
+    final RegionWorkerPool workerPool;
     private final GlobalRegionTickRunner globalTickRunner = new GlobalRegionTickRunner();
     private final RegionTickRunner tickRunner = new RegionTickRunner();
     private final GlobalRegionScheduler globalScheduler = new EngineGlobalRegionScheduler(this);
@@ -197,33 +197,34 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final Set<net.minecraft.world.level.material.Fluid> demotedFluidTypes = ConcurrentHashMap.newKeySet();
     private final RegionScheduledTickMetrics[] scheduledTickMetrics = { new RegionScheduledTickMetrics(), new RegionScheduledTickMetrics() };
     private final RegionScheduledTickCoordinator scheduledTickCoordinator;
-    private final RegionIndependentTickScheduler independentTickScheduler;
+    final RegionIndependentTickScheduler independentTickScheduler;
     private volatile boolean independentRegionTickOverride;
     private final boolean chunkTickWorkerExecutionEnabled;
     private final RegionChunkTickCoordinator chunkTickCoordinator;
     private final RegionSpawnCoordinator spawnCoordinator;
     private final RegionBorderPropagationCoordinator borderPropagationCoordinator;
+    private final RegionBlockEntityTickCoordinator blockEntityTickCoordinator;
     private final RegionDiagnosticsCollector diagnosticsCollector;
     private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
-    private final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
-    private final RegionMainThreadPhaseMetrics mainThreadPhaseMetrics = new RegionMainThreadPhaseMetrics();
+    final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
+    final RegionMainThreadPhaseMetrics mainThreadPhaseMetrics = new RegionMainThreadPhaseMetrics();
     private final RegionItemCleanupManager itemCleanupManager = new RegionItemCleanupManager();
     private final RegionOverloadGovernor.Config overloadConfig;
     @Nullable
-    private final RegionOverloadGovernor overloadGovernor;
+    final RegionOverloadGovernor overloadGovernor;
     private volatile boolean callerRunsEnabled;
     private volatile boolean parallelBorderFixpointEnabled;
-    private volatile boolean canonicalFenceTailEnabled;
+    volatile boolean canonicalFenceTailEnabled;
     private final FusedRegionTickSession fusedSession = new FusedRegionTickSession();
     private volatile boolean fusedSlicesEnabled;
     private volatile boolean activeFusedBatch;
     @Nullable
-    private it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> activeCanonicalBeRegionCosts;
+    it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> activeCanonicalBeRegionCosts;
     @Nullable
-    private String activeCanonicalBeDimensionId;
+    String activeCanonicalBeDimensionId;
     @Nullable
-    private it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState> activeCanonicalBeChunkRegions;
-    private boolean activeCanonicalPureSerial;
+    it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState> activeCanonicalBeChunkRegions;
+    boolean activeCanonicalPureSerial;
     private volatile boolean spawnWorkerExecutionEnabled;
     /**
      * Whether a slice leases several regions into one worker task. Off means one task per region, exactly like
@@ -231,15 +232,15 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     private final boolean packedRegionLeasesEnabled;
     /** Packed worker tasks this engine submitted. */
-    private final AtomicLong packedTasks = new AtomicLong();
+    final AtomicLong packedTasks = new AtomicLong();
     /** Regions the packed tasks of this engine hold; divided by {@link #packedTasks} it is the regions per task. */
-    private final AtomicLong packedRegions = new AtomicLong();
+    final AtomicLong packedRegions = new AtomicLong();
     /**
      * Packed acquisitions that could not take every region of their pack and released what they took. The
      * affected regions were leased one by one instead; a growing count means the pool and the region work of the
      * previous tick overlap, not that a region was skipped.
      */
-    private final AtomicLong packedLeaseFallbacks = new AtomicLong();
+    final AtomicLong packedLeaseFallbacks = new AtomicLong();
     private final AtomicLong rejectedWorkerTaskCount = new AtomicLong();
     private final AtomicLong failedQueuedTaskCount = new AtomicLong();
     private final AtomicLong entityTicksOnWorkers = new AtomicLong();
@@ -438,7 +439,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Whether the installed engine captures cross-region border updates. It is the engine's copy of
      * {@code enableRegionThreadingBorderUpdates}, taken at construction so a batch never re-reads the config.
      */
-    private volatile boolean borderUpdatesEnabled = RegionThreadingConfig.borderUpdatesEnabled();
+    volatile boolean borderUpdatesEnabled = RegionThreadingConfig.borderUpdatesEnabled();
     /** Test override of the fixpoint bound; a negative value reads the level's vanilla limit. */
     private volatile int borderUpdateBudgetForTesting = -1;
     /** Entries one capture queue of a level admits; the production bound unless a test lowers it. */
@@ -521,15 +522,15 @@ public final class RegionThreadingEngine implements RegionThreading {
      * by the server thread, which is the vanilla call and needs no fixpoint. See
      * {@link #beginBlockEventPhase(ServerLevel)}.
      */
-    private final ThreadLocal<BlockEventPhase> blockEventPhase = new ThreadLocal<>();
+    final ThreadLocal<BlockEventPhase> blockEventPhase = new ThreadLocal<>();
     /** Server-thread fallback after this batch's groups have returned; unrelated active batches forbid it. */
-    private final ThreadLocal<BlockEntityFallbackPhase> blockEntityFallbackPhase = new ThreadLocal<>();
-    private final AtomicLong blockEntityFallbackPhases = new AtomicLong();
-    private final AtomicLong blockEntityFallbackLeases = new AtomicLong();
-    private final AtomicLong blockEntityFallbackReleases = new AtomicLong();
-    private final AtomicLong blockEntityFallbackCallbacks = new AtomicLong();
-    private volatile boolean blockEntityFallbackScopeEnabled = true;
-    private final AtomicLong blockEntityFallbackScopeRefusals = new AtomicLong();
+    final ThreadLocal<BlockEntityFallbackPhase> blockEntityFallbackPhase = new ThreadLocal<>();
+    final AtomicLong blockEntityFallbackPhases = new AtomicLong();
+    final AtomicLong blockEntityFallbackLeases = new AtomicLong();
+    final AtomicLong blockEntityFallbackReleases = new AtomicLong();
+    final AtomicLong blockEntityFallbackCallbacks = new AtomicLong();
+    volatile boolean blockEntityFallbackScopeEnabled = true;
+    final AtomicLong blockEntityFallbackScopeRefusals = new AtomicLong();
 
     @ApiStatus.Internal
     public void setBlockEntityFallbackScopeEnabledForTesting(boolean enabled) {
@@ -537,11 +538,11 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     /** Work stays in its collected order; the scope retains only leases, never reorders tickers by region. */
-    private static final class BlockEntityFallbackPhase {
-        private final ServerLevel level;
-        private final Map<RegionCoordinate, RegionState> leases = new LinkedHashMap<>();
+    static final class BlockEntityFallbackPhase {
+        final ServerLevel level;
+        final Map<RegionCoordinate, RegionState> leases = new LinkedHashMap<>();
 
-        private BlockEntityFallbackPhase(ServerLevel level) {
+        BlockEntityFallbackPhase(ServerLevel level) {
             this.level = level;
         }
     }
@@ -621,8 +622,8 @@ public final class RegionThreadingEngine implements RegionThreading {
      * in {@link #endBlockEventPhase(ServerLevel)}, including when an event throws.
      */
     private static final class BlockEventPhase {
-        private final ServerLevel level;
-        private final Map<RegionCoordinate, RegionState> leases = new LinkedHashMap<>();
+        final ServerLevel level;
+        final Map<RegionCoordinate, RegionState> leases = new LinkedHashMap<>();
         private final long startNanos;
         private int events;
         /**
@@ -652,26 +653,26 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
-    private final AtomicLong blockEntityTicksOnWorkers = new AtomicLong();
-    private final AtomicLong skippedBlockEntityTicks = new AtomicLong();
-    private final AtomicLong fallbackBlockEntityTicks = new AtomicLong();
-    private final AtomicLong blockEntityFallbackUndeclared = new AtomicLong();
-    private final AtomicLong blockEntityFallbackBoundary = new AtomicLong();
-    private final AtomicLong blockEntityFallbackMixedSafe = new AtomicLong();
-    private final AtomicLong blockEntityFallbackUnloadedNeighborhood = new AtomicLong();
-    private final AtomicLong blockEntityFallbackUntrackedNeighborhood = new AtomicLong();
-    private final RegionBlockEntityWorkGraph blockEntityWorkGraph = new RegionBlockEntityWorkGraph();
-    private final FurnaceWorkMetrics furnaceWorkMetrics = new FurnaceWorkMetrics();
-    private final BlockEntityResourceMetrics blockEntityResourceMetrics = new BlockEntityResourceMetrics();
-    private volatile boolean blockEntityResourcesEnabled = false;
-    private volatile boolean furnaceWorkWavesEnabled = false;
+    final AtomicLong blockEntityTicksOnWorkers = new AtomicLong();
+    final AtomicLong skippedBlockEntityTicks = new AtomicLong();
+    final AtomicLong fallbackBlockEntityTicks = new AtomicLong();
+    final AtomicLong blockEntityFallbackUndeclared = new AtomicLong();
+    final AtomicLong blockEntityFallbackBoundary = new AtomicLong();
+    final AtomicLong blockEntityFallbackMixedSafe = new AtomicLong();
+    final AtomicLong blockEntityFallbackUnloadedNeighborhood = new AtomicLong();
+    final AtomicLong blockEntityFallbackUntrackedNeighborhood = new AtomicLong();
+    final RegionBlockEntityWorkGraph blockEntityWorkGraph = new RegionBlockEntityWorkGraph();
+    final FurnaceWorkMetrics furnaceWorkMetrics = new FurnaceWorkMetrics();
+    final BlockEntityResourceMetrics blockEntityResourceMetrics = new BlockEntityResourceMetrics();
+    volatile boolean blockEntityResourcesEnabled = false;
+    volatile boolean furnaceWorkWavesEnabled = false;
     @Nullable
-    private java.util.function.Consumer<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceBodyObserverForTesting;
+    java.util.function.Consumer<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceBodyObserverForTesting;
     @Nullable
-    private final CoreModPreparation coreModPreparation = CoreModTickerVerifier.installed() ? new CoreModPreparation(this) : null;
+    final CoreModPreparation coreModPreparation = CoreModTickerVerifier.installed() ? new CoreModPreparation(this) : null;
     @Nullable
-    private java.util.function.BiConsumer<TickingBlockEntity, Runnable> blockEntityBodyObserverForTesting;
-    private final AtomicLong boundaryBlockEntityTicksOnWorkers = new AtomicLong();
+    java.util.function.BiConsumer<TickingBlockEntity, Runnable> blockEntityBodyObserverForTesting;
+    final AtomicLong boundaryBlockEntityTicksOnWorkers = new AtomicLong();
     /** Chunks the plan did not hand over because they are not block-ticking (or the tick rate is frozen). */
     private final AtomicLong nonTickingBlockEntityChunks = new AtomicLong();
     /** Chunks the plan did not hand over because their entities are still loading. */
@@ -679,7 +680,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     /** Chunks the plan did not hand over because they are no longer loaded, so no snapshot exists. */
     private final AtomicLong missingBlockEntityChunks = new AtomicLong();
     /** Chunks whose snapshot went stale between the plan and the worker, so the server thread ticked them. */
-    private final AtomicLong staleBlockEntityChunkSnapshots = new AtomicLong();
+    final AtomicLong staleBlockEntityChunkSnapshots = new AtomicLong();
     private final AtomicLong scheduledTicksOnWorkers = new AtomicLong();
     private final AtomicLong skippedScheduledTicks = new AtomicLong();
     private final AtomicLong fallbackScheduledTicks = new AtomicLong();
@@ -755,7 +756,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      */
     private final AtomicLong refusedSpawnAdditions = new AtomicLong();
     private final AtomicBoolean entityTickWorkersNoticeLogged = new AtomicBoolean();
-    private final AtomicBoolean blockEntityTickWorkersNoticeLogged = new AtomicBoolean();
+    final AtomicBoolean blockEntityTickWorkersNoticeLogged = new AtomicBoolean();
     private final AtomicBoolean chunkTickWorkersNoticeLogged = new AtomicBoolean();
     private final AtomicBoolean chunkTickStorageNoticeLogged = new AtomicBoolean();
     private final AtomicBoolean spawnWorkersNoticeLogged = new AtomicBoolean();
@@ -837,8 +838,8 @@ public final class RegionThreadingEngine implements RegionThreading {
      * ticker of the group and the block-entity access gate opens for the block entities of its region; both
      * are removed again after the loop.
      */
-    private final ThreadLocal<RandomSource> currentBlockEntityTickRandom = new ThreadLocal<>();
-    private final ThreadLocal<RegionBlockEntityTickBatch.Group> currentBlockEntityOperationGroup = new ThreadLocal<>();
+    final ThreadLocal<RandomSource> currentBlockEntityTickRandom = new ThreadLocal<>();
+    final ThreadLocal<RegionBlockEntityTickBatch.Group> currentBlockEntityOperationGroup = new ThreadLocal<>();
     /**
      * Random source of the scheduled tick group that executes on the current thread. It is only set for
      * the duration of a worker group, so {@link #scheduledTickRandom()} returns {@code null} everywhere
@@ -855,7 +856,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Scheduled block/fluid ticks, random ticks and block-entity ticks all mutate {@code LevelTicks} through
      * this queue, so the slices never mutate the scheduling structures concurrently.
      */
-    private final ThreadLocal<Queue<Runnable>> currentRegionTickMutations = new ThreadLocal<>();
+    final ThreadLocal<Queue<Runnable>> currentRegionTickMutations = new ThreadLocal<>();
     /**
      * Random source of the chunk tick group that executes on the current thread. It is installed for the tick
      * of one chunk, so {@link #chunkTickRandom()} answers with the random source of that chunk and
@@ -898,8 +899,8 @@ public final class RegionThreadingEngine implements RegionThreading {
      * admission count from ({@link RegionTickSlice#reservationPerUnit()}); the mechanics tests lower it to
      * observe the refusal without admitting thousands of units.
      */
-    private volatile int deferredBlockUpdateBudget = RegionDeferredBlockUpdates.MAX_ENTRIES;
-    private final Set<RegionTickBatch> activeTickBatches = ConcurrentHashMap.newKeySet();
+    volatile int deferredBlockUpdateBudget = RegionDeferredBlockUpdates.MAX_ENTRIES;
+    final Set<RegionTickBatch> activeTickBatches = ConcurrentHashMap.newKeySet();
     /**
      * Pending and terminal decisions of the recorded cross-region entity transfer transaction. The
      * journal, not the live entity state, decides whether a commit may run.
@@ -997,7 +998,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * hold the write lock for the complete cleanup, so an activation either wins and is awaited or is
      * rejected after cleanup completed.
      */
-    private final ReentrantReadWriteLock lifecycleGate = new ReentrantReadWriteLock();
+    final ReentrantReadWriteLock lifecycleGate = new ReentrantReadWriteLock();
     /**
      * Test hook run immediately before a level drain acquires a region lease or marks a worker
      * submission. It lets tests force the interleaving with level cleanup; production leaves it
@@ -1018,7 +1019,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * after the cleanup that closes the queues.
      */
     private final Object admissionLock = new Object();
-    private volatile boolean shutdown;
+    volatile boolean shutdown;
 
     public RegionThreadingEngine(int workerThreads, boolean workerExecutionEnabled, boolean globalWorkerExecutionEnabled) {
         this(workerThreads, workerExecutionEnabled, globalWorkerExecutionEnabled, false, false);
@@ -1161,6 +1162,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.chunkTickCoordinator = new RegionChunkTickCoordinator(new ChunkTickHost());
         this.spawnCoordinator = new RegionSpawnCoordinator(new SpawnHost());
         this.borderPropagationCoordinator = new RegionBorderPropagationCoordinator(new BorderPropagationHost());
+        this.blockEntityTickCoordinator = new RegionBlockEntityTickCoordinator(this);
         this.diagnosticsCollector = new RegionDiagnosticsCollector(
                 new RegionDiagnosticsCollector.BorderSources(
                         this.borderUpdatesRecorded,
@@ -2205,7 +2207,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * worker work plus the barrier - the interval in which workers may run - and closes before the batch's
      * server-thread handoff, which is not region work.
      */
-    private void runRegionBatch(ServerLevel level, Runnable batch) {
+    void runRegionBatch(ServerLevel level, Runnable batch) {
         this.beginRegionPhase(level);
         Throwable failure = null;
         try {
@@ -2563,7 +2565,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Wraps one region group body so the messages the mailbox queued to {@code region} are delivered before it,
      * on the thread that runs the group.
      */
-    private Runnable withRegionMailboxDelivery(ServerLevel level, RegionState region, Runnable body) {
+    Runnable withRegionMailboxDelivery(ServerLevel level, RegionState region, Runnable body) {
         return () -> this.deliverRegionMessages(level, region, body);
     }
 
@@ -2580,7 +2582,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     /** Delivers the global messages of {@code level} on the current thread, in posting order. */
-    private void drainGlobalMessages(ServerLevel level) {
+    void drainGlobalMessages(ServerLevel level) {
         final RegionMailbox mailbox = this.mailboxes.get(level);
         if (mailbox != null) {
             mailbox.drainGlobal();
@@ -2635,7 +2637,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         return this.mailbox(level).post(coord, task) == RegionMailbox.PostResult.ACCEPTED;
     }
 
-    private LevelTickPhaseState levelTickPhaseState(ServerLevel level) {
+    LevelTickPhaseState levelTickPhaseState(ServerLevel level) {
         return this.levelTickPhases.computeIfAbsent(level, key -> new LevelTickPhaseState());
     }
 
@@ -3131,7 +3133,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
-    private void applyBlockEntityOperations(RegionBlockEntityTickBatch batch) {
+    void applyBlockEntityOperations(RegionBlockEntityTickBatch batch) {
         final List<RegionBlockEntityTickBatch.OperationEntry> operations = batch.drainOperations();
         if (operations.isEmpty()) return;
         // A whole operation must observe scheduled mutations requested before the workers returned. A later
@@ -6312,7 +6314,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * @return the publication result; only {@link TickBatchPublication#PUBLISHED} means the caller owns the
      *         batch lifecycle from this point on
      */
-    private TickBatchPublication publishTickBatch(RegionTickBatch batch, ServerLevel level) {
+    TickBatchPublication publishTickBatch(RegionTickBatch batch, ServerLevel level) {
         for (;;) {
             // Never wait for the admission boundary while holding the lifecycle read gate: a cleanup
             // may already own its write gate while it waits for the canonical phase to finish.
@@ -6853,7 +6855,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * state that the leasing worker is still touching. The wait always ends in a lease or in the region
      * becoming dead; a dead region is re-resolved by the caller, never waited on again.
      */
-    private boolean acquireRegionLease(RegionState region, RegionTickBarrier barrier) {
+    boolean acquireRegionLease(RegionState region, RegionTickBarrier barrier) {
         if (region.isDead()) {
             return false;
         }
@@ -6882,7 +6884,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * between {@link #acquireRegionLease} and {@link RegionTickBatch#addTask} must not leave the region
      * {@code TICKING}: shutdown and level unload would wait for a lease no worker owns anymore.
      */
-    private void addLeasedGroup(RegionState region, Runnable registration) {
+    void addLeasedGroup(RegionState region, Runnable registration) {
         try {
             registration.run();
         } catch (Throwable throwable) {
@@ -6897,7 +6899,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Retiring an empty region is part of the release: the lease is what kept the region alive, and a region that
      * is retired after its last group is the same cleanup a finished group runs.
      */
-    private void releaseRegionLease(RegionState region) {
+    void releaseRegionLease(RegionState region) {
         region.clearRunning();
         final ServerLevel level = region.coordinate().level();
         final RegionMailbox mailbox = level != null ? this.mailboxes.get(level) : null;
@@ -6916,7 +6918,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      *
      * @see RegionLeasePack#split(List, int)
      */
-    private List<List<RegionState>> regionPacks(Collection<RegionState> regions) {
+    List<List<RegionState>> regionPacks(Collection<RegionState> regions) {
         if (!this.packedRegionLeasesEnabled || this.layout.isDynamicCluster()) {
             // The unpacked path keeps the order in which the regions were first seen, exactly like before
             // packing existed: a pack is the only thing that needs a canonical order.
@@ -7661,2774 +7663,31 @@ public final class RegionThreadingEngine implements RegionThreading {
      * ticks after the batch observes the removals of the batch it belongs to.
      */
     void tickBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier) {
-        this.tickBlockEntities(level, chunks, barrier, false);
+        this.blockEntityTickCoordinator.tickBlockEntities(level, chunks, barrier);
     }
 
     void tickBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier, boolean canonicalSequence) {
-        if (chunks.isEmpty()) {
-            return;
-        }
-        if (canonicalSequence) {
-            this.tickCanonicalBlockEntities(level, chunks, barrier);
-            return;
-        }
-        if (this.isIndependentRegionTickEnabled() && RegionThreadingConfig.regionSandboxAllBlockEntitiesEnabled()) {
-            this.tickIndexedSandboxBlockEntities(level, chunks);
-            return;
-        }
-        if (this.furnaceWorkWavesEnabled && this.layout.isDynamicCluster()) {
-            this.tickFurnaceWorkWaves(level, chunks, barrier, canonicalSequence);
-            return;
-        }
-
-        if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
-            ParallelAdapterRuntime.prepareBlockEntityTicks(level);
-        }
-        final RegionBlockEntityTickBatch batch = new RegionBlockEntityTickBatch(level, this.deferredBlockUpdateBudget, chunks,
-                () -> !this.regionizer.isLevelClosed(level), pos -> this.regionizer.get(this.layout.regionAt(level, pos)));
-        batch.canonicalSequence(canonicalSequence);
-        final TickBatchPublication publication = this.publishTickBatch(batch, level);
-        if (publication == TickBatchPublication.LEVEL_CLOSED) {
-            // The level clear completed after this snapshot was collected. Its region state is retired
-            // and no batch may be published for it: the collected tickers must not tick for a level
-            // that already unloaded.
-            this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
-            batch.execution().close();
-            return;
-        }
-        if (publication == TickBatchPublication.SHUTDOWN) {
-            // The engine was shut down between the snapshot and the batch; the collected tickers still
-            // have to tick, but no batch may be published after shutdown started.
-            try {
-                this.tickBlockEntityChunksInline(batch, chunks, null);
-            } finally {
-                batch.execution().close();
-            }
-            return;
-        }
-        // This thread owns the batch until it finished; a shutdown or unload requested from inside it
-        // (fallback work included) cannot wait for a batch that only this thread can complete.
-        batch.markExecutingOnCurrentThread();
-        // The opt-in attribution is decided once per batch, never per ticker: a disabled attribution only
-        // costs this one volatile read and takes no timestamp.
-        final boolean attribution = RegionBlockEntityTickAttribution.isEnabled();
-        Throwable failure = null;
-        try {
-            batch.setWorkGraph(this.blockEntityWorkGraph.begin(level, chunks));
-            final long leaseStart = attribution ? System.nanoTime() : 0L;
-            try {
-                this.leaseBlockEntityTickGroups(batch, chunks, barrier);
-            } catch (Throwable throwable) {
-                failure = throwable;
-            } finally {
-                if (attribution) {
-                    RegionBlockEntityTickAttribution.recordLease(System.nanoTime() - leaseStart);
-                }
-            }
-            final long awaitStart = attribution ? System.nanoTime() : 0L;
-            final long awaitCpuStart = attribution ? RegionBlockEntityTickAttribution.currentThreadCpuNanos() : 0L;
-            try {
-                // The barrier is the level's main-thread chunk-source block, so the batch waits by polling the
-                // main-thread queue. Counting the polls and the CPU time of the wait shows how much of the wait
-                // the server thread runs instead of parking, which is what competes with the workers.
-                final Runnable work = () -> batch.submitAndAwait(this.workerPool, attribution ? condition -> barrier.await(() -> {
-                    RegionBlockEntityTickAttribution.recordAwaitPoll();
-                    return condition.getAsBoolean();
-                }) : barrier);
-                if (canonicalSequence) {
-                    this.beginRegionPhase(level);
-                    try {
-                        work.run();
-                    } finally {
-                        // All groups physically returned; retain their original region leases until the
-                        // invocation effects commit. Global mailbox/POI publication follows lease release.
-                        this.levelTickPhaseState(level).endRegionPhase();
-                    }
-                } else this.runRegionBatch(level, work);
-            } catch (Throwable throwable) {
-                if (failure == null) {
-                    failure = throwable;
-                }
-            } finally {
-                if (attribution) {
-                    final long awaitEnd = System.nanoTime();
-                    RegionBlockEntityTickAttribution.recordAwait(awaitEnd - awaitStart,
-                            RegionBlockEntityTickAttribution.currentThreadCpuNanos() - awaitCpuStart);
-                    // The slowest group bounds the wait the workers caused; the rest of the await is dispatch
-                    // and completion, which is what a barrier-model fix could remove.
-                    RegionBlockEntityTickAttribution.recordBatchMakespan(batch.slowestGroupNanos());
-                    // Splits the wait into the time until the first group started, the span the workers ran
-                    // in and the time until the wait noticed the last group finished.
-                    RegionBlockEntityTickAttribution.recordBatchPhases(awaitStart, awaitEnd,
-                            batch.firstGroupStartNanos(), batch.lastGroupEndNanos());
-                    RegionBlockEntityTickAttribution.recordBatchSubmit(batch.submitNanos());
-                }
-            }
-        } finally {
-            final long handoffStart = attribution ? System.nanoTime() : 0L;
-            try {
-                // The light rechecks and block updates of the blocks the tickers wrote are the level-wide effects
-                // of their ticker body, and that body runs before the removal of an item a hopper absorbed, so
-                // they run first. They are not one of the timed handoff steps: the step timers below split the
-                // removal, fallback and mutation work, and this segment is the vanilla publication of the batch.
-                failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-                // Every handoff step is timed on its own when the attribution is enabled, so the deferred
-                // work of a batch is attributable per step instead of as one block.
-                final long removalStart = attribution ? System.nanoTime() : 0L;
-                final long removalsBefore = attribution ? this.deferredRemovalCount() : 0L;
-                // The removal of an owned item entity is the one vanilla storage effect a block-entity
-                // worker may defer. It runs before the fallback ticks, so a hopper that the server thread
-                // ticks after the batch no longer sees the item entity a worker already absorbed.
-                failure = runBatchCompletion(failure, () -> this.applyDeferredBlockEntityRemovals(batch));
-                final long operationStart = attribution ? System.nanoTime() : 0L;
-                final long operationRequests = attribution ? batch.pendingOperationCount() : 0L;
-                failure = runBatchCompletion(failure, () -> this.applyBlockEntityOperations(batch));
-                if (canonicalSequence) {
-                    failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(batch, Long.MAX_VALUE));
-                    failure = runBatchCompletion(failure, () -> this.releaseCanonicalNativeRegions(batch));
-                    failure = runBatchCompletion(failure, () -> this.drainGlobalMessages(level));
-                    failure = runBatchCompletion(failure, () -> RegionPoiStorages.publishLevel(level));
-                    failure = runBatchCompletion(failure, batch::reportTickFailures);
-                }
-                final long fallbackStart = attribution ? System.nanoTime() : 0L;
-                final long removals = attribution ? this.deferredRemovalCount() - removalsBefore : 0L;
-                if (!canonicalSequence || failure == null) failure = runBatchCompletion(failure, () -> this.tickFallbackBlockEntities(batch));
-                final long mutationStart = attribution ? System.nanoTime() : 0L;
-                final long fallbackTickers = attribution ? countBlockEntityTickers(batch.fallbackChunks()) + batch.fallbackTickers().size() : 0L;
-                final long mutations = attribution ? batch.regionTickMutations().size() : 0L;
-                // The scheduled ticks a ticker started through the neighbor update of its own setChanged()
-                // were recorded on the workers; they mutate LevelTicks here, on the server thread.
-                failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
-                final long finishStart = attribution ? System.nanoTime() : 0L;
-                if (batch.workGraph() != null) {
-                    failure = runBatchCompletion(failure, batch.workGraph()::finish);
-                }
-                batch.closeOperations(BlockEntityOperations.Reason.BATCH_CLOSED);
-                failure = runBatchCompletion(failure, batch.execution()::close);
-                batch.finish();
-                this.activeTickBatches.remove(batch);
-                batch.clearExecutingOnCurrentThread();
-                if (attribution) {
-                    final long finishEnd = System.nanoTime();
-                    RegionBlockEntityTickAttribution.recordHandoffRemovals(operationStart - removalStart, removals);
-                    RegionBlockEntityTickAttribution.recordHandoffOperations(fallbackStart - operationStart, operationRequests);
-                    RegionBlockEntityTickAttribution.recordHandoffFallback(mutationStart - fallbackStart, fallbackTickers);
-                    RegionBlockEntityTickAttribution.recordHandoffMutations(finishStart - mutationStart, mutations);
-                    RegionBlockEntityTickAttribution.recordHandoffFinish(finishEnd - finishStart);
-                }
-            } finally {
-                if (attribution) {
-                    RegionBlockEntityTickAttribution.recordHandoff(System.nanoTime() - handoffStart);
-                }
-            }
-        }
-
-        if (failure != null) {
-            throwUnchecked(failure);
-        }
-        batch.throwIfFailed();
+        this.blockEntityTickCoordinator.tickBlockEntities(level, chunks, barrier, canonicalSequence);
     }
 
-    private record NativeInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
-            NativeBlockEntityPreparation.Candidate proof, RegionState region) implements CanonicalBlockEntityCoordinator.Unit {}
+    public void setBlockEntityBodyObserverForTesting(@Nullable java.util.function.BiConsumer<TickingBlockEntity, Runnable> observer) {
+        this.blockEntityTickCoordinator.setBlockEntityBodyObserverForTesting(observer);
+    }
 
-    private record FurnaceInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
-            FurnaceWorkPreparation.Candidate candidate, @Nullable BlockEntityResourceOwnership.Claims claims) implements CanonicalBlockEntityCoordinator.Unit {}
+    RegionBlockEntityTickAdmission narrowCanonicalBlockEntity(RegionBlockEntityTickAdmission admission) {
+        return this.blockEntityTickCoordinator.narrowCanonicalBlockEntity(admission);
+    }
 
-    private record ExecutionInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
-            ExecutionBlockEntityPreparation.Manifest manifest, BlockEntityResourceOwnership.Claims claims) implements CanonicalBlockEntityCoordinator.Unit {}
+    void runInBlockEntityFallbackPhase(BlockEntityFallbackPhase phase, BlockPos pos, Runnable task) {
+        this.blockEntityTickCoordinator.runInBlockEntityFallbackPhase(phase, pos, task);
+    }
 
-    private record ModInvocation(RegionBlockEntityTickAdmission admission, Inspection inspection,
-            CoreModPreparation.Manifest manifest, BlockEntityResourceOwnership.Claims claims) implements CanonicalBlockEntityCoordinator.Unit {}
-
-    @Nullable
     RegionState modHome(ServerLevel level, BlockPos position) {
-        return this.regionizer.getOrCreate(this.layout.regionAt(level, position));
+        return this.blockEntityTickCoordinator.modHome(level, position);
     }
 
     boolean modServerAccessAllowed(ServerLevel level, BlockPos position) {
-        if (level.getServer() == null || !level.getServer().isSameThread() || RegionWorkerScope.isNativeWorkerThread()) return false;
-        final var region = this.regionizer.get(this.layout.regionAt(level, position));
-        return region == null || !region.isRunning() || region.isOwnedByCurrentThread();
-    }
-
-    private record NativeEntry(int offset, NativeInvocation invocation) {}
-
-    private static final class NativePrefixGate {
-        final java.util.concurrent.CountDownLatch checked;
-        final java.util.concurrent.atomic.AtomicInteger admitted;
-        final java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
-
-        NativePrefixGate(int groups, int units) {
-            this.checked = new java.util.concurrent.CountDownLatch(groups);
-            this.admitted = new java.util.concurrent.atomic.AtomicInteger(units);
-        }
-
-        void refuse(int offset) {
-            this.admitted.accumulateAndGet(offset, Math::min);
-        }
-
-        void awaitChecks() {
-            boolean interrupted = false;
-            while (this.checked.getCount() != 0) {
-                try {
-                    this.checked.await();
-                } catch (InterruptedException ignored) {
-                    interrupted = true;
-                }
-            }
-            if (interrupted) Thread.currentThread().interrupt();
-        }
-    }
-
-    private boolean canonicalBoundaryIdle() {
-        if (!this.activeTickBatches.isEmpty() || this.globalRegion.isRunning() || this.globalRegion.isWorkerSubmitted()) return false;
-        final AtomicBoolean idle = new AtomicBoolean(true);
-        this.regionizer.forEach(region -> {
-            if (region.isRunning() || region.isWorkerSubmitted()) idle.set(false);
-        });
-        return idle.get();
-    }
-
-    private void enterCanonicalBoundary(ServerLevel level, RegionTickBarrier barrier) {
-        final var server = level.getServer();
-        if ((server != null && !server.isSameThread()) || RegionWorkerScope.isNativeWorkerThread()
-                || this.regionWorkAdmission.isOwner())
-            throw new IllegalStateException("Canonical BE phase requires its quiescent server coordinator");
-        if (!this.regionWorkAdmission.tryEnter(this::canonicalBoundaryIdle)) {
-            try {
-                barrier.await(() -> {
-                    if (this.independentTickScheduler != null) {
-                        this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
-                    }
-                    if (this.regionWorkAdmission.isOwner()) return true;
-                    for (final var active : this.activeTickBatches) active.servicePendingServerWork();
-                    return this.regionWorkAdmission.tryEnter(this::canonicalBoundaryIdle);
-                });
-            } catch (Throwable failure) {
-                if (this.regionWorkAdmission.isOwner()) this.regionWorkAdmission.exit();
-                throw failure;
-            }
-        }
-    }
-
-    private static final Inspection SERIAL_FENCE_INSPECTION = Inspection.serialFence();
-    private static final Inspection SANDBOX_NATIVE_INSPECTION = new Inspection(
-            new AdapterDescriptor(
-                    ResourceLocation.parse("forgia:region_sandbox_tick"),
-                    Set.of(ResourceLocation.parse("forgia:region_sandbox_tick")),
-                    Mode.REGION_OWNER),
-            Resources.REGION_LOCAL,
-            Outcome.CANDIDATE);
-
-    private void tickCanonicalBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier) {
-        final long canonicalBeStart = System.nanoTime();
-        this.enterCanonicalBoundary(level, barrier);
-        final boolean furnaces = this.furnaceWorkWavesEnabled && this.layout.isDynamicCluster();
-        boolean hasWorkerCandidate = this.coreModPreparation != null
-                && this.blockEntityResourcesEnabled
-                && CoreModTickerVerifier.available()
-                && CoreModRuntimeIntegrity.verify();
-        if (!hasWorkerCandidate) {
-            final boolean coreAdaptersUsable = AuditedBlockEntityPreparation.isCoreCurrent();
-            outer:
-            for (int c = 0; c < chunks.size(); ++c) {
-                final List<RegionBlockEntityTickAdmission> admissions = chunks.get(c).admissions();
-                for (int a = 0; a < admissions.size(); ++a) {
-                    final RegionBlockEntityTickAdmission adm = admissions.get(a);
-                    final var decision = adm.decision();
-                    if (decision == RegionBlockEntityTickAdmission.Decision.ADMITTED
-                            || decision == RegionBlockEntityTickAdmission.Decision.ADMITTED_WITH_BORDER_UPDATES
-                            || (decision == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED && coreAdaptersUsable)
-                            || (furnaces && LevelChunk.furnaceWorkSource(adm.ticker()) != null)) {
-                        hasWorkerCandidate = true;
-                        break outer;
-                    }
-                }
-            }
-        }
-        if (!hasWorkerCandidate) {
-            this.tickCanonicalBlockEntitiesPureSerial(level, chunks, canonicalBeStart, furnaces);
-            return;
-        }
-        RegionBlockEntityTickBatch batch = null;
-        RegionBlockEntityWorkGraph.Phase graph = null;
-        boolean published = false;
-        final List<BlockEntityExecutionAdapter> executionCleanup = new ArrayList<>();
-        final long resourcePhaseStart = furnaces && this.blockEntityResourcesEnabled ? System.nanoTime() : 0L;
-        final int[] furnaceCandidates = { 0 };
-        final long[] furnacePreparationNanos = { 0L };
-        final Set<RegionBlockEntityTickAdmission> counted = furnaces ? java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()) : null;
-        final boolean[] hadWorkerPrefix = { false };
-        Throwable failure = null;
-        try {
-            batch = new RegionBlockEntityTickBatch(level, this.deferredBlockUpdateBudget, chunks,
-                    () -> !this.regionizer.isLevelClosed(level), pos -> this.regionizer.get(this.layout.regionAt(level, pos)));
-            batch.canonicalSequence(true);
-            batch.enableExternalWaves();
-            batch.holdsServerAdmissionFence(true);
-            final var publication = this.publishTickBatch(batch, level);
-            if (publication == TickBatchPublication.LEVEL_CLOSED) {
-                this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
-            } else if (publication == TickBatchPublication.SHUTDOWN) {
-                this.tickBlockEntityChunksInline(batch, chunks, null);
-            } else {
-                published = true;
-                batch.markExecutingOnCurrentThread();
-                this.activeCanonicalBeDimensionId = level.dimension().location().toString();
-                final var chunkRegions = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState>(chunks.size());
-                this.activeCanonicalBeChunkRegions = chunkRegions;
-                if (this.layout.isDynamicCluster()) {
-                    this.activeCanonicalBeRegionCosts = new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>();
-                }
-                // Publish this same phase before any arbitrary prepare callback: unload/shutdown must
-                // await preparation too. Legacy adapter preparation still stays outside furnace waves;
-                // explicitly audited integrations use their own generic canonical preparation contract.
-                if (!this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                    ParallelAdapterRuntime.prepareCanonicalBlockEntityTicks(level, furnaces, executionCleanup);
-                }
-                graph = this.blockEntityWorkGraph.begin(level, chunks);
-                batch.setWorkGraph(graph);
-                final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
-                boolean orderedMonotonic = true;
-                boolean anyWorkerCandidate = this.coreModPreparation != null && this.blockEntityResourcesEnabled;
-                long lastSeq = -1L;
-                for (int c = 0; c < chunks.size(); ++c) {
-                    final RegionBlockEntityTickChunk chunk = chunks.get(c);
-                    final List<RegionBlockEntityTickAdmission> admissions = chunk.admissions();
-                    final RegionState chunkRegion = this.regionizer.get(chunk.region(this.layout, level));
-                    if (chunkRegion != null && !chunkRegion.isDead()) {
-                        chunkRegions.put(chunk.chunkKey(), chunkRegion);
-                        if (this.overloadGovernor != null && this.shouldSkipOverloadedRegion(level, chunkRegion)) {
-                            this.skippedBlockEntityTicks.addAndGet(admissions.size());
-                            continue;
-                        }
-                    }
-                    for (int a = 0; a < admissions.size(); ++a) {
-                        final RegionBlockEntityTickAdmission adm = admissions.get(a);
-                        final long seq = adm.sequence();
-                        if (seq <= lastSeq) orderedMonotonic = false;
-                        lastSeq = seq;
-                        if (!anyWorkerCandidate
-                                && (adm.decision() != RegionBlockEntityTickAdmission.Decision.TYPE_NOT_DECLARED
-                                        && adm.decision() != RegionBlockEntityTickAdmission.Decision.NOT_INTERIOR_CHUNK
-                                        || (furnaces && LevelChunk.furnaceWorkSource(adm.ticker()) != null))) {
-                            anyWorkerCandidate = true;
-                        }
-                        ordered.add(adm);
-                    }
-                }
-                if (!orderedMonotonic) {
-                    ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
-                }
-                final var phase = batch;
-                final var sample = graph;
-                if (!anyWorkerCandidate) {
-                    for (int i = 0, size = ordered.size(); i < size; ++i) {
-                        final var admission = ordered.get(i);
-                        phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
-                        if (furnaces) this.furnaceWorkMetrics.serial();
-                        this.fallbackBlockEntityTicks.incrementAndGet();
-                        this.tickBlockEntitySerial(phase, admission, sample, null);
-                    }
-                } else {
-                // One preparation budget/home table/scratch for the whole canonical phase; a new
-                // prefix never resets logical uses or borrows an earlier successful resource proof.
-                final var resources = furnaces && this.blockEntityResourcesEnabled ? new FurnaceResourcePreparation(level, this.layout) : null;
-                final int[] modBindings = { 0 };
-                final var executionAdapters = new ExecutionBlockEntityPreparation(this, uses -> {
-                    if (modBindings[0] > BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE - uses) {
-                        modBindings[0] = BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE + 1;
-                        return false;
-                    }
-                    modBindings[0] += uses;
-                    return resources == null || resources.charge(uses);
-                });
-                final boolean modRuntime = this.coreModPreparation != null && this.blockEntityResourcesEnabled && CoreModRuntimeIntegrity.verify();
-                new CanonicalBlockEntityCoordinator(ordered).execute(new CanonicalBlockEntityCoordinator.Driver() {
-                    // Only share the read-only lookahead of one still-unexecuted contiguous prefix.
-                    // Every execution/Serial Fence below discards it; the existing held-region fresh
-                    // preparation, whole-phase alias check and reservation still run before any body.
-                    private boolean lookaheadDirty;
-                    private int lastPreparedIndex = -1;
-                    private boolean lastPreparedEligible;
-                    private FurnaceWorkPreparation furnaceLookahead;
-                    private Set<net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity> furnaceAliases;
-                    private java.util.IdentityHashMap<Object, Access> executionRoots;
-                    private BlockEntityResourceOwnership.PrefixIndependence prefixResources;
-                    private it.unimi.dsi.fastutil.longs.LongOpenHashSet furnacePositions;
-                    private Set<RegionState> nativeRegions;
-                    private Set<Object> nativeSources;
-                    private List<AuditedBlockEntityPreparation.Candidate> auditedNativeCandidates;
-                    private long lastPrepareChunkKey = Long.MIN_VALUE;
-                    @Nullable
-                    private LevelChunk lastPrepareChunk;
-                    @Nullable
-                    private RegionState lastPrepareRegion;
-
-                    private void discardLookahead() {
-                        this.lastPreparedIndex = -1;
-                        if (!this.lookaheadDirty) return;
-                        this.lookaheadDirty = false;
-                        this.furnaceLookahead = null;
-                        this.furnaceAliases = null;
-                        this.executionRoots = null;
-                        if (this.prefixResources != null) this.prefixResources.reset();
-                        if (this.furnacePositions != null) this.furnacePositions.clear();
-                        if (this.nativeRegions != null) this.nativeRegions.clear();
-                        if (this.nativeSources != null) this.nativeSources.clear();
-                        if (this.auditedNativeCandidates != null) this.auditedNativeCandidates.clear();
-                    }
-
-                    @Override
-                    public CanonicalBlockEntityCoordinator.Unit prepare(int index) {
-                        final var admission = ordered.get(index);
-                        final boolean eligible = phase.eligibleNow(admission);
-                        this.lastPreparedIndex = index;
-                        this.lastPreparedEligible = eligible;
-                        if (!eligible) return null;
-                        final var executionBinding = admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
-                                ? ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission)
-                                : null;
-                        if (executionBinding != null && executionBinding.adapter() instanceof BlockEntityExecutionAdapter) {
-                            final var manifest = executionAdapters.prepare(admission);
-                            if (manifest == null) return null;
-                            final var claims = manifest.claims();
-                            if (!claims.complete()) return null;
-                            final var descriptor = executionBinding.descriptor();
-                            final var inspection = new Inspection(descriptor,
-                                    descriptor.mode() == Mode.RESOURCE_SCOPED ? Resources.ADAPTER_CLAIMS : Resources.REGION_LOCAL, Outcome.CANDIDATE);
-                            final var ticket = phase.execution().reinspectUnstarted(admission, inspection);
-                            phase.execution().proveExecution(admission, manifest, claims);
-                            if (descriptor.mode() == Mode.REGION_OWNER) phase.execution().enableInvocationEffects(ticket);
-                            this.lookaheadDirty = true;
-                            return new ExecutionInvocation(admission, inspection, manifest, claims);
-                        }
-                        if (modRuntime) {
-                            final var manifest = coreModPreparation.prepare(admission, resources);
-                            if (manifest != null) {
-                                final var claims = manifest.claims(RegionThreadingEngine.this);
-                                modBindings[0] += claims.resourceCount();
-                                if (modBindings[0] > BlockEntityResourceOwnership.MAX_BINDINGS_PER_PHASE
-                                        || resources != null && !resources.charge(claims.resourceCount()))
-                                    return null;
-                                final var descriptor = new AdapterDescriptor(ResourceLocation.parse("forgia:verified_mod_counter"),
-                                        Set.of(ResourceLocation.parse(admission.type())), Mode.RESOURCE_SCOPED);
-                                final var inspection = new Inspection(descriptor, Resources.MOD_CLAIMS, Outcome.CANDIDATE);
-                                phase.execution().reinspectUnstarted(admission, inspection);
-                                phase.execution().proveMod(admission, manifest, claims);
-                                this.lookaheadDirty = true;
-                                return new ModInvocation(admission, inspection, manifest, claims);
-                            }
-                        }
-                        if (furnaces && LevelChunk.furnaceWorkSource(admission.ticker()) != null) {
-                            final long started = System.nanoTime();
-                            this.lookaheadDirty = true;
-                            if (this.furnaceLookahead == null) {
-                                this.furnaceLookahead = new FurnaceWorkPreparation(level, layout, resources != null);
-                            }
-                            final var candidate = this.furnaceLookahead.prepare(admission);
-                            if (candidate != null && this.furnaceAliases == null)
-                                this.furnaceAliases = FurnaceWorkPreparation.aliased(ordered);
-                            if (candidate == null) furnaceWorkMetrics.refused(this.furnaceLookahead.refusal());
-                            if (candidate == null || this.furnaceAliases.contains(candidate.source())) {
-                                if (candidate != null) furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SHARED_INVENTORY);
-                                furnacePreparationNanos[0] += System.nanoTime() - started;
-                                return null;
-                            }
-                            final var claims = resources == null ? null : resources.captureForPlan(candidate);
-                            if (resources != null && (resources.budgetExceeded() || !claims.complete())) {
-                                furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.RESOURCE_PROOF);
-                                furnacePreparationNanos[0] += System.nanoTime() - started;
-                                return null;
-                            }
-                            final var inspection = new Inspection(FURNACE_EXECUTION,
-                                    resources == null ? Resources.FURNACE_LOCAL : Resources.FURNACE_CLAIMS, Outcome.CANDIDATE);
-                            phase.execution().reinspectUnstarted(admission, inspection);
-                            if (counted.add(admission)) ++furnaceCandidates[0];
-                            furnacePreparationNanos[0] += System.nanoTime() - started;
-                            return new FurnaceInvocation(admission, inspection, candidate, claims);
-                        }
-                        if (furnaces && admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
-                                && !AuditedBlockEntityPreparation.hasCandidate(admission))
-                            return null;
-                        final var pos = admission.position();
-                        final int cx = pos.getX() >> 4;
-                        final int cz = pos.getZ() >> 4;
-                        final long ck = ChunkPos.asLong(cx, cz);
-                        final LevelChunk cachedChunk;
-                        final RegionState region;
-                        if (ck == this.lastPrepareChunkKey && this.lastPrepareRegion != null && !this.lastPrepareRegion.isDead()) {
-                            cachedChunk = this.lastPrepareChunk;
-                            region = this.lastPrepareRegion;
-                        } else {
-                            final var chunkSource = level.getChunkSource();
-                            cachedChunk = chunkSource == null ? null : chunkSource.getChunkNow(cx, cz);
-                            region = regionizer.getOrCreate(layout.regionAt(level, pos));
-                            this.lastPrepareChunkKey = ck;
-                            this.lastPrepareChunk = cachedChunk;
-                            this.lastPrepareRegion = region;
-                        }
-                        if (region == null || region.isDead()) return null;
-                        final var proof = NativeBlockEntityPreparation.prepare(admission, cachedChunk);
-                        if (proof == null) return null;
-                        if (proof instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate) {
-                            this.lookaheadDirty = true;
-                            return new NativeInvocation(admission, SANDBOX_NATIVE_INSPECTION, proof, region);
-                        }
-                        final var inspection = inspectNativeBlockEntity(admission);
-                        if (inspection.outcome() != Outcome.CANDIDATE) return null;
-                        final var ticket = phase.execution().reinspectUnstarted(admission, inspection);
-                        phase.execution().enableInvocationEffects(ticket);
-                        this.lookaheadDirty = true;
-                        return new NativeInvocation(admission, inspection, proof, region);
-                    }
-
-                    @Override
-                    public int prefixLimit(CanonicalBlockEntityCoordinator.Unit first) {
-                        if (first instanceof NativeInvocation nativeInv
-                                && nativeInv.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate
-                                && RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
-                            return Integer.MAX_VALUE;
-                        }
-                        return first instanceof ModInvocation || first instanceof ExecutionInvocation execution
-                                && execution.inspection().descriptor().mode() == Mode.REGION_OWNER
-                                        ? workerPool.threadCount()
-                                        : RegionBlockEntityWorkGraph.MAX_UNITS;
-                    }
-
-                    @Override
-                    public boolean mayAppend(List<CanonicalBlockEntityCoordinator.Unit> prefix, CanonicalBlockEntityCoordinator.Unit next) {
-                        this.lookaheadDirty = true;
-                        if (prefix.getFirst() instanceof ExecutionInvocation first) {
-                            if (!(next instanceof ExecutionInvocation candidate)
-                                    || first.inspection().descriptor().mode() != candidate.inspection().descriptor().mode())
-                                return false;
-                            if (this.executionRoots == null) this.executionRoots = new java.util.IdentityHashMap<>(first.manifest().roots());
-                            for (final var entry : candidate.manifest().roots().entrySet()) {
-                                final var previous = this.executionRoots.get(entry.getKey());
-                                if (previous != null && (entry.getValue() == Access.WRITE
-                                        || previous == Access.WRITE))
-                                    return false;
-                            }
-                            if (first.inspection().descriptor().mode() == Mode.REGION_OWNER)
-                                for (final var unit : prefix)
-                                    if (((ExecutionInvocation) unit).manifest().home() == candidate.manifest().home()) return false;
-                            this.executionRoots.putAll(candidate.manifest().roots());
-                            return true;
-                        }
-                        if (prefix.getFirst() instanceof ModInvocation firstMod) {
-                            if (!(next instanceof ModInvocation nextMod) || prefix.size() >= workerPool.threadCount()) return false;
-                            if (this.prefixResources == null) this.prefixResources = new BlockEntityResourceOwnership.PrefixIndependence();
-                            if (prefix.size() == 1) {
-                                this.prefixResources.reset();
-                                if (!this.prefixResources.tryAppend(firstMod.claims())) return false;
-                            }
-                            return this.prefixResources.tryAppend(nextMod.claims());
-                        }
-                        if (prefix.getFirst() instanceof FurnaceInvocation firstFurnace) {
-                            if (!(next instanceof FurnaceInvocation nextFurnace)) return false;
-                            if (resources == null) {
-                                if (this.furnacePositions == null) this.furnacePositions = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
-                                if (prefix.size() == 1) {
-                                    this.furnacePositions.clear();
-                                    this.furnacePositions.add(firstFurnace.admission().position().asLong());
-                                }
-                                return this.furnacePositions.add(nextFurnace.admission().position().asLong());
-                            }
-                            if (this.prefixResources == null) this.prefixResources = new BlockEntityResourceOwnership.PrefixIndependence();
-                            if (prefix.size() == 1) {
-                                this.prefixResources.reset();
-                                if (!this.prefixResources.tryAppend(firstFurnace.claims())) return false;
-                            }
-                            return this.prefixResources.tryAppend(nextFurnace.claims());
-                        }
-                        if (!(next instanceof NativeInvocation nextNative)) return false;
-                        final var firstNative = (NativeInvocation) prefix.getFirst();
-                        if (firstNative.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate
-                                && nextNative.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate
-                                && RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
-                            return true;
-                        }
-                        if (this.nativeRegions == null) {
-                            this.nativeRegions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-                            this.nativeSources = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-                        }
-                        if (prefix.size() == 1) {
-                            this.nativeRegions.clear();
-                            this.nativeSources.clear();
-                            if (this.auditedNativeCandidates != null) this.auditedNativeCandidates.clear();
-                            this.nativeRegions.add(firstNative.region());
-                            this.nativeSources.add(firstNative.proof().source());
-                            if (firstNative.proof() instanceof AuditedBlockEntityPreparation.Candidate audited) {
-                                if (this.auditedNativeCandidates == null) this.auditedNativeCandidates = new ArrayList<>();
-                                this.auditedNativeCandidates.add(audited);
-                            }
-                        }
-                        final int maxRegions = workerPool.threadCount();
-                        if (!this.nativeRegions.contains(nextNative.region()) && this.nativeRegions.size() >= maxRegions) return false;
-                        if (this.nativeSources.contains(nextNative.proof().source())) return false;
-                        if (nextNative.proof() instanceof AuditedBlockEntityPreparation.Candidate nextAudited) {
-                            for (int i = 0; i < prefix.size(); ++i) {
-                                if (((NativeInvocation) prefix.get(i)).proof().conflictsWith(nextAudited)) return false;
-                            }
-                            if (this.auditedNativeCandidates == null) this.auditedNativeCandidates = new ArrayList<>();
-                            this.auditedNativeCandidates.add(nextAudited);
-                        } else if (this.auditedNativeCandidates != null && !this.auditedNativeCandidates.isEmpty()) {
-                            for (int i = 0; i < this.auditedNativeCandidates.size(); ++i) {
-                                if (this.auditedNativeCandidates.get(i).conflictsWith(nextNative.proof())) return false;
-                            }
-                        }
-                        this.nativeRegions.add(nextNative.region());
-                        this.nativeSources.add(nextNative.proof().source());
-                        return true;
-                    }
-
-                    @Override
-                    public boolean maySkipInFenceTail(List<CanonicalBlockEntityCoordinator.Unit> prefix, CanonicalBlockEntityCoordinator.Unit next) {
-                        if (next.getClass() != prefix.getFirst().getClass()) {
-                            return true;
-                        }
-                        if (next instanceof NativeInvocation nextNative && this.nativeRegions != null) {
-                            // A unit belonging to a region outside the current 8-region gang wave can be skipped
-                            // into the next wave without violating intra-region ordering.
-                            return !this.nativeRegions.contains(nextNative.region())
-                                    && this.nativeRegions.size() >= workerPool.threadCount();
-                        }
-                        return false;
-                    }
-
-                    @Override
-                    public int executePrefix(List<CanonicalBlockEntityCoordinator.Unit> prefix) {
-                        this.discardLookahead();
-                        hadWorkerPrefix[0] = true;
-                        if (prefix.getFirst() instanceof ExecutionInvocation)
-                            return executeCanonicalExecutionPrefix(phase, prefix, sample, barrier);
-                        if (prefix.getFirst() instanceof ModInvocation)
-                            return executeCanonicalModPrefix(phase, prefix, sample, barrier);
-                        if (prefix.getFirst() instanceof FurnaceInvocation)
-                            return executeCanonicalFurnacePrefix(phase, ordered, prefix, sample, barrier, resources);
-                        return executeCanonicalNativePrefix(phase, prefix, sample, barrier);
-                    }
-
-                    @Override
-                    public void serial(int index) {
-                        final Boolean knownEligible = this.lastPreparedIndex == index ? Boolean.valueOf(this.lastPreparedEligible) : null;
-                        this.discardLookahead();
-                        final var admission = ordered.get(index);
-                        phase.execution().reinspectUnstarted(admission, SERIAL_FENCE_INSPECTION);
-                        if (furnaces) furnaceWorkMetrics.serial();
-                        fallbackBlockEntityTicks.incrementAndGet();
-                        tickBlockEntitySerial(phase, admission, sample, knownEligible);
-                    }
-                }, this.canonicalFenceTailEnabled || RegionThreadingConfig.canonicalFenceTailEnabled());
-                }
-            }
-        } catch (Throwable throwable) {
-            failure = throwable;
-        } finally {
-            if (batch != null) {
-                final var phase = batch;
-                // All prefix tasks have physically joined before their helpers return or throw.
-                failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(phase, Long.MAX_VALUE));
-                failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(phase));
-                failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(phase.regionTickMutations()));
-                failure = runBatchCompletion(failure, () -> this.releaseCanonicalNativeRegions(phase));
-                if (published && hadWorkerPrefix[0]) {
-                    failure = runBatchCompletion(failure, () -> this.drainGlobalMessages(level));
-                    failure = runBatchCompletion(failure, () -> RegionPoiStorages.publishLevel(level));
-                }
-                if (graph != null) failure = runBatchCompletion(failure, graph::finish);
-                final boolean executionSuccessful = failure == null;
-                for (final var adapter : executionCleanup)
-                    failure = runBatchCompletion(failure, () -> adapter.phaseClosed(executionSuccessful));
-                executionCleanup.clear();
-                batch.closeOperations(BlockEntityOperations.Reason.BATCH_CLOSED);
-                failure = runBatchCompletion(failure, batch.execution()::close);
-                batch.completeExternalWaves();
-                batch.finish();
-                this.activeTickBatches.remove(batch);
-                batch.clearExecutingOnCurrentThread();
-            }
-            final var beCosts = this.activeCanonicalBeRegionCosts;
-            this.activeCanonicalBeRegionCosts = null;
-            this.activeCanonicalBeDimensionId = null;
-            this.activeCanonicalBeChunkRegions = null;
-            if (beCosts != null && published) {
-                this.flushCanonicalBlockEntityRegionCosts(level, beCosts);
-            }
-            if (furnaces) this.furnaceWorkMetrics.prepared(furnaceCandidates[0], furnacePreparationNanos[0]);
-            if (resourcePhaseStart != 0L) {
-                this.blockEntityResourceMetrics.prepared(furnaceCandidates[0], furnacePreparationNanos[0]);
-                this.blockEntityResourceMetrics.finished(System.nanoTime() - resourcePhaseStart);
-            }
-            this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL,
-                    System.nanoTime() - canonicalBeStart);
-            this.regionWorkAdmission.exit();
-        }
-        if (failure != null) throwUnchecked(failure);
-    }
-
-    /**
-     * Zero-wrapper pure-serial fast path for {@link #tickCanonicalBlockEntities} when no block entity
-     * in {@code chunks} is eligible for worker execution. Bypasses {@link BlockEntityExecutionEngine},
-     * per-BE {@code InvocationTicket}/{@code Permit} allocations and monitors, {@code blockEntityWorkGraph},
-     * and {@link CanonicalBlockEntityCoordinator} while preserving canonical sequence order, overload
-     * governor throttling, {@code /forgia fences} accounting, and per-region cost feedback.
-     */
-    private void tickCanonicalBlockEntitiesPureSerial(
-            ServerLevel level,
-            List<RegionBlockEntityTickChunk> chunks,
-            long canonicalBeStart,
-            boolean furnaces) {
-        final it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> beCosts =
-                this.layout.isDynamicCluster() ? new it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<>() : null;
-        boolean levelActive = false;
-        long executed = 0L;
-        this.activeCanonicalPureSerial = true;
-        try {
-            if (this.regionizer.isLevelClosed(level)) {
-                this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
-                return;
-            }
-            levelActive = true;
-            final String dimId = level.dimension().location().toString();
-            final var chunkRegions = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<RegionState>(chunks.size());
-            final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
-            boolean orderedMonotonic = true;
-            long lastSeq = -1L;
-            for (int c = 0; c < chunks.size(); ++c) {
-                final RegionBlockEntityTickChunk chunk = chunks.get(c);
-                final List<RegionBlockEntityTickAdmission> admissions = chunk.admissions();
-                final RegionState chunkRegion = this.regionizer.get(chunk.region(this.layout, level));
-                if (chunkRegion != null && !chunkRegion.isDead()) {
-                    chunkRegions.put(chunk.chunkKey(), chunkRegion);
-                    if (this.overloadGovernor != null && this.shouldSkipOverloadedRegion(level, chunkRegion)) {
-                        this.skippedBlockEntityTicks.addAndGet(admissions.size());
-                        continue;
-                    }
-                }
-                for (int a = 0; a < admissions.size(); ++a) {
-                    final RegionBlockEntityTickAdmission adm = admissions.get(a);
-                    final long seq = adm.sequence();
-                    if (seq <= lastSeq) orderedMonotonic = false;
-                    lastSeq = seq;
-                    ordered.add(adm);
-                }
-            }
-            if (!orderedMonotonic) {
-                ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
-            }
-            long prevSeq = -1L;
-            final Set<TickingBlockEntity> seenTickers = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>(ordered.size()));
-            for (int i = 0, size = ordered.size(); i < size; ++i) {
-                final RegionBlockEntityTickAdmission adm = ordered.get(i);
-                final long seq = adm.sequence();
-                if (seq <= prevSeq) {
-                    throw new IllegalArgumentException("Noncanonical invocation ordinals");
-                }
-                if (!seenTickers.add(adm.ticker())) {
-                    throw new IllegalArgumentException("Duplicate canonical ticker membership");
-                }
-                prevSeq = seq;
-            }
-            for (int i = 0, size = ordered.size(); i < size; ++i) {
-                final RegionBlockEntityTickAdmission admission = ordered.get(i);
-                ++executed;
-                if (furnaces) this.furnaceWorkMetrics.serial();
-                final TickingBlockEntity ticker = admission.ticker();
-                if (ticker.isRemoved()) {
-                    level.removeCollectedBlockEntityTickers(List.of(ticker));
-                    continue;
-                }
-                if (this.regionizer.isLevelClosed(level)) {
-                    this.skippedBlockEntityTicks.incrementAndGet();
-                    continue;
-                }
-                final BlockPos pos = ticker.getPos();
-                final long chunkKey = ChunkPos.asLong(pos);
-                if (!level.shouldTickBlocksAt(pos) || !level.areEntitiesLoaded(chunkKey)) {
-                    continue;
-                }
-                final long fenceStart = System.nanoTime();
-                try {
-                    this.runBlockEntityBody(ticker, null, false);
-                } finally {
-                    final long elapsed = System.nanoTime() - fenceStart;
-                    RegionState region = chunkRegions.get(chunkKey);
-                    final int regionX;
-                    final int regionZ;
-                    if (region != null && !region.isDead()) {
-                        final RegionCoordinate coord = region.coordinate();
-                        regionX = coord.regionX();
-                        regionZ = coord.regionZ();
-                    } else {
-                        final RegionCoordinate coord = this.layout.regionAt(level, pos);
-                        regionX = coord.regionX();
-                        regionZ = coord.regionZ();
-                        region = this.regionizer.get(coord);
-                    }
-                    final String typeName = ticker.getType();
-                    final String tickerClass = (typeName != null && !typeName.isEmpty())
-                            ? typeName
-                            : ticker.getClass().getName();
-                    this.fenceMetrics.recordFence(dimId, regionX, regionZ, tickerClass, elapsed);
-                    if (beCosts != null && region != null && !region.isDead()) {
-                        beCosts.addTo(region, elapsed);
-                    }
-                }
-            }
-        } finally {
-            this.activeCanonicalPureSerial = false;
-            if (executed > 0L) {
-                this.fallbackBlockEntityTicks.addAndGet(executed);
-            }
-            if (beCosts != null && levelActive) {
-                this.flushCanonicalBlockEntityRegionCosts(level, beCosts);
-            }
-            this.mainThreadPhaseMetrics.record(RegionMainThreadPhaseMetrics.Phase.BE_SERIAL,
-                    System.nanoTime() - canonicalBeStart);
-            this.regionWorkAdmission.exit();
-        }
-    }
-
-    private void flushCanonicalBlockEntityRegionCosts(
-            ServerLevel level,
-            it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap<RegionState> beCosts) {
-        final int sliceIndex = RegionTickSlice.BLOCK_ENTITY_TICK.ordinal();
-        final long gameTime = level.getGameTime();
-        for (final var entry : beCosts.object2LongEntrySet()) {
-            final RegionState region = entry.getKey();
-            if (region.isDead()) continue;
-            final long clamped = Math.clamp(entry.getLongValue(), 1L, 1_000_000_000L);
-            region.dispatchCosts().updateAndGet(sliceIndex, estimate -> estimate == 0L ? clamped : (3L * estimate + clamped + 2L) / 4L);
-        }
-        for (final RegionState region : this.regionizer.regions()) {
-            if (region.isDead() || region.coordinate().level() != level || beCosts.containsKey(region)) continue;
-            final var costs = region.dispatchCostsOrNull();
-            if (costs == null || costs.get(sliceIndex) == 0L) continue;
-            final var overload = region.overloadStateOrNull();
-            if (overload != null && overload.lastEvaluatedGameTime() == gameTime && overload.skipCurrentTick()) continue;
-            costs.updateAndGet(sliceIndex, estimate -> (3L * estimate) / 4L);
-        }
-    }
-
-    private boolean furnacePrefixIndependent(ServerLevel level, List<CanonicalBlockEntityCoordinator.Unit> units,
-            @Nullable FurnaceResourcePreparation resources) {
-        final BlockEntityWorkPlanner.ExecutionPlan plan;
-        if (resources == null) {
-            final List<BlockEntityWorkPlanner.Unit> footprints = new ArrayList<>();
-            for (final var unit : units) {
-                final var admission = unit.admission();
-                footprints.add(new BlockEntityWorkPlanner.Unit(
-                        Set.of(new BlockEntityWorkPlanner.Resource(level, BlockEntityWorkPlanner.Kind.CHUNK, ChunkPos.asLong(admission.position()))),
-                        Set.of(new BlockEntityWorkPlanner.Resource(level, BlockEntityWorkPlanner.Kind.BLOCK_ENTITY, admission.position().asLong())), false));
-            }
-            plan = BlockEntityWorkPlanner.planExecution(footprints);
-        } else {
-            final var claims = units.stream().map(unit -> ((FurnaceInvocation) unit).claims()).toList();
-            final var proof = resources.plan(claims);
-            if (proof.claims().stream().anyMatch(claim -> !claim.complete())) return false;
-            plan = proof.dependencies();
-        }
-        // A directed plan may legally have holes; a canonical cursor may not. Cut before the first
-        // dependent member instead of executing a later independent member around it.
-        return plan.waves().size() == 1 && plan.waves().getFirst().size() == units.size();
-    }
-
-    private int executeCanonicalExecutionPrefix(RegionBlockEntityTickBatch batch, List<CanonicalBlockEntityCoordinator.Unit> units,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph, RegionTickBarrier barrier) {
-        final var invocations = units.stream().map(unit -> (ExecutionInvocation) unit).toList();
-        final boolean scoped = invocations.getFirst().inspection().descriptor().mode() == Mode.RESOURCE_SCOPED;
-        final int groups = Math.min(invocations.size(), this.workerPool.threadCount());
-        final List<RegionState> leased = new ArrayList<>();
-        final Map<RegionState, BlockEntityExecutionEngine.RegionGuard> guards = new java.util.IdentityHashMap<>();
-        BlockEntityResourceOwnership ownership = null;
-        final var gate = new NativePrefixGate(groups, invocations.size());
-        Throwable failure = null;
-        boolean workPhase = false;
-        boolean submitted = false;
-        try {
-            final Set<RegionState> homes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            for (final var unit : invocations) homes.add(unit.manifest().home());
-            for (final var home : RegionLeasePack.canonicalOrder(homes)) {
-                if (!this.acquireRegionLease(home, barrier)) return 0;
-                leased.add(home);
-            }
-            batch.externalWaveActive(true);
-            this.beginRegionPhase(batch.level());
-            workPhase = true;
-            for (final var home : leased) this.deliverCanonicalMailbox(batch, home);
-            // All adapter callbacks finish while every participant is quiescent, before publishing
-            // any worker. A changed branch/footprint refuses this still-unstarted prefix.
-            for (final var unit : invocations)
-                if (!unit.manifest().fresh() || !batch.eligibleNow(unit.admission())) return 0;
-            final Map<RegionState, RandomSource> randoms = new java.util.IdentityHashMap<>();
-            if (!scoped) for (final var home : leased) randoms.put(home, batch.canonicalRandom(home));
-            final List<BlockEntityResourceOwnership.Lease> grants;
-            if (scoped) {
-                final Map<Object, java.util.function.BooleanSupplier> boundaries = new java.util.IdentityHashMap<>();
-                for (final var home : leased) {
-                    guards.put(home, batch.execution().subordinate(home));
-                    boundaries.put(home, () -> home.isRunning() && !home.hasOwner() && !home.isDead());
-                }
-                ownership = new BlockEntityResourceOwnership(batch.level(), boundaries,
-                        () -> !this.shutdown && !this.regionizer.isLevelClosed(batch.level()));
-                grants = ownership.tryAcquireAll(invocations.stream().map(ExecutionInvocation::claims).toList());
-                if (grants == null) return 0;
-            } else {
-                grants = List.of();
-            }
-            final var work = new RegionTaskBatch();
-            for (int group = 0; group < groups; ++group) {
-                final int first = group;
-                work.add("Audited original BE invocation group", batch.groupWork(() -> {
-                    if (!RegionWorkerScope.isNativeWorkerThread()) {
-                        gate.refuse(0);
-                        gate.checked.countDown();
-                        return;
-                    }
-                    try {
-                        // Check every original binding before any body. Each unit enters its own
-                        // one-shot resource Lease only when its actual original ticker starts.
-                        for (int index = first; index < invocations.size(); index += groups) {
-                            if (index >= gate.admitted.get()) break;
-                            if (!invocations.get(index).manifest().workerCurrent() || !batch.tryReserveBlockUpdates()) {
-                                gate.refuse(index);
-                                break;
-                            }
-                        }
-                    } catch (Throwable failed) {
-                        gate.failure.compareAndSet(null, failed);
-                        gate.refuse(0);
-                    } finally {
-                        gate.checked.countDown();
-                    }
-                    gate.awaitChecks();
-                    for (int index = first; index < gate.admitted.get(); index += groups) {
-                        if (gate.failure.get() != null) break;
-                        final var unit = invocations.get(index);
-                        final var home = unit.manifest().home();
-                        final var resources = scoped ? grants.get(index) : null;
-                        boolean owner = false;
-                        BlockEntityExecutionEngine.RegionGuard guard = null;
-                        BlockEntityResourceOwnership.Scope scope = null;
-                        BlockEntityExecutionEngine.Permit permit = null;
-                        boolean completed = false;
-                        try {
-                            if (scoped) {
-                                scope = resources.enter();
-                                guard = guards.get(home);
-                            } else {
-                                home.beginOwnership();
-                                owner = true;
-                                guard = batch.execution().regionOwner(home);
-                                this.currentBlockEntityTickRandom.set(randoms.get(home));
-                            }
-                            final var admission = unit.admission();
-                            permit = batch.execution().permit(batch.execution().ticket(admission), guard,
-                                    new Refresh(unit.inspection(), Outcome.CANDIDATE), resources);
-                            if (permit == null) throw new IllegalStateException("Execution adapter lost its original pre-start evidence");
-                            if (scoped) {
-                                try (final var wrapper = CoreModWorkScope.open(unit.manifest())) {
-                                    this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                                            batch.level(), home.coordinate(), home, null), () -> this.runBlockEntityBody(admission.ticker(), graph, true));
-                                }
-                            } else {
-                                try (final var wrapper = RegionBlockEntityTickScope.open(admission, home)) {
-                                    this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                                            batch.level(), home.coordinate(), home, null), () -> this.runBlockEntityBody(admission.ticker(), graph, true));
-                                }
-                            }
-                            completed = true;
-                            ParallelAdapterRuntime.completeBlockEntityTick(admission, unit.inspection().descriptor());
-                            this.blockEntityTicksOnWorkers.incrementAndGet();
-                        } catch (Throwable failed) {
-                            if (this.truncateIfBlockEntityBoundaryViolation(unit.admission(), failed)) {
-                                continue;
-                            }
-                            gate.failure.compareAndSet(null, failed);
-                            gate.refuse(0);
-                            this.recordWorkerTickFailure(batch, home.coordinate(), null, failed);
-                        } finally {
-                            try {
-                                if (scope != null) scope.close();
-                            } finally {
-                                try {
-                                    if (permit != null) {
-                                        if (completed) permit.succeeded();
-                                        permit.close();
-                                    }
-                                } finally {
-                                    if (owner) {
-                                        this.currentBlockEntityTickRandom.remove();
-                                        try {
-                                            if (guard != null) guard.close();
-                                        } finally {
-                                            home.endOwnership();
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }));
-            }
-            final var joined = work.submit(this.workerPool);
-            submitted = true;
-            batch.activeCanonicalBarrier(joined);
-            try {
-                barrier.await(() -> {
-                    if (this.independentTickScheduler != null) {
-                        this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
-                    }
-                    return joined.isComplete();
-                });
-            } catch (Throwable failed) {
-                failure = failed;
-            } finally {
-                joined.awaitCompletion();
-                batch.activeCanonicalBarrier(null);
-            }
-            try {
-                joined.throwIfFailed();
-            } catch (Throwable failed) {
-                failure = accumulateFailure(failure, failed);
-            }
-            failure = accumulateFailure(failure, gate.failure.get());
-        } catch (Throwable failed) {
-            failure = accumulateFailure(failure, failed);
-        } finally {
-            for (final var guard : guards.values()) failure = runBatchCompletion(failure, guard::sealForCommit);
-            if (ownership != null) failure = runBatchCompletion(failure, ownership::close);
-            for (final var guard : guards.values()) failure = runBatchCompletion(failure, guard::close);
-            failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(batch, units.getLast().admission().sequence() + 1));
-            for (int index = leased.size() - 1; index >= 0; --index) {
-                final var home = leased.get(index);
-                failure = runBatchCompletion(failure, () -> this.releaseRegionLease(home));
-            }
-            if (workPhase) this.levelTickPhaseState(batch.level()).endRegionPhase();
-            batch.externalWaveActive(false);
-            failure = runBatchCompletion(failure, batch::reportTickFailures);
-            if (failure != null) throwUnchecked(failure);
-        }
-        return submitted ? gate.admitted.get() : 0;
-    }
-
-    private int executeCanonicalModPrefix(RegionBlockEntityTickBatch batch, List<CanonicalBlockEntityCoordinator.Unit> units,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph, RegionTickBarrier barrier) {
-        if (units.size() < 2 || !CoreModTickerVerifier.available()) return 0;
-        final List<ModInvocation> modUnits = units.stream().map(unit -> (ModInvocation) unit).toList();
-        final List<RegionState> leased = new ArrayList<>();
-        final Map<RegionState, BlockEntityExecutionEngine.RegionGuard> guards = new java.util.IdentityHashMap<>();
-        BlockEntityResourceOwnership ownership = null;
-        final List<BlockEntityResourceOwnership.Lease> grants;
-        final var gate = new NativePrefixGate(modUnits.size(), modUnits.size());
-        Throwable failure = null;
-        boolean workPhase = false;
-        boolean submitted = false;
-        try {
-            final Set<RegionState> homes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            for (final var unit : modUnits) homes.add(unit.manifest().home());
-            for (final var home : RegionLeasePack.canonicalOrder(homes)) {
-                if (!this.acquireRegionLease(home, barrier)) return 0;
-                leased.add(home);
-            }
-            batch.externalWaveActive(true);
-            this.beginRegionPhase(batch.level());
-            workPhase = true;
-            for (final var home : leased) this.deliverCanonicalMailbox(batch, home);
-            for (final var unit : modUnits) if (!unit.manifest().fresh(this) || !unit.manifest().eligible(batch)) return 0;
-            final Map<Object, java.util.function.BooleanSupplier> boundaries = new java.util.IdentityHashMap<>();
-            for (final var home : leased) {
-                Object resourceHome = null;
-                for (final var unit : modUnits) if (unit.manifest().home() == home) {
-                    resourceHome = unit.manifest().resourceHome();
-                    break;
-                }
-                if (resourceHome == null) throw new IllegalStateException("Missing Mod resource home");
-                final var guard = batch.execution().subordinate(home, resourceHome);
-                guards.put(home, guard);
-                boundaries.put(resourceHome, () -> home.isRunning() && !home.hasOwner() && !home.isDead());
-            }
-            ownership = new BlockEntityResourceOwnership(batch.level(), boundaries,
-                    () -> !this.shutdown && !this.regionizer.isLevelClosed(batch.level()));
-            if (!net.neoforged.forgia.runtimeproof.RuntimeProof.beginCoreReservation()) return 0;
-            try {
-                grants = ownership.tryAcquireAll(modUnits.stream().map(ModInvocation::claims).toList());
-            } finally {
-                net.neoforged.forgia.runtimeproof.RuntimeProof.endCoreReservation();
-            }
-            if (grants == null) return 0;
-            final var work = new RegionTaskBatch();
-            for (int index = 0; index < modUnits.size(); ++index) {
-                final int offset = index;
-                final var unit = modUnits.get(index);
-                final var resources = grants.get(index);
-                final var guard = guards.get(unit.manifest().home());
-                work.add("Core verified original Mod invocation", batch.groupWork(() -> {
-                    if (!RegionWorkerScope.isNativeWorkerThread()) {
-                        gate.refuse(0);
-                        gate.checked.countDown();
-                        return;
-                    }
-                    boolean checked = false;
-                    BlockEntityResourceOwnership.Scope scope = null;
-                    BlockEntityExecutionEngine.Permit permit = null;
-                    boolean completed = false;
-                    try {
-                        scope = resources.enter();
-                        try {
-                            if (!unit.manifest().workerCurrent() || !batch.tryReserveBlockUpdates()) gate.refuse(offset);
-                        } catch (Throwable failed) {
-                            gate.failure.compareAndSet(null, failed);
-                            gate.refuse(0);
-                        } finally {
-                            checked = true;
-                            gate.checked.countDown();
-                        }
-                        gate.awaitChecks();
-                        if (gate.failure.get() != null || offset >= gate.admitted.get()) return;
-                        final var admission = unit.admission();
-                        permit = batch.execution().permit(batch.execution().ticket(admission), guard,
-                                new Refresh(unit.inspection(), Outcome.CANDIDATE), resources);
-                        if (permit == null) throw new IllegalStateException("Mod original Ticket lost its pre-start proof");
-                        try (final var wrapper = CoreModWorkScope.open(unit.manifest())) {
-                            this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                                    batch.level(), unit.manifest().home().coordinate(), unit.manifest().home(), null),
-                                    () -> this.runBlockEntityBody(admission.ticker(), graph, true));
-                        }
-                        completed = true;
-                        this.blockEntityTicksOnWorkers.incrementAndGet();
-                    } catch (Throwable failed) {
-                        if (this.truncateIfBlockEntityBoundaryViolation(unit.admission(), failed)) {
-                            return;
-                        }
-                        gate.failure.compareAndSet(null, failed);
-                        gate.refuse(0);
-                        this.recordWorkerTickFailure(batch, unit.manifest().home().coordinate(), null, failed);
-                    } finally {
-                        if (!checked) gate.checked.countDown();
-                        try {
-                            if (scope != null) scope.close();
-                        } finally {
-                            if (permit != null) {
-                                if (completed) permit.succeeded();
-                                permit.close();
-                            }
-                        }
-                    }
-                }));
-            }
-            final var joined = work.submit(this.workerPool);
-            submitted = true;
-            batch.activeCanonicalBarrier(joined);
-            try {
-                barrier.await(() -> {
-                    if (this.independentTickScheduler != null) {
-                        this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
-                    }
-                    return joined.isComplete();
-                });
-            } catch (Throwable failed) {
-                failure = failed;
-            } finally {
-                joined.awaitCompletion();
-                batch.activeCanonicalBarrier(null);
-            }
-            try {
-                joined.throwIfFailed();
-            } catch (Throwable failed) {
-                failure = accumulateFailure(failure, failed);
-            }
-            failure = accumulateFailure(failure, gate.failure.get());
-        } catch (Throwable failed) {
-            failure = accumulateFailure(failure, failed);
-        } finally {
-            for (final var guard : guards.values()) failure = runBatchCompletion(failure, guard::sealForCommit);
-            if (ownership != null) failure = runBatchCompletion(failure, ownership::close);
-            for (final var guard : guards.values()) failure = runBatchCompletion(failure, guard::close);
-            for (int index = leased.size() - 1; index >= 0; --index) {
-                final var region = leased.get(index);
-                failure = runBatchCompletion(failure, () -> this.releaseRegionLease(region));
-            }
-            if (workPhase) this.levelTickPhaseState(batch.level()).endRegionPhase();
-            batch.externalWaveActive(false);
-            failure = runBatchCompletion(failure, batch::reportTickFailures);
-            if (failure != null) throwUnchecked(failure);
-        }
-        return submitted ? gate.admitted.get() : 0;
-    }
-
-    private int executeCanonicalFurnacePrefix(RegionBlockEntityTickBatch batch, List<RegionBlockEntityTickAdmission> ordered,
-            List<CanonicalBlockEntityCoordinator.Unit> units, @Nullable RegionBlockEntityWorkGraph.Phase graph,
-            RegionTickBarrier barrier, @Nullable FurnaceResourcePreparation resources) {
-        final int count = units.size();
-        if (count < 2) {
-            this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SINGLE_UNIT);
-            return 0;
-        }
-        final List<RegionBlockEntityTickAdmission> waveOrdered = new ArrayList<>(count);
-        final List<FurnaceWorkPreparation.Candidate> candidates = new ArrayList<>(count);
-        final List<BlockEntityResourceOwnership.Claims> claims = resources == null ? List.of() : new ArrayList<>(count);
-        final List<Integer> wave = new ArrayList<>(count);
-        for (int i = 0; i < count; ++i) {
-            final var furnace = (FurnaceInvocation) units.get(i);
-            waveOrdered.add(furnace.admission());
-            candidates.add(furnace.candidate());
-            if (resources != null) claims.add(furnace.claims());
-            wave.add(i);
-        }
-        final List<FurnaceWorkResult> results = new ArrayList<>(count);
-        batch.externalWaveActive(true);
-        this.beginRegionPhase(batch.level());
-        try {
-            // The existing bridge still performs a whole-wave fresh audit, alias pass, every validator
-            // and all-or-none reservation before any original body. It uses this phase's same kernel.
-            this.executeFurnaceWave(batch, waveOrdered, candidates, wave, results, graph, barrier, resources, claims, ordered);
-            batch.reportTickFailures();
-            if (results.isEmpty()) {
-                this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.REVALIDATION);
-                return 0;
-            }
-            return count;
-        } finally {
-            this.levelTickPhaseState(batch.level()).endRegionPhase();
-            batch.externalWaveActive(false);
-        }
-    }
-
-    private int executeCanonicalNativePrefix(RegionBlockEntityTickBatch batch, List<CanonicalBlockEntityCoordinator.Unit> units,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph, RegionTickBarrier barrier) {
-        final Map<RegionState, List<NativeEntry>> groups = new java.util.IdentityHashMap<>();
-        boolean allSandboxed = this.isIndependentRegionTickEnabled();
-        for (int offset = 0; offset < units.size(); ++offset) {
-            final var unit = (NativeInvocation) units.get(offset);
-            if (allSandboxed && !(unit.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate)) {
-                allSandboxed = false;
-            }
-            groups.computeIfAbsent(unit.region(), unused -> new ArrayList<>()).add(new NativeEntry(offset, unit));
-        }
-        if (allSandboxed) {
-            return this.dispatchIndependentNativeWave(batch, groups, units.size(), graph);
-        }
-        this.workerPool.preWake(groups.size());
-        final var gate = new NativePrefixGate(groups.size(), units.size());
-        Throwable failure = null;
-        boolean workPhase = false;
-        try {
-            boolean leasedAll = true;
-            for (final var region : RegionLeasePack.canonicalOrder(groups.keySet())) {
-                if (!this.acquireRegionLease(region, barrier)) {
-                    gate.refuse(0);
-                    leasedAll = false;
-                    break;
-                }
-                batch.holdCoordinatorRegion(region);
-            }
-            if (leasedAll) {
-                batch.externalWaveActive(true);
-                this.beginRegionPhase(batch.level());
-                workPhase = true;
-                for (final var region : RegionLeasePack.canonicalOrder(groups.keySet())) {
-                    this.deliverCanonicalMailbox(batch, region);
-                }
-                final RegionTaskBatch work = new RegionTaskBatch();
-                for (final var entry : groups.entrySet()) {
-                    final var region = entry.getKey();
-                    final RandomSource random = batch.canonicalRandom(region);
-                    work.add("canonical native BE prefix", batch.groupWork(() -> this.runCanonicalNativeGroup(batch, region,
-                            random, entry.getValue(), gate, graph)));
-                }
-                final var joined = work.submit(this.workerPool);
-                batch.activeCanonicalBarrier(joined);
-                try {
-                    barrier.await(() -> {
-                        if (this.independentTickScheduler != null) {
-                            this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
-                        }
-                        batch.servicePendingServerWork();
-                        return joined.isComplete();
-                    });
-                } catch (Throwable throwable) {
-                    failure = throwable;
-                } finally {
-                    joined.awaitCompletion();
-                    batch.activeCanonicalBarrier(null);
-                }
-                try {
-                    joined.throwIfFailed();
-                } catch (Throwable throwable) {
-                    failure = accumulateFailure(failure, throwable);
-                }
-                failure = accumulateFailure(failure, gate.failure.get());
-            }
-        } catch (Throwable throwable) {
-            failure = accumulateFailure(failure, throwable);
-        } finally {
-            if (workPhase) this.levelTickPhaseState(batch.level()).endRegionPhase();
-            batch.externalWaveActive(false);
-            final long before = units.getLast().admission().sequence() + 1;
-            failure = runBatchCompletion(failure, () -> this.commitInvocationEffects(batch, before));
-            failure = runBatchCompletion(failure, () -> this.applyDeferredBlockUpdates(batch));
-            failure = runBatchCompletion(failure, () -> this.applyRegionTickMutations(batch.regionTickMutations()));
-            failure = runBatchCompletion(failure, () -> this.releaseCanonicalNativeRegions(batch));
-            failure = runBatchCompletion(failure, batch::reportTickFailures);
-        }
-        if (failure != null) throwUnchecked(failure);
-        return gate.admitted.get();
-    }
-
-    private int dispatchIndependentNativeWave(
-            RegionBlockEntityTickBatch batch,
-            Map<RegionState, List<NativeEntry>> groups,
-            int totalUnits,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        final long now = System.nanoTime();
-        final ServerLevel level = batch.level();
-        final long gameTime = level.getGameTime();
-        this.workerPool.preWake(groups.size());
-        for (final var entry : groups.entrySet()) {
-            final RegionState region = entry.getKey();
-            final List<NativeEntry> entries = entry.getValue();
-            final RandomSource random = batch.canonicalRandom(region);
-            final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
-            this.independentTickScheduler.submitIfDue(region, () -> {
-                this.currentBlockEntityTickRandom.set(random);
-                this.currentRegionTickMutations.set(mutations);
-                try {
-                    for (int i = 0, size = entries.size(); i < size; ++i) {
-                        final var unit = entries.get(i).invocation();
-                        final var admission = unit.admission();
-                        if (!unit.proof().fresh()) {
-                            continue;
-                        }
-                        if (unit.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate candidate) {
-                            final net.minecraft.world.level.block.entity.BlockEntity be = candidate.chunk().getBlockEntities().get(admission.position());
-                            final boolean instanceAllowed = (be == null
-                                    && !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, admission.position()))
-                                    || (be != null && !be.isRemoved()
-                                            && be.getLevel() == admission.level()
-                                            && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
-                            if (!instanceAllowed) {
-                                final var ticker = admission.ticker();
-                                net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
-                                    if (!ticker.isRemoved()) {
-                                        ticker.tick();
-                                    }
-                                });
-                                continue;
-                            }
-                        }
-                        try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
-                            this.runBlockEntityBody(admission.ticker(), graph, true);
-                            this.blockEntityTicksOnWorkers.incrementAndGet();
-                        } catch (Throwable throwable) {
-                            if (RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
-                                    || this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
-                                continue;
-                            }
-                            this.demoteSandboxedBlockEntityOnError(admission, throwable);
-                            continue;
-                        }
-                    }
-                } finally {
-                    this.currentRegionTickMutations.remove();
-                    this.currentBlockEntityTickRandom.remove();
-                }
-            }, () -> {
-                if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                    this.applyRegionTickMutations(mutations);
-                }
-            }, now, gameTime);
-        }
-        return totalUnits;
-    }
-
-    private void tickIndexedSandboxBlockEntities(ServerLevel level, List<RegionBlockEntityTickChunk> chunks) {
-        if (this.shutdown || this.regionizer.isLevelClosed(level)) {
-            this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
-            return;
-        }
-        final Map<RegionState, List<RegionBlockEntityTickChunk>> sandboxByRegion = new java.util.IdentityHashMap<>();
-        final List<RegionBlockEntityTickAdmission> serialAdmissions = new ArrayList<>();
-        for (int i = 0, size = chunks.size(); i < size; ++i) {
-            final RegionBlockEntityTickChunk chunk = chunks.get(i);
-            final RegionBlockEntityTickChunkCache cache = chunk.cache();
-            if (cache == null) {
-                serialAdmissions.addAll(chunk.admissions());
-                continue;
-            }
-            final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, level));
-            if (region == null || region.isDead()) {
-                serialAdmissions.addAll(chunk.admissions());
-                continue;
-            }
-            if (this.overloadGovernor != null && this.shouldSkipOverloadedRegion(level, region)) {
-                this.skippedBlockEntityTicks.addAndGet(chunk.admissions().size());
-                continue;
-            }
-            if (!cache.sandboxedAdmissions().isEmpty()) {
-                sandboxByRegion.computeIfAbsent(region, unused -> new ArrayList<>()).add(chunk);
-            }
-            if (!cache.nonSandboxedAdmissions().isEmpty()) {
-                serialAdmissions.addAll(cache.nonSandboxedAdmissions());
-            }
-        }
-        if (!sandboxByRegion.isEmpty()) {
-            final long now = System.nanoTime();
-            final long gameTime = level.getGameTime();
-            final boolean borderUpdates = this.borderUpdatesEnabled();
-            final List<RegionIndependentTickScheduler.AsyncBatchItem> beItems = new ArrayList<>(sandboxByRegion.size());
-            for (final var entry : sandboxByRegion.entrySet()) {
-                final RegionState region = entry.getKey();
-                final List<RegionBlockEntityTickChunk> regionChunks = entry.getValue();
-                final RandomSource random = RandomSource.create(
-                        level.getSeed() ^ gameTime ^ ((long) region.coordinate().regionX() << 32) ^ region.coordinate().regionZ());
-                final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
-                final Runnable body = () -> {
-                    this.currentBlockEntityTickRandom.set(random);
-                    this.currentRegionTickMutations.set(mutations);
-                    try {
-                        for (int c = 0, cSize = regionChunks.size(); c < cSize; ++c) {
-                            final RegionBlockEntityTickChunk chunk = regionChunks.get(c);
-                            final List<RegionBlockEntityTickAdmission> admissions = chunk.cache().sandboxedAdmissions();
-                            if (!chunk.isCurrent(this.layout, borderUpdates)) {
-                                for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
-                                    final var ticker = admissions.get(a).ticker();
-                                    net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
-                                        if (!ticker.isRemoved()) {
-                                            ticker.tick();
-                                        }
-                                    });
-                                }
-                                continue;
-                            }
-                            for (int a = 0, aSize = admissions.size(); a < aSize; ++a) {
-                                final RegionBlockEntityTickAdmission admission = admissions.get(a);
-                                final var ticker = admission.ticker();
-                                if (ticker.isRemoved()) {
-                                    continue;
-                                }
-                                final net.minecraft.world.level.block.entity.BlockEntity be = chunk.chunk().getBlockEntities().get(admission.position());
-                                final boolean instanceAllowed = (be == null
-                                        && !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, admission.position()))
-                                        || (be != null && !be.isRemoved()
-                                                && be.getLevel() == level
-                                                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
-                                if (!instanceAllowed) {
-                                    net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(level, () -> {
-                                        if (!ticker.isRemoved()) {
-                                            ticker.tick();
-                                        }
-                                    });
-                                    continue;
-                                }
-                                try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
-                                    this.runBlockEntityBody(ticker, null, true);
-                                    this.blockEntityTicksOnWorkers.incrementAndGet();
-                                } catch (Throwable throwable) {
-                                    if (RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
-                                            || this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
-                                        continue;
-                                    }
-                                    this.demoteSandboxedBlockEntityOnError(admission, throwable);
-                                }
-                            }
-                        }
-                    } finally {
-                        this.currentRegionTickMutations.remove();
-                        this.currentBlockEntityTickRandom.remove();
-                    }
-                };
-                final Runnable commit = () -> {
-                    if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
-                        this.applyRegionTickMutations(mutations);
-                    }
-                };
-                beItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
-                        region, "independent region tick", body, commit, true, now, gameTime));
-            }
-            this.independentTickScheduler.submitBatchOptimized(beItems);
-        }
-        if (!serialAdmissions.isEmpty()) {
-            final String dimensionId = level.dimension().location().toString();
-            for (int i = 0, size = serialAdmissions.size(); i < size; ++i) {
-                final RegionBlockEntityTickAdmission admission = serialAdmissions.get(i);
-                final var ticker = admission.ticker();
-                if (ticker.isRemoved()) {
-                    continue;
-                }
-                this.fallbackBlockEntityTicks.incrementAndGet();
-                final long start = System.nanoTime();
-                try {
-                    ticker.tick();
-                } finally {
-                    final long elapsed = System.nanoTime() - start;
-                    final RegionCoordinate coord = this.layout.regionAt(level, admission.position());
-                    this.fenceMetrics.recordFence(dimensionId, coord.regionX(), coord.regionZ(), admission.type(), elapsed);
-                }
-            }
-        }
-    }
-
-    private void deliverCanonicalMailbox(RegionBlockEntityTickBatch batch, RegionState region) {
-        if (!batch.firstCanonicalMailboxDelivery(region)) return;
-        region.beginOwnership();
-        try {
-            // Unknown message callbacks run entirely on the server before the whole-prefix fresh
-            // checks. They never inherit a Native Permit or run concurrently with a body.
-            this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                    batch.level(), region.coordinate(), region, null), this.withRegionMailboxDelivery(batch.level(), region, () -> {}));
-        } finally {
-            region.endOwnership();
-        }
-    }
-
-    private void runCanonicalNativeGroup(RegionBlockEntityTickBatch batch, RegionState region, RandomSource random,
-            List<NativeEntry> entries, NativePrefixGate gate, @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        BlockEntityExecutionEngine.RegionGuard guard = null;
-        boolean owner = false;
-        try {
-            try {
-                if (!RegionWorkerScope.isNativeWorkerThread()) {
-                    // A rejection is known before any body. It cannot block the submitter waiting for
-                    // checks of groups that have not even been submitted yet.
-                    gate.refuse(0);
-                    return;
-                }
-                region.beginOwnership();
-                owner = true;
-                guard = batch.execution().regionOwner(region);
-                this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                        batch.level(), region.coordinate(), region, null), () -> {
-                    for (int i = 0; i < entries.size(); ++i) {
-                        final var entry = entries.get(i);
-                        if (entry.offset() >= gate.admitted.get()) break;
-                        final var unit = entry.invocation();
-                        final var admission = unit.admission();
-                        if (!unit.proof().fresh() || !batch.tryReserveBlockUpdates()) {
-                            gate.refuse(entry.offset());
-                            break;
-                        }
-                        if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED) {
-                            try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
-                                if (!ParallelAdapterRuntime.admitBlockEntityTick(admission, unit.inspection().descriptor())
-                                        || !unit.proof().fresh()) {
-                                    gate.refuse(entry.offset());
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                });
-            } catch (Throwable throwable) {
-                gate.failure.compareAndSet(null, throwable);
-                gate.refuse(0);
-            } finally {
-                gate.checked.countDown();
-            }
-            gate.awaitChecks();
-            if (gate.failure.get() != null || gate.admitted.get() == 0) return;
-            final var authority = guard;
-            this.currentBlockEntityTickRandom.set(random);
-            this.currentRegionTickMutations.set(batch.regionTickMutations());
-            this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, batch.level(),
-                    region.coordinate(), region, null), () -> {
-                        for (final var entry : entries) {
-                            if (entry.offset() >= gate.admitted.get()) break;
-                            final var unit = entry.invocation();
-                            final var admission = unit.admission();
-                            if (unit.proof() instanceof NativeBlockEntityPreparation.RegionSandboxedCandidate candidate) {
-                                final net.minecraft.world.level.block.entity.BlockEntity be = candidate.chunk().getBlockEntities().get(admission.position());
-                                final boolean instanceAllowed = (be == null
-                                        && !net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(admission.level(), admission.position()))
-                                        || (be != null && !be.isRemoved()
-                                                && be.getLevel() == admission.level()
-                                                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.canRunSandboxedBlockEntityInstance(admission.type(), be));
-                                if (!instanceAllowed) {
-                                    final var ticker = admission.ticker();
-                                    net.neoforged.neoforge.server.threading.api.RegionAdapterApi.postGlobal(admission.level(), () -> {
-                                        if (!ticker.isRemoved()) {
-                                            ticker.tick();
-                                        }
-                                    });
-                                    continue;
-                                }
-                                try (final var scope = RegionBlockEntityTickScope.open(admission, region)) {
-                                    this.runBlockEntityBody(admission.ticker(), graph, true);
-                                    this.blockEntityTicksOnWorkers.incrementAndGet();
-                                } catch (Throwable throwable) {
-                                    if (RegionWorkerChunkUnavailableException.isChunkUnavailable(throwable)
-                                            || this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
-                                        continue;
-                                    }
-                                    this.demoteSandboxedBlockEntityOnError(admission, throwable);
-                                    continue;
-                                }
-                                continue;
-                            }
-                            try (final var scope = RegionBlockEntityTickScope.open(admission, region);
-                                    final var permit = batch.execution().permit(batch.execution().ticket(admission), authority,
-                                            new Refresh(unit.inspection(), Outcome.CANDIDATE), null)) {
-                                if (permit == null) throw new IllegalStateException("Invocation changed after closed-prefix validation");
-                                this.runBlockEntityBody(admission.ticker(), graph, true);
-                                if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED)
-                                    ParallelAdapterRuntime.completeBlockEntityTick(admission, unit.inspection().descriptor());
-                                permit.succeeded();
-                                this.blockEntityTicksOnWorkers.incrementAndGet();
-                            } catch (Throwable throwable) {
-                                if (this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
-                                    continue;
-                                }
-                                this.recordWorkerTickFailure(batch, region.coordinate(), null, throwable);
-                                break;
-                            }
-                        }
-                    });
-        } finally {
-            this.currentRegionTickMutations.remove();
-            this.currentBlockEntityTickRandom.remove();
-            try {
-                if (guard != null) guard.close();
-            } finally {
-                if (owner) region.endOwnership();
-                // The coordinator retains the very same outer lease through physical join and commit.
-            }
-        }
-    }
-
-    private void commitInvocationEffects(BlockEntityExecutionBatch batch, long beforeOrdinal) {
-        Throwable failure = null;
-        for (final var effect : batch.execution().takeInvocationEffects(beforeOrdinal)) {
-            failure = runBatchCompletion(failure, () -> {
-                final var admission = effect.admission();
-                final var region = this.regionizer.get(this.layout.regionAt(batch.level(), admission.position()));
-                if (region == null || !region.isRunning()) throw new IllegalStateException("Invocation commit lost its original outer region lease");
-                region.beginOwnership();
-                try {
-                    this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                            batch.level(), region.coordinate(), region, null), effect.action());
-                } finally {
-                    region.endOwnership();
-                }
-            });
-        }
-        if (failure != null) throwUnchecked(failure);
-    }
-
-    private void releaseCanonicalNativeRegions(RegionBlockEntityTickBatch batch) {
-        Throwable failure = null;
-        for (final var region : batch.heldRegions()) {
-            // Drop only this batch's held reference, never release it again after a later re-acquisition.
-            batch.forgetLease(region);
-            failure = runBatchCompletion(failure, () -> this.releaseRegionLease(region));
-        }
-        if (failure != null) throwUnchecked(failure);
-    }
-
-    private static final AdapterDescriptor FURNACE_EXECUTION = new AdapterDescriptor(ResourceLocation.parse("forgia:furnace_waves"),
-            Set.of(ResourceLocation.parse("minecraft:furnace"), ResourceLocation.parse("minecraft:blast_furnace"),
-                    ResourceLocation.parse("minecraft:smoker")),
-            Mode.RESOURCE_SCOPED);
-
-    /** Execute current-operation resource waves; the historical shadow graph is diagnostics only. */
-    private void tickFurnaceWorkWaves(ServerLevel level, List<RegionBlockEntityTickChunk> chunks, RegionTickBarrier barrier, boolean canonicalSequence) {
-        final long resourcePhaseStart = this.blockEntityResourcesEnabled ? System.nanoTime() : 0L;
-        final FurnaceWorkBatch batch = new FurnaceWorkBatch(level, chunks,
-                () -> !this.regionizer.isLevelClosed(level), pos -> this.regionizer.get(this.layout.regionAt(level, pos)));
-        batch.canonicalSequence(canonicalSequence);
-        final TickBatchPublication publication = this.publishTickBatch(batch, level);
-        if (publication == TickBatchPublication.LEVEL_CLOSED) {
-            this.skippedBlockEntityTicks.addAndGet(countBlockEntityTickers(chunks));
-            batch.execution().close();
-            return;
-        }
-        if (publication == TickBatchPublication.SHUTDOWN) {
-            try {
-                this.tickBlockEntityChunksInline(batch, chunks, null);
-            } finally {
-                batch.execution().close();
-            }
-            return;
-        }
-        batch.markExecutingOnCurrentThread();
-        RegionBlockEntityWorkGraph.Phase graph = null;
-        Throwable failure = null;
-        try {
-            final long prepareStart = System.nanoTime();
-            graph = this.blockEntityWorkGraph.begin(level, chunks);
-            final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
-            for (final var chunk : chunks) ordered.addAll(chunk.admissions());
-            ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
-            if (ordered.size() > RegionBlockEntityWorkGraph.MAX_UNITS) {
-                this.furnaceWorkMetrics.prepared(0, System.nanoTime() - prepareStart);
-                this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.OVERSIZED_PHASE);
-                for (final var admission : ordered) this.tickFurnaceSerial(batch, admission, graph);
-            } else {
-                final var resources = this.blockEntityResourcesEnabled ? new FurnaceResourcePreparation(level, this.layout) : null;
-                final var preparation = new FurnaceWorkPreparation(level, this.layout, resources != null);
-                final var aliased = FurnaceWorkPreparation.aliased(ordered);
-                final List<FurnaceWorkPreparation.Candidate> candidates = new ArrayList<>();
-                final List<BlockEntityWorkPlanner.Unit> footprints = new ArrayList<>();
-                final List<BlockEntityResourceOwnership.Claims> claims = resources == null ? List.of() : new ArrayList<>();
-                long proofNanos = 0L;
-                int admitted = 0;
-                for (final var admission : ordered) {
-                    final var candidate = batch.eligibleNow(admission) ? preparation.prepare(admission) : null;
-                    final boolean eligible = candidate != null && !aliased.contains(candidate.source());
-                    if (candidate == null) this.furnaceWorkMetrics.refused(preparation.refusal());
-                    else if (!eligible) this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SHARED_INVENTORY);
-                    candidates.add(eligible ? candidate : null);
-                    batch.execution().inspect(admission, eligible
-                            ? new Inspection(FURNACE_EXECUTION, resources == null ? Resources.FURNACE_LOCAL : Resources.FURNACE_CLAIMS, Outcome.CANDIDATE)
-                            : Inspection.serialFence());
-                    if (eligible) ++admitted;
-                    if (resources == null) {
-                        footprints.add(new BlockEntityWorkPlanner.Unit(
-                                Set.of(new BlockEntityWorkPlanner.Resource(level, BlockEntityWorkPlanner.Kind.CHUNK, ChunkPos.asLong(admission.position()))),
-                                Set.of(new BlockEntityWorkPlanner.Resource(level, BlockEntityWorkPlanner.Kind.BLOCK_ENTITY, admission.position().asLong())), !eligible));
-                    } else {
-                        final long proofStart = System.nanoTime();
-                        claims.add(eligible ? resources.captureForPlan(candidate) : resources.fence(admission));
-                        proofNanos += System.nanoTime() - proofStart;
-                    }
-                }
-                if (resources != null && resources.budgetExceeded()) {
-                    for (int index = 0; index < ordered.size(); ++index) claims.set(index, resources.fence(ordered.get(index)));
-                }
-                final long planStart = resources == null ? 0L : System.nanoTime();
-                final var resourcePlan = resources == null ? null : resources.plan(claims);
-                final var plan = resourcePlan == null ? BlockEntityWorkPlanner.planExecution(footprints) : resourcePlan.dependencies();
-                if (resourcePlan != null) {
-                    for (int index = 0; index < candidates.size(); ++index) {
-                        if (candidates.get(index) != null && !resourcePlan.claims().get(index).complete()) {
-                            candidates.set(index, null);
-                            --admitted;
-                            this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.RESOURCE_PROOF);
-                        }
-                    }
-                    this.blockEntityResourceMetrics.prepared(admitted, proofNanos + System.nanoTime() - planStart);
-                }
-                this.furnaceWorkMetrics.prepared(admitted, System.nanoTime() - prepareStart);
-                for (final var wave : plan.waves()) {
-                    if (wave.size() == 1 || candidates.get(wave.getFirst()) == null) {
-                        if (candidates.get(wave.getFirst()) != null) this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.SINGLE_UNIT);
-                        for (final int index : wave) this.tickFurnaceSerial(batch, ordered.get(index), graph);
-                        continue;
-                    }
-                    final RegionBlockEntityWorkGraph.Phase sample = graph;
-                    final List<FurnaceWorkResult> results = new ArrayList<>();
-                    try {
-                        batch.externalWaveActive(true);
-                        this.runRegionBatch(level, () -> this.executeFurnaceWave(batch, ordered, candidates, wave, results, sample, barrier,
-                                resources, resourcePlan == null ? List.of() : resourcePlan.claims(), ordered));
-                    } finally {
-                        batch.externalWaveActive(false);
-                    }
-                    if (results.isEmpty()) {
-                        this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.REVALIDATION);
-                        for (final int index : wave) this.tickFurnaceSerial(batch, ordered.get(index), graph);
-                    }
-                    batch.reportTickFailures();
-                }
-            }
-        } catch (Throwable throwable) {
-            failure = throwable;
-        } finally {
-            if (graph != null) failure = runBatchCompletion(failure, graph::finish);
-            failure = runBatchCompletion(failure, batch.execution()::close);
-            batch.completeExternalWaves();
-            batch.finish();
-            this.activeTickBatches.remove(batch);
-            batch.clearExecutingOnCurrentThread();
-            if (resourcePhaseStart != 0L) this.blockEntityResourceMetrics.finished(System.nanoTime() - resourcePhaseStart);
-        }
-        if (failure != null) throwUnchecked(failure);
-        batch.throwIfFailed();
-    }
-
-    /** Outer region exclusion spans preparation, actual bodies and canonical notification commits. */
-    private void executeFurnaceWave(BlockEntityExecutionBatch batch, List<RegionBlockEntityTickAdmission> ordered,
-            List<FurnaceWorkPreparation.Candidate> candidates, List<Integer> wave, List<FurnaceWorkResult> results,
-            @Nullable RegionBlockEntityWorkGraph.Phase sample, RegionTickBarrier barrier,
-            @Nullable FurnaceResourcePreparation resources, List<BlockEntityResourceOwnership.Claims> claims,
-            List<RegionBlockEntityTickAdmission> aliasOrder) {
-        final ServerLevel level = batch.level();
-        final List<RegionState> leased = new ArrayList<>();
-        final Map<RegionState, BlockEntityExecutionEngine.RegionGuard> executionRegions = new java.util.IdentityHashMap<>();
-        BlockEntityResourceOwnership ownership = null;
-        long revalidationStart = 0L;
-        Throwable failure = null;
-        try {
-            this.workerPool.preWake(Math.min(wave.size(), this.workerPool.threadCount()));
-            final Set<RegionState> regions = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-            for (final int index : wave) {
-                final var region = this.regionizer.getOrCreate(this.layout.regionAt(level, ordered.get(index).position()));
-                if (region == null || region.isDead()) throw new IllegalStateException("Furnace work region retired before leasing");
-                regions.add(region);
-            }
-            for (final var region : RegionLeasePack.canonicalOrder(regions)) {
-                if (!this.acquireRegionLease(region, barrier)) throw new IllegalStateException("Furnace work region retired during leasing");
-                leased.add(region);
-                if (batch instanceof RegionBlockEntityTickBatch canonical) this.deliverCanonicalMailbox(canonical, region);
-                else {
-                    region.beginOwnership();
-                    try {
-                        this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level,
-                                region.coordinate(), region, null), this.withRegionMailboxDelivery(level, region, () -> {}));
-                    } finally {
-                        region.endOwnership();
-                    }
-                }
-                executionRegions.put(region, batch.execution().subordinate(region,
-                        resources == null ? region : resources.home(region.coordinate())));
-            }
-            revalidationStart = resources == null ? 0L : System.nanoTime();
-            boolean current = !this.shutdown && !this.regionizer.isLevelClosed(level);
-            final var preparation = new FurnaceWorkPreparation(level, this.layout, resources != null);
-            final var aliases = FurnaceWorkPreparation.aliased(aliasOrder);
-            final List<BlockEntityResourceOwnership.Claims> freshClaims = resources == null ? List.of() : new ArrayList<>();
-            final Map<BlockEntityResourceOwnership.SharedReads, BlockEntityResourceOwnership.SharedReads> compared = resources == null ? Map.of() : new java.util.IdentityHashMap<>();
-            for (final int index : wave) {
-                final var captured = candidates.get(index);
-                final var verified = batch.eligibleNow(ordered.get(index)) ? preparation.prepare(ordered.get(index)) : null;
-                current &= verified != null && !aliases.contains(captured.source())
-                        && captured.source() == verified.source() && captured.chunk() == verified.chunk();
-                if (resources != null) {
-                    final var fresh = verified == null ? resources.fence(ordered.get(index)) : resources.recapture(captured, verified, claims.get(index));
-                    freshClaims.add(fresh);
-                    current &= claims.get(index).sameResources(fresh, compared);
-                }
-            }
-            if (revalidationStart != 0L) {
-                this.blockEntityResourceMetrics.revalidated(System.nanoTime() - revalidationStart);
-                revalidationStart = 0L;
-            }
-            List<BlockEntityResourceOwnership.Lease> grants = null;
-            if (current && resources != null) {
-                ownership = resources.underHeldRegions(leased, () -> !this.shutdown && !this.regionizer.isLevelClosed(level));
-                final long reservationStart = System.nanoTime();
-                grants = ownership.tryAcquireAll(freshClaims);
-                this.blockEntityResourceMetrics.reserved(grants == null ? -1 : grants.size(), System.nanoTime() - reservationStart);
-                current = grants != null;
-                if (!current) this.furnaceWorkMetrics.refused(FurnaceWorkMetrics.Refusal.RESOURCE_PROOF);
-            }
-            if (current) {
-                this.furnaceWorkMetrics.wave();
-                for (int offset = 0; offset < wave.size(); ++offset) {
-                    final var candidate = candidates.get(wave.get(offset));
-                    final var home = this.regionizer.get(this.layout.regionAt(level, candidate.admission().position()));
-                    results.add(new FurnaceWorkResult(candidate, grants == null ? null : grants.get(offset),
-                            batch.execution().ticket(candidate.admission()), executionRegions.get(home)));
-                }
-                this.submitFurnaceWave(batch, results, sample, barrier);
-            }
-        } catch (Throwable throwable) {
-            failure = throwable;
-        } finally {
-            if (revalidationStart != 0L) this.blockEntityResourceMetrics.revalidated(System.nanoTime() - revalidationStart);
-            for (final var execution : executionRegions.values()) failure = runBatchCompletion(failure, execution::sealForCommit);
-            failure = runBatchCompletion(failure, () -> this.commitFurnaceWave(level, results, leased));
-            if (ownership != null) {
-                final var heldResources = ownership;
-                failure = runBatchCompletion(failure, heldResources::close);
-            }
-            for (int index = leased.size() - 1; index >= 0; --index) {
-                final var region = leased.get(index);
-                final var execution = executionRegions.get(region);
-                if (execution != null) failure = runBatchCompletion(failure, execution::close);
-                failure = runBatchCompletion(failure, () -> this.releaseRegionLease(region));
-            }
-        }
-        if (failure != null) throwUnchecked(failure);
-    }
-
-    private void submitFurnaceWave(BlockEntityExecutionBatch batch, List<FurnaceWorkResult> results,
-            @Nullable RegionBlockEntityWorkGraph.Phase sample, RegionTickBarrier barrier) {
-        final RegionTaskBatch work = new RegionTaskBatch();
-        final int lanes = Math.min(results.size(), this.workerPool.threadCount());
-        if (this.workerPool.isPersistent()) {
-            // Keep one batch scope per runner while allowing its unstarted furnace bodies to be stolen.
-            // These bodies already share an admitted dependency wave and the coordinator's outer leases;
-            // their notification commits retain the canonical results order after every runner joins.
-            final var dispatcher = new RegionWorkStealingDispatcher(results.size(), lanes,
-                    index -> this.runFurnaceWorkBody(batch, results.get(index), sample), this.workerPool::recordBatchSteal);
-            this.workerPool.recordBatchDispatch(results.size(), lanes);
-            for (int index = 0; index < lanes; ++index) {
-                final int runner = index;
-                work.add("vanilla furnace work runner", batch.groupWork(() -> dispatcher.run(runner)));
-            }
-        } else {
-            final int perLane = (results.size() + lanes - 1) / lanes;
-            for (int from = 0; from < results.size(); from += perLane) {
-                final List<FurnaceWorkResult> lane = results.subList(from, Math.min(from + perLane, results.size()));
-                work.add("vanilla furnace work lane", batch.groupWork(() -> {
-                    for (final var result : lane) this.runFurnaceWorkBody(batch, result, sample);
-                }));
-            }
-        }
-        final long start = System.nanoTime();
-        final var joined = work.submit(this.workerPool);
-        Throwable failure = null;
-        try {
-            barrier.await(() -> {
-                if (this.independentTickScheduler != null) {
-                    this.independentTickScheduler.drainCompletedCommits(batch.level(), 500_000L);
-                }
-                return joined.isComplete();
-            });
-        } catch (Throwable throwable) {
-            failure = throwable;
-        } finally {
-            // No early release, even when managed wait throws or the calling thread is interrupted.
-            joined.awaitCompletion();
-            this.furnaceWorkMetrics.rejected(joined.rejectedCount());
-            this.furnaceWorkMetrics.executed(System.nanoTime() - start);
-        }
-        try {
-            joined.throwIfFailed();
-        } catch (Throwable throwable) {
-            failure = accumulateFailure(failure, throwable);
-        }
-        if (failure != null) throwUnchecked(failure);
-    }
-
-    private void commitFurnaceWave(ServerLevel level, List<FurnaceWorkResult> results, List<RegionState> leased) {
-        final long start = System.nanoTime();
-        Throwable failure = null;
-        try {
-            for (final var result : results) {
-                if (!result.changed) continue;
-                failure = runBatchCompletion(failure, () -> {
-                    final var source = result.candidate.source();
-                    final var pos = source.getBlockPos();
-                    final var chunk = level.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
-                    if (chunk != result.candidate.chunk() || source.isRemoved()
-                            || chunk.getBlockEntity(pos, LevelChunk.EntityCreationType.CHECK) != source)
-                        return;
-                    final var region = this.regionizer.get(this.layout.regionAt(level, pos));
-                    if (region == null || !leased.contains(region)) throw new IllegalStateException("Furnace commit lost its outer region lease");
-                    region.beginOwnership();
-                    try {
-                        this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level,
-                                region.coordinate(), region, null), source::setChanged);
-                        this.furnaceWorkMetrics.change();
-                    } finally {
-                        region.endOwnership();
-                    }
-                });
-            }
-        } finally {
-            this.furnaceWorkMetrics.committed(System.nanoTime() - start);
-        }
-        if (failure != null) throwUnchecked(failure);
-    }
-
-    private void tickFurnaceSerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission, @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        this.furnaceWorkMetrics.serial();
-        this.fallbackBlockEntityTicks.incrementAndGet();
-        this.tickBlockEntitySerial(batch, admission, graph);
-    }
-
-    private static final class FurnaceWorkResult {
-        private final FurnaceWorkPreparation.Candidate candidate;
-        @Nullable
-        private final BlockEntityResourceOwnership.Lease resources;
-        private final BlockEntityExecutionEngine.InvocationTicket ticket;
-        private final BlockEntityExecutionEngine.RegionGuard execution;
-        private boolean changed;
-
-        private FurnaceWorkResult(FurnaceWorkPreparation.Candidate candidate, @Nullable BlockEntityResourceOwnership.Lease resources,
-                BlockEntityExecutionEngine.InvocationTicket ticket, BlockEntityExecutionEngine.RegionGuard execution) {
-            this.candidate = candidate;
-            this.resources = resources;
-            this.ticket = ticket;
-            this.execution = execution;
-        }
-    }
-
-    private void runFurnaceWorkBody(BlockEntityExecutionBatch batch, FurnaceWorkResult result, @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        final var candidate = result.candidate;
-        final var admission = candidate.admission();
-        final boolean nativeWorker = RegionWorkerScope.isNativeWorkerThread();
-        FurnaceWorkScope scope = null;
-        BlockEntityExecutionEngine.Permit permit = null;
-        boolean completed = false;
-        try {
-            try (final var read = CoreModTickerVerifier.installed()
-                    ? batch.execution().admissionRead(result.ticket, result.execution,
-                            List.of(candidate.source(), candidate.chunk(), admission.ticker(), admission.binding().delegate(), candidate.source().getBlockPos()))
-                    : null) {
-                if (!admission.isCurrent() || candidate.source().isRemoved() || !candidate.chunk().isLoaded()) {
-                    this.furnaceWorkMetrics.skipped();
-                    return;
-                }
-                permit = batch.execution().permit(result.ticket, result.execution,
-                        new Refresh(result.ticket.inspection(), Outcome.CANDIDATE), result.resources);
-            }
-            if (permit == null) {
-                this.furnaceWorkMetrics.skipped();
-                return;
-            }
-            scope = FurnaceWorkScope.open(admission, candidate.source(), candidate.chunk(), source -> {
-                if (nativeWorker) this.furnaceWorkMetrics.bodyStarted();
-                final var observer = this.furnaceBodyObserverForTesting;
-                if (observer != null) observer.accept(source);
-            }, () -> {
-                if (nativeWorker) this.furnaceWorkMetrics.bodyEnded();
-            }, result.resources);
-            if (graph == null) admission.ticker().tick();
-            else graph.run(admission.ticker(), nativeWorker);
-            if (scope.bodyStarted()) {
-                if (nativeWorker) {
-                    this.furnaceWorkMetrics.completed();
-                    this.blockEntityTicksOnWorkers.incrementAndGet();
-                } else this.furnaceWorkMetrics.serial();
-            } else this.furnaceWorkMetrics.skipped();
-            completed = true;
-        } catch (Throwable throwable) {
-            this.furnaceWorkMetrics.failed();
-            this.recordWorkerTickFailure(batch, this.layout.regionAt(batch.level(), admission.position()), null, throwable);
-        } finally {
-            try {
-                if (scope != null) {
-                    result.changed = scope.changed();
-                    scope.close();
-                }
-                if (completed) permit.succeeded();
-            } finally {
-                if (permit != null) permit.close();
-            }
-        }
-    }
-
-    /**
-     * Groups {@code pending} tickers by their authoritative region and takes the lease of every group.
-     * <p>
-     * Runs after the batch was published, so cleanup already waits for it and no lifecycle read gate may be
-     * taken here. A region that dies while its lease is acquired is re-resolved on the next attempt.
-     * Anything that cannot be resolved to a live, leasable region is recorded as a server-thread fallback.
-     */
-    private void leaseBlockEntityTickGroups(RegionBlockEntityTickBatch batch, List<RegionBlockEntityTickChunk> pending, RegionTickBarrier barrier) {
-        List<RegionBlockEntityTickChunk> remaining = pending;
-        int batchedTickers = 0;
-        for (int attempt = 0; attempt < MAX_REGION_LEASE_ATTEMPTS && !remaining.isEmpty(); attempt++) {
-            final RegionTickGrouping<RegionState, RegionBlockEntityTickChunk> grouping = new RegionTickGrouping<>();
-            final List<RegionBlockEntityTickChunk> retry = new ArrayList<>();
-            for (final RegionBlockEntityTickChunk chunk : remaining) {
-                final RegionState region = this.regionizer.getOrCreate(chunk.region(this.layout, batch.level()));
-                if (region == null || region.isDead()) {
-                    retry.add(chunk);
-                } else if (this.shouldSkipOverloadedRegion(batch.level(), region)) {
-                    this.skippedBlockEntityTicks.addAndGet(chunk.admissions().size());
-                } else {
-                    grouping.add(region, chunk);
-                }
-            }
-            if (grouping.isEmpty()) {
-                remaining = retry;
-                break;
-            }
-
-            // Split per chunk, not per region: a chunk whose tickers are all admitted keeps them on a worker, and
-            // only a chunk with an unproven ticker runs on the server thread after the batch. The whole-region
-            // rule this replaces made one modded block entity anywhere in a region serialize every other ticker
-            // of that region - on a 178-mod pack that meant the block-entity slice never ran on a worker at all
-            // (measured on the live server: 0 of 1.5M ticks). A fallback chunk is not ticked while the workers
-            // run, so a worker that reads its block entity sees the state of the previous tick, exactly like the
-            // interior rule's foreign read, and the fallback order inside a region stays the vanilla order.
-            final RegionTickGrouping<RegionState, RegionBlockEntityTickChunk> leasable = new RegionTickGrouping<>();
-            for (final RegionState region : grouping.regions()) {
-                for (final RegionBlockEntityTickChunk chunk : grouping.items(region)) {
-                    if (chunk.allAdmitted()) {
-                        final boolean boundary = chunk.cache() != null ? !chunk.cache().interiorChunk() : !this.isInteriorRegionChunk(new ChunkPos(chunk.chunkKey()));
-                        final RegionBlockEntityTickAttribution.FallbackReason refusal = boundary
-                                ? this.boundaryBlockEntityRefusal(batch.level(), new ChunkPos(chunk.chunkKey()))
-                                : null;
-                        if (refusal != null) {
-                            // Availability is a per-tick preflight, never a cached permission. Refuse the
-                            // complete chunk before any inventory or block effect can run on a worker.
-                            batch.addFallbackChunk(chunk);
-                            this.fallbackBlockEntityTicks.addAndGet(chunk.admissions().size());
-                            switch (refusal) {
-                                case UNLOADED_NEIGHBORHOOD -> this.blockEntityFallbackUnloadedNeighborhood.addAndGet(chunk.admissions().size());
-                                case UNTRACKED_NEIGHBORHOOD -> this.blockEntityFallbackUntrackedNeighborhood.addAndGet(chunk.admissions().size());
-                                default -> this.blockEntityFallbackBoundary.addAndGet(chunk.admissions().size());
-                            }
-                            RegionBlockEntityTickAttribution.recordFallback(refusal, chunk.admissions().size());
-                        } else {
-                            leasable.add(region, chunk);
-                        }
-                    } else {
-                        batch.addFallbackChunk(chunk);
-                        this.fallbackBlockEntityTicks.addAndGet(chunk.admissions().size());
-                        for (final var admission : chunk.admissions()) {
-                            switch (admission.decision()) {
-                                case TYPE_NOT_DECLARED -> this.blockEntityFallbackUndeclared.incrementAndGet();
-                                case NOT_INTERIOR_CHUNK -> this.blockEntityFallbackBoundary.incrementAndGet();
-                                case ADMITTED, ADMITTED_WITH_BORDER_UPDATES, ADAPTER_GUARDED -> this.blockEntityFallbackMixedSafe.incrementAndGet();
-                            }
-                        }
-                        RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.UNSAFE_REGION, chunk.admissions().size());
-                    }
-                }
-            }
-            if (leasable.isEmpty()) {
-                remaining = retry;
-                break;
-            }
-
-            final List<RegionBlockEntityTickChunk> next = new ArrayList<>(retry);
-            boolean leasedAny = false;
-            // The regions are leased in one canonical order and split into balanced packs, so one task of this
-            // slice can hold several regions. A slice with fewer regions than workers is not packed and keeps the
-            // unpacked submission of one task per region.
-            for (final List<RegionState> pack : this.regionPacks(leasable.regions())) {
-                final List<RegionState> toLease = new ArrayList<>(pack.size());
-                for (final RegionState region : pack) {
-                    final List<RegionBlockEntityTickChunk> regionChunks = leasable.items(region);
-                    if (batch.leases(region)) {
-                        // An earlier group of this same batch already owns the lease. It cannot be
-                        // acquired again and must never be awaited on this thread.
-                        batch.group(region).ifPresent(group -> group.addChunks(regionChunks));
-                        continue;
-                    }
-                    toLease.add(region);
-                }
-                if (toLease.isEmpty()) {
-                    continue;
-                }
-                if (toLease.size() == 1) {
-                    if (this.leaseBlockEntityGroup(batch, leasable, toLease.get(0), barrier, next)) {
-                        leasedAny = true;
-                        batchedTickers += this.countLeasedBlockEntityTickers(leasable, toLease.get(0));
-                    }
-                    continue;
-                }
-                final List<RegionState> leased = RegionLeasePack.tryAcquireAll(toLease, this::releaseRegionLease);
-                if (leased == null) {
-                    // The pack could not take every region: it released the ones it took again, and every
-                    // region of the pack is leased through the unpacked path, which waits for a region a worker
-                    // still holds instead of failing on it. The fallback is counted.
-                    this.packedLeaseFallbacks.incrementAndGet();
-                    for (final RegionState region : toLease) {
-                        if (this.leaseBlockEntityGroup(batch, leasable, region, barrier, next)) {
-                            leasedAny = true;
-                            batchedTickers += this.countLeasedBlockEntityTickers(leasable, region);
-                        }
-                    }
-                    continue;
-                }
-                leasedAny = true;
-                for (final RegionState region : leased) {
-                    batchedTickers += this.countLeasedBlockEntityTickers(leasable, region);
-                }
-                this.addPackedBlockEntityGroups(batch, leasable, leased);
-            }
-            remaining = next;
-            if (!leasedAny) {
-                // Every candidate region died during lease acquisition; fall back instead of spinning.
-                break;
-            }
-        }
-
-        for (final RegionBlockEntityTickChunk chunk : remaining) {
-            batch.addFallbackChunk(chunk);
-            this.fallbackBlockEntityTicks.addAndGet(chunk.admissions().size());
-            RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.UNRESOLVABLE_REGION, chunk.admissions().size());
-        }
-        if (batchedTickers > 0 && this.blockEntityTickWorkersNoticeLogged.compareAndSet(false, true)) {
-            LOGGER.info("Region block entity ticks are now executing on region workers: {} block entities", batchedTickers);
-        }
-    }
-
-    /**
-     * Checks the boundary protocol before any ticker starts. A loaded but untracked neighboring region is
-     * insufficient: the fixpoint drops updates whose target has no live region, so that case must retain the
-     * complete serial body too. Neither availability nor the mapping proof belongs in an admission cache.
-     */
-    @Nullable
-    private RegionBlockEntityTickAttribution.FallbackReason boundaryBlockEntityRefusal(ServerLevel level, ChunkPos chunk) {
-        if (!this.borderUpdatesEnabled) {
-            return RegionBlockEntityTickAttribution.FallbackReason.UNSAFE_REGION;
-        }
-        final ServerChunkCache chunks = level.getChunkSource();
-        for (int dx = -1; dx <= 1; ++dx) {
-            for (int dz = -1; dz <= 1; ++dz) {
-                if (dx != 0 || dz != 0) {
-                    // hasChunk only proves a holder has a FULL ticket; its load may still be pending.
-                    // A currentlyLoading chunk returned by the main-thread lookup is not ready either.
-                    final LevelChunk loaded = chunks.getChunkNow(chunk.x + dx, chunk.z + dz);
-                    if (loaded == null || !loaded.isLoaded()) {
-                        return RegionBlockEntityTickAttribution.FallbackReason.UNLOADED_NEIGHBORHOOD;
-                    }
-                }
-                final RegionState neighbor = this.regionizer.get(this.layout.regionAt(level, chunk.x + dx, chunk.z + dz));
-                if (neighbor == null || neighbor.isDead()) {
-                    return RegionBlockEntityTickAttribution.FallbackReason.UNTRACKED_NEIGHBORHOOD;
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Leases one region of a block-entity batch and submits its group as its own task.
-     * <p>
-     * This is the unpacked path: it is used for a slice that is not packed, for a pack with one region and for
-     * the fallback of a pack that could not take every region it needs.
-     *
-     * @return {@code true} when the region was leased and its group submitted, {@code false} when its chunks were
-     *         recorded for the next attempt
-     */
-    private boolean leaseBlockEntityGroup(RegionBlockEntityTickBatch batch, RegionTickGrouping<RegionState, RegionBlockEntityTickChunk> grouping, RegionState region, RegionTickBarrier barrier, List<RegionBlockEntityTickChunk> retry) {
-        final List<RegionBlockEntityTickChunk> regionChunks = grouping.items(region);
-        if (!this.acquireRegionLease(region, barrier)) {
-            retry.addAll(regionChunks);
-            return false;
-        }
-        this.addLeasedGroup(region, () -> {
-            try {
-                batch.addGroup(region, regionChunks,
-                        group -> this.withRegionMailboxDelivery(batch.level(), region, this.blockEntityTickGroup(group)));
-            } catch (Throwable failure) {
-                batch.forgetLease(region);
-                throw failure;
-            }
-        });
-        return true;
-    }
-
-    /** {@return the number of tickers one leased region of {@code grouping} hands to a worker} */
-    private int countLeasedBlockEntityTickers(RegionTickGrouping<RegionState, RegionBlockEntityTickChunk> grouping, RegionState region) {
-        return countBlockEntityTickers(grouping.items(region));
-    }
-
-    /**
-     * Registers the groups of one leased pack and submits them as one worker task.
-     * <p>
-     * The leases are already taken, so a failure while a group is built releases every lease of the pack
-     * instead of leaving a region TICKING behind a group no worker will run, which would block shutdown and
-     * level unload forever.
-     */
-    private void addPackedBlockEntityGroups(RegionBlockEntityTickBatch batch, RegionTickGrouping<RegionState, RegionBlockEntityTickChunk> grouping, List<RegionState> pack) {
-        final List<Runnable> works = new ArrayList<>(pack.size());
-        try {
-            for (final RegionState region : pack) {
-                final RegionBlockEntityTickBatch.Group group = batch.registerGroup(region, grouping.items(region));
-                works.add(batch.packedWork(group, leased -> this.withRegionMailboxDelivery(batch.level(), region, this.blockEntityTickGroup(leased))));
-            }
-        } catch (Throwable throwable) {
-            for (final RegionState region : pack) {
-                batch.forgetLease(region);
-                this.releaseRegionLease(region);
-            }
-            throw throwable;
-        }
-        this.packedTasks.incrementAndGet();
-        this.packedRegions.addAndGet(pack.size());
-        batch.addPackedTask("block entity tick pack of " + pack.size(), works);
-    }
-
-    /** {@return the number of tickers {@code chunks} hand to a worker group} */
-    private static int countBlockEntityTickers(Collection<RegionBlockEntityTickChunk> chunks) {
-        int tickers = 0;
-        for (final RegionBlockEntityTickChunk chunk : chunks) {
-            tickers += chunk.admissions().size();
-        }
-        return tickers;
-    }
-
-    /** Observation only: invoked after production admission, never consulted to grant execution authority. */
-    @org.jetbrains.annotations.VisibleForTesting
-    public void setBlockEntityBodyObserverForTesting(@Nullable java.util.function.BiConsumer<TickingBlockEntity, Runnable> observer) {
-        this.blockEntityBodyObserverForTesting = observer;
-    }
-
-    private void runBlockEntityBody(TickingBlockEntity ticker, @Nullable RegionBlockEntityWorkGraph.Phase graph, boolean worker) {
-        final Runnable body = () -> {
-            if (graph == null) ticker.tick();
-            else graph.run(ticker, worker);
-        };
-        final var observer = this.blockEntityBodyObserverForTesting;
-        if (observer == null) body.run();
-        else observer.accept(ticker, body);
-    }
-
-    /** Narrow the real Level path; legacy explicit declarations do not issue this proof. */
-    RegionBlockEntityTickAdmission narrowCanonicalBlockEntity(RegionBlockEntityTickAdmission admission) {
-        if (!admission.isAdmitted()
-                || this.furnaceWorkWavesEnabled && LevelChunk.furnaceWorkSource(admission.ticker()) != null
-                || NativeBlockEntityPreparation.prepareNative(admission) != null
-                || AuditedBlockEntityPreparation.hasCandidate(admission))
-            return admission;
-        return new RegionBlockEntityTickAdmission(admission.level(), admission.ticker(), admission.position(), admission.type(),
-                admission.binding(), RegionBlockEntityTickAdmission.Decision.TYPE_NOT_DECLARED, admission.sequence());
-    }
-
-    private static Inspection inspectNativeBlockEntity(RegionBlockEntityTickAdmission admission) {
-        if (!admission.isAdmitted()) return Inspection.serialFence();
-        final var descriptor = admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
-                ? ParallelAdapterRuntime.blockEntityTickDescriptor(admission)
-                : new AdapterDescriptor(ResourceLocation.parse("forgia:declared_native_tick"),
-                        Set.of(ResourceLocation.parse(admission.type())), Mode.REGION_OWNER);
-        return descriptor == null ? Inspection.serialFence() : new Inspection(descriptor, Resources.REGION_LOCAL, Outcome.CANDIDATE);
-    }
-
-    private Runnable blockEntityTickGroup(RegionBlockEntityTickBatch.Group group) {
-        final RegionState region = group.region();
-        final RegionCoordinate coordinate = region.coordinate();
-        final List<RegionBlockEntityTickChunk> chunks = group.chunks();
-        final ServerLevel level = group.batch().level();
-        final RandomSource random = group.random();
-        return () -> {
-            final long start = System.nanoTime();
-            final int[] ticked = { 0 };
-            final int[] boundaryTicked = { 0 };
-            final boolean tickerTiming = RegionBlockEntityTickAttribution.isEnabled();
-            final long cpuStart = tickerTiming ? RegionBlockEntityTickAttribution.currentThreadCpuNanos() : 0L;
-            int admitted = 0;
-            boolean ownerStarted = false;
-            BlockEntityExecutionEngine.RegionGuard execution = null;
-            try {
-                final List<RegionBlockEntityTickAdmission> tickers = this.orderBlockEntityGroup(group, chunks);
-                admitted = tickers.size();
-                region.beginOwnership();
-                ownerStarted = true;
-                execution = group.batch().execution().regionOwner(region);
-                final var regionExecution = execution;
-                // The group random is installed once for the whole worker tick loop, so a direct
-                // level.random read of a ticker resolves this group's source through the level random
-                // wrapper instead of the shared vanilla one, and the block-entity access gate of the
-                // level answers for the block entities of this region.
-                this.currentBlockEntityTickRandom.set(random);
-                this.currentBlockEntityOperationGroup.set(group);
-                // LevelTicks is server-owned storage: a scheduled tick a ticker starts through the
-                // neighbor update of its own setChanged() is recorded here and applied by the publishing
-                // server thread after the batch, never from a worker.
-                this.currentRegionTickMutations.set(group.batch().regionTickMutations());
-                if (tickerTiming) {
-                    // Everything up to the ownership lease is per-group setup: ordering the tickers, claiming
-                    // the region and installing the group state. It is the group half of the wrapper.
-                    RegionBlockEntityTickAttribution.recordGroupPrepare(System.nanoTime() - start);
-                }
-                try {
-                    // The ownership lease covers exactly this worker tick loop: it is opened after the
-                    // region lease and closed before it, so a worker task outside the loop never sees it.
-                    final long ownershipStart = tickerTiming ? System.nanoTime() : 0L;
-                    final RegionEntityOwnershipScope ownership = RegionEntityOwnershipScope.open(coordinate, group);
-                    if (tickerTiming) {
-                        RegionBlockEntityTickAttribution.recordOwnershipScope(System.nanoTime() - ownershipStart);
-                    }
-                    try {
-                        this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, level, coordinate, region, null), () -> {
-                            for (final RegionBlockEntityTickAdmission admission : tickers) {
-                                final long tickerLoopStart = tickerTiming ? System.nanoTime() : 0L;
-                                final TickingBlockEntity ticker = admission.ticker();
-                                if (ticker.isRemoved()) {
-                                    continue;
-                                }
-                                // Validate before the body: stale admissions are deferred exactly once, never
-                                // recovered by throwing after a ticker could already have produced side effects.
-                                if (admission.level() != level || !admission.isCurrent() || !region.isOwnedByCurrentThread()
-                                        || group.batch().canonicalSequence() && NativeBlockEntityPreparation.prepare(admission) == null) {
-                                    if (tickerTiming) {
-                                        RegionBlockEntityTickAttribution.recordTickerAdmission(System.nanoTime() - tickerLoopStart);
-                                    }
-                                    group.batch().addFallback(admission);
-                                    this.fallbackBlockEntityTicks.incrementAndGet();
-                                    RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.STALE_ADMISSION, 1);
-                                    continue;
-                                }
-                                if (tickerTiming) {
-                                    RegionBlockEntityTickAttribution.recordTickerAdmission(System.nanoTime() - tickerLoopStart);
-                                }
-                                if (RegionWorkerScope.isNativeWorkerThread()) {
-                                    final long reserveStart = tickerTiming ? System.nanoTime() : 0L;
-                                    if (!group.batch().tryReserveBlockUpdates()) {
-                                        if (tickerTiming) {
-                                            RegionBlockEntityTickAttribution.recordTickerReservation(System.nanoTime() - reserveStart);
-                                        }
-                                        // The batch cannot reserve the block-write effects of this ticker, so
-                                        // the tick is refused before its body starts and runs on the server
-                                        // thread after the batch, where its writes need no record.
-                                        group.batch().addFallback(admission);
-                                        this.fallbackBlockEntityTicks.incrementAndGet();
-                                        RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.DEFERRED_UPDATE_BUDGET, 1);
-                                        this.countRefusedDeferredBlockUpdate(RegionTickSlice.BLOCK_ENTITY_TICK);
-                                        continue;
-                                    }
-                                    if (tickerTiming) {
-                                        RegionBlockEntityTickAttribution.recordTickerReservation(System.nanoTime() - reserveStart);
-                                    }
-                                    // The scope is opened and closed explicitly instead of by a try-with-resources
-                                    // so the attribution can time the entry and the exit separately from the body.
-                                    final long tickerStart = tickerTiming ? System.nanoTime() : 0L;
-                                    final RegionBlockEntityTickScope scope = RegionBlockEntityTickScope.open(admission, region);
-                                    final long bodyStart = tickerTiming ? System.nanoTime() : 0L;
-                                    if (tickerTiming) {
-                                        RegionBlockEntityTickAttribution.recordTickerScope(bodyStart - tickerStart);
-                                    }
-                                    try {
-                                        try {
-                                            final var ticket = group.batch().execution().inspect(admission, inspectNativeBlockEntity(admission));
-                                            if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
-                                                    && !ParallelAdapterRuntime.admitBlockEntityTick(admission, ticket.inspection().descriptor())) {
-                                                // No original body has started. Defer the complete invocation;
-                                                // the adapter predicate has no authority to publish effects.
-                                                group.batch().addFallback(admission);
-                                                this.fallbackBlockEntityTicks.incrementAndGet();
-                                                RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.UNSAFE_REGION, 1);
-                                                continue;
-                                            }
-                                            if (group.batch().canonicalSequence()) group.batch().execution().enableInvocationEffects(ticket);
-                                            try (final var permit = group.batch().execution().permit(ticket, regionExecution,
-                                                    new Refresh(ticket.inspection(), Outcome.CANDIDATE), null)) {
-                                                if (permit == null) {
-                                                    group.batch().addFallback(admission);
-                                                    this.fallbackBlockEntityTicks.incrementAndGet();
-                                                    RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.STALE_ADMISSION, 1);
-                                                    continue;
-                                                }
-                                                this.runBlockEntityBody(ticker, group.batch().workGraph(), true);
-                                                if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED) {
-                                                    ParallelAdapterRuntime.completeBlockEntityTick(admission, ticket.inspection().descriptor());
-                                                }
-                                                if (admission.decision() == RegionBlockEntityTickAdmission.Decision.ADMITTED_WITH_BORDER_UPDATES) {
-                                                    ++boundaryTicked[0];
-                                                }
-                                                permit.succeeded();
-                                            }
-                                        } finally {
-                                            if (tickerTiming) {
-                                                RegionBlockEntityTickAttribution.recordTickerBody(System.nanoTime() - bodyStart);
-                                            }
-                                        }
-                                    } catch (Throwable throwable) {
-                                        if (this.truncateIfBlockEntityBoundaryViolation(admission, throwable)) {
-                                            continue;
-                                        }
-                                        // Once a ticker body started, a chunk refusal is a real failure. Its
-                                        // earlier inventory/world/event effects cannot be rolled back or replayed.
-                                        this.recordWorkerTickFailure(group.batch(), coordinate, null, throwable);
-                                        return;
-                                    } finally {
-                                        final long closeStart = tickerTiming ? System.nanoTime() : 0L;
-                                        scope.close();
-                                        if (tickerTiming) {
-                                            final long closeEnd = System.nanoTime();
-                                            RegionBlockEntityTickAttribution.recordTickerScope(closeEnd - closeStart);
-                                            // The ticker's own tick, so the group wall time can be split into the
-                                            // vanilla body and the wrapper the slice adds around it.
-                                            RegionBlockEntityTickAttribution.recordTicker(closeEnd - tickerStart);
-                                        }
-                                    }
-                                } else {
-                                    // Executor rejection runs on the server thread and keeps the real load check.
-                                    try (final var permit = group.batch().execution().beginInline(admission, regionExecution)) {
-                                        this.tickBlockEntityInline(level, ticker, group.batch().workGraph());
-                                        permit.succeeded();
-                                    }
-                                }
-                                ++ticked[0];
-                            }
-                        });
-                    } finally {
-                        final long ownershipCloseStart = tickerTiming ? System.nanoTime() : 0L;
-                        ownership.close();
-                        if (tickerTiming) {
-                            RegionBlockEntityTickAttribution.recordOwnershipScope(System.nanoTime() - ownershipCloseStart);
-                        }
-                    }
-                } finally {
-                    this.currentRegionTickMutations.remove();
-                    this.currentBlockEntityTickRandom.remove();
-                    this.currentBlockEntityOperationGroup.remove();
-                }
-            } finally {
-                final long groupEndStart = tickerTiming ? System.nanoTime() : 0L;
-                try {
-                    if (execution != null) execution.close();
-                } finally {
-                    if (ownerStarted) region.endOwnership();
-                    if (!group.batch().canonicalSequence()) region.clearRunning();
-                }
-                if (tickerTiming) {
-                    RegionBlockEntityTickAttribution.recordGroupEnd(System.nanoTime() - groupEndStart);
-                }
-                final long duration = System.nanoTime() - start;
-                // The group reports its own wall time and size, so the measured window can tell a barrier
-                // that waits for the slowest group from one that waits for work.
-                RegionBlockEntityTickAttribution.recordGroup(duration,
-                        tickerTiming ? RegionBlockEntityTickAttribution.currentThreadCpuNanos() - cpuStart : 0L,
-                        admitted, ticked[0]);
-                if (tickerTiming) {
-                    group.batch().recordGroupDuration(duration);
-                    group.batch().recordGroupStart(start);
-                    group.batch().recordGroupEnd(start + duration);
-                }
-                region.tickMetrics().recordTick(duration);
-                RegionTickWatchdog.warnIfLongTick("block entity batch " + coordinate, duration);
-                this.blockEntityTicksOnWorkers.addAndGet(ticked[0]);
-                this.boundaryBlockEntityTicksOnWorkers.addAndGet(boundaryTicked[0]);
-                if (tickerTiming) {
-                    // Retiring an empty region takes the regionizer write lock, which every finishing group of
-                    // the batch wants at the same time: the one shared section a group enters after its tickers.
-                    final long retireStart = System.nanoTime();
-                    this.regionizer.removeIfEmpty(region);
-                    RegionBlockEntityTickAttribution.recordGroupRetire(System.nanoTime() - retireStart);
-                } else {
-                    this.regionizer.removeIfEmpty(region);
-                }
-            }
-        };
-    }
-
-    /**
-     * Orders the tickers of a worker group's chunks like the level's own ticker list, and hands the chunks
-     * whose snapshot went stale back to the server thread.
-     * <p>
-     * Each chunk's admissions are already in ticker order, so a group of one chunk needs no work. A group of
-     * several chunks merges them by ticker sequence, which reproduces the order the level's ticker list would
-     * have ticked that region in. A chunk that unloaded or changed its ticker set since the plan handed it
-     * over is not ticked from its stale snapshot: its tickers are revalidated and ticked on the server thread
-     * after the batch, and the stale snapshot is counted.
-     */
-    private List<RegionBlockEntityTickAdmission> orderBlockEntityGroup(RegionBlockEntityTickBatch.Group group, List<RegionBlockEntityTickChunk> chunks) {
-        final RegionLayout layout = this.layout;
-        if (chunks.size() == 1) {
-            final RegionBlockEntityTickChunk chunk = chunks.get(0);
-            if (!chunk.isCurrent(layout, this.borderUpdatesEnabled)) {
-                this.deferStaleBlockEntityChunk(group, chunk);
-                return List.of();
-            }
-            return chunk.admissions();
-        }
-        final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>(countBlockEntityTickers(chunks));
-        for (final RegionBlockEntityTickChunk chunk : chunks) {
-            if (!chunk.isCurrent(layout, this.borderUpdatesEnabled)) {
-                this.deferStaleBlockEntityChunk(group, chunk);
-                continue;
-            }
-            ordered.addAll(chunk.admissions());
-        }
-        ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
-        return ordered;
-    }
-
-    /**
-     * Hands the tickers of a chunk whose snapshot went stale to the server-thread fallback of {@code group}.
-     */
-    private void deferStaleBlockEntityChunk(RegionBlockEntityTickBatch.Group group, RegionBlockEntityTickChunk chunk) {
-        this.staleBlockEntityChunkSnapshots.incrementAndGet();
-        this.fallbackBlockEntityTicks.addAndGet(chunk.admissions().size());
-        RegionBlockEntityTickAttribution.recordFallback(RegionBlockEntityTickAttribution.FallbackReason.STALE_SNAPSHOT, chunk.admissions().size());
-        group.batch().addFallbackChunk(chunk);
-    }
-
-    /**
-     * Ticks the block-entity chunks whose region could not be leased safely, whose snapshot went stale before
-     * the worker ticked it, and the tickers a worker handed back, on the server thread after the batch.
-     */
-    private void tickFallbackBlockEntities(RegionBlockEntityTickBatch batch) {
-        if (batch.fallbackChunks().isEmpty() && batch.fallbackTickers().isEmpty()) {
-            return;
-        }
-        final ServerLevel level = batch.level();
-        final BlockEntityFallbackPhase phase = this.openBlockEntityFallbackPhase(batch);
-        try {
-            if (batch.canonicalSequence()) {
-                final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
-                for (final var chunk : batch.fallbackChunks()) ordered.addAll(chunk.admissions());
-                ordered.addAll(batch.fallbackTickers());
-                ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
-                for (final var admission : ordered) this.tickBlockEntitySerial(batch, admission, batch.workGraph());
-            } else {
-                for (final RegionBlockEntityTickChunk chunk : batch.fallbackChunks()) {
-                    this.tickBlockEntityChunkInline(batch, chunk, batch.workGraph());
-                }
-                for (final RegionBlockEntityTickAdmission ticker : batch.fallbackTickers()) {
-                    this.tickBlockEntitySerial(batch, ticker, batch.workGraph());
-                }
-            }
-        } finally {
-            if (phase != null) {
-                this.blockEntityFallbackPhase.remove();
-                this.releaseBlockEntityFallbackPhase(phase);
-            }
-        }
-    }
-
-    @Nullable
-    private BlockEntityFallbackPhase openBlockEntityFallbackPhase(RegionBlockEntityTickBatch batch) {
-        final MinecraftServer server = batch.level().getServer();
-        if (!this.blockEntityFallbackScopeEnabled || this.shutdown || server == null || !server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()
-                || this.workerPool.isWorkerThread(Thread.currentThread()) || !batch.isExecutingOnCurrentThread()
-                || !batch.isGroupsComplete() || this.blockEntityFallbackPhase.get() != null || this.blockEventPhase.get() != null
-                || this.currentContext().kind() == RegionThreadingContext.Kind.REGION
-                || this.currentContext().kind() == RegionThreadingContext.Kind.GLOBAL_REGION) {
-            this.blockEntityFallbackScopeRefusals.incrementAndGet();
-            return null;
-        }
-        for (final RegionTickBatch active : this.activeTickBatches) {
-            if (active != batch) {
-                this.blockEntityFallbackScopeRefusals.incrementAndGet();
-                return null;
-            }
-        }
-        final AtomicBoolean busy = new AtomicBoolean();
-        this.regionizer.forEach(region -> {
-            if (region.isRunning() || region.isWorkerSubmitted()) {
-                busy.set(true);
-            }
-        });
-        if (busy.get()) {
-            this.blockEntityFallbackScopeRefusals.incrementAndGet();
-            return null;
-        }
-        final BlockEntityFallbackPhase phase = new BlockEntityFallbackPhase(batch.level());
-        this.blockEntityFallbackPhase.set(phase);
-        this.blockEntityFallbackPhases.incrementAndGet();
-        return phase;
-    }
-
-    private void releaseBlockEntityFallbackPhase(BlockEntityFallbackPhase phase) {
-        final List<RegionState> leases = new ArrayList<>(phase.leases.values());
-        phase.leases.clear();
-        for (int index = leases.size() - 1; index >= 0; --index) {
-            final RegionState region = leases.get(index);
-            region.endOwnership();
-            region.clearRunning();
-            this.regionizer.removeIfEmpty(region);
-            this.blockEntityFallbackReleases.incrementAndGet();
-        }
-    }
-
-    private void runInBlockEntityFallbackPhase(BlockEntityFallbackPhase phase, BlockPos pos, Runnable task) {
-        final RegionCoordinate coordinate = this.layout.regionAt(phase.level, pos);
-        RegionState region = phase.leases.get(coordinate);
-        if (region == null) {
-            // The batch protects level lifetime, but a cleanup may already hold the lifecycle write gate while
-            // awaiting this batch. Never block on that gate from its server-thread completion.
-            if (this.shutdown) {
-                task.run();
-                return;
-            }
-            if (!this.acquireLifecycleReadLock(true)) {
-                this.enqueueRegionTask(phase.level, pos, task);
-                return;
-            }
-            try {
-                region = this.regionizer.getOrCreate(coordinate);
-                if (region != null && !region.isDead() && region.tryMarkRunning()) {
-                    region.beginOwnership();
-                    phase.leases.put(coordinate, region);
-                    this.blockEntityFallbackLeases.incrementAndGet();
-                } else {
-                    region = null;
-                }
-            } finally {
-                this.lifecycleGate.readLock().unlock();
-            }
-            if (region == null) {
-                // A manually drained or queued region task may own the region outside a published batch.
-                // Keep the original dispatch behavior: queue behind it, never run concurrently without a lease.
-                this.enqueueRegionTask(phase.level, pos, task);
-                return;
-            }
-        }
-        this.blockEntityFallbackCallbacks.incrementAndGet();
-        if (this.isOwnedByCurrentRegion(phase.level, pos)) {
-            // Same-region reentrancy must retain the current neighbor collector and its cascade budget.
-            task.run();
-            return;
-        }
-        this.runWithContext(new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION,
-                phase.level, coordinate, region, null), task);
-    }
-
-    /** Ticks the tickers of one chunk on the server thread, in their collected order. */
-    private void tickBlockEntityChunksInline(BlockEntityExecutionBatch batch, List<RegionBlockEntityTickChunk> chunks,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        final List<RegionBlockEntityTickAdmission> ordered = new ArrayList<>();
-        for (final var chunk : chunks) ordered.addAll(chunk.admissions());
-        if (batch.canonicalSequence()) ordered.sort(Comparator.comparingLong(RegionBlockEntityTickAdmission::sequence));
-        for (final var admission : ordered) this.tickBlockEntitySerial(batch, admission, graph);
-    }
-
-    private void tickBlockEntityChunkInline(BlockEntityExecutionBatch batch, RegionBlockEntityTickChunk chunk,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        for (final RegionBlockEntityTickAdmission admission : chunk.admissions()) this.tickBlockEntitySerial(batch, admission, graph);
-    }
-
-    private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        this.tickBlockEntitySerial(batch, admission, graph, null);
-    }
-
-    private void tickBlockEntitySerial(BlockEntityExecutionBatch batch, RegionBlockEntityTickAdmission admission,
-            @Nullable RegionBlockEntityWorkGraph.Phase graph,
-            @Nullable Boolean knownEligible) {
-        final boolean eligible = knownEligible != null ? knownEligible.booleanValue() : batch.eligibleNow(admission);
-        if (!eligible) return;
-        final boolean canonical = batch.canonicalSequence();
-        final long fenceStart = canonical ? System.nanoTime() : 0L;
-        try (final var permit = batch.execution().beginSerial(admission)) {
-            this.tickBlockEntityInline(batch.level(), admission.ticker(), graph, canonical);
-            permit.succeeded();
-        } finally {
-            if (canonical) {
-                final long elapsed = System.nanoTime() - fenceStart;
-                final BlockPos pos = admission.ticker().getPos();
-                final var chunkRegions = this.activeCanonicalBeChunkRegions;
-                RegionState region = chunkRegions != null ? chunkRegions.get(ChunkPos.asLong(pos)) : null;
-                final int regionX;
-                final int regionZ;
-                if (region != null && !region.isDead()) {
-                    final RegionCoordinate coord = region.coordinate();
-                    regionX = coord.regionX();
-                    regionZ = coord.regionZ();
-                } else {
-                    final RegionCoordinate coord = this.layout.regionAt(batch.level(), pos);
-                    regionX = coord.regionX();
-                    regionZ = coord.regionZ();
-                    region = this.regionizer.get(coord);
-                }
-                final String dimId = this.activeCanonicalBeDimensionId != null
-                        ? this.activeCanonicalBeDimensionId
-                        : batch.level().dimension().location().toString();
-                final String typeName = admission.ticker().getType();
-                final String tickerClass = (typeName != null && !typeName.isEmpty())
-                        ? typeName
-                        : admission.ticker().getClass().getName();
-                this.fenceMetrics.recordFence(dimId, regionX, regionZ, tickerClass, elapsed);
-                final var beCosts = this.activeCanonicalBeRegionCosts;
-                if (beCosts != null && region != null && !region.isDead()) {
-                    beCosts.addTo(region, elapsed);
-                }
-            }
-        }
-    }
-
-    private void tickBlockEntityInline(ServerLevel level, TickingBlockEntity ticker, @Nullable RegionBlockEntityWorkGraph.Phase graph) {
-        this.tickBlockEntityInline(level, ticker, graph, false);
-    }
-
-    private void tickBlockEntityInline(ServerLevel level, TickingBlockEntity ticker, @Nullable RegionBlockEntityWorkGraph.Phase graph,
-            boolean preverifiedEntitiesLoaded) {
-        if (ticker.isRemoved()) {
-            return;
-        }
-        if (this.regionizer.isLevelClosed(level)) {
-            // A fallback tick is only reached for a collected snapshot; once the level unloaded, the
-            // ticker belongs to a retired identity and must not tick on the server thread either.
-            this.skippedBlockEntityTicks.incrementAndGet();
-            return;
-        }
-        if (preverifiedEntitiesLoaded || level.areEntitiesLoaded(ChunkPos.asLong(ticker.getPos()))) {
-            this.runBlockEntityBody(ticker, graph, false);
-        }
+        return this.blockEntityTickCoordinator.modServerAccessAllowed(level, position);
     }
 
     /**
@@ -10649,7 +7908,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Runs on the server thread after all workers finished. Each mutation is applied in request order and
      * one failing mutation does not strand the ones behind it.
      */
-    private void applyRegionTickMutations(Queue<Runnable> mutations) {
+    void applyRegionTickMutations(Queue<Runnable> mutations) {
         Throwable failure = null;
         Runnable mutation;
         while ((mutation = mutations.poll()) != null) {
@@ -11150,7 +8409,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * that no longer exists; every dropped record is counted. One failing record does not strand the ones behind
      * it, so the queue is always empty when this method returns.
      */
-    private void applyDeferredBlockUpdates(RegionTickBatch batch) {
+    void applyDeferredBlockUpdates(RegionTickBatch batch) {
         final RegionDeferredBlockUpdates updates = batch.blockUpdates();
         if (updates.isEmpty()) {
             return;
@@ -11268,7 +8527,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * Counts one unit of {@code slice} that a batch refused before its body because it could not reserve the
      * block-write effects of the unit; the unit ran on the server thread instead.
      */
-    private void countRefusedDeferredBlockUpdate(RegionTickSlice slice) {
+    void countRefusedDeferredBlockUpdate(RegionTickSlice slice) {
         this.refusedDeferredBlockUpdates[slice.ordinal()].incrementAndGet();
     }
 
@@ -11302,7 +8561,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * body, and it counts every failure including the ones past the bound of the record. The record itself
      * carries the context and is reported by {@link RegionTickBatch#reportTickFailures()} on the server thread.
      */
-    private void recordWorkerTickFailure(RegionTickBatch batch, RegionCoordinate coordinate, @Nullable Entity entity, Throwable throwable) {
+    void recordWorkerTickFailure(RegionTickBatch batch, RegionCoordinate coordinate, @Nullable Entity entity, Throwable throwable) {
         this.workerTickFailures[batch.slice().ordinal()].incrementAndGet();
         batch.recordTickFailure(coordinate, entity, throwable);
     }
@@ -11364,7 +8623,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * or global-state guard. Truncates the current tick and dynamically demotes the block-entity type to the
      * server thread so subsequent ticks run legally without crashing the server.
      */
-    private void demoteSandboxedBlockEntityOnError(RegionBlockEntityTickAdmission admission, Throwable throwable) {
+    void demoteSandboxedBlockEntityOnError(RegionBlockEntityTickAdmission admission, Throwable throwable) {
         final Throwable root = (throwable instanceof RegionBlockEntityTickFailure && throwable.getCause() != null)
                 ? throwable.getCause()
                 : throwable;
@@ -11396,7 +8655,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
-    private boolean truncateIfBlockEntityBoundaryViolation(RegionBlockEntityTickAdmission admission, Throwable throwable) {
+    boolean truncateIfBlockEntityBoundaryViolation(RegionBlockEntityTickAdmission admission, Throwable throwable) {
         final RegionWorkerBoundaryException violation = RegionWorkerBoundaryException.findBoundaryViolation(throwable);
         if (violation == null) {
             return false;
@@ -11533,7 +8792,7 @@ public final class RegionThreadingEngine implements RegionThreading {
                 this.workerPool.isPersistent(), this.packedRegionLeasesEnabled);
     }
 
-    private static void throwUnchecked(Throwable throwable) {
+    static void throwUnchecked(Throwable throwable) {
         if (throwable instanceof RuntimeException runtimeException) {
             throw runtimeException;
         }
@@ -11880,7 +9139,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         return true;
     }
 
-    private boolean enqueueRegionTask(ServerLevel level, BlockPos pos, Runnable task) {
+    boolean enqueueRegionTask(ServerLevel level, BlockPos pos, Runnable task) {
         final RegionCoordinate coordinate = this.layout.regionAt(level, pos);
         // The regionizer resolves a live owner and inserts the task while holding the same lock that
         // retirement and merge/split publication use, so the handoff can never land in a retired queue and
@@ -12623,7 +9882,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * removal is deferred and applied exactly like the removal of a dying entity: the worker writes the
      * entity's own removal state, and this step runs the level callback on the server thread after the batch.
      */
-    private void applyDeferredBlockEntityRemovals(RegionBlockEntityTickBatch batch) {
+    void applyDeferredBlockEntityRemovals(RegionBlockEntityTickBatch batch) {
         this.applyDeferredRemovals(batch.level(), batch.drainDeferredRemovals(), batch.isRemovalSeamClosed());
     }
 
@@ -12644,7 +9903,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * The difference of two reads around a drain is the number of removals that drain carried, which the
      * opt-in attribution reports as the count of the deferred removal step.
      */
-    private long deferredRemovalCount() {
+    long deferredRemovalCount() {
         return this.appliedDeferredRemovalCount.get() + this.repeatedDeferredRemovalCount.get();
     }
 
@@ -13801,7 +11060,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         });
     }
 
-    private static Throwable runBatchCompletion(@Nullable Throwable previousFailure, Runnable action) {
+    static Throwable runBatchCompletion(@Nullable Throwable previousFailure, Runnable action) {
         try {
             action.run();
         } catch (Throwable throwable) {
@@ -13810,7 +11069,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         return previousFailure;
     }
 
-    private static Throwable accumulateFailure(@Nullable Throwable previousFailure, @Nullable Throwable nextFailure) {
+    static Throwable accumulateFailure(@Nullable Throwable previousFailure, @Nullable Throwable nextFailure) {
         if (nextFailure == null) return previousFailure;
         if (previousFailure == null) {
             return nextFailure;
@@ -13965,7 +11224,7 @@ public final class RegionThreadingEngine implements RegionThreading {
      * while waiting for work only that thread can complete. Its activation is rejected instead and the
      * caller returns to finish its current task.
      */
-    private boolean acquireLifecycleReadLock(boolean tryOnly) {
+    boolean acquireLifecycleReadLock(boolean tryOnly) {
         final Lock readLock = this.lifecycleGate.readLock();
         if (tryOnly) {
             return readLock.tryLock();
@@ -14056,7 +11315,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
-    private void runWithContext(BasicRegionThreadingContext context, Runnable task) {
+    void runWithContext(BasicRegionThreadingContext context, Runnable task) {
         final RegionThreadingContext previousContext = CURRENT_CONTEXT.get();
         // A region context owns its neighbor update collection state, so a worker can neither clear nor
         // extend the update stack of another region or of the server thread. The server thread keeps the
@@ -14077,7 +11336,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
-    private record BasicRegionThreadingContext(
+    record BasicRegionThreadingContext(
             RegionThreadingContext.Kind kind,
             @Nullable ServerLevel nullableLevel,
             @Nullable RegionCoordinate regionCoordinate,
