@@ -1,0 +1,145 @@
+---
+title: Forgia
+description: Folia-grade asynchronous regionized execution for the NeoForge 1.21.1 modded ecosystem.
+template: splash
+hero:
+  title: Regionized Multi-Core Engine for NeoForge
+  tagline: Decouple your modded 1.21.1 server from the single-thread bottleneck. Independent per-region clocks, zero-barrier async slices, and 100% mod-agnostic sandboxing.
+  image:
+    file: ../../../public/assets/forgia-mark.svg
+    alt: Forgia Emblem
+  actions:
+    - text: Explore Architecture
+      link: /Forgia/architecture/
+      icon: right-arrow
+      variant: primary
+    - text: Live Benchmarks
+      link: /Forgia/benchmarks/
+      icon: rocket
+      variant: secondary
+    - text: Topology Visualizer
+      link: /Forgia/visualizer/index.html
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<div class="forgia-kpi-grid">
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">6.65×</div>
+    <div class="forgia-kpi-label">Effective Multi-Core Speedup</div>
+    <div class="forgia-kpi-sub">112.57 ms total region work → 16.92 ms main-thread MSPT</div>
+  </div>
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">99.91%</div>
+    <div class="forgia-kpi-label">Block Entity Parallelism</div>
+    <div class="forgia-kpi-sub">22.2M worker BE ticks vs. 19.4K serial fallbacks</div>
+  </div>
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">5 / 5</div>
+    <div class="forgia-kpi-label">Zero-Barrier Async Slices</div>
+    <div class="forgia-kpi-sub">BE, Entities, Spawning, Fluids &amp; Chunk Random Ticks</div>
+  </div>
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">20.0 TPS</div>
+    <div class="forgia-kpi-label">Production Heavy Modpack</div>
+    <div class="forgia-kpi-sub">Create 6.0 + 300+ mods, 0 ownership violations</div>
+  </div>
+</div>
+
+## Production Benchmark Progression
+
+Measured live on a heavy 300+ mod NeoForge `1.21.1` server (Create mega-factory base `@ -38,-54`, `DYNAMIC_CLUSTER/4ch`, 8 region workers):
+
+<div class="forgia-bench-box">
+  <div class="forgia-bar-row">
+    <div class="forgia-bar-label">Single-Thread Equivalent</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill baseline" style="width: 100%"></div></div>
+    <div class="forgia-bar-num">112.6 ms</div>
+  </div>
+  <div class="forgia-bar-row">
+    <div class="forgia-bar-label">Forgia 294-beta (Pre-Decouple)</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill mid" style="width: 39.4%"></div></div>
+    <div class="forgia-bar-num">44.4 ms</div>
+  </div>
+  <div class="forgia-bar-row">
+    <div class="forgia-bar-label">Forgia 298-beta (Async Spawn+Fluid)</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 16.6%"></div></div>
+    <div class="forgia-bar-num">18.6 ms</div>
+  </div>
+  <div class="forgia-bar-row" style="margin-bottom: 0">
+    <div class="forgia-bar-label">Forgia 300-beta (LPT+Affinity+Pack)</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 15.0%"></div></div>
+    <div class="forgia-bar-num">16.9 ms</div>
+  </div>
+</div>
+
+## Five Fully Asynchronous Tick Slices
+
+Every major world-tick workload runs on region workers under an independent per-region 20 TPS clock with bounded main-thread commit draining:
+
+<div class="forgia-slice-grid">
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">Async · 0 Barrier</span>
+    <div class="forgia-slice-title">Block Entities (Sandbox + Direct Index)</div>
+    <div class="forgia-slice-desc">Chunk-indexed O(1) dispatch admits modded and vanilla block entities onto workers with automatic per-coordinate fallback and zero-crash sandboxing.</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">Async · 0 Barrier</span>
+    <div class="forgia-slice-title">Selective Entity Ticks</div>
+    <div class="forgia-slice-desc">Players and player-carrying vehicles stay at 20 TPS on the server thread while mobs, items, and region entities tick asynchronously across all regions.</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">Async · 0 Barrier</span>
+    <div class="forgia-slice-title">Natural Spawning (Ordered Async)</div>
+    <div class="forgia-slice-desc">Candidate search, biome/collision checks, and state building run on workers; ordered finalization hooks commit cleanly on the server thread.</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">Async · 0 Barrier</span>
+    <div class="forgia-slice-title">Chunk Random Ticks</div>
+    <div class="forgia-slice-desc">Both fused and standalone random ticks execute asynchronously with deferred lightning, block updates, and tick mutations.</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">Async · 0 Barrier</span>
+    <div class="forgia-slice-title">Fluid Scheduled Ticks</div>
+    <div class="forgia-slice-desc">Inland fluid propagation runs asynchronously on workers with automatic fluid-type demotion on unsafe third-party callbacks.</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">LPT · Cache Affinity</span>
+    <div class="forgia-slice-title">Smart Worker Pool</div>
+    <div class="forgia-slice-desc">Largest-Processing-Time-First ordering, soft region-to-core cache affinity, and micro-region packing slash OS wake-ups by 60%+.</div>
+  </div>
+</div>
+
+## Stock Single-Thread vs. Forgia Region Engine
+
+<div class="forgia-diagram-frame">
+  <img src="/Forgia/assets/arch-stock-vs-forgia.svg" alt="Stock NeoForge vs Forgia Regionized Architecture" />
+</div>
+
+## Engineering Principles
+
+<CardGrid>
+  <Card title="100% Mod-Agnostic Core" icon="approve-check">
+    Forgia core contains zero hardcoded third-party mod IDs or classes. Mod-specific optimizations live cleanly in standalone adapters built on `RegionAdapterApi` and `ParallelApi`.
+  </Card>
+  <Card title="Fail-Closed Ownership & Sandbox" icon="shield">
+    Region workers operate inside strict spatial and storage sandboxes (`DimensionDataStorage`, `BlockCapability`, `FakePlayer`, `EntitySection`) with automatic demotion instead of silent corruption.
+  </Card>
+  <Card title="Modular Coordinator Architecture" icon="puzzle">
+    Execution is cleanly separated into dedicated coordinators for Block Entities, Entities, Spawning, Chunk Ticks, Transfers, Border Propagation, and Player Prefixes.
+  </Card>
+  <Card title="Built-In Observability" icon="magnifier">
+    Diagnose live hotspots with `/forgia bottleneck`, `/forgia status`, `/forgia fences`, `LowTpsProbe`, and `SandboxDemotionProbe` without external profilers.
+  </Card>
+</CardGrid>
+
+## Dive Into the Documentation
+
+<CardGrid>
+  <LinkCard title="Configuration & Hardware Tuning" description="Tune worker threads, dynamic cluster size, overload budgets, and async slice flags in config/forgia.toml." href="/Forgia/configuration/" />
+  <LinkCard title="Engine Internals" description="Deep dive into RegionIndependentTickScheduler, worker pools, border fixpoint convergence, and entity transfers." href="/Forgia/modules/" />
+  <LinkCard title="Developer & Adapter API" description="Build mod compatibility adapters using RegionAdapterApi and ParallelApi." href="/Forgia/api/" />
+  <LinkCard title="中文文档首页" description="切换至简体中文文档，查看架构对比、实测数据与完整调优指南。" href="/Forgia/zh/" />
+</CardGrid>

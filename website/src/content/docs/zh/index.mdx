@@ -1,0 +1,145 @@
+---
+title: Forgia
+description: 面向 NeoForge 1.21.1 大型模组生态的 Folia 级异步区域多线程引擎。
+template: splash
+hero:
+  title: NeoForge 区域化多核并行引擎
+  tagline: 彻底打破大型模组服的单线程瓶颈。独立区域时钟、五大核心切片 0 同步栅栏全异步、100% 模组无关沙箱架构。
+  image:
+    file: ../../../../public/assets/forgia-mark.svg
+    alt: Forgia 徽标
+  actions:
+    - text: 架构对比
+      link: /Forgia/zh/architecture/
+      icon: right-arrow
+      variant: primary
+    - text: 线上实测性能
+      link: /Forgia/zh/benchmarks/
+      icon: rocket
+      variant: secondary
+    - text: 拓扑可视化工具
+      link: /Forgia/visualizer/index.html
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<div class="forgia-kpi-grid">
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">6.65×</div>
+    <div class="forgia-kpi-label">实测多核有效加速比</div>
+    <div class="forgia-kpi-sub">全服 112.57 ms 区域总负载 → 主线程仅 16.92 ms</div>
+  </div>
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">99.91%</div>
+    <div class="forgia-kpi-label">方块实体并行率</div>
+    <div class="forgia-kpi-sub">2,220 万次 Worker 执行 vs. 仅 1.9 万次回退</div>
+  </div>
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">5 / 5</div>
+    <div class="forgia-kpi-label">五大核心切片 0 同步栅栏</div>
+    <div class="forgia-kpi-sub">方块实体、实体、自然刷怪、流体、区块随机刻全异步</div>
+  </div>
+  <div class="forgia-kpi-card">
+    <div class="forgia-kpi-value">20.0 TPS</div>
+    <div class="forgia-kpi-label">300+ 重型模组服实测</div>
+    <div class="forgia-kpi-sub">机械动力 6.0 超大基地稳跑满帧，0 越界告警</div>
+  </div>
+</div>
+
+## 真实线上重负载演进对比
+
+实测环境：300+ 模组 NeoForge `1.21.1` 生存服（机械动力大型工厂基地 `@ -38,-54`，`DYNAMIC_CLUSTER/4ch`，8 Worker 线程）：
+
+<div class="forgia-bench-box">
+  <div class="forgia-bar-row">
+    <div class="forgia-bar-label">原版单线程等效耗时</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill baseline" style="width: 100%"></div></div>
+    <div class="forgia-bar-num">112.6 ms</div>
+  </div>
+  <div class="forgia-bar-row">
+    <div class="forgia-bar-label">Forgia 294-beta（解耦前）</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill mid" style="width: 39.4%"></div></div>
+    <div class="forgia-bar-num">44.4 ms</div>
+  </div>
+  <div class="forgia-bar-row">
+    <div class="forgia-bar-label">Forgia 298-beta（异步刷怪+流体）</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 16.6%"></div></div>
+    <div class="forgia-bar-num">18.6 ms</div>
+  </div>
+  <div class="forgia-bar-row" style="margin-bottom: 0">
+    <div class="forgia-bar-label">Forgia 300-beta（LPT+亲和性+打包）</div>
+    <div class="forgia-bar-track"><div class="forgia-bar-fill best" style="width: 15.0%"></div></div>
+    <div class="forgia-bar-num">16.9 ms</div>
+  </div>
+</div>
+
+## 五大核心切片全面异步化
+
+所有核心世界 Tick 均在独立区域时钟（20 TPS 目标）驱动下于 Region Worker 并行运行，副作用通过有界队列无阻塞排空回主线程：
+
+<div class="forgia-slice-grid">
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">异步 · 0 栅栏</span>
+    <div class="forgia-slice-title">方块实体（沙箱 + 区块直发）</div>
+    <div class="forgia-slice-desc">基于区块级缓存的 O(1) 沙箱直发，自动准入原版与模组方块实体，异常自动按坐标冷却回退，永不崩溃。</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">异步 · 0 栅栏</span>
+    <div class="forgia-slice-title">选择性实体 Tick</div>
+    <div class="forgia-slice-desc">玩家与载人载具留在主线程稳跑 20 TPS，其余怪物、掉落物与区域实体跨全图并行异步执行。</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">异步 · 0 栅栏</span>
+    <div class="forgia-slice-title">自然刷怪（两段式有序提交）</div>
+    <div class="forgia-slice-desc">候选点搜索、群系光照与碰撞校验全在 Worker 并行完成，兼容刷怪控制类模组的最终事件在主线程有序结算。</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">异步 · 0 栅栏</span>
+    <div class="forgia-slice-title">区块随机刻（Chunk Tick）</div>
+    <div class="forgia-slice-desc">融合与独立随机刻全部异步提交，落雷、方块更新与计划刻变更延迟安全合并回主线程。</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">异步 · 0 栅栏</span>
+    <div class="forgia-slice-title">流体计划刻（Fluid Tick）</div>
+    <div class="forgia-slice-desc">区内流体传播全异步执行，遇到非线程安全第三方流体回调时自动学习降级。</div>
+  </div>
+  <div class="forgia-slice-card">
+    <span class="forgia-badge">LPT · 缓存亲和</span>
+    <div class="forgia-slice-title">高利用率 Worker 调度器</div>
+    <div class="forgia-slice-desc">最重区优先（LPT）、区域-核心软亲和性、以及轻区微打包，将 OS 唤醒税与提交次数削减 60%+。</div>
+  </div>
+</div>
+
+## 原版单线程 vs. Forgia 区域并行架构
+
+<div class="forgia-diagram-frame">
+  <img src="/Forgia/assets/arch-stock-vs-forgia.zh.svg" alt="原版 NeoForge 与 Forgia 区域多线程架构对比" />
+</div>
+
+## 核心工程准则
+
+<CardGrid>
+  <Card title="100% 模组无关内核" icon="approve-check">
+    Forgia 核心零硬编码第三方模组 ID 或类名。所有模组专属优化均通过 `RegionAdapterApi` 与 `ParallelApi` 以独立兼容适配器实现。
+  </Card>
+  <Card title="安全闭环沙箱" icon="shield">
+    Worker 在严格的空间与存储沙箱内运行（`DimensionDataStorage`、`BlockCapability`、`FakePlayer`、`EntitySection`），越界自动隔离回退，杜绝静默坏档。
+  </Card>
+  <Card title="模块化协调器架构" icon="puzzle">
+    引擎拆分为方块实体、实体、刷怪、随机刻、跨区迁移、跨区传播、玩家前缀 7 大独立协调器，职责清晰、易于扩展维护。
+  </Card>
+  <Card title="内置全链路可观测性" icon="magnifier">
+    内置 `/forgia bottleneck`、`/forgia status`、`/forgia fences`、`LowTpsProbe` 与 `SandboxDemotionProbe`，无需外挂工具即可秒级定位瓶颈。
+  </Card>
+</CardGrid>
+
+## 深入阅读文档
+
+<CardGrid>
+  <LinkCard title="配置与硬件调优指南" description="按核心数与服务器规模精细调优 config/forgia.toml 中的线程、过载预算与异步开关。" href="/Forgia/zh/configuration/" />
+  <LinkCard title="引擎内部实现" description="深入了解独立区域时钟、工作窃取线程池、跨区邻居收敛与实体迁移状态机。" href="/Forgia/zh/modules/" />
+  <LinkCard title="开发者与适配器 API" description="学习如何使用 RegionAdapterApi 与 ParallelApi 为第三方模组编写并行适配。" href="/Forgia/zh/api/" />
+  <LinkCard title="English Documentation" description="Switch to the English landing page and full engineering reference." href="/Forgia/" />
+</CardGrid>

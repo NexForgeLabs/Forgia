@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.astro/
+# Generated synced markdown docs (kept out of git; source of truth is /docs)
+src/content/docs/*.md
+src/content/docs/modules/
+src/content/docs/api/
+src/content/docs/adapters/
+src/content/docs/zh/*.md
+src/content/docs/zh/modules/
+src/content/docs/zh/api/
+src/content/docs/zh/adapters/
+public/assets/
+public/visualizer/
