@@ -1,18 +1,62 @@
-# Create adapter 0.2.0 — audited steady-state kinetic ticks
-
-> Historical documentation for 0.2.0. Version 0.3.0 uses execution adapters, same-region resource scopes and bounded planning windows; see the [current source guide](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md).
+# Create Parallel Compat (`forgia-create-parallel-compat`) & Legacy Audited Adapter
 
 English | [中文](create-adapter.zh.md) · [Adapter index](README.en.md)
-Source: [`adapters/create`](../../adapters/create) · Protocol: [`AUDITED_BLOCK_ENTITY_TICKS`](../api/block-entity-ticks.en.md)
-Evidence: [CREATE-ADAPTER-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-ADAPTER-VALIDATION.md), [CREATE-OPTIMIZATION-PLAN](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)
-
-Status: **Experimental.** Adapter `0.2.0`, Minecraft **1.21.1**, Create **6.0.10**, core providing
-`AUDITED_BLOCK_ENTITY_TICKS` (built against `21.1.250.107-beta`). The original Create jar is required and is
-never bundled.
+Production Compat Source: [`tools/forgia-create-parallel-compat`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/forgia-create-parallel-compat) · Audited Reference Source: [`adapters/create`](https://github.com/NexForgeLabs/Forgia/tree/main/adapters/create)
 
 ---
 
-## 1. When to use it
+## 1. Production Create Parallel Compat (`forgia-create-parallel-compat 1.0.0`)
+
+On Forgia Phase 2/3 (`enableIndependentRegionTickClock = true`, `enableRegionSandboxAllBlockEntities = true`), **`forgia-create-parallel-compat`** brings **Create 6.0.10 and 8 major Create addon namespaces** directly onto Region Workers via `RegionAdapterApi` + thread-safety Mixins — achieving **99.89% block entity parallelism** in live heavy factory bases (`274.9M+` worker BE ticks, `0` crashes).
+
+### Admitted Namespaces (9 Total)
+
+| Namespace | Mod | Worker Sandbox Status |
+| :--- | :--- | :--- |
+| `create` | Create (`6.0.10`) | **Full namespace admitted** (shafts, cogs, gearboxes, water wheels, belts, funnels, chutes, mixers, presses, deployers, basins, fluid pipes/pumps/tanks, crafters, packagers, frogports, etc.) |
+| `createaddition` | Create Crafts & Additions | **Full namespace admitted** |
+| `create_connected` | Create: Connected | **Full namespace admitted** |
+| `create_enchantment_industry` | Create: Enchantment Industry | **Full namespace admitted** |
+| `create_dragons_plus` | Create: Dragons Plus | **Full namespace admitted** |
+| `createdieselgenerators` | Create: Diesel Generators | **Full namespace admitted** |
+| `createpropulsion` | Create: Propulsion | **Full namespace admitted** |
+| `create_biotech` | Create: Biotech | **Full namespace admitted** |
+| `copycats` | Create: Copycats+ | **Full namespace admitted** |
+
+> **Explicitly Sandbox-Protected:** Because these namespaces are explicitly admitted via `RegionAdapterApi.admitRegionSandboxedNamespace(...)`, transient single-coordinate errors trigger only a short per-coordinate server-thread cooldown (`sandboxTransientCooldownTicks = 20`) and never globally demote an entire block entity type (such as `create:belt`).
+
+### Thread-Safety Mixins & Guards
+
+| Component | Target Class | What It Protects |
+| :--- | :--- | :--- |
+| `TorquePropagatorMixin` | `TorquePropagator` | Replaces outer/per-level kinetic network maps with `ConcurrentHashMap` |
+| `KineticNetworkMixin` | `KineticNetwork` | Makes `sources` and `members` maps concurrent (`ConcurrentHashMap`) |
+| `BeltInventoryMixin` | `BeltInventory` | Replaces belt `items` list with synchronized `ConcurrentBeltList` and guards concurrent item mutations |
+| `GlobalLogisticsManagerMixin` | `GlobalLogisticsManager` | Upgrades `logisticsNetworks` map to `ConcurrentHashMap` on init & world load |
+| `RedstoneLinkNetworkHandlerMixin` | `RedstoneLinkNetworkHandler` | Makes per-level redstone link connection tables concurrent |
+| `CreateAdvancementMixin` | `CreateAdvancement` | Defers worker-triggered advancement awards cleanly to the server thread via `RegionAdapterApi.postGlobal` |
+| `SavedData Sharing` | `RegionAdapterApi.shareSavedData` | Safely shares `create_logistics` and `create_tracks` `DimensionDataStorage` entries across regions |
+| `FakePlayer` Native Sandbox | Forgia Core (`FakePlayer` + `PlayerAdvancements`) | Allows `DeployerBlockEntity` / `DeployerFakePlayer` to run natively on region workers |
+
+### Dynamic Topology & Serial Fallback Boundaries
+
+Rather than banning entire machine types, `kineticTopologySafe` routes **only the exact transient ticks** that mutate cross-region kinetic topology back to the server thread:
+
+| Condition / Object | Execution Thread | Reason |
+| :--- | :--- | :--- |
+| Uninitialized `SmartBlockEntity` (`!initialized`) | Server thread (1 tick) | Initial network/behaviour registration |
+| `networkDirty` / `updateSpeed` / `validationCountdown <= 1` | Server thread (transient tick) | Cross-region kinetic speed propagation & network revalidation |
+| Orphaned spinning kinetic (`speed != 0 && source == null`) | Server thread (transient tick) | Clean cross-region detachment after power source removal |
+| `GeneratingKineticBlockEntity.reActivateSource` / active `HandCrankBlockEntity` | Server thread (transient tick) | Generator source reactivation & player crank interaction |
+| `BeltBlockEntity` with `beltLength <= 0` | Server thread (transient tick) | Partially initialized / breaking belt controller |
+| Moving contraption entities (`AbstractContraptionEntity`, trains) | Server thread | Cross-region entity/block structure movement (`entityTickPolicy`) |
+| `fxntstorage:storage_controller_entity` & `storage_interface_*` | Server thread (explicitly denied) | Rebuilds `NonNullList` slot tables during BE ticks (`StorageBoxEntity` stays on workers) |
+
+---
+
+## 2. Historical Reference: Audited Steady-State Adapter (`adapters/create 0.2.0 / 0.3.0`)
+
+> Historical documentation for `adapters/create` (`0.2.0` / `0.3.0`, built for `AUDITED_BLOCK_ENTITY_TICKS` before the Phase 2/3 Region Sandbox). See [`adapters/create/README.md`](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md) for the audited execution-adapter protocol details.
 
 | Use when | Why |
 |---|---|

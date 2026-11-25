@@ -1,17 +1,62 @@
-# Create 适配器 0.2.0 —— 受审计的稳态动力 tick
-
-> 本页保留 0.2.0 的历史说明。当前 0.3.0 已迁移到 execution adapter，支持同区域资源并行和大阶段窗口；以[当前源码说明](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md)为准。
+# Create 并行兼容适配器（`forgia-create-parallel-compat`）与历史审计适配器
 
 [English](create-adapter.en.md) | 中文 · [适配器索引](README.zh.md)
-源码：[`adapters/create`](../../adapters/create) · 协议：[`AUDITED_BLOCK_ENTITY_TICKS`](../api/block-entity-ticks.zh.md)
-证据：[CREATE-ADAPTER-VALIDATION](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-ADAPTER-VALIDATION.md)、[CREATE-OPTIMIZATION-PLAN](https://github.com/NexForgeLabs/Forgia/blob/main/region-threading/CREATE-OPTIMIZATION-PLAN.md)
-
-状态：**实验性。** 适配器 `0.2.0`，Minecraft **1.21.1**，Create **6.0.10**，核心需提供
-`AUDITED_BLOCK_ENTITY_TICKS`（本轮基于 `21.1.250.107-beta` 构建）。必须保留原 Create jar，且绝不打包进适配器。
+线上生产兼容模组源码：[`tools/forgia-create-parallel-compat`](https://github.com/NexForgeLabs/Forgia/tree/main/tools/forgia-create-parallel-compat) · 审计协议参考源码：[`adapters/create`](https://github.com/NexForgeLabs/Forgia/tree/main/adapters/create)
 
 ---
 
-## 1. 何时使用
+## 1. 线上生产版 Create 并行兼容适配器（`forgia-create-parallel-compat 1.0.0`）
+
+在 Forgia Phase 2/3（`enableIndependentRegionTickClock = true`、`enableRegionSandboxAllBlockEntities = true`）下，**`forgia-create-parallel-compat`** 通过 `RegionAdapterApi` 与线程安全 Mixin，将 **Create 6.0.10 本体及 8 个主流机械动力附属模组命名空间**全面准入 Region Worker 并行执行——在大型机械动力工厂线上实测中实现 **99.89% 方块实体并行率**（累计 `2.75 亿+` 次 Worker 执行，零崩溃）。
+
+### 已准入并行命名空间（共 9 个）
+
+| 命名空间 | 对应模组 | Region Worker 沙箱状态 |
+| :--- | :--- | :--- |
+| `create` | 机械动力 Create (`6.0.10`) | **全命名空间准入**（传动轴、齿轮、变速箱、水车、传送带、漏斗、溜槽、搅拌器、压块机、机械手、工作盆、流体管道/泵/储罐、动力合成器、打包机、青蛙港等） |
+| `createaddition` | 机械动力：工艺与附加 | **全命名空间准入** |
+| `create_connected` | 机械动力：连接扩展 | **全命名空间准入** |
+| `create_enchantment_industry` | 机械动力：附魔工业 | **全命名空间准入** |
+| `create_dragons_plus` | Create: Dragons Plus | **全命名空间准入** |
+| `createdieselgenerators` | 机械动力：柴油发电机 | **全命名空间准入** |
+| `createpropulsion` | Create: Propulsion | **全命名空间准入** |
+| `create_biotech` | Create: Biotech | **全命名空间准入** |
+| `copycats` | 机械动力：伪装方块+ | **全命名空间准入** |
+
+> **防误伤全局降级保护**：通过 `RegionAdapterApi.admitRegionSandboxedNamespace(...)` 显式准入的命名空间，若个别方块坐标出现瞬态异常，只会触发该单坐标的短时主线程冷却回退（`sandboxTransientCooldownTicks = 20`），绝不会将整类方块（如 `create:belt`）全局拉黑。
+
+### 线程安全 Mixin 与核心防护
+
+| 模块 | 目标类 | 解决的并发问题 |
+| :--- | :--- | :--- |
+| `TorquePropagatorMixin` | `TorquePropagator` | 将全局与维度级动力学网络 Map 替换为 `ConcurrentHashMap` |
+| `KineticNetworkMixin` | `KineticNetwork` | 将网络内的 `sources` 与 `members` 替换为 `ConcurrentHashMap` |
+| `BeltInventoryMixin` | `BeltInventory` | 将传送带 `items` 列表替换为线程安全的 `ConcurrentBeltList`，保护并发物品读写 |
+| `GlobalLogisticsManagerMixin` | `GlobalLogisticsManager` | 初始化与世界加载后将 `logisticsNetworks` 升级为 `ConcurrentHashMap` |
+| `RedstoneLinkNetworkHandlerMixin` | `RedstoneLinkNetworkHandler` | 并发化各维度的红石无线连接表 |
+| `CreateAdvancementMixin` | `CreateAdvancement` | Worker 触发机械动力进度奖励时通过 `RegionAdapterApi.postGlobal` 延迟回主线程发放 |
+| `SavedData` 共享 | `RegionAdapterApi.shareSavedData` | 跨区安全共享 `create_logistics` 与 `create_tracks` 世界存档数据 |
+| `FakePlayer` 原生沙箱 | Forgia 内核（`FakePlayer` + `PlayerAdvancements`） | 允许机械手（`DeployerBlockEntity` / `DeployerFakePlayer`）原生在 Region Worker 上运行 |
+
+### 动态拓扑守卫与主线程回退边界
+
+与旧版“按机器类型一刀切禁止”不同，`kineticTopologySafe` 谓词**仅将正在发生跨区拓扑变更的那 1 个瞬态 Tick** 路由回主线程，其余 99.9% 的稳态运行期全部留在 Worker 并行：
+
+| 条件 / 对象 | 执行线程 | 原因 |
+| :--- | :--- | :--- |
+| 未完成初始化的 `SmartBlockEntity`（`!initialized`） | 主线程（首 Tick） | 首次注册网络与 Behaviour |
+| `networkDirty` / `updateSpeed` / `validationCountdown <= 1` | 主线程（瞬态 Tick） | 跨区转速传播与周期性动力学网络校验 |
+| 失去动力源的孤立旋转件（`speed != 0 && source == null`） | 主线程（瞬态 Tick） | 拆掉动力源后干净执行跨区断链重算 |
+| `GeneratingKineticBlockEntity.reActivateSource` / 玩家手摇 `HandCrankBlockEntity` | 主线程（瞬态 Tick） | 发电件重新激活与玩家交互 |
+| `BeltBlockEntity` 且 `beltLength <= 0` | 主线程（瞬态 Tick） | 尚未初始化完或正在拆除的传送带控制器 |
+| 移动动态结构实体（`AbstractContraptionEntity`、列车） | 主线程 | 跨区结构位移与方块/实体交互（`entityTickPolicy`） |
+| `fxntstorage:storage_controller_entity` 与 `storage_interface_*` | 主线程（显式排除） | Tick 期间重建 `NonNullList` 槽位表（普通 `StorageBoxEntity` 仍在 Worker 并行） |
+
+---
+
+## 2. 历史参考：受审计稳态适配器（`adapters/create 0.2.0 / 0.3.0`）
+
+> 以下保留 `adapters/create`（Phase 2/3 Region Sandbox 之前的 `AUDITED_BLOCK_ENTITY_TICKS` 协议）历史文档；最新审计执行适配器说明见 [`adapters/create/README.md`](https://github.com/NexForgeLabs/Forgia/blob/main/adapters/create/README.md)。
 
 | 适用 | 原因 |
 |---|---|
