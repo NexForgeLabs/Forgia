@@ -182,13 +182,25 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
 
     @Override
     public boolean execute(String description, Runnable task) {
+        return this.executeWithAffinity(-1, description, task);
+    }
+
+    /**
+     * Submits a task with a soft region-to-worker cache affinity hint.
+     * <p>
+     * When {@code affinityHash >= 0}, the preferred worker {@code workers[floorMod(affinityHash, length)]}
+     * is selected first if it is idle or lightly loaded, improving L1/L2 cache locality for hot regions
+     * across consecutive ticks while preserving full work-stealing load balance when the preferred worker
+     * is busy.
+     */
+    public boolean executeWithAffinity(int affinityHash, String description, Runnable task) {
         if (this.closed) {
             this.rejectedTasks.increment();
             LOGGER.warn("Rejected region worker task after shutdown: {}", description);
             return false;
         }
         if (this.workers != null) {
-            return this.executePersistent(description, task);
+            return this.executePersistent(affinityHash, description, task);
         }
         final long start = System.nanoTime();
         this.admissions.incrementAndGet();
@@ -227,7 +239,7 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
      * A submission that races {@link #close()} is refused: the admission counter keeps the enqueue and the stop
      * of the drain loop ordered, so no task is enqueued after the workers were told to stop.
      */
-    private boolean executePersistent(String description, Runnable task) {
+    private boolean executePersistent(int affinityHash, String description, Runnable task) {
         final long start = System.nanoTime();
         this.admissions.incrementAndGet();
         try {
@@ -236,23 +248,13 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
                 LOGGER.warn("Rejected region worker task after shutdown: {}", description);
                 return false;
             }
-            // A task is offered to an idle worker, or to the deque with the least work pending when none is
-            // idle: a saturated pool puts it behind the shortest queue instead of pinning it to a worker that may
-            // be busy with a region many times slower than the task itself, and work stealing then closes
-            // whatever imbalance is left between the workers while the batch runs.
-            final Worker target = this.selectTargetWorker();
-            // A task that is handed to a worker that runs nothing and has nothing pending measures the wake-up:
-            // the submitter observed an idle worker, so the delay to the start of the body is the handshake. A
-            // task that waits behind other work measures that work instead, which the barrier wait and the steal
-            // counter report, so it is not counted as a wake-up. The submission time travels with the task, so the
-            // wake-up latency of one task is measurable even when several tasks wait in the same deque.
+            final Worker target = affinityHash >= 0
+                    ? this.selectAffinityWorker(affinityHash)
+                    : this.selectTargetWorker();
             final SubmittedTask submitted = new SubmittedTask(description, task, start, target.isIdle(), target.index);
             this.pendingTasks.incrementAndGet();
             target.tasks.offerLast(submitted);
             target.published.incrementAndGet();
-            // Publish the offer before the wake-up: the epoch covers a worker that is deciding to park, and the
-            // parked-flag scan covers one that already is. Both are needed: either one alone can be read one
-            // moment too early.
             this.workEpoch.incrementAndGet();
             this.unparkOneParked(target);
             this.submissions.incrementAndGet();
@@ -261,6 +263,34 @@ final class RegionWorkerPool implements RegionWorkerExecutor, AutoCloseable {
             this.admissions.decrementAndGet();
             this.submitNanos.addAndGet(System.nanoTime() - start);
         }
+    }
+
+    /**
+     * Selects the preferred worker for {@code affinityHash} if it is idle, otherwise picks the first idle
+     * worker or the worker with the shortest deque (favoring the preferred worker on ties).
+     */
+    private Worker selectAffinityWorker(int affinityHash) {
+        final Worker[] all = this.workers;
+        final int prefIndex = Math.floorMod(affinityHash, all.length);
+        final Worker preferred = all[prefIndex];
+        final long prefPending = preferred.pending();
+        if (prefPending == 0L && preferred.isIdle()) {
+            return preferred;
+        }
+        Worker best = preferred;
+        long bestPending = prefPending;
+        for (int offset = 1; offset < all.length; ++offset) {
+            final Worker candidate = all[(prefIndex + offset) % all.length];
+            final long pending = candidate.pending();
+            if (pending == 0L && candidate.isIdle()) {
+                return candidate;
+            }
+            if (pending < bestPending) {
+                best = candidate;
+                bestPending = pending;
+            }
+        }
+        return best;
     }
 
     /**

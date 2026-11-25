@@ -7553,6 +7553,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         final long gameTime = level.getGameTime();
         final int perRegionBudget = Math.max(128, this.deferredBlockUpdateBudget / Math.max(1, activations.size()));
         final int randomTickSpeed = pendingChunks != null ? pendingChunks.randomTickSpeed() : 0;
+        final List<RegionIndependentTickScheduler.AsyncBatchItem> asyncItems = new ArrayList<>(activations.size());
+        final List<RegionEntityTickBatch> entityBatches = new ArrayList<>(activations.size());
+        final List<Integer> entityCounts = new ArrayList<>(activations.size());
+        final List<Integer> chunkCounts = new ArrayList<>(activations.size());
         for (int i = 0, size = activations.size(); i < size; ++i) {
             final RegionEntityTickActivation activation = activations.get(i);
             final RegionState region = activation.region();
@@ -7598,13 +7602,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                     regionBatch.finish();
                 }
             };
-            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async entity", wrappedWork, commit, gameTime);
-            if (outcome == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
-                this.entityTickRegionsOnWorkers.incrementAndGet();
-            } else {
-                this.skippedEntityTicks.addAndGet(workerEligibleCounts[i]);
-                regionBatch.finish();
-            }
+            asyncItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
+                    region, "async entity", wrappedWork, commit, false, 0L, gameTime));
+            entityBatches.add(regionBatch);
+            entityCounts.add(workerEligibleCounts[i]);
+            chunkCounts.add(0);
         }
         // Any remaining chunk-only regions without active entity activations
         if (drainRemainingChunks && chunksByRegion != null && !chunksByRegion.isEmpty() && pendingChunks != null) {
@@ -7633,10 +7635,28 @@ public final class RegionThreadingEngine implements RegionThreading {
                         regionBatch.finish();
                     }
                 };
-                if (this.independentTickScheduler.submitAsyncSlice(region, "async chunk", wrappedWork, commit, gameTime)
-                        != RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
-                    this.skippedChunkTicks.addAndGet(regionChunks.size());
-                    regionBatch.finish();
+                asyncItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
+                        region, "async chunk", wrappedWork, commit, false, 0L, gameTime));
+                entityBatches.add(regionBatch);
+                entityCounts.add(0);
+                chunkCounts.add(regionChunks.size());
+            }
+        }
+        if (!asyncItems.isEmpty()) {
+            final var outcomes = this.independentTickScheduler.submitBatchOptimized(asyncItems);
+            for (int i = 0; i < outcomes.length; ++i) {
+                if (outcomes[i] == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
+                    if (entityCounts.get(i) > 0) {
+                        this.entityTickRegionsOnWorkers.incrementAndGet();
+                    }
+                } else {
+                    if (entityCounts.get(i) > 0) {
+                        this.skippedEntityTicks.addAndGet(entityCounts.get(i));
+                    }
+                    if (chunkCounts.get(i) > 0) {
+                        this.skippedChunkTicks.addAndGet(chunkCounts.get(i));
+                    }
+                    entityBatches.get(i).finish();
                 }
             }
         }
@@ -9564,14 +9584,14 @@ public final class RegionThreadingEngine implements RegionThreading {
             final long now = System.nanoTime();
             final long gameTime = level.getGameTime();
             final boolean borderUpdates = this.borderUpdatesEnabled();
-            this.workerPool.preWake(sandboxByRegion.size());
+            final List<RegionIndependentTickScheduler.AsyncBatchItem> beItems = new ArrayList<>(sandboxByRegion.size());
             for (final var entry : sandboxByRegion.entrySet()) {
                 final RegionState region = entry.getKey();
                 final List<RegionBlockEntityTickChunk> regionChunks = entry.getValue();
                 final RandomSource random = RandomSource.create(
                         level.getSeed() ^ gameTime ^ ((long) region.coordinate().regionX() << 32) ^ region.coordinate().regionZ());
                 final Queue<Runnable> mutations = new ConcurrentLinkedQueue<>();
-                this.independentTickScheduler.submitIfDue(region, () -> {
+                final Runnable body = () -> {
                     this.currentBlockEntityTickRandom.set(random);
                     this.currentRegionTickMutations.set(mutations);
                     try {
@@ -9625,12 +9645,16 @@ public final class RegionThreadingEngine implements RegionThreading {
                         this.currentRegionTickMutations.remove();
                         this.currentBlockEntityTickRandom.remove();
                     }
-                }, () -> {
+                };
+                final Runnable commit = () -> {
                     if (!mutations.isEmpty() && !this.shutdown && !this.regionizer.isLevelClosed(level)) {
                         this.applyRegionTickMutations(mutations);
                     }
-                }, now, gameTime);
+                };
+                beItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
+                        region, "independent region tick", body, commit, true, now, gameTime));
             }
+            this.independentTickScheduler.submitBatchOptimized(beItems);
         }
         if (!serialAdmissions.isEmpty()) {
             final String dimensionId = level.dimension().location().toString();
@@ -11464,7 +11488,10 @@ public final class RegionThreadingEngine implements RegionThreading {
         final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
         final LevelSpawnCapCounter sharedCapCounter = plan.capCounter();
         final boolean orderedFinalization = plan.orderedFinalization();
-        int dispatchedChunks = 0;
+        final int regionCount = grouping.regions().size();
+        final List<RegionIndependentTickScheduler.AsyncBatchItem> spawnItems = new ArrayList<>(regionCount);
+        final List<RegionSpawnBatch> spawnBatches = new ArrayList<>(regionCount);
+        final List<Integer> spawnChunkCounts = new ArrayList<>(regionCount);
         for (final RegionState region : grouping.regions()) {
             final List<RegionSpawnChunk> regionChunks = grouping.items(region);
             final RegionSpawnBatch regionBatch = new RegionSpawnBatch(level, plan.spawnFriendlies(), plan.spawnEnemies(),
@@ -11489,12 +11516,19 @@ public final class RegionThreadingEngine implements RegionThreading {
                     regionBatch.finish();
                 }
             };
-            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async spawn", wrappedWork, commit, gameTime);
-            if (outcome == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
-                dispatchedChunks += regionChunks.size();
+            spawnItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
+                    region, "async spawn", wrappedWork, commit, false, 0L, gameTime));
+            spawnBatches.add(regionBatch);
+            spawnChunkCounts.add(regionChunks.size());
+        }
+        int dispatchedChunks = 0;
+        final var spawnOutcomes = this.independentTickScheduler.submitBatchOptimized(spawnItems);
+        for (int i = 0; i < spawnOutcomes.length; ++i) {
+            if (spawnOutcomes[i] == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
+                dispatchedChunks += spawnChunkCounts.get(i);
             } else {
-                this.skippedSpawnChunks.addAndGet(regionChunks.size());
-                regionBatch.finish();
+                this.skippedSpawnChunks.addAndGet(spawnChunkCounts.get(i));
+                spawnBatches.get(i).finish();
             }
         }
         if (dispatchedChunks > 0 && this.spawnWorkersNoticeLogged.compareAndSet(false, true)) {
@@ -11762,7 +11796,10 @@ public final class RegionThreadingEngine implements RegionThreading {
             return;
         }
         final int perRegionBudget = Math.max(64, this.deferredBlockUpdateBudget / Math.max(1, grouping.regions().size()));
-        int dispatchedChunks = 0;
+        final int regionCount = grouping.regions().size();
+        final List<RegionIndependentTickScheduler.AsyncBatchItem> chunkItems = new ArrayList<>(regionCount);
+        final List<RegionChunkTickBatch> chunkBatches = new ArrayList<>(regionCount);
+        final List<Integer> chunkCounts = new ArrayList<>(regionCount);
         for (final RegionState region : grouping.regions()) {
             final List<RegionChunkTickEntry> regionChunks = grouping.items(region);
             final RegionChunkTickBatch regionBatch = new RegionChunkTickBatch(level, randomTickSpeed, perRegionBudget);
@@ -11785,12 +11822,19 @@ public final class RegionThreadingEngine implements RegionThreading {
                     regionBatch.finish();
                 }
             };
-            final var outcome = this.independentTickScheduler.submitAsyncSlice(region, "async chunk", wrappedWork, commit, gameTime);
-            if (outcome == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
-                dispatchedChunks += regionChunks.size();
+            chunkItems.add(new RegionIndependentTickScheduler.AsyncBatchItem(
+                    region, "async chunk", wrappedWork, commit, false, 0L, gameTime));
+            chunkBatches.add(regionBatch);
+            chunkCounts.add(regionChunks.size());
+        }
+        int dispatchedChunks = 0;
+        final var chunkOutcomes = this.independentTickScheduler.submitBatchOptimized(chunkItems);
+        for (int i = 0; i < chunkOutcomes.length; ++i) {
+            if (chunkOutcomes[i] == RegionIndependentTickScheduler.DispatchOutcome.SUBMITTED) {
+                dispatchedChunks += chunkCounts.get(i);
             } else {
-                this.skippedChunkTicks.addAndGet(regionChunks.size());
-                regionBatch.finish();
+                this.skippedChunkTicks.addAndGet(chunkCounts.get(i));
+                chunkBatches.get(i).finish();
             }
         }
         if (dispatchedChunks > 0 && this.chunkTickWorkersNoticeLogged.compareAndSet(false, true)) {
