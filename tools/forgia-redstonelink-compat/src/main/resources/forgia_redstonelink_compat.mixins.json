@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8.5",
+  "package": "dev.forgia.compat.redstonelink.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "RedstoneLinkFrequencyPayloadMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

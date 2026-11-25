@@ -34,28 +34,24 @@ public final class ForgiaCreateParallelCompat {
             "copycats"
     };
 
+    private static final String[] CREATE_CONTRAPTION_ENTITY_TYPES = {
+            "create:contraption",
+            "create:stationary_contraption",
+            "create:gantry_contraption",
+            "create:elevator_contraption",
+            "create:bearing_contraption",
+            "create:piston_contraption"
+    };
+
     public ForgiaCreateParallelCompat() {
         final Predicate<BlockEntity> kineticTopologySafe = be -> {
             if (be instanceof SmartBlockEntityAccessor smart && !smart.forgiaParallel$isInitialized()) {
                 return false;
             }
             if (be instanceof KineticBlockEntity kbe) {
-                if (kbe.networkDirty
-                        || (be instanceof KineticBlockEntityAccessor kAcc
-                                && (kAcc.forgiaParallel$updateSpeed() || kAcc.forgiaParallel$validationCountdown() <= 1))) {
-                    return false;
-                }
-                // Orphaned spinning kinetic component (e.g., after power source removal): route to server thread
-                // so Create can run full cross-region kinetic detachment/revalidation cleanly.
-                if (be instanceof KineticBlockEntityAccessor kAcc
-                        && kAcc.forgiaParallel$speed() != 0.0F
-                        && kAcc.forgiaParallel$source() == null
-                        && !(kbe instanceof GeneratingKineticBlockEntity)) {
-                    return false;
-                }
-                if (kbe instanceof GeneratingKineticBlockEntity gen && gen.reActivateSource) {
-                    return false;
-                }
+                // Note: KineticNetwork and TorquePropagator are ConcurrentHashMap-backed via mixins,
+                // so networkDirty / updateSpeed / validationCountdown run directly in Stage 3 on the
+                // owning Region Worker without bouncing SequencedGearshift or actuators out of phase.
                 if (kbe instanceof HandCrankBlockEntity crank && crank.inUse > 0) {
                     return false;
                 }
@@ -67,6 +63,7 @@ public final class ForgiaCreateParallelCompat {
         };
 
         RegionAdapterApi.admitRegionSandboxedNamespace(CREATE_NAMESPACES);
+        RegionAdapterApi.registerRegionContainedEntityType(CREATE_CONTRAPTION_ENTITY_TYPES);
         // fxntstorage's StorageNetwork controllers/interfaces clear/rebuild NonNullList slot tables
         // during BE ticks; keep only those on server thread while allowing StorageBoxEntity etc. on workers.
         RegionAdapterApi.denyRegionSandboxedBlockEntityType(
@@ -77,6 +74,6 @@ public final class ForgiaCreateParallelCompat {
             RegionAdapterApi.registerSandboxPredicate(ns, kineticTopologySafe);
         }
         RegionAdapterApi.shareSavedData("create_logistics", "create_tracks");
-        LOGGER.info("Forgia Create Parallel Compat active: admitted Create namespaces to Region Sandbox with kinetic topology guard.");
+        LOGGER.info("Forgia Create Parallel Compat active: admitted Create namespaces and region-contained contraption types to Region Sandbox.");
     }
 }

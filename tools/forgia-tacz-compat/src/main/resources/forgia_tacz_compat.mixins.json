@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "dev.forgia.compat.tacz.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "mixins": [
+    "DataHolderMixin",
+    "SyncedEntityDataEventMixin",
+    "SyncedEntityDataMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
