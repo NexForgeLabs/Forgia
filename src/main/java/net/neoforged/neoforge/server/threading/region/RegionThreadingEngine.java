@@ -206,6 +206,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     private final RegionBlockEntityTickCoordinator blockEntityTickCoordinator;
     private final RegionEntityTickCoordinator entityTickCoordinator;
     private final RegionEntityTransferCoordinator entityTransferCoordinator;
+    private final RegionPlayerPrefixCoordinator playerPrefixCoordinator;
     private final RegionDiagnosticsCollector diagnosticsCollector;
     private final RegionSliceCriticalPathMetrics criticalPathMetrics = new RegionSliceCriticalPathMetrics();
     final RegionFenceMetrics fenceMetrics = new RegionFenceMetrics();
@@ -311,19 +312,19 @@ public final class RegionThreadingEngine implements RegionThreading {
      * The region transitions of players: the defined publication point of a player's region, the counters of the
      * transitions by kind and the one-region invariant.
      */
-    private final PlayerRegionTransitions playerRegions = new PlayerRegionTransitions();
+    final PlayerRegionTransitions playerRegions = new PlayerRegionTransitions();
     final RegionPlayerTickCoordinator playerTicks = new RegionPlayerTickCoordinator(this);
-    private final RegionPlayerNetworkGate playerNetworkGate = new RegionPlayerNetworkGate();
-    private final RegionPlayerPacketRouter playerPackets = new RegionPlayerPacketRouter();
-    private final Map<String, AtomicLong> playerAdmissionRefusals = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Map<String, String> playerAdmissionLastRefusal = new java.util.concurrent.ConcurrentHashMap<>();
-    private final AtomicLong playerTicksAdmittedWithMods = new AtomicLong();
+    final RegionPlayerNetworkGate playerNetworkGate = new RegionPlayerNetworkGate();
+    final RegionPlayerPacketRouter playerPackets = new RegionPlayerPacketRouter();
+    final Map<String, AtomicLong> playerAdmissionRefusals = new java.util.concurrent.ConcurrentHashMap<>();
+    final Map<String, String> playerAdmissionLastRefusal = new java.util.concurrent.ConcurrentHashMap<>();
+    final AtomicLong playerTicksAdmittedWithMods = new AtomicLong();
     // Publisher-only, weak keys: an AttributeMap's supplier is final and its instance table only grows.
     private final Map<net.minecraft.world.entity.ai.attributes.AttributeMap, Boolean> warmedPlayerAttributes = new java.util.WeakHashMap<>();
     // Mutable local-object aliases are resource conflicts, never a second entity identity ledger.
-    private final java.util.IdentityHashMap<Object, RegionPlayerSpatialLease> playerStateClaims = new java.util.IdentityHashMap<>();
-    private final RegionPlayerPrefixClaims playerPrefixClaims = new RegionPlayerPrefixClaims();
-    private volatile boolean playerTickPlanningRequested = RegionThreadingConfig.playerTicksRequested();
+    final java.util.IdentityHashMap<Object, RegionPlayerSpatialLease> playerStateClaims = new java.util.IdentityHashMap<>();
+    final RegionPlayerPrefixClaims playerPrefixClaims = new RegionPlayerPrefixClaims();
+    volatile boolean playerTickPlanningRequested = RegionThreadingConfig.playerTicksRequested();
     /**
      * Levels whose entity tick index was seeded from the level's authoritative tick list.
      */
@@ -1167,6 +1168,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         this.blockEntityTickCoordinator = new RegionBlockEntityTickCoordinator(this);
         this.entityTickCoordinator = new RegionEntityTickCoordinator(this);
         this.entityTransferCoordinator = new RegionEntityTransferCoordinator(this);
+        this.playerPrefixCoordinator = new RegionPlayerPrefixCoordinator(this);
         this.diagnosticsCollector = new RegionDiagnosticsCollector(
                 new RegionDiagnosticsCollector.BorderSources(
                         this.borderUpdatesRecorded,
@@ -3053,7 +3055,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         return !busy.get();
     }
 
-    private boolean playerDispatchQuiescent() {
+    boolean playerDispatchQuiescent() {
         return this.regionWorkAdmission.hasNoActiveClaims() ? this.isInteractionCompletionQuiescent() : this.isQuiescentForParallelApi();
     }
 
@@ -3063,7 +3065,7 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     /** A main-thread continuation may run inside a published batch only after all of its workers returned. */
-    private boolean isInteractionCompletionQuiescent() {
+    boolean isInteractionCompletionQuiescent() {
         for (final RegionTickBatch batch : this.activeTickBatches) {
             if (!batch.isExecutingOnCurrentThread() || !batch.isGroupsComplete()) {
                 return false;
@@ -4552,13 +4554,13 @@ public final class RegionThreadingEngine implements RegionThreading {
         return this.capturePlayerAdmissionPlan(player, phase, null, null);
     }
 
-    private RegionPlayerAdmissionPlan.Capture capturePlayerAdmissionPlan(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase,
+    RegionPlayerAdmissionPlan.Capture capturePlayerAdmissionPlan(ServerPlayer player, RegionPlayerTickCoordinator.Phase phase,
             @Nullable RegionPlayerExtensionSnapshot.Check prefixEnvironment, @Nullable RegionPlayerSpatialPlan.Capture geometry) {
         var capture = RegionPlayerAdmissionPlan.capture(this, player, phase, null, prefixEnvironment, geometry);
         return this.recordPlayerAdmissionCapture(phase, capture);
     }
 
-    private RegionPlayerAdmissionPlan.Capture recordPlayerAdmissionCapture(RegionPlayerTickCoordinator.Phase phase, RegionPlayerAdmissionPlan.Capture capture) {
+    RegionPlayerAdmissionPlan.Capture recordPlayerAdmissionCapture(RegionPlayerTickCoordinator.Phase phase, RegionPlayerAdmissionPlan.Capture capture) {
         if (capture.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
             this.playerAdmissionRefusals.computeIfAbsent(phase.name() + ":" + capture.refusal().name(), key -> new AtomicLong()).incrementAndGet();
             this.playerAdmissionLastRefusal.put(phase.name(), capture.refusal() + ":" + capture.detail());
@@ -4602,12 +4604,12 @@ public final class RegionThreadingEngine implements RegionThreading {
     }
 
     @Nullable
-    private RegionPlayerSpatialLease reserveBoundPlayerState(RegionTickBatch parent, RegionOwnershipLeaseGroup effects, List<RegionPlayerStatePlan> plans, boolean sameSealedPrefix) {
+    RegionPlayerSpatialLease reserveBoundPlayerState(RegionTickBatch parent, RegionOwnershipLeaseGroup effects, List<RegionPlayerStatePlan> plans, boolean sameSealedPrefix) {
         if (plans.isEmpty() || !this.canReservePlayerSpatial(parent, plans.getFirst().player())) return null;
         return RegionPlayerSpatialLease.acquireBound(this, parent, effects, plans, sameSealedPrefix, false);
     }
 
-    private boolean canReservePlayerSpatial(RegionTickBatch parent, ServerPlayer player) {
+    boolean canReservePlayerSpatial(RegionTickBatch parent, ServerPlayer player) {
         if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread() || !this.regionWorkAdmission.isOwner())
             throw new IllegalStateException("Spatial reservation requires original engine server admission");
         return this.activeTickBatches.contains(parent) && parent.isExecutingOnCurrentThread() && parent.isGroupsComplete()
@@ -4657,154 +4659,21 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     /** One original PacketUtils queue position; later packets/continuations cannot overtake its join. */
     boolean tryRunPlayerPacket(net.minecraft.network.protocol.Packet<?> packet,
-            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original) {
-        return this.tryRunPlayerOperation(packet, listener, original, false, null);
+            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable originalHandle) {
+        return this.playerPrefixCoordinator.tryRunPlayerPacket(packet, listener, originalHandle);
     }
 
-    boolean tryRunPlayerChatCompletion(net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original) {
-        return this.tryRunPlayerOperation(null, listener, original, true, null);
+    boolean tryRunPlayerChatCompletion(net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable originalHandle) {
+        return this.playerPrefixCoordinator.tryRunPlayerChatCompletion(listener, originalHandle);
     }
 
     boolean tryRunPlayerPayload(net.minecraft.network.protocol.Packet<?> packet,
             net.minecraft.server.network.ServerGamePacketListenerImpl listener,
             net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> declaration, Runnable original) {
-        return this.tryRunPlayerOperation(packet, listener, original, false, declaration);
+        return this.playerPrefixCoordinator.tryRunPlayerPayload(packet, listener, declaration, original);
     }
 
-    private boolean tryRunPlayerOperation(@Nullable net.minecraft.network.protocol.Packet<?> packet,
-            net.minecraft.server.network.ServerGamePacketListenerImpl listener, Runnable original, boolean chatCompletion,
-            @Nullable net.neoforged.neoforge.network.handling.RegionThreadPayloadHandler<?> payload) {
-        ServerPlayer player = listener.player;
-        if (!this.playerCriterionStorageEnabled() || !player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()
-                || (!chatCompletion && payload == null && (packet == null || !RegionPlayerPacketPlan.known(packet))) || !this.activeTickBatches.isEmpty()
-                || this.regionWorkAdmission.isOwner() || !this.regionWorkAdmission.tryEnter(this::playerDispatchQuiescent))
-            return this.playerPackets.refusePayload(payload, "DEPENDENCIES_OR_BUSY");
-        RegionPlayerTickDispatch.Lifecycle parent = null;
-        RegionPlayerSpatialLease lease = null;
-        RegionPlayerPacketRouter.Call call = null;
-        RegionPlayerPacketPlan.Preparation preparation = null;
-        RegionPlayerTickDispatch effects = null;
-        boolean frozen = false;
-        boolean regionPhase = false;
-        long sequence = 0;
-        try {
-            // Preserve explicit NETWORK handlers of unknown extensions on their original thread.
-            var environment = payload == null ? RegionPlayerExtensionSnapshot.capture() : null;
-            if (environment != null && environment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) return false;
-            var packetPlan = payload != null ? RegionPlayerPacketPlan.payload(packet, listener, payload)
-                    : chatCompletion ? RegionPlayerPacketPlan.chat(listener) : RegionPlayerPacketPlan.capture(packet, listener);
-            if (packetPlan == null) return this.playerPackets.refusePayload(payload, "UNREGISTERED_OR_STALE_PAYLOAD");
-            if (!this.playerNetworkGate.freezePreservingNetworkThread(player.server))
-                return this.playerPackets.refusePayload(payload, "NETWORK_CALLBACKS");
-            frozen = true;
-            preparation = packetPlan.prepare();
-            this.playerRegions.publishAtPlayerStage(this, player);
-            var capture = payload == null ? this.capturePlayerAdmissionPlan(player, RegionPlayerTickCoordinator.Phase.CONNECTION, environment, null)
-                    : RegionPlayerAdmissionPlan.capture(this, player, RegionPlayerTickCoordinator.Phase.CONNECTION, packetPlan);
-            if (capture.plan() == null) return this.playerPackets.refusePayload(payload, "ADMISSION_" + capture.refusal().name());
-            parent = new RegionPlayerTickDispatch.Lifecycle(player.serverLevel());
-            if (this.publishTickBatch(parent, player.serverLevel()) != TickBatchPublication.PUBLISHED) {
-                parent.finish();
-                parent = null;
-                return this.playerPackets.refusePayload(payload, "BATCH_PUBLICATION");
-            }
-            parent.markExecutingOnCurrentThread();
-            effects = new RegionPlayerTickDispatch(this, parent);
-            lease = this.reserveBoundPlayerState(parent, effects, List.of(capture.plan().state()), false);
-            if (lease == null)
-                return this.playerPackets.refusePayload(payload, "LEASE_OR_STATE_REVALIDATION");
-            call = new RegionPlayerPacketRouter.Call(packet, listener, capture.plan(), packetPlan, original);
-            sequence = this.playerPackets.next();
-            if (!chatCompletion && !this.playerPackets.consume(call.received)) return this.playerPackets.refusePayload(payload, "STALE_RECEIVE");
-            var invocation = call;
-            var ownership = lease;
-            var work = new RegionTaskBatch();
-            work.add("original player packet", parent.groupWork(() -> invocation.run(ownership)));
-            parent.externalWaveActive(true);
-            this.beginRegionPhase(parent.level());
-            regionPhase = true;
-            var joined = work.submit(this.workerPool);
-            call.await(joined); // Only exact synchronous packet services; no server/chunk queue pump.
-            joined.throwIfFailed();
-            if (call.failure != null) throwUnchecked(call.failure); // Original PacketUtils catches on publisher.
-            return call.started || this.playerPackets.refusePayload(payload, "PRE_BODY_REVALIDATION_OR_REJECTION");
-        } catch (Throwable problem) {
-            if (call != null && call.failure != null && call.failure != problem) {
-                accumulateFailure(call.failure, problem);
-                throwUnchecked(call.failure);
-            }
-            throwUnchecked(problem);
-            return false; // throwUnchecked always throws.
-        } finally {
-            Throwable cleanup = null;
-            try {
-                if (regionPhase) this.levelTickPhaseState(parent.level()).endRegionPhase();
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            }
-            try {
-                if (parent != null) parent.externalWaveActive(false);
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            }
-            try {
-                if (lease != null) lease.close();
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            }
-            try {
-                if (call != null) this.playerPackets.finish(sequence, call);
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            }
-            try {
-                if (effects != null) {
-                    this.applyDeferredRemovals(parent.level(), effects.removals.drain(), effects.removals.isSeamClosed(), true);
-                    this.applyDeferredSectionUpdates(parent.level(), effects.sections.drain(), effects.sections.isSeamClosed());
-                }
-                if (call != null && call.started) this.playerRegions.publishAtPlayerStage(this, player);
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            }
-            try {
-                if (parent != null) {
-                    parent.completeExternalWaves();
-                    parent.finish();
-                }
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            } finally {
-                try {
-                    if (parent != null) {
-                        this.activeTickBatches.remove(parent);
-                        parent.clearExecutingOnCurrentThread();
-                    }
-                } finally {
-                    try {
-                        if (preparation != null) preparation.close();
-                    } finally {
-                        try {
-                            if (frozen) this.playerNetworkGate.thaw();
-                        } catch (Throwable problem) {
-                            cleanup = accumulateFailure(cleanup, problem);
-                        } finally {
-                            try {
-                                this.regionWorkAdmission.exit();
-                            } catch (Throwable problem) {
-                                cleanup = accumulateFailure(cleanup, problem);
-                            }
-                        }
-                    }
-                }
-            }
-            if (cleanup != null) {
-                if (call != null && call.failure != null) accumulateFailure(call.failure, cleanup);
-                else throwUnchecked(cleanup);
-            }
-        }
-    }
-
-    private final @Nullable PlayerPrefixTiming[] playerPrefixTiming = createPlayerPrefixTiming();
+    final @Nullable PlayerPrefixTiming[] playerPrefixTiming = createPlayerPrefixTiming();
 
     private long playerObservedChunkSaveNanos, playerObservedChunkFlushNanos;
 
@@ -4868,444 +4737,27 @@ public final class RegionThreadingEngine implements RegionThreading {
 
     // Bound publisher work and the lifetime of the frozen network boundary. A lane can
     // complete several disjoint groups but never grants their permissions simultaneously.
-    private static final int PLAYER_PREFIX_LIMIT = 32;
-    private final java.util.HashSet<RegionCoordinate> isolatedRegionScratch = new java.util.HashSet<>(64);
+    static final int PLAYER_PREFIX_LIMIT = 32;
+    final java.util.HashSet<RegionCoordinate> isolatedRegionScratch = new java.util.HashSet<>(64);
 
-    private boolean isIsolatedPlayerPrefix(List<RegionPlayerTickDispatch.Call> calls) {
-        // The captured region contains only its player. Distinct singleton footprints prove
-        // spatial independence, while reserveBoundPlayerState still checks all mutable aliases.
-        var regions = this.isolatedRegionScratch;
-        regions.clear();
-        try {
-            for (int i = 0, size = calls.size(); i < size; i++) {
-                var state = calls.get(i).admission.state();
-                var footprint = state.spatial().footprint().regions();
-                if (!state.permitsLocalNetworkReturn() || footprint.size() != 1 || !regions.add(footprint.getFirst())) return false;
-            }
-            return true;
-        } finally {
-            regions.clear();
-        }
+    int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered) {
+        return this.playerPrefixCoordinator.dispatchPlayerPrefix(ordered);
     }
 
-    /** One bounded contiguous prefix. Every acquired capability is released after real physical join. */
-    private int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered) {
-        return this.dispatchPlayerPrefix(ordered, false);
+    int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered, boolean skipIneligible) {
+        return this.playerPrefixCoordinator.dispatchPlayerPrefix(ordered, skipIneligible);
     }
 
-    private int dispatchPlayerPrefix(List<RegionPlayerTickDispatch.Call> ordered, boolean skipIneligible) {
-        if (ordered.isEmpty() || !this.playerCriterionStorageEnabled()) return 0;
-        final ServerPlayer first = ordered.getFirst().player;
-        if (!first.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) throw new IllegalStateException("Player dispatch requires its original server publisher");
-        final var firstPhase = ordered.getFirst().phase;
-        final PlayerPrefixTiming timing = this.playerPrefixTiming == null ? null : this.playerPrefixTiming[firstPhase.ordinal()];
-        final long begin = timing == null ? 0 : System.nanoTime();
-        long captured = 0, submitted = 0, returned = 0;
-        int groupsSubmitted = 0;
-        boolean enteredAdmission = false;
-        if (this.regionWorkAdmission.isOwner()) {
-            // CONNECTION_BODY runs from inside ServerGamePacketListenerImpl.tick() while the server thread
-            // already holds the serial CONNECTION admission fence; verify no workers are active.
-            if (firstPhase != RegionPlayerTickCoordinator.Phase.CONNECTION_BODY || !this.isInteractionCompletionQuiescent()) return 0;
-        } else {
-            if (!this.regionWorkAdmission.tryEnter(this::playerDispatchQuiescent)) return 0;
-            enteredAdmission = true;
-        }
-        RegionTickBatch parent = null;
-        boolean ownParent = false;
-        boolean frozen = false;
-        boolean regionPhase = false;
-        boolean prefixClaimsHeld = false;
-        final List<RegionPlayerSpatialLease> leases = new ArrayList<>();
-        final List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
-        RegionPlayerTickDispatch effects = null;
-        Throwable dispatchFailure = null;
-        try {
-            // Unknown extensions keep their ORIGINAL receive-thread contract as well as serial ticks.
-            // Freezing even a subsequently refused prefix could move an explicit NETWORK payload to
-            // the server queue. Inspect the global environment before creating that boundary; the full
-            // per-call capture/worker consume below still rechecks every admission condition.
-            boolean entityPhase = firstPhase == RegionPlayerTickCoordinator.Phase.ENTITY;
-            boolean connectionBodyPhase = firstPhase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY;
-            var environment = connectionBodyPhase
-                    ? RegionPlayerExtensionSnapshot.captureConnectionBody(false)
-                    : RegionPlayerExtensionSnapshot.capture();
-            var localEnvironment = entityPhase && environment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE
-                    ? RegionPlayerExtensionSnapshot.capture(true) : environment;
-            if (localEnvironment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
-                this.capturePlayerAdmissionPlan(first, firstPhase, localEnvironment, null);
-                return 0;
-            }
-            for (RegionTickBatch active : this.activeTickBatches) {
-                if (active.level() != first.serverLevel() || !active.isExecutingOnCurrentThread() || !active.isGroupsComplete()) return 0;
-                if (parent != null) return 0;
-                parent = active;
-            }
-            if (parent == null) {
-                parent = new RegionPlayerTickDispatch.Lifecycle(first.serverLevel());
-                if (this.publishTickBatch(parent, first.serverLevel()) != TickBatchPublication.PUBLISHED) return 0;
-                ownParent = true;
-                parent.markExecutingOnCurrentThread();
-            }
-            // Overlap persistent worker OS wake-up (~90 us) with server-thread admission & leasing.
-            if (ordered.size() > 1) {
-                int preWakeCount = entityPhase && ordered.size() > 2 ? Math.max(2, (ordered.size() + 3) / 4) : ordered.size();
-                this.workerPool.preWake(Math.min(preWakeCount, this.workerPool.threadCount()));
-            }
-            // The worker rechecks connection observations after closing the original network gate.
-            int inspected = 0;
-            for (RegionPlayerTickDispatch.Call call : ordered) {
-                if (calls.size() == PLAYER_PREFIX_LIMIT || call.player.serverLevel() != first.serverLevel() || call.phase != firstPhase) break;
-                ++inspected;
-                this.playerRegions.publishAtPlayerStage(this, call.player);
-                var localCapture = entityPhase ? RegionPlayerAdmissionPlan.captureLocalEntity(this, call.player) : null;
-                var admission = localCapture == null ? null : localCapture.plan();
-                if (admission == null) {
-                    if (localEnvironment.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
-                        this.recordPlayerAdmissionCapture(call.phase, java.util.Objects.requireNonNull(localCapture));
-                        if (skipIneligible) continue;
-                        break;
-                    }
-                    if (entityPhase) {
-                        var nonLocalIntrinsic = RegionPlayerAdmissionPlan.intrinsic(call.player, false, null, call.phase);
-                        if (nonLocalIntrinsic.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
-                            this.recordPlayerAdmissionCapture(call.phase,
-                                    new RegionPlayerAdmissionPlan.Capture(null, nonLocalIntrinsic.refusal(), nonLocalIntrinsic.detail()));
-                            if (skipIneligible) continue;
-                            break;
-                        }
-                    }
-                    var geometry = RegionPlayerSpatialPlan.capture(this, call.player, call.phase, true, true);
-                    if (geometry.plan() != null
-                            && (call.phase == RegionPlayerTickCoordinator.Phase.CONNECTION
-                                    || (call.phase == RegionPlayerTickCoordinator.Phase.CONNECTION_BODY
-                                            && !RegionPlayerAdmissionPlan.mayEmitGameEvent(call.player)))) {
-                        admission = RegionPlayerAdmissionPlan.tryCaptureLocalConnection(this, call.player, geometry.plan());
-                    }
-                    if (admission == null) {
-                        admission = this.capturePlayerAdmissionPlan(call.player, call.phase, localEnvironment, geometry).plan();
-                    }
-                }
-                if (admission == null) {
-                    if (skipIneligible) continue;
-                    break;
-                }
-                call.admission = admission;
-                calls.add(call);
-            }
-            if (calls.isEmpty()) return 0;
-            if (timing != null) captured = System.nanoTime();
-            effects = new RegionPlayerTickDispatch(this, parent);
-            final List<RegionPlayerTickDispatch.Group> groups = new ArrayList<>(calls.size());
-            boolean isolated = isIsolatedPlayerPrefix(calls);
-            if (isolated) {
-                if (!this.playerStateClaims.isEmpty() || !this.canReservePlayerSpatial(parent, first)) return 0;
-                prefixClaimsHeld = this.playerPrefixClaims.tryAcquire(calls);
-                if (!prefixClaimsHeld) return 0;
-                for (var call : calls) {
-                    var lease = RegionPlayerSpatialLease.acquireBound(this, parent, effects, List.of(call.admission.state()), true, true);
-                    if (lease == null) return 0;
-                    leases.add(lease);
-                    groups.add(new RegionPlayerTickDispatch.Group(lease, List.of(call)));
-                }
-            } else {
-                for (var call : calls) {
-                    if (!call.admission.state().validatePrefix(false)) return 0;
-                }
-                final var entries = new ArrayList<RegionPlayerConflictPlan.Entry>(calls.size());
-                final var byEntry = new java.util.IdentityHashMap<RegionPlayerConflictPlan.Entry, RegionPlayerTickDispatch.Call>(calls.size());
-                for (var call : calls) {
-                    var entry = call.admission.state().conflictEntry();
-                    entries.add(entry);
-                    byEntry.put(entry, call);
-                }
-                final var prefix = RegionPlayerConflictPlan.prefix(entries);
-                if (prefix.nextIndex() == 0) return 0;
-                calls.subList(prefix.nextIndex(), calls.size()).clear();
-                for (var group : prefix.groups()) {
-                    var members = new ArrayList<RegionPlayerTickDispatch.Call>(group.entries().size());
-                    var states = new ArrayList<RegionPlayerStatePlan>(group.entries().size());
-                    for (var entry : group.entries()) {
-                        var call = byEntry.get(entry);
-                        members.add(call);
-                        states.add(call.admission.state());
-                    }
-                    var lease = this.reserveBoundPlayerState(parent, effects, states, true);
-                    if (lease == null) return 0;
-                    leases.add(lease);
-                    groups.add(new RegionPlayerTickDispatch.Group(lease, members));
-                }
-            }
-            final RegionTaskBatch work = new RegionTaskBatch();
-            final int maxLanes = entityPhase && isolated && groups.size() > 2
-                    ? Math.max(2, (groups.size() + 3) / 4)
-                    : this.workerPool.threadCount();
-            final int lanes = Math.min(groups.size(), Math.min(maxLanes, this.workerPool.threadCount()));
-            final var startup = new RegionPlayerTickDispatch.StartGate(lanes);
-            final var nextGroup = lanes < groups.size() ? new java.util.concurrent.atomic.AtomicInteger(lanes) : null;
-            final var dispatch = effects;
-            boolean needsParallelValidation = false;
-            if (isolated) {
-                for (int i = 0, size = calls.size(); i < size; i++) {
-                    var adm = calls.get(i).admission;
-                    if (adm.state().needsTemplateValidation() || adm.spatial().needsTerrainValidation()) {
-                        needsParallelValidation = true;
-                        break;
-                    }
-                }
-            }
-            dispatch.parallelTemplateValidation = needsParallelValidation;
-            dispatch.independentGroups = skipIneligible && isolated && entityPhase;
-            // A group may resume its exact connection after returning only if every group owns
-            // a single local-only player and has no captured target or shared state.
-            boolean localWave = groups.size() == calls.size();
-            if (localWave && !isolated) {
-                for (int i = 0, size = calls.size(); i < size; i++) {
-                    if (!calls.get(i).admission.state().permitsLocalNetworkReturn()) {
-                        localWave = false;
-                        break;
-                    }
-                }
-            }
-            // Keep the body’s direct network callbacks frozen through the publisher join and cleanup.
-            dispatch.localNetworkWave = localWave && !connectionBodyPhase;
-            for (int i = 0; i < lanes; i++) {
-                final int lane = i;
-                work.add("complete player " + firstPhase, parent.groupWork(() -> dispatch.runLane(groups, startup, lane, nextGroup), startup::refuse));
-            }
-            boolean networkReady;
-            long freezeStart = timing == null ? 0 : System.nanoTime();
-            if (dispatch.localNetworkWave) {
-                var connections = new ArrayList<net.minecraft.network.Connection>(calls.size());
-                for (int i = 0, size = calls.size(); i < size; i++) {
-                    connections.add(calls.get(i).admission.state().connection());
-                }
-                networkReady = this.playerNetworkGate.freezeLocalWave(first.server, connections);
-            } else {
-                networkReady = this.playerNetworkGate.freezePreservingNetworkThread(first.server);
-            }
-            if (timing != null) timing.networkFreezeNanos += System.nanoTime() - freezeStart;
-            if (!networkReady) return 0;
-            frozen = true;
-            if (!this.playerTicks.admitWorkerPrefix(calls)) return 0;
-            if (localEnvironment.hasExtraMods()) this.playerTicksAdmittedWithMods.addAndGet(calls.size());
-            parent.externalWaveActive(true);
-            this.beginRegionPhase(parent.level());
-            regionPhase = true;
-            if (timing != null) {
-                submitted = System.nanoTime();
-                groupsSubmitted = groups.size();
-                dispatch.initLaneTimers(lanes, submitted);
-            }
-            if (connectionBodyPhase) {
-                parent.submitAndJoinPlayerConnectionBody(work, this.workerPool);
-            } else {
-                var joined = work.submit(this.workerPool);
-                joined.awaitCompletion();
-                joined.throwIfFailed();
-            }
-            if (timing != null) returned = System.nanoTime();
-            return skipIneligible ? inspected : calls.size();
-        } catch (Throwable failure) {
-            dispatchFailure = failure;
-            Throwable original = calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
-            if (original != null) {
-                dispatchFailure = accumulateFailure(original, failure);
-                throwUnchecked(dispatchFailure);
-            }
-            throw failure;
-        } finally {
-            long cleanupStart = timing == null ? 0 : System.nanoTime();
-            Throwable cleanup = null;
-            try {
-                if (regionPhase) this.levelTickPhaseState(parent.level()).endRegionPhase();
-            } catch (Throwable problem) {
-                cleanup = accumulateFailure(cleanup, problem);
-            }
-            if (parent != null) parent.externalWaveActive(false);
-            try {
-                if (!calls.isEmpty()) {
-                    Throwable finishFailure = this.playerTicks.finishWorkerPrefix(calls);
-                    if (finishFailure != null) cleanup = accumulateFailure(cleanup, finishFailure);
-                }
-                for (var lease : leases) {
-                    try {
-                        lease.close();
-                    } catch (Throwable problem) {
-                        cleanup = accumulateFailure(cleanup, problem);
-                    }
-                }
-                if (effects != null) {
-                    try {
-                        // A started pickup already transferred XP and marked its entity removed. Unlike
-                        // cancellable future work this committed storage callback must run even after
-                        // stop-new-admission. Shutdown/level retirement await this original batch fence.
-                        this.applyDeferredRemovals(parent.level(), effects.removals.drain(), effects.removals.isSeamClosed(), true);
-                    } catch (Throwable problem) {
-                        cleanup = accumulateFailure(cleanup, problem);
-                    }
-                    try {
-                        this.applyDeferredSectionUpdates(parent.level(), effects.sections.drain(), effects.sections.isSeamClosed());
-                    } catch (Throwable problem) {
-                        cleanup = accumulateFailure(cleanup, problem);
-                    }
-                }
-            } finally {
-                try {
-                    if (prefixClaimsHeld) this.playerPrefixClaims.release();
-                    if (ownParent) {
-                        parent.completeExternalWaves();
-                        parent.finish();
-                    }
-                } catch (Throwable problem) {
-                    cleanup = accumulateFailure(cleanup, problem);
-                } finally {
-                    if (ownParent) {
-                        this.activeTickBatches.remove(parent);
-                        parent.clearExecutingOnCurrentThread();
-                    }
-                    try {
-                        if (frozen) this.playerNetworkGate.thaw();
-                    } catch (Throwable problem) {
-                        cleanup = accumulateFailure(cleanup, problem);
-                    } finally {
-                        if (enteredAdmission) this.regionWorkAdmission.exit();
-                    }
-                }
-            }
-            if (timing != null && captured == 0) timing.refusedBeforeCaptureNanos += cleanupStart - begin;
-            if (returned != 0) {
-                timing.waves++;
-                timing.calls += calls.size();
-                timing.groups += groupsSubmitted;
-                timing.admissionNanos += captured - begin;
-                timing.leaseNanos += submitted - captured;
-                timing.submitAndJoinNanos += returned - submitted;
-                timing.cleanupNanos += System.nanoTime() - returned;
-                for (var call : calls) timing.workerBodyNanosSum += call.ticket.workerBodyNanos();
-                if (effects != null) effects.accumulateLaneTimers(timing, submitted, returned);
-            }
-            if (cleanup != null) {
-                Throwable original = dispatchFailure != null ? dispatchFailure
-                        : calls.stream().filter(call -> call.failure != null).map(call -> call.failure).findFirst().orElse(null);
-                if (original != null) accumulateFailure(original, cleanup);
-                else throwUnchecked(cleanup);
-            }
-        }
-    }
-
-    /**
-     * Controlled {@code CONNECTION_BODY} entry called at the exact {@code this.player.doTick()} site
-     * inside {@code ServerGamePacketListenerImpl.tick()}. Preserves complete {@code Connection.tick()}
-     * ordering and lifecycle on the server thread while executing {@code originalDoTick} on a region worker.
-     */
-    @ApiStatus.Internal
     public boolean tryRunPlayerConnectionBodyTick(ServerPlayer player, Runnable originalDoTick) {
-        if (!this.playerTickPlanningRequested || this.shutdown) return false;
-        if (!player.server.isSameThread() || RegionWorkerScope.isNativeWorkerThread()) {
-            throw new IllegalStateException("Player connection body tick requires the original server thread");
-        }
-        if (!this.preparePlayerConnectionBody(player)) return false;
-        var call = new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, originalDoTick);
-        int consumed = this.dispatchPlayerPrefix(List.of(call));
-        if (consumed == 0) {
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    player.isPassenger() || !player.getPassengers().isEmpty()
-                            ? RegionPlayerTickCoordinator.Reason.RIDING
-                            : RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
-            return false;
-        }
-        if (call.failure != null) throwUnchecked(call.failure);
-        if (!call.started) {
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    RegionPlayerTickCoordinator.Reason.STALE);
-            return false;
-        }
-        return true;
-    }
-
-    private boolean preparePlayerConnectionBody(ServerPlayer player) {
-        var timing = this.playerPrefixTiming == null ? null : this.playerPrefixTiming[RegionPlayerTickCoordinator.Phase.CONNECTION_BODY.ordinal()];
-        if (timing == null) return checkPlayerConnectionBodyPreflight(player);
-        long start = System.nanoTime();
-        try {
-            boolean eligible = checkPlayerConnectionBodyPreflight(player);
-            if (!eligible) timing.preflightRefusals++;
-            return eligible;
-        } finally {
-            timing.preflightCalls++;
-            timing.preflightNanos += System.nanoTime() - start;
-        }
-    }
-
-    private boolean checkPlayerConnectionBodyPreflight(ServerPlayer player) {
-        if (player instanceof net.neoforged.neoforge.common.util.FakePlayer || player.connection == null) {
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    player instanceof net.neoforged.neoforge.common.util.FakePlayer
-                            ? RegionPlayerTickCoordinator.Reason.FAKE_PLAYER
-                            : RegionPlayerTickCoordinator.Reason.NOT_CURRENT_PLAYER);
-            return false;
-        }
-        if (!this.playerCriterionStorageEnabled()) {
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    RegionPlayerTickCoordinator.Reason.DEPENDENCIES);
-            return false;
-        }
-        var spatialRefusal = RegionPlayerSpatialPlan.intrinsicRefusal(player, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY, true);
-        if (spatialRefusal != RegionPlayerSpatialPlan.Refusal.NONE) {
-            this.playerAdmissionRefusals.computeIfAbsent("CONNECTION_BODY:SPATIAL", key -> new AtomicLong()).incrementAndGet();
-            this.playerAdmissionLastRefusal.put("CONNECTION_BODY", "SPATIAL:" + spatialRefusal.name());
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    spatialRefusal == RegionPlayerSpatialPlan.Refusal.RIDING
-                            ? RegionPlayerTickCoordinator.Reason.RIDING
-                            : RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
-            return false;
-        }
-        var intrinsicRefusal = RegionPlayerAdmissionPlan.intrinsic(player, false, null, RegionPlayerTickCoordinator.Phase.CONNECTION_BODY);
-        if (intrinsicRefusal.refusal() != RegionPlayerAdmissionPlan.Refusal.NONE) {
-            this.playerAdmissionRefusals.computeIfAbsent("CONNECTION_BODY:" + intrinsicRefusal.refusal().name(), key -> new AtomicLong()).incrementAndGet();
-            this.playerAdmissionLastRefusal.put("CONNECTION_BODY", intrinsicRefusal.refusal() + ":" + intrinsicRefusal.detail());
-            this.playerTicks.recordUntrackedSerial(RegionPlayerTickCoordinator.Phase.CONNECTION_BODY,
-                    RegionPlayerTickCoordinator.Reason.CALLBACK_CONTRACT_OPEN);
-            return false;
-        }
-        return true;
+        return this.playerPrefixCoordinator.tryRunPlayerConnectionBodyTick(player, originalDoTick);
     }
 
     int dispatchPlayerConnectionBodyPrefix(List<RegionPlayerTickDispatch.Call> calls) {
-        return this.dispatchPlayerPrefix(calls);
+        return this.playerPrefixCoordinator.dispatchPlayerConnectionBodyPrefix(calls);
     }
 
     void tickPlayerWorldSequence(RegionEntityTickBatch parent, List<Entity> entities) {
-        for (int index = 0; index < entities.size();) {
-            final List<RegionPlayerTickDispatch.Call> calls = new ArrayList<>();
-            for (int next = index; next < entities.size() && calls.size() < PLAYER_PREFIX_LIMIT; next++) {
-                if (!(entities.get(next) instanceof ServerPlayer player) || player.getClass() != ServerPlayer.class
-                        || player.isRemoved() || player.level() != parent.level() || player.isPassenger() || !player.getPassengers().isEmpty()
-                        || !parent.level().isInEntityTickingRange(player.chunkPosition().toLong())
-                        || RegionEntityTickActivation.isFrozen(player, parent.level().tickRateManager() == null || parent.level().tickRateManager().runsNormally()))
-                    break;
-                calls.add(new RegionPlayerTickDispatch.Call(player, RegionPlayerTickCoordinator.Phase.ENTITY,
-                        () -> parent.level().guardEntityTick(parent.level()::tickNonPassenger, player)));
-            }
-            if (calls.isEmpty()) {
-                this.tickEntityServerSide(parent.level(), entities.get(index++));
-                continue;
-            }
-            int consumed = this.dispatchPlayerPrefix(calls, true);
-            if (consumed == 0) {
-                for (var call : calls) {
-                    this.tickEntityServerSide(parent.level(), call.player);
-                }
-                index += calls.size();
-                continue;
-            }
-            for (var call : calls.subList(0, consumed)) {
-                if (call.failure != null) throwUnchecked(call.failure);
-                if (!call.started) this.tickEntityServerSide(parent.level(), call.player);
-            }
-            index += consumed;
-        }
+        this.playerPrefixCoordinator.tickPlayerWorldSequence(parent, entities);
     }
 
     /** Same original connection traversal; results are consumed at each original try/catch position. */
