@@ -118,6 +118,7 @@ public final class RegionPlayerStateScope implements AutoCloseable {
     }
 
     public static void checkListenerStorage(PlayerCriterionListeners storage) {
+        if (storage.isFakePlayer()) return;
         if (RegionWorkerScope.isNativeWorkerThread() && !require().owns(storage)) throw RegionWorkerBoundaryException.playerState("checkListenerStorage", "Foreign criterion listener owner");
     }
 

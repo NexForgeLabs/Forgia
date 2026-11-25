@@ -29,6 +29,7 @@ import org.jetbrains.annotations.Nullable;
 @ApiStatus.Internal
 public final class PlayerCriterionListeners {
     private final boolean enabled;
+    private volatile boolean fakePlayer;
     private final Map<SimpleCriterionTrigger<?>, Set<?>> listeners = new IdentityHashMap<>();
     private long revision;
     private volatile long generation;
@@ -166,8 +167,18 @@ public final class PlayerCriterionListeners {
         return this.generation;
     }
 
+    public void setFakePlayer(boolean fakePlayer) {
+        this.fakePlayer = fakePlayer;
+    }
+
+    public boolean isFakePlayer() {
+        return this.fakePlayer;
+    }
+
     public void invalidateLifecycle() {
-        RegionPlayerStateScope.rejectLifecycle("advancement rebind/reload/stopListening");
+        if (!this.fakePlayer) {
+            RegionPlayerStateScope.rejectLifecycle("advancement rebind/reload/stopListening");
+        }
         this.generation++;
     }
 
@@ -186,7 +197,7 @@ public final class PlayerCriterionListeners {
     }
 
     private void check() {
-        if (RegionWorkerScope.isNativeWorkerThread()) RegionPlayerStateScope.checkListenerStorage(this);
+        if (!this.fakePlayer && RegionWorkerScope.isNativeWorkerThread()) RegionPlayerStateScope.checkListenerStorage(this);
     }
 
     /** The original set or null; querying never creates a registration. */

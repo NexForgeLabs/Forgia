@@ -8,7 +8,14 @@
      private final PlayerList playerList;
      private final Path playerSavePath;
      private AdvancementTree tree;
-@@ -72,17 +_,25 @@
+@@ -66,23 +_,33 @@
+         this.playerList = p_265703_;
+         this.playerSavePath = p_265268_;
+         this.player = p_265673_;
++        this.forgiaCriterionListeners.setFakePlayer(p_265673_ instanceof net.neoforged.neoforge.common.util.FakePlayer);
+         this.tree = p_265166_.tree();
+         int i = 1343;
+         this.codec = DataFixTypes.ADVANCEMENTS.wrapCodec(PlayerAdvancements.Data.CODEC, p_265655_, 1343);
          this.load(p_265166_);
      }
  
@@ -18,6 +25,7 @@
 +    }
 +
      public void setPlayer(ServerPlayer p_135980_) {
++        this.forgiaCriterionListeners.setFakePlayer(p_135980_ instanceof net.neoforged.neoforge.common.util.FakePlayer);
 +        this.forgiaCriterionListeners.invalidateLifecycle();
          this.player = p_135980_;
      }
