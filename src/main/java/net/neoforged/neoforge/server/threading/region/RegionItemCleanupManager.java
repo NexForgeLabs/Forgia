@@ -53,6 +53,7 @@ public final class RegionItemCleanupManager {
             int minAgeSeconds,
             int warningSeconds,
             int maxPerRegion,
+            int emergencyHardCap,
             boolean ignoreNamedItems,
             Set<String> whitelist) {
         public int intervalTicks() {
@@ -112,6 +113,7 @@ public final class RegionItemCleanupManager {
                     server.itemCleanupMinAgeSeconds.get(),
                     server.itemCleanupWarningSeconds.get(),
                     server.itemCleanupMaxPerRegion.get(),
+                    server.itemCleanupEmergencyHardCap.get(),
                     server.itemCleanupIgnoreNamedItems.get(),
                     whitelist);
         } catch (IllegalStateException ignored) {
@@ -120,7 +122,7 @@ public final class RegionItemCleanupManager {
     }
 
     public static Config defaultDisabledConfig() {
-        return new Config(false, 300, 60, 15, 256, true, Set.of());
+        return new Config(false, 300, 60, 15, 256, 512, true, Set.of());
     }
 
     /**
@@ -136,10 +138,11 @@ public final class RegionItemCleanupManager {
         final MinecraftServer server = level.getServer();
         final int serverTick = server.getTickCount();
 
-        // 1. Per-region emergency cap check once per second per level.
-        if (config.maxPerRegion() > 0 && (level.getGameTime() % TICKS_PER_SECOND) == 0L) {
+        // 1. Per-region cap check once per second per level (soft age-gated cap + emergency hard cap).
+        if ((config.maxPerRegion() > 0 || config.emergencyHardCap() > 0)
+                && (level.getGameTime() % TICKS_PER_SECOND) == 0L) {
             final SweepResult capResult = sweepOverloadedRegions(level, liveRegions, config.maxPerRegion(),
-                    config.minAgeTicks(), config.ignoreNamedItems(), config.whitelist());
+                    config.emergencyHardCap(), config.minAgeTicks(), config.ignoreNamedItems(), config.whitelist());
             if (capResult.clearedItems() > 0) {
                 this.regionCapSweeps.increment();
                 this.totalClearedItems.add(capResult.clearedItems());
@@ -257,6 +260,17 @@ public final class RegionItemCleanupManager {
             int minAgeTicks,
             boolean ignoreNamedItems,
             Set<String> whitelist) {
+        return sweepOverloadedRegions(level, liveRegions, maxPerRegion, 0, minAgeTicks, ignoreNamedItems, whitelist);
+    }
+
+    static SweepResult sweepOverloadedRegions(
+            ServerLevel level,
+            Collection<RegionState> liveRegions,
+            int maxPerRegion,
+            int emergencyHardCap,
+            int minAgeTicks,
+            boolean ignoreNamedItems,
+            Set<String> whitelist) {
         int totalCleared = 0;
         int affectedRegions = 0;
         for (final RegionState region : liveRegions) {
@@ -264,34 +278,56 @@ public final class RegionItemCleanupManager {
                 continue;
             }
             int regionItems = 0;
-            List<ItemEntity> candidates = null;
+            List<ItemEntity> agedCandidates = null;
+            List<ItemEntity> freshCandidates = null;
             for (final var entry : region.entityTickEntries()) {
                 final Entity entity = entry.entity();
                 if (entity instanceof ItemEntity item && !item.isRemoved()) {
                     ++regionItems;
                     if (isEligible(item, minAgeTicks, ignoreNamedItems, whitelist)) {
-                        if (candidates == null) {
-                            candidates = new ArrayList<>();
+                        if (agedCandidates == null) {
+                            agedCandidates = new ArrayList<>();
                         }
-                        candidates.add(item);
+                        agedCandidates.add(item);
+                    } else if (emergencyHardCap > 0 && isEligible(item, 0, ignoreNamedItems, whitelist)) {
+                        if (freshCandidates == null) {
+                            freshCandidates = new ArrayList<>();
+                        }
+                        freshCandidates.add(item);
                     }
                 }
             }
-            final int excess = regionItems - maxPerRegion;
-            if (excess <= 0 || candidates == null || candidates.isEmpty()) {
-                continue;
-            }
-            // Discard oldest dropped items first until the region returns within maxPerRegion.
-            if (candidates.size() > excess) {
-                candidates.sort(Comparator.comparingInt(ItemEntity::getAge).reversed());
-            }
-            final int toRemove = Math.min(excess, candidates.size());
             int regionCleared = 0;
-            for (int i = 0; i < toRemove; ++i) {
-                final ItemEntity item = candidates.get(i);
-                if (!item.isRemoved()) {
-                    item.discard();
-                    ++regionCleared;
+            // Phase A: Soft per-region cap removes oldest aged items (>= minAgeTicks).
+            if (maxPerRegion > 0 && regionItems > maxPerRegion && agedCandidates != null && !agedCandidates.isEmpty()) {
+                final int excess = regionItems - maxPerRegion;
+                if (agedCandidates.size() > excess) {
+                    agedCandidates.sort(Comparator.comparingInt(ItemEntity::getAge).reversed());
+                }
+                final int toRemove = Math.min(excess, agedCandidates.size());
+                for (int i = 0; i < toRemove; ++i) {
+                    final ItemEntity item = agedCandidates.get(i);
+                    if (!item.isRemoved()) {
+                        item.discard();
+                        ++regionCleared;
+                    }
+                }
+                regionItems -= regionCleared;
+            }
+            // Phase B: Emergency hard cap ignores minAgeTicks (still respects named + whitelisted + persistent items)
+            // so sudden item explosions cannot flood main-thread entity tracking or GC.
+            if (emergencyHardCap > 0 && regionItems > emergencyHardCap && freshCandidates != null && !freshCandidates.isEmpty()) {
+                final int hardExcess = regionItems - emergencyHardCap;
+                if (freshCandidates.size() > hardExcess) {
+                    freshCandidates.sort(Comparator.comparingInt(ItemEntity::getAge).reversed());
+                }
+                final int toRemove = Math.min(hardExcess, freshCandidates.size());
+                for (int i = 0; i < toRemove; ++i) {
+                    final ItemEntity item = freshCandidates.get(i);
+                    if (!item.isRemoved()) {
+                        item.discard();
+                        ++regionCleared;
+                    }
                 }
             }
             if (regionCleared > 0) {

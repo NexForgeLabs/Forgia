@@ -139,6 +139,8 @@ public final class ForgiaConfig {
 
         public final IntValue itemCleanupMaxPerRegion;
 
+        public final IntValue itemCleanupEmergencyHardCap;
+
         public final BooleanValue itemCleanupIgnoreNamedItems;
 
         public final ConfigValue<List<? extends String>> itemCleanupWhitelist;
@@ -495,6 +497,13 @@ public final class ForgiaConfig {
                     .comment("Per-region emergency cap on dropped ItemEntity count (0 disables). Checked once per second per level; when a single region exceeds this count, oldest eligible items (>= itemCleanupMinAgeSeconds) in that region only are removed until back under the cap. Default 256.")
                     .translation("neoforge.configgui.itemCleanupMaxPerRegion")
                     .defineInRange("itemCleanupMaxPerRegion", 256, 0, 100000);
+
+            itemCleanupEmergencyHardCap = builder
+                    .comment(
+                            "Per-region absolute hard cap on dropped ItemEntity count (0 disables). When a single region suddenly bursts past this threshold (e.g. exploded chest or clogged mob farm), oldest items are discarded immediately regardless of itemCleanupMinAgeSeconds (custom-named and whitelisted items are still protected) to prevent chunk-tracking/GC lag spikes. Default 512.",
+                            "[中文] 单区域掉落物紧急硬上限（0 为关闭）。当单个区域瞬间爆出超过此数量的掉落物时，立即忽略最小存在时间清理最旧的超出部分（仍保留命名物品与白名单物品），防止瞬间爆掉落物拖累全服发包与 GC。默认 512。")
+                    .translation("neoforge.configgui.itemCleanupEmergencyHardCap")
+                    .defineInRange("itemCleanupEmergencyHardCap", 512, 0, 100000);
 
             itemCleanupIgnoreNamedItems = builder
                     .comment("When true, dropped items with a custom name (e.g. anvil-renamed tools/weapons) are never cleared. Default true.")
