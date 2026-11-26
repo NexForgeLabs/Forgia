@@ -152,6 +152,7 @@ final class RegionEntityTickCoordinator {
             }
         }
 
+        final boolean unifiedLoopActive = this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level);
         Map<RegionState, List<RegionChunkTickEntry>> chunksByRegion = null;
         if (pendingChunks != null) {
             final long gameTime = level.getGameTime();
@@ -163,7 +164,8 @@ final class RegionEntityTickCoordinator {
                     nonFusableChunks.add(entry);
                 } else if (this.engine.shouldSkipOverloadedRegion(level, region)) {
                     this.engine.skippedChunkTicks.incrementAndGet();
-                } else if (RegionThreadingConfig.independentRegionTickClockEnabled()
+                } else if (!unifiedLoopActive
+                        && RegionThreadingConfig.independentRegionTickClockEnabled()
                         && this.engine.independentTickScheduler != null
                         && this.engine.independentTickScheduler.shouldThrottleEntityTick(region.coordinate(), gameTime)) {
                     nonFusableChunks.add(entry);
@@ -201,7 +203,8 @@ final class RegionEntityTickCoordinator {
         final List<RegionEntityTickActivation> activations = new ArrayList<>(regions.size());
         for (final RegionState region : regions) {
             if (this.engine.shouldSkipOverloadedRegion(level, region)
-                    || (RegionThreadingConfig.independentRegionTickClockEnabled()
+                    || (!unifiedLoopActive
+                    && RegionThreadingConfig.independentRegionTickClockEnabled()
                     && this.engine.independentTickScheduler != null
                     && this.engine.independentTickScheduler.shouldThrottleEntityTick(region.coordinate(), level.getGameTime()))) {
                 final int preservedPlayers = this.collectSkippedRegionPlayers(batch, region);
