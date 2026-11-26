@@ -410,6 +410,7 @@ public final class ForgiaCommand {
                 item.addProperty("count", e.count());
                 jsonNumber(item, "totalMs", e.totalMs());
                 jsonNumber(item, "maxMs", e.maxMs());
+                item.addProperty("reason", e.dominantReason().name());
                 arr.add(item);
             }
             output.add("topFences", arr);
@@ -426,7 +427,8 @@ public final class ForgiaCommand {
         for (int i = 0; i < snapshot.topEntries().size(); ++i) {
             final var e = snapshot.topEntries().get(i);
             line(source, "  #" + (i + 1) + " " + e.tickerClass() + " @ " + e.regionId()
-                    + " count=" + e.count() + " total=" + number(e.totalMs()) + "ms max=" + number(e.maxMs()) + "ms");
+                    + " count=" + e.count() + " total=" + number(e.totalMs()) + "ms max=" + number(e.maxMs())
+                    + "ms reason=" + e.dominantReason().name());
         }
         return 1;
     }

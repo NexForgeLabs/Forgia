@@ -872,13 +872,28 @@ final class RegionEntityTickCoordinator {
     }
 
     private static boolean isLockstepProximityEntity(ServerLevel level, Entity entity) {
-        return entity != null
-                && !entity.isRemoved()
-                && entity.level() == level
-                && !(entity instanceof net.minecraft.world.entity.player.Player)
-                && !(entity instanceof net.minecraft.world.entity.item.ItemEntity)
-                && !(entity instanceof net.minecraft.world.entity.ExperienceOrb)
-                && !(entity instanceof net.minecraft.world.entity.projectile.Projectile);
+        if (entity == null || entity.isRemoved() || entity.level() != level) {
+            return false;
+        }
+        if (entity instanceof net.minecraft.world.entity.player.Player
+                || entity instanceof net.minecraft.world.entity.LivingEntity
+                || entity instanceof net.minecraft.world.entity.item.ItemEntity
+                || entity instanceof net.minecraft.world.entity.ExperienceOrb
+                || entity instanceof net.minecraft.world.entity.projectile.Projectile
+                || entity instanceof net.minecraft.world.entity.vehicle.Boat
+                || entity instanceof net.minecraft.world.entity.decoration.HangingEntity
+                || entity instanceof net.minecraft.world.entity.Display
+                || entity instanceof net.minecraft.world.entity.Marker
+                || entity instanceof net.minecraft.world.entity.AreaEffectCloud) {
+            return false;
+        }
+        if (entity instanceof net.minecraft.world.entity.vehicle.AbstractMinecart) {
+            return true;
+        }
+        return entity.getDeltaMovement().lengthSqr() > 1.0E-6
+                || entity.getX() != entity.xo
+                || entity.getY() != entity.yo
+                || entity.getZ() != entity.zo;
     }
 
     private static int writeInflatedBox(double[] flat, int idx, Entity entity, double radius) {

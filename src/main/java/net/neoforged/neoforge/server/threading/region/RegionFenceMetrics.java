@@ -21,6 +21,16 @@ import org.jetbrains.annotations.ApiStatus;
 public final class RegionFenceMetrics {
     public static final int MAX_ENTRIES = 512;
 
+    public enum Reason {
+        CACHE_NULL,
+        DEAD_REGION,
+        NEAR_ENTITY,
+        TRANSIENT_COOLDOWN,
+        NON_SANDBOXED,
+        CANONICAL_SERIAL,
+        OTHER
+    }
+
     public record Entry(
             String dimension,
             int regionX,
@@ -28,7 +38,19 @@ public final class RegionFenceMetrics {
             String tickerClass,
             long count,
             long totalNanos,
-            long maxNanos) {
+            long maxNanos,
+            Reason dominantReason) {
+        public Entry(
+                String dimension,
+                int regionX,
+                int regionZ,
+                String tickerClass,
+                long count,
+                long totalNanos,
+                long maxNanos) {
+            this(dimension, regionX, regionZ, tickerClass, count, totalNanos, maxNanos, Reason.OTHER);
+        }
+
         public double totalMs() {
             return this.totalNanos / 1_000_000.0;
         }
@@ -145,14 +167,18 @@ public final class RegionFenceMetrics {
     }
 
     private static final class Counter {
+        private static final Reason[] REASONS = Reason.values();
         final LongAdder count = new LongAdder();
         final LongAdder totalNanos = new LongAdder();
         final AtomicLong maxNanos = new AtomicLong();
+        final java.util.concurrent.atomic.AtomicLongArray reasonCounts =
+                new java.util.concurrent.atomic.AtomicLongArray(REASONS.length);
 
-        void record(long nanos) {
+        void record(long nanos, Reason reason) {
             final long clamped = Math.max(0L, nanos);
             this.count.increment();
             this.totalNanos.add(clamped);
+            this.reasonCounts.incrementAndGet((reason == null ? Reason.OTHER : reason).ordinal());
             long prev;
             do {
                 prev = this.maxNanos.get();
@@ -160,6 +186,19 @@ public final class RegionFenceMetrics {
                     break;
                 }
             } while (!this.maxNanos.compareAndSet(prev, clamped));
+        }
+
+        Reason dominantReason() {
+            Reason best = Reason.OTHER;
+            long bestCount = -1L;
+            for (int i = 0; i < REASONS.length; ++i) {
+                final long c = this.reasonCounts.get(i);
+                if (c > bestCount) {
+                    bestCount = c;
+                    best = REASONS[i];
+                }
+            }
+            return bestCount > 0L ? best : Reason.OTHER;
         }
     }
 
@@ -170,6 +209,10 @@ public final class RegionFenceMetrics {
     private final LongAdder overflowEntries = new LongAdder();
 
     public void recordFence(String dimension, int regionX, int regionZ, String tickerClass, long nanos) {
+        this.recordFence(dimension, regionX, regionZ, tickerClass, nanos, Reason.CANONICAL_SERIAL);
+    }
+
+    public void recordFence(String dimension, int regionX, int regionZ, String tickerClass, long nanos, Reason reason) {
         final long clamped = Math.max(0L, nanos);
         this.totalFences.increment();
         this.totalNanos.add(clamped);
@@ -184,7 +227,7 @@ public final class RegionFenceMetrics {
             final ImmutableKey immutable = new ImmutableKey(dimension, regionX, regionZ, tickerClass);
             counter = this.entries.computeIfAbsent(immutable, ignored -> new Counter());
         }
-        counter.record(clamped);
+        counter.record(clamped, reason);
     }
 
     public Snapshot snapshot(int limit) {
@@ -194,7 +237,7 @@ public final class RegionFenceMetrics {
             final ImmutableKey k = (ImmutableKey) pair.getKey();
             final Counter c = pair.getValue();
             all.add(new Entry(k.dimension, k.regionX, k.regionZ, k.tickerClass,
-                    c.count.sum(), c.totalNanos.sum(), c.maxNanos.get()));
+                    c.count.sum(), c.totalNanos.sum(), c.maxNanos.get(), c.dominantReason()));
         }
         all.sort(Comparator.comparingLong(Entry::totalNanos).reversed()
                 .thenComparing(Comparator.comparingLong(Entry::count).reversed())

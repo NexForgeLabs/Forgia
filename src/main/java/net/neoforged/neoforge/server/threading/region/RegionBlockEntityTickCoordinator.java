@@ -1497,16 +1497,23 @@ final class RegionBlockEntityTickCoordinator {
         }
         final Map<RegionState, List<RegionBlockEntityTickChunk>> sandboxByRegion = new java.util.IdentityHashMap<>();
         final List<RegionBlockEntityTickAdmission> serialAdmissions = new ArrayList<>();
+        final List<RegionFenceMetrics.Reason> serialReasons = new ArrayList<>();
         for (int i = 0, size = chunks.size(); i < size; ++i) {
             final RegionBlockEntityTickChunk chunk = chunks.get(i);
             final RegionBlockEntityTickChunkCache cache = chunk.cache();
             if (cache == null) {
-                serialAdmissions.addAll(chunk.admissions());
+                for (int a = 0, aSize = chunk.admissions().size(); a < aSize; ++a) {
+                    serialAdmissions.add(chunk.admissions().get(a));
+                    serialReasons.add(RegionFenceMetrics.Reason.CACHE_NULL);
+                }
                 continue;
             }
             final RegionState region = this.engine.regionizer.getOrCreate(chunk.region(this.engine.layout, level));
             if (region == null || region.isDead()) {
-                serialAdmissions.addAll(chunk.admissions());
+                for (int a = 0, aSize = chunk.admissions().size(); a < aSize; ++a) {
+                    serialAdmissions.add(chunk.admissions().get(a));
+                    serialReasons.add(RegionFenceMetrics.Reason.DEAD_REGION);
+                }
                 continue;
             }
             if (this.engine.overloadGovernor != null && this.engine.shouldSkipOverloadedRegion(level, region)) {
@@ -1522,9 +1529,13 @@ final class RegionBlockEntityTickCoordinator {
                     for (int a = 0, aSize = rawSandboxed.size(); a < aSize; ++a) {
                         final RegionBlockEntityTickAdmission admission = rawSandboxed.get(a);
                         final BlockPos pos = admission.position();
-                        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isNearServerThreadEntity(level, pos)
-                                || net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, pos)) {
+                        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isNearServerThreadEntity(level, pos)) {
                             serialAdmissions.add(admission);
+                            serialReasons.add(RegionFenceMetrics.Reason.NEAR_ENTITY);
+                            anySync = true;
+                        } else if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isTransientSandboxedFallback(level, pos)) {
+                            serialAdmissions.add(admission);
+                            serialReasons.add(RegionFenceMetrics.Reason.TRANSIENT_COOLDOWN);
                             anySync = true;
                         }
                     }
@@ -1536,7 +1547,11 @@ final class RegionBlockEntityTickCoordinator {
                 }
             }
             if (!cache.nonSandboxedAdmissions().isEmpty()) {
-                serialAdmissions.addAll(cache.nonSandboxedAdmissions());
+                final List<RegionBlockEntityTickAdmission> nonSandboxed = cache.nonSandboxedAdmissions();
+                for (int a = 0, aSize = nonSandboxed.size(); a < aSize; ++a) {
+                    serialAdmissions.add(nonSandboxed.get(a));
+                    serialReasons.add(RegionFenceMetrics.Reason.NON_SANDBOXED);
+                }
             }
         }
         if (this.engine.unifiedTickCoordinator.isUnifiedLoopActive(level)
@@ -1569,6 +1584,7 @@ final class RegionBlockEntityTickCoordinator {
             final String dimensionId = level.dimension().location().toString();
             for (int i = 0, size = serialAdmissions.size(); i < size; ++i) {
                 final RegionBlockEntityTickAdmission admission = serialAdmissions.get(i);
+                final RegionFenceMetrics.Reason reason = serialReasons.get(i);
                 final var ticker = admission.ticker();
                 if (ticker.isRemoved()) {
                     continue;
@@ -1580,7 +1596,7 @@ final class RegionBlockEntityTickCoordinator {
                 } finally {
                     final long elapsed = System.nanoTime() - start;
                     final RegionCoordinate coord = this.engine.layout.regionAt(level, admission.position());
-                    this.engine.fenceMetrics.recordFence(dimensionId, coord.regionX(), coord.regionZ(), admission.type(), elapsed);
+                    this.engine.fenceMetrics.recordFence(dimensionId, coord.regionX(), coord.regionZ(), admission.type(), elapsed, reason);
                 }
             }
         }
