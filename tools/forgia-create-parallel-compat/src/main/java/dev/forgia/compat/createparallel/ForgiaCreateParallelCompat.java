@@ -74,6 +74,7 @@ public final class ForgiaCreateParallelCompat {
             RegionAdapterApi.registerSandboxPredicate(ns, kineticTopologySafe);
         }
         RegionAdapterApi.shareSavedData("create_logistics", "create_tracks");
+        GantryProbeCommand.register();
         LOGGER.info("Forgia Create Parallel Compat active: admitted Create namespaces and region-contained contraption types to Region Sandbox.");
     }
 }
