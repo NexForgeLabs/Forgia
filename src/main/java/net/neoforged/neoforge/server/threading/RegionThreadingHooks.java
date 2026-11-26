@@ -2491,6 +2491,11 @@ public final class RegionThreadingHooks {
     /**
      * Runs {@code task} in the entity's current region context when the native engine is installed.
      */
+    public static boolean shouldRunEntityTickDirectly(Entity entity) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return !(threading instanceof RegionThreadingEngine engine) || engine.isOwnedByCurrentRegion(entity);
+    }
+
     public static void runEntityTickTask(Entity entity, Runnable task) {
         final Optional<RegionThreading> threading = RegionThreadingManager.get();
         if (threading.isPresent() && threading.get() instanceof RegionThreadingEngine engine) {
