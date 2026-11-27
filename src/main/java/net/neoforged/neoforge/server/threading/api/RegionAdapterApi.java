@@ -56,6 +56,32 @@ public final class RegionAdapterApi {
     private static final Map<ServerLevel, double[]> SERVER_THREAD_ENTITY_LOCKSTEP_BOXES = new ConcurrentHashMap<>();
     private static final int PERMANENT_DEMOTION_THRESHOLD = 16;
     private static final Map<ServerLevel, Map<Long, BlockPos>> VIRTUAL_CHUNK_AFFINITY = new ConcurrentHashMap<>();
+    private static final java.util.List<ChunkFencePredicate> SERVER_THREAD_CHUNK_PREDICATES = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final java.util.List<ChunkRegionAffinityResolver> CHUNK_AFFINITY_RESOLVERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Mod-agnostic predicate identifying chunks whose block entities must tick serially on the server thread
+     * rather than being split across parallel region workers (for example, virtual/sub-world chunk domains
+     * whose structures span region-section boundaries).
+     */
+    @FunctionalInterface
+    public interface ChunkFencePredicate {
+        boolean test(ServerLevel level, int chunkX, int chunkZ);
+    }
+
+    /**
+     * Mod-agnostic resolver that maps a chunk coordinate {@code (chunkX, chunkZ)} to an anchor chunk key
+     * ({@link ChunkPos#asLong(int, int)}) so that all chunks belonging to the same logical structure (such as
+     * a virtual sub-level plot) are routed to a single region and never split across region-section boundaries.
+     * <p>
+     * Return {@link #NO_AFFINITY} when {@code (chunkX, chunkZ)} should use the default spatial layout.
+     */
+    @FunctionalInterface
+    public interface ChunkRegionAffinityResolver {
+        long NO_AFFINITY = Long.MIN_VALUE;
+
+        long resolveAnchorChunk(ServerLevel level, int chunkX, int chunkZ);
+    }
 
     private static volatile boolean regionScopedPlayerViewEnabled = Boolean.parseBoolean(
             System.getProperty("neoforge.regionthreading.sandboxPlayerView", "true"));
@@ -832,6 +858,96 @@ public final class RegionAdapterApi {
         if (map == null || map.isEmpty()) return pos;
         final BlockPos host = map.get(ChunkPos.asLong(pos));
         return host != null ? host : pos;
+    }
+
+    /**
+     * Registers a mod-agnostic {@link ChunkRegionAffinityResolver} that maps virtual/sub-level chunks to a
+     * single anchor chunk so all chunks of one logical structure share one region while independent structures
+     * execute in parallel on separate region workers.
+     */
+    public static void registerChunkAffinityResolver(ChunkRegionAffinityResolver resolver) {
+        Objects.requireNonNull(resolver, "resolver");
+        CHUNK_AFFINITY_RESOLVERS.add(resolver);
+    }
+
+    /**
+     * Unregisters a previously registered {@link ChunkRegionAffinityResolver}.
+     */
+    public static void unregisterChunkAffinityResolver(ChunkRegionAffinityResolver resolver) {
+        if (resolver != null) {
+            CHUNK_AFFINITY_RESOLVERS.remove(resolver);
+        }
+    }
+
+    /**
+     * {@return the anchor chunk key ({@link ChunkPos#asLong(int, int)}) if {@code (chunkX, chunkZ)} has an
+     * explicit virtual affinity or matches a registered {@link ChunkRegionAffinityResolver}, or
+     * {@link ChunkRegionAffinityResolver#NO_AFFINITY} when the default spatial grid applies}
+     */
+    public static long resolveAffinityChunkKey(ServerLevel level, int chunkX, int chunkZ) {
+        if (level == null) {
+            return ChunkRegionAffinityResolver.NO_AFFINITY;
+        }
+        final Map<Long, BlockPos> explicit = VIRTUAL_CHUNK_AFFINITY.get(level);
+        if (explicit != null && !explicit.isEmpty()) {
+            final BlockPos host = explicit.get(ChunkPos.asLong(chunkX, chunkZ));
+            if (host != null) {
+                return ChunkPos.asLong(host.getX() >> 4, host.getZ() >> 4);
+            }
+        }
+        if (!CHUNK_AFFINITY_RESOLVERS.isEmpty()) {
+            for (int i = 0, size = CHUNK_AFFINITY_RESOLVERS.size(); i < size; ++i) {
+                final long anchor = CHUNK_AFFINITY_RESOLVERS.get(i).resolveAnchorChunk(level, chunkX, chunkZ);
+                if (anchor != ChunkRegionAffinityResolver.NO_AFFINITY) {
+                    return anchor;
+                }
+            }
+        }
+        return ChunkRegionAffinityResolver.NO_AFFINITY;
+    }
+
+    /**
+     * {@return {@code true} if any chunk affinity resolver or virtual affinity mapping is active}
+     */
+    public static boolean hasChunkAffinityMappings() {
+        return !CHUNK_AFFINITY_RESOLVERS.isEmpty() || !VIRTUAL_CHUNK_AFFINITY.isEmpty();
+    }
+
+    /**
+     * Registers a mod-agnostic chunk predicate whose matching chunks keep their block-entity ticks on the
+     * server thread instead of dispatching them to parallel region workers.
+     * <p>
+     * Compat mods use this for virtual chunk spaces (such as sub-level plots) whose block networks cannot be
+     * partitioned cleanly across independent region workers.
+     */
+    public static void registerServerThreadChunkPredicate(ChunkFencePredicate predicate) {
+        Objects.requireNonNull(predicate, "predicate");
+        SERVER_THREAD_CHUNK_PREDICATES.add(predicate);
+    }
+
+    /**
+     * Unregisters a previously registered {@link ChunkFencePredicate}.
+     */
+    public static void unregisterServerThreadChunkPredicate(ChunkFencePredicate predicate) {
+        if (predicate != null) {
+            SERVER_THREAD_CHUNK_PREDICATES.remove(predicate);
+        }
+    }
+
+    /**
+     * {@return {@code true} if any registered {@link ChunkFencePredicate} pins {@code (chunkX, chunkZ)} to
+     * server-thread block-entity ticking}
+     */
+    public static boolean isServerThreadPinnedChunk(ServerLevel level, int chunkX, int chunkZ) {
+        if (level == null || SERVER_THREAD_CHUNK_PREDICATES.isEmpty()) {
+            return false;
+        }
+        for (int i = 0, size = SERVER_THREAD_CHUNK_PREDICATES.size(); i < size; ++i) {
+            if (SERVER_THREAD_CHUNK_PREDICATES.get(i).test(level, chunkX, chunkZ)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @ApiStatus.Internal

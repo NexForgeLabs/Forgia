@@ -30,6 +30,7 @@ prefix, `InvocationTicket`, region guard/permit, physical join and ordered effec
 | Audited original ticker | `AUDITED_BLOCK_ENTITY_TICKS` | Manifest + READ/WRITE footprint | Original ticker on a worker in the canonical phase | High | [guide](../api/block-entity-ticks.en.md) |
 | Original ticker execution adapter | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | Manifest + `Mode` + footprint + dependency revisions | `REGION_OWNER` or `RESOURCE_SCOPED` original ticker execution | High | [guide](../api/block-entity-execution.en.md) |
 | Operations-only integration | `BLOCK_ENTITY_OPERATIONS` | Nothing registered; uses `blockEntities()` | Cross-region completion, no tick parallelism | Low | [guide](../api/block-entity-operations.en.md) |
+| Sandbox & chunk-affinity compat | `RegionAdapterApi` (`admitRegionSandboxedNamespace`, `registerChunkAffinityResolver`, `registerServerThreadChunkPredicate`, `shareSavedData`) | Namespace sandbox admission, virtual/sub-level chunk affinity routing, server-thread chunk pinning, shared `SavedData` | Parallel sandbox + single-region sub-level isolation | Low–Med | [API overview](../api/README.en.md) |
 
 ## 3. Decision matrix
 

@@ -5,7 +5,7 @@
   <a href="../configuration.zh/">中文</a>
 </div>
 
-All Forgia parallel execution and runtime diagnostics settings live in **`config/forgia.toml`** (isolated from upstream `neoforge-server.toml`). Every parallel switch defaults to `false` (equivalent to vanilla serial execution). Keys marked **Restart required** only take effect after stopping the server and starting a fresh JVM.
+All Forgia parallel execution and runtime diagnostics settings live in **`config/forgia.toml`** (isolated from upstream `neoforge-server.toml`). Core parallel slice switches default to `false` (equivalent to vanilla serial execution), while runtime diagnostics, safe IO/serialization optimizations (`enableFastChunkPaletteSerialization`, `enableAsyncChunkLoadDeserialize`, `enableAsyncPlayerDataSave`, `enableAsyncAdvancementSave`, `enableParallelWorldGen`, `enableNonBlockingStructureLookups`), and probes default to `true`. Keys marked **Restart required** only take effect after stopping the server and starting a fresh JVM.
 
 ---
 
@@ -41,13 +41,14 @@ The snippets further down this page are feature-specific examples, not a one-siz
 
 | `shift` | Section Size | Best For | Trade-offs |
 |---:|---|---|---|
-| **`2`** | `4×4` chunks (64×64 blocks) | Dense hubs / compact maps | Smaller base sections; may create more region boundaries and topology work |
+| **`1`** | `2×2` chunks (32×32 blocks) | Dense industrial bases / max multi-core split | Finer granularity; more region boundaries |
+| **`2`** | `4×4` chunks (64×64 blocks) | Dense hubs / compact maps | Balanced granularity for industrial clusters |
 | **`3` (Default)** | `8×8` chunks (128×128 blocks) | General starting point | Balanced section size; validate against your player distribution and workload |
 | **`4`** | `16×16` chunks (256×256 blocks) | Widely separated player groups | Fewer, larger base sections; can reduce independent-region granularity |
 
 ---
 
-## 3. Complete Configuration Reference (All 36 `config/forgia.toml` Keys)
+## 3. Complete Configuration Reference (`config/forgia.toml`)
 
 ### 3.1 Core & Parallel Slice Switches (parallel switches default `false`; restart requirements vary by key)
 
@@ -81,7 +82,7 @@ The snippets further down this page are feature-specific examples, not a one-siz
 | Key | Default | Range | Restart | Behavior |
 |---|---|---|---:|---|
 | `regionThreadingMode` | `"DYNAMIC_CLUSTER"` | `DYNAMIC_CLUSTER` / `FIXED_3X3` / `DYNAMIC` | yes | Current default is `DYNAMIC_CLUSTER`; `FIXED_3X3` is retained for legacy/C6 comparisons; `DYNAMIC` is the legacy 16×16 grid |
-| `regionThreadingDynamicSectionShift` | `3` | `2..4` | yes | Dynamic section edge bit shift: `1 << shift` chunks (`2`=4×4, `3`=8×8 recommended, `4`=16×16) |
+| `regionThreadingDynamicSectionShift` | `3` | `1..4` | yes | Dynamic section edge bit shift: `1 << shift` chunks (`1`=2×2, `2`=4×4, `3`=8×8 recommended, `4`=16×16) |
 | `regionThreadingDynamicSplitDelayTicks` | `40` | `0..1200` | yes | Hysteresis ticks before an emptied dynamic section detaches and checks for island splitting |
 | `regionThreadingFixedRegionChunks` | `3` | `3..32` | yes | Edge length in chunks of one fixed region when `regionThreadingMode = "FIXED_3X3"` |
 | `regionThreadingWorkerThreads` | `0` | `0..512` | yes | Worker thread count. `0` = `max(1, logicalCpus - 1)`; pin explicitly to `physicalCores - 1..2` |
@@ -105,6 +106,12 @@ The snippets further down this page are feature-specific examples, not a one-siz
 | `runtimeRegionImbalanceRatio` | `4` | `2..1000` | Hottest-region-to-mean ratio threshold for `REGION_LOAD_IMBALANCE` |
 | `runtimeMainCpuPercent` | `90` | `1..100` | Main-thread single-core CPU % threshold for `MAIN_THREAD_BOTTLENECK` |
 | `runtimeHighServerMspt` | `50` | `1..10000` | Mean server MSPT threshold (ms) for `MAIN_THREAD_BOTTLENECK` |
+| `enableLowTpsProbe` | `true` | bool | Records a structured bottleneck snapshot to console WARN and `logs/forgia-low-tps-probe.jsonl` when global TPS stays below threshold |
+| `lowTpsProbeThreshold` | `18.0` | `1.0..20.0` | Global TPS threshold below which the low-TPS probe begins timing an incident |
+| `lowTpsProbeDurationSeconds` | `30` | `5..300` | Continuous seconds below threshold before emitting a probe report |
+| `lowTpsProbeCooldownSeconds` | `60` | `10..3600` | Minimum seconds between consecutive low-TPS probe reports |
+| `lowTpsProbeTopCount` | `5` | `1..20` | Number of top regions, main-thread phases, and slices included in each report |
+| `enableSandboxDemotionProbe` | `true` | bool | Records deduplicated stack traces of Region Sandbox BE demotions and worker boundary violations to `logs/forgia-sandbox-demotions.jsonl` |
 
 ### 3.4 Overload Isolation & Multi-Region Item Cleanup (15 keys)
 
@@ -123,8 +130,75 @@ The snippets further down this page are feature-specific examples, not a one-siz
 | `itemCleanupMinAgeSeconds` | `60` | `0..3600` | no | Minimum dropped age in seconds before an item is eligible for cleanup |
 | `itemCleanupWarningSeconds` | `15` | `0..300` | no | Countdown warning seconds before a scheduled sweep (`0` disables) |
 | `itemCleanupMaxPerRegion` | `256` | `0..100000` | no | Per-region emergency cap on dropped `ItemEntity` count (`0` disables) |
+| `itemCleanupEmergencyHardCap` | `512` | `0..100000` | no | Per-region hard cap that immediately discards oldest items regardless of age when bursting (`0` disables; named/whitelisted items protected) |
 | `itemCleanupIgnoreNamedItems` | `true` | bool | no | Preserves dropped items with custom names |
 | `itemCleanupWhitelist` | `[]` | item IDs | no | Item registry IDs never removed by cleanup (e.g. `["minecraft:nether_star"]`) |
+
+### 3.5 Independent Region Clock, Generic BE Sandbox & Phase 3/4 Async Pipelines
+
+| Key | Default | Range / Type | Restart | Behavior |
+|---|---:|---|---:|---|
+| `enableIndependentRegionTickClock` | `false` | bool | no | Enables Folia-style independent per-region asynchronous tick clocks |
+| `independentRegionTickIntervalNanos` | `50000000` | `1_000_000..1_000_000_000` | no | Target tick interval per independent region (default 50ms / 20 TPS) |
+| `independentRegionMaxCatchUpTicks` | `4` | `1..100` | no | Max catch-up ticks for a lagging region before clock realignment |
+| `independentRegionCommitDrainBudgetNanos` | `4000000` | `500_000..50_000_000` | no | Max ns/tick on main thread draining async region commit queues |
+| `enableRegionSandboxAllBlockEntities` | `false` | bool | no | Admits all non-denylisted modded BEs into Region Sandbox worker execution |
+| `sandboxTransientCooldownTicks` | `20` | `1..1200` | no | Cooldown ticks before a transient-demoted BE instance returns to workers |
+| `sandboxPermanentDemotionThreshold` | `16` | `1..1000` | no | Transient violations before permanently demoting a BE type to server thread |
+| `sandboxMaxInstanceBackoffTicks` | `1200` | `20..72000` | no | Max exponential backoff ticks for a single coordinate hitting repeated boundary exceptions |
+| `sandboxEntityProximityLockstepRadius` | `4` | `0..32` | no | Radius (blocks) around active server-thread entities where adjacent BEs co-schedule on server thread |
+| `sandboxSideEffectEscalationTicks` | `60` | `0..600` | no | Transient cooldown ticks for a single BE instance spawning non-trivial entities on a worker |
+| `sandboxHopperPlayerSafeRadiusBlocks` | `8` | `0..64` | no | Player-free safety radius (blocks) for an interior open-top hopper to pick up items on a worker |
+| `enableAsyncRegionSpawning` | `true` | bool | no | Phase 3A: dispatches natural spawning asynchronously without blocking server barrier |
+| `skipUnloadedNeighborhoodSpawning` | `true` | bool | no | Skips natural spawning in outer border chunks without loaded 3×3 neighbors |
+| `enableAsyncRegionEntityTicks` | `false` | bool | no | Phase 3B (experimental): dispatches non-player entity ticks asynchronously off the barrier |
+| `enableSelectiveAsyncEntityTicks` | `true` | bool | no | Selectively dispatches player-free and contraption-free entity regions asynchronously |
+| `enableRegionThreadingFluidTicks` | `true` | bool | yes | Per-region parallel fluid ticks while keeping redstone block ticks serial |
+| `enableAsyncRegionFluidTicks` | `false` | bool | no | Phase 3C: dispatches inland fluid ticks asynchronously off the barrier |
+| `enableUnifiedRegionTickLoop` | `false` | bool | no | Phase 4A: executes each region's Chunks → Entities → BlockEntities sequentially in one async worker wave |
+| `enableSingleRegionContraptionWorkers` | `false` | bool | no | Phase 4B: allows region-contained moving-structure entities to tick inside Stage 2 of the unified worker loop |
+| `unifiedRegionEntityContainmentMarginBlocks` | `8` | `1..32` | no | Safety margin (blocks) from region borders for Phase 4B moving-structure worker ticks |
+
+### 3.6 Adaptive Entity Throttle, Pathfinding & Single-Chunk Lag Isolation
+
+| Key | Default | Range / Type | Restart | Behavior |
+|---|---:|---|---:|---|
+| `enableMobPathfindingThrottle` | `false` | bool | no | Enables per-entity-type and hot-region cooldown throttling on `PathNavigation.createPath` |
+| `mobPathfindingCooldowns` | `["primal:shark=40"]` | list | no | Per-entity-type minimum tick interval between full pathfinding computations |
+| `mobPathfindingDefaultCooldownTicks` | `0` | `0..200` | no | Global default pathfinding cooldown ticks for unlisted mobs (`0` disables) |
+| `entityTickThrottleModerateNanos` | `15000000` | `1_000_000..500_000_000` | no | Region entity EWMA threshold (ns) above which non-player entities tick every 2nd tick |
+| `entityTickThrottleSevereNanos` | `28000000` | `1_000_000..1_000_000_000` | no | Region entity EWMA threshold (ns) above which non-player entities tick every 3rd tick |
+| `hotRegionEntityThresholdNanos` | `5000000` | `500_000..500_000_000` | no | Region entity EWMA threshold (ns) above which mobs use lightweight pathfinding cooldowns |
+| `hotRegionMobPathfindingCooldownTicks` | `4` | `0..100` | no | Pathfinding cooldown ticks for idle/non-combat mobs inside hot entity regions |
+| `hotRegionCombatMobPathfindingCooldownTicks` | `2` | `0..100` | no | Pathfinding cooldown ticks for player-targeting mobs inside hot entity regions |
+| `slowPathfindingLearnThresholdNanos` | `3000000` | `500_000..100_000_000` | no | Single `findPath` duration (ns) above which the mob type auto-learns a 10-tick cooldown |
+| `severePathfindingLearnThresholdNanos` | `8000000` | `1_000_000..500_000_000` | no | Single `findPath` duration (ns) above which the mob type auto-learns a 20-tick cooldown |
+| `enableSlimeWorkerTicks` | `true` | bool | yes | Allows Slime/MagmaCube entities to tick on Region Workers with deferred split-child admission |
+| `enableHighDensityEntityTrackerThrottle` | `true` | bool | no | Adaptively reduces `ChunkMap` client entity-tracker sync frequency in dense chunks |
+| `entityTrackerDenseChunkThreshold` | `64` | `8..10000` | no | Non-player entity count per chunk above which tracker sync runs every 2nd tick |
+| `entityTrackerSevereChunkThreshold` | `256` | `16..10000` | no | Non-player entity count per chunk above which tracker sync runs every 4th tick |
+| `maxSyncNavigationRecomputesPerTick` | `16` | `0..10000` | no | Max synchronous `recomputePath()` calls per `sendBlockUpdated`; excess defers to owning worker |
+| `blockEventsPerRegionBudgetNanos` | `2000000` | `0..50_000_000` | no | Max ns/tick for block events (e.g. pistons) per region before deferring excess to next tick |
+| `enableAsyncInlandBlockScheduledTicks` | `false` | bool | no | Experimental: coalesces inland single-region scheduled block ticks into that region's async worker tick |
+| `inlandBlockScheduledTickMarginBlocks` | `6` | `2..15` | no | Safety margin (blocks) from region borders for `enableAsyncInlandBlockScheduledTicks` |
+| `blockScheduledTickSerialBudgetNanos` | `2000000` | `0..50_000_000` | no | Max ns/tick for serial block scheduled ticks per region before rescheduling excess to next tick |
+
+### 3.7 Chunk IO, WorldGen, Autosave & Advancement Optimization
+
+| Key | Default | Range / Type | Restart | Behavior |
+|---|---:|---|---:|---|
+| `autosaveMaxQuiesceWaitMillis` | `15` | `0..10000` | no | Max ms incremental autosave waits for slow async regions before skipping busy regions |
+| `enableFastChunkPaletteSerialization` | `true` | bool | no | Direct NBT reader/writer with cached `BlockState` tags in `ChunkSerializer` (fallback to DFU Codec on unknown entries) |
+| `enableAsyncChunkLoadDeserialize` | `true` | bool | no | Pre-decodes chunk section BlockState/Biome `PalettedContainer` on IO threads before `ChunkSerializer.read()` |
+| `chunkUnloadTickBudgetNanos` | `4000000` | `0..50_000_000` | no | Max ns/tick in `ChunkMap.processUnloads()` (`saveAllChunks` flush unaffected) |
+| `chunkUnloadBacklogMaxPerTick` | `16` | `0..2000` | no | Max over-budget forced unload tasks drained per tick when `unloadQueue > 2000` (`0` = unbounded) |
+| `enableChunkUnloadSpinGuard` | `true` | bool | no | Snapshots `unloadQueue` size at tick start so unready holders cannot spin within the same tick |
+| `incrementalAutosaveBudgetNanos` | `4000000` | `0..50_000_000` | no | Max ns/tick in non-flush `ChunkMap.saveAllChunks(false)` during 5-minute autosaves |
+| `enableAsyncPlayerDataSave` | `true` | bool | no | Snapshots player NBT on server thread and offloads GZIP + atomic write to `Util.ioPool()` per UUID |
+| `enableParallelWorldGen` | `true` | bool | no | C2ME-style parallel chunk generation with spatial area locks by `ChunkStep` write radius |
+| `parallelWorldGenThreads` | `0` | `0..32` | no | Max concurrent worldgen worker threads (`0` = `clamp(cpus / 2, 2, 8)`) |
+| `enableNonBlockingStructureLookups` | `true` | bool | no | Uses `load = false` in `StructureManager` on live `ServerLevel`, avoiding `managedBlock` stalls on unloaded origins |
+| `enableAsyncAdvancementSave` | `true` | bool | no | Snapshots advancement progress on server thread and offloads Codec + GSON write to `Util.ioPool()` per file |
 
 ---
 

@@ -12,7 +12,8 @@ import net.minecraft.server.level.ServerLevel;
  */
 record RegionSectionCoordinate(ServerLevel level, int sectionX, int sectionZ) {
     static RegionSectionCoordinate fromChunk(ServerLevel level, int chunkX, int chunkZ, RegionLayout layout) {
-        return new RegionSectionCoordinate(level, layout.regionX(chunkX), layout.regionZ(chunkZ));
+        final RegionCoordinate coord = layout.regionAt(level, chunkX, chunkZ);
+        return new RegionSectionCoordinate(level, coord.regionX(), coord.regionZ());
     }
 
     RegionCoordinate regionCoordinate() {

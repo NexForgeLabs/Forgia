@@ -17,7 +17,7 @@ claim.
 
 | I want to… | Read | Primary types |
 |---|---|---|
-| Understand current project status and validation scope | [README](index.md), [STATUS](status.en.md) ([中文](status.zh.md)) | — |
+| Understand current project status and validation scope | [Overview](README.en.md), [STATUS](status.en.md) ([中文](status.zh.md)) | — |
 | See the execution flow as a 3D animation first | [3D architecture walkthrough](visualizer/index.html) (interactive architecture walkthrough; conceptual, not a compatibility certification) | — |
 | Understand experimental player dispatch | [Player ticks](modules/player-ticks.en.md) | `ENTITY`, `CONNECTION`, `CONNECTION_BODY` |
 | Start a server / tune `config/forgia.toml` | [Configuration & hardware tuning](configuration.en.md), [Observability](modules/observability.en.md) | `forgia.toml`, `/forgia` |
@@ -36,11 +36,10 @@ claim.
 
 ```
 docs/
-├── index.{md,zh.md}                      project site home
 ├── README.{en,zh}.md                     index, conventions, status legend
 ├── architecture.{en,zh}.md               Stock NeoForge vs. Forgia architecture comparison
 ├── benchmarks.{en,zh}.md                 measured performance & soak benchmarks
-├── configuration.{en,zh}.md              all 36 forgia.toml keys & hardware tuning profiles
+├── configuration.{en,zh}.md              forgia.toml configuration reference & hardware tuning profiles
 ├── status.{en,zh}.md                     engineering status & acceptance receipts
 ├── visualizer/                           single-file 3D architecture walkthrough (not a MkDocs page)
 ├── api/                                  public mod-facing contracts

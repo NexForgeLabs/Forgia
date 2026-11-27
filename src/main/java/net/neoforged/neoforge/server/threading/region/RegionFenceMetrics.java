@@ -24,6 +24,7 @@ public final class RegionFenceMetrics {
     public enum Reason {
         CACHE_NULL,
         DEAD_REGION,
+        PINNED_CHUNK,
         NEAR_ENTITY,
         TRANSIENT_COOLDOWN,
         NON_SANDBOXED,

@@ -425,4 +425,33 @@ public final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.enableAsyncPlayerDataSave.get()
                 : ForgiaConfig.SERVER.enableAsyncPlayerDataSave.getDefault();
     }
+
+    public static boolean parallelWorldGenEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableParallelWorldGen.get()
+                : ForgiaConfig.SERVER.enableParallelWorldGen.getDefault();
+    }
+
+    public static int parallelWorldGenThreads() {
+        int configured = ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.parallelWorldGenThreads.get()
+                : ForgiaConfig.SERVER.parallelWorldGenThreads.getDefault();
+        if (configured > 0) {
+            return configured;
+        }
+        int cpus = Runtime.getRuntime().availableProcessors();
+        return Math.max(2, Math.min(8, cpus / 2));
+    }
+
+    public static boolean nonBlockingStructureLookupsEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableNonBlockingStructureLookups.get()
+                : ForgiaConfig.SERVER.enableNonBlockingStructureLookups.getDefault();
+    }
+
+    public static boolean asyncAdvancementSaveEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncAdvancementSave.get()
+                : ForgiaConfig.SERVER.enableAsyncAdvancementSave.getDefault();
+    }
 }

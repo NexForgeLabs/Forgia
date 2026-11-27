@@ -12,7 +12,7 @@ C6 验收覆盖其文档记录的固定布局配置。除此之外，`DYNAMIC_CL
 
 | 拥有 | 不拥有 |
 |---|---|
-| chunk→region 映射、每区域 lease、批次调度与屏障 | chunk 生成/IO 并行 |
+| chunk→region 映射、每区域 lease、批次调度与屏障 | 区块级 IO 异步反序列化与调色板直连编解码（由 `FastChunkSerialization` / `ChunkSerializer` 独立负责） |
 | 把每个原版 tick 切片交给 region worker | 默认玩家 tick 执行（除非显式开启实验性 `enableRegionThreadingPlayerTicks`，否则玩家留在服务器线程） |
 | 存储与全局状态的所有权断言 | 结构/活塞/移动装置区域化 |
 | worker 池生命周期与停机 join | 各切片自己的准入 |
@@ -33,6 +33,8 @@ C6 验收覆盖其文档记录的固定布局配置。除此之外，`DYNAMIC_CL
 | `LevelTickPhase` / `LevelTickPhaseState` | 显式 GLOBAL/REGION 交替与违规检测 |
 | `RegionThreadingDiagnostics` / `RegionMetricsReport` | 计数、计时、区域快照 |
 | `RegionThreadingConfig` / `RegionThreadingOptions` | 校验后的启动配置 |
+| `ParallelWorldGenScheduler` | C2ME 式多核并行区块生成与空间区域锁（按 `ChunkStep` 写入半径分配无所有权条带 `Semaphore` 许可） |
+| `FastChunkSerialization` | `PalettedContainer` 直连 NBT 编解码与后台线程区块 Section 预解码（`enableFastChunkPaletteSerialization` / `enableAsyncChunkLoadDeserialize`） |
 
 ## 3. Tick 流程
 

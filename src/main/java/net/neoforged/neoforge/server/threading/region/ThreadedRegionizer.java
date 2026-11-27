@@ -80,6 +80,8 @@ final class ThreadedRegionizer {
     private volatile boolean closed;
     private Thread writeLockOwner;
 
+    private volatile Set<RegionState> cachedUniqueRegions;
+
     private final RegionWorkAdmission workAdmission;
 
     ThreadedRegionizer(RegionLayout layout) {
@@ -175,6 +177,7 @@ final class ThreadedRegionizer {
         }
         final RegionState replacement = new RegionState(coordinate, this.workAdmission);
         this.regions.put(coordinate, replacement);
+        this.cachedUniqueRegions = null;
         return replacement;
     }
 
@@ -258,7 +261,10 @@ final class ThreadedRegionizer {
             sectionRegion.addCell(sectionCoordinate(coordinate));
             return sectionRegion;
         }
-        final RegionState created = this.regions.computeIfAbsent(coordinate, key -> new RegionState(key, this.workAdmission));
+        final RegionState created = this.regions.computeIfAbsent(coordinate, key -> {
+            this.cachedUniqueRegions = null;
+            return new RegionState(key, this.workAdmission);
+        });
         created.addCell(sectionCoordinate(coordinate));
         return created;
     }
@@ -783,6 +789,7 @@ final class ThreadedRegionizer {
         if (region.isEmpty() && !this.hasTrackedEntities(region)) {
             if (region.retireIfEmpty()) {
                 this.regions.values().removeIf(value -> value == region);
+                this.cachedUniqueRegions = null;
             }
         }
     }
@@ -814,6 +821,7 @@ final class ThreadedRegionizer {
             this.indexedEntityCounts.keySet().removeIf(counted -> counted == level);
             this.pinnedSectionsUntilTick.keySet().removeIf(coordinate -> coordinate.level() == level);
             this.regions.keySet().removeIf(coordinate -> coordinate.level() == level);
+            this.cachedUniqueRegions = null;
             final int currentSize = this.regions.size() + this.sections.size() + this.entities.size();
             if (currentSize != previousSize) {
                 this.structuralChangeCount.incrementAndGet();
@@ -841,6 +849,7 @@ final class ThreadedRegionizer {
             this.sectionRegions.clear();
             this.sections.clear();
             this.regions.clear();
+            this.cachedUniqueRegions = null;
             this.closedLevels.clear();
             if (changed) {
                 this.structuralChangeCount.incrementAndGet();
@@ -1049,6 +1058,7 @@ final class ThreadedRegionizer {
         // own list is preserved by the sequences of the migrated entries.
         target.absorbEntityTickEntriesFrom(source);
         target.absorbCellsFrom(source);
+        this.cachedUniqueRegions = null;
         this.structuralChangeCount.incrementAndGet();
     }
 
@@ -1091,6 +1101,7 @@ final class ThreadedRegionizer {
             this.migrateEntityTickEntry(entity, region, destination);
             return destination;
         });
+        this.cachedUniqueRegions = null;
         this.structuralChangeCount.incrementAndGet();
     }
 
@@ -1146,6 +1157,10 @@ final class ThreadedRegionizer {
     }
 
     private Set<RegionState> uniqueRegions() {
+        final Set<RegionState> cached = this.cachedUniqueRegions;
+        if (cached != null) {
+            return cached;
+        }
         if (this.writeLockOwner == Thread.currentThread()) {
             return this.uniqueRegionsLocked();
         }
@@ -1159,7 +1174,21 @@ final class ThreadedRegionizer {
     }
 
     private Set<RegionState> uniqueRegionsLocked() {
-        return new HashSet<>(this.regions.values());
+        Set<RegionState> cached = this.cachedUniqueRegions;
+        if (cached == null) {
+            cached = Set.copyOf(this.regions.values());
+            this.cachedUniqueRegions = cached;
+        }
+        return cached;
+    }
+
+    boolean anyRegionMatches(java.util.function.Predicate<RegionState> predicate) {
+        for (final RegionState region : this.uniqueRegions()) {
+            if (predicate.test(region)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

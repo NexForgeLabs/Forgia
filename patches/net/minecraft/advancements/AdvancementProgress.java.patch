@@ -1,0 +1,22 @@
+--- a/net/minecraft/advancements/AdvancementProgress.java
++++ b/net/minecraft/advancements/AdvancementProgress.java
+@@ -48,6 +_,19 @@
+         this.criteria = p_144358_;
+     }
+ 
++    public AdvancementProgress snapshotForSave() {
++        Map<String, CriterionProgress> copy = new HashMap<>(this.criteria.size());
++        for (Entry<String, CriterionProgress> entry : this.criteria.entrySet()) {
++            java.time.Instant obtained = entry.getValue().getObtained();
++            if (obtained != null) {
++                copy.put(entry.getKey(), new CriterionProgress(obtained));
++            }
++        }
++        AdvancementProgress snapshot = new AdvancementProgress(copy);
++        snapshot.requirements = this.requirements;
++        return snapshot;
++    }
++
+     public AdvancementProgress() {
+         this.criteria = Maps.newHashMap();
+     }

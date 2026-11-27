@@ -280,6 +280,37 @@ public final class FastChunkSerialization {
         return out;
     }
 
+    /**
+     * Fast direct NBT writer for {@link PalettedContainerRO}{@code <Holder<Biome>>}.
+     * Bypasses DFU {@code Codec.encodeStart} when all palette entries are named registry holders.
+     */
+    @Nullable
+    public static CompoundTag writeBiomesFast(Registry<Biome> biomeRegistry, PalettedContainerRO<Holder<Biome>> container) {
+        PalettedContainerRO.PackedData<Holder<Biome>> packed = container.pack(
+                biomeRegistry.asHolderIdMap(), PalettedContainer.Strategy.SECTION_BIOMES);
+        List<Holder<Biome>> entries = packed.paletteEntries();
+        if (entries.isEmpty()) {
+            return null;
+        }
+
+        ListTag paletteList = new ListTag();
+        for (int i = 0; i < entries.size(); i++) {
+            var keyOpt = entries.get(i).unwrapKey();
+            if (keyOpt.isEmpty()) {
+                return null;
+            }
+            paletteList.add(net.minecraft.nbt.StringTag.valueOf(keyOpt.get().location().toString()));
+        }
+
+        CompoundTag out = new CompoundTag();
+        out.put(TAG_PALETTE, paletteList);
+        Optional<LongStream> storage = packed.storage();
+        if (storage.isPresent()) {
+            out.putLongArray(TAG_DATA, storage.get().toArray());
+        }
+        return out;
+    }
+
     private static CompoundTag encodeBlockStateCached(BlockState state) {
         CompoundTag template = ENCODED_STATE_CACHE.get(state);
         if (template == null) {

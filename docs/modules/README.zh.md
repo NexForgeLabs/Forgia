@@ -13,7 +13,7 @@
 
 | 模块 | 主要类 | 配置键 | 状态 | 文档 |
 |---|---|---|---|---|
-| Region 引擎与所有权 | `RegionThreadingEngine`、`RegionLayout`、`RegionState`、`RegionSchedule`、`RegionOwnershipLeaseGroup`、`RegionWorkerPool`、`RegionWorkStealingDispatcher`、`RegionTickBarrier`、`RegionMailbox` | `enableRegionThreadingBridge`、`...Workers`、`regionThreadingMode`、`...WorkerThreads`、`...PersistentWorkers`、`...PackedRegionLeases` | 已认证（范围） | [region-engine](region-engine.zh.md) |
+| Region 引擎与所有权 | `RegionThreadingEngine`、`RegionLayout`、`RegionState`、`RegionSchedule`、`RegionOwnershipLeaseGroup`、`RegionWorkerPool`、`RegionWorkStealingDispatcher`、`RegionTickBarrier`、`RegionMailbox`、`ParallelWorldGenScheduler` | `enableRegionThreadingBridge`、`...Workers`、`regionThreadingMode`、`...WorkerThreads`、`...PersistentWorkers`、`...PackedRegionLeases`、`enableParallelWorldGen` | 已认证（范围） | [region-engine](region-engine.zh.md) |
 | 实体 tick | `RegionEntityTickPlan`、`...Batch`、`...Entry`、`RegionEntityStorageMode`、`FixedEntitySectionPartitions`、`EntityIdentityLedger`、`RegionEntityTransferJournal`、`RegionScopedEntityQuery` | `enableRegionThreadingEntityTicks` | 已认证（范围） | [entity-ticks](entity-ticks.zh.md) |
 | Chunk tick 与跨区效果 | `RegionChunkTickCoordinator`、`...Plan`、`...Batch`、`RegionBorderUpdates`、`RegionBorderGameEvents`、`RegionDeferredBlockUpdates` | `enableRegionThreadingRandomTicks`、`...BorderUpdates`、`...GameEvents` | 已认证（范围）/ 实验性 | [chunk-ticks](chunk-ticks.zh.md) |
 | 自然刷怪与 POI | `RegionSpawnPlan`、`...Batch`、`...State`、`RegionSpawnAdmissionBarrier`、`NearbySpawnReservations`、`RegionPoiStorage(s)`、`RegionPoiSections` | `enableRegionThreadingSpawning`、`...Poi` | 实验性 / 已认证（范围） | [natural-spawning-and-poi](natural-spawning-and-poi.zh.md) |

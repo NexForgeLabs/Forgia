@@ -532,6 +532,10 @@ final class RegionBlockEntityTickCoordinator {
                         this.lastPreparedIndex = index;
                         this.lastPreparedEligible = eligible;
                         if (!eligible) return null;
+                        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isServerThreadPinnedChunk(
+                                level, admission.position().getX() >> 4, admission.position().getZ() >> 4)) {
+                            return null;
+                        }
                         final var executionBinding = admission.decision() == RegionBlockEntityTickAdmission.Decision.ADAPTER_GUARDED
                                 ? ParallelAdapterRuntime.auditedBlockEntityTickBinding(admission)
                                 : null;
@@ -1505,6 +1509,14 @@ final class RegionBlockEntityTickCoordinator {
                 for (int a = 0, aSize = chunk.admissions().size(); a < aSize; ++a) {
                     serialAdmissions.add(chunk.admissions().get(a));
                     serialReasons.add(RegionFenceMetrics.Reason.CACHE_NULL);
+                }
+                continue;
+            }
+            if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isServerThreadPinnedChunk(
+                    level, ChunkPos.getX(chunk.chunkKey()), ChunkPos.getZ(chunk.chunkKey()))) {
+                for (int a = 0, aSize = chunk.admissions().size(); a < aSize; ++a) {
+                    serialAdmissions.add(chunk.admissions().get(a));
+                    serialReasons.add(RegionFenceMetrics.Reason.PINNED_CHUNK);
                 }
                 continue;
             }

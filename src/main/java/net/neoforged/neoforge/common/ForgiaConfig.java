@@ -223,6 +223,10 @@ public final class ForgiaConfig {
         public final BooleanValue enableChunkUnloadSpinGuard;
         public final LongValue incrementalAutosaveBudgetNanos;
         public final BooleanValue enableAsyncPlayerDataSave;
+        public final BooleanValue enableParallelWorldGen;
+        public final IntValue parallelWorldGenThreads;
+        public final BooleanValue enableNonBlockingStructureLookups;
+        public final BooleanValue enableAsyncAdvancementSave;
 
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment(
@@ -836,6 +840,30 @@ public final class ForgiaConfig {
                             "Snapshots player CompoundTag on the server thread in PlayerDataStorage.save() and offloads GZIP compression and atomic file replacement to Util.ioPool() serialized per player UUID (awaited before load() for the same UUID and flushed synchronously on shutdown). Default true.",
                             "[中文] 在 PlayerDataStorage.save() 中由主线程完成玩家 NBT 快照后，将 GZIP 压缩与原子写盘异步卸载到 Util.ioPool()（按玩家 UUID 保序，重连 load() 前自动等待写入完成，关服时同步落盘；默认 true），消除每 5 分钟全服玩家存档引发的 1-2 秒主线程卡顿。")
                     .define("enableAsyncPlayerDataSave", true);
+
+            enableParallelWorldGen = builder
+                    .comment(
+                            "Enables C2ME-style parallel chunk generation across multiple worker threads using spatial area locks (by ChunkStep write radius) instead of ChunkMap's single-threaded worldgen mailbox. Default true.",
+                            "[中文] 启用类似 C2ME 的多核并行区块生成（按 ChunkStep 写入半径进行空间区域加锁，替代 ChunkMap 单线程 worldgen 邮箱，大幅加速新玩家进服、切维度与跑图时的区块生成；默认 true）。")
+                    .define("enableParallelWorldGen", true);
+
+            parallelWorldGenThreads = builder
+                    .comment(
+                            "Maximum concurrent worker threads used for C2ME-style parallel chunk generation when enableParallelWorldGen is true (0 = auto: clamp(availableProcessors / 2, 2, 8)). Default 0.",
+                            "[中文] 开启并行区块生成时使用的最大并发线程数（0 表示自动，取 clamp(CPU核心数 / 2, 2, 8)；默认 0）。")
+                    .defineInRange("parallelWorldGenThreads", 0, 0, 32);
+
+            enableNonBlockingStructureLookups = builder
+                    .comment(
+                            "Uses non-loading chunk lookups (load = false) in StructureManager.startsForStructure() / fillStartsForStructure() when querying a live ServerLevel, preventing main-thread managedBlock stalls on unloaded structure origin chunks (WorldGenRegion during chunk generation is unaffected). Default true.",
+                            "[中文] 在 ServerLevel 上通过 StructureManager 查询结构时使用非加载查询（load = false），跳过尚未加载的结构原点区块，避免主线程被 managedBlock 阻塞（世界生成阶段的 WorldGenRegion 不受影响；默认 true）。")
+                    .define("enableNonBlockingStructureLookups", true);
+
+            enableAsyncAdvancementSave = builder
+                    .comment(
+                            "Snapshots player advancement progress on the server thread in PlayerAdvancements.save() and offloads DFU Codec encoding + GSON serialization + atomic file replacement to Util.ioPool() serialized per player file. Default true.",
+                            "[中文] 在 PlayerAdvancements.save() 中由主线程做轻量进度快照后，将 DFU Codec 编码与 GSON 写盘异步卸载到 Util.ioPool()（按文件保序，重连读取前自动等待，关服同步落盘；默认 true），消除每 5 分钟及新玩家进服时的成就保存卡顿。")
+                    .define("enableAsyncAdvancementSave", true);
         }
     }
 }

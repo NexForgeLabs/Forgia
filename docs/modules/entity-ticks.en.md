@@ -22,7 +22,7 @@ Status: the bounded entity-tick path passed its **historical C6 acceptance scope
 | Class | Responsibility |
 |---|---|
 | `RegionEntityTickPlan` / `RegionEntityTickEntry` | Order entities into a per-region plan |
-| `RegionEntityTickBatch` / `RegionEntityTickSlice` | Dispatch a batch, join, publish |
+| `RegionEntityTickBatch` / `RegionEntityTickCoordinator` | Dispatch a batch, join, publish |
 | `RegionEntityStorageMode` / `FixedEntitySectionPartitions` | Region-owned storage layout |
 | `EntityIdentityLedger` / `EntityIdentity` | Identity stability across moves |
 | `RegionEntityTransferJournal` / `RegionEntityTransferToken` | Cross-region entity handoff |

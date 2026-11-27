@@ -1,0 +1,56 @@
+--- a/net/minecraft/world/level/StructureManager.java
++++ b/net/minecraft/world/level/StructureManager.java
+@@ -48,7 +_,15 @@
+     }
+ 
+     public List<StructureStart> startsForStructure(ChunkPos p_220478_, Predicate<Structure> p_220479_) {
+-        Map<Structure, LongSet> map = this.level.getChunk(p_220478_.x, p_220478_.z, ChunkStatus.STRUCTURE_REFERENCES).getAllReferences();
++        boolean nonBlocking = this.level instanceof net.minecraft.server.level.ServerLevel
++            && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.nonBlockingStructureLookupsEnabled();
++        net.minecraft.world.level.chunk.ChunkAccess chunkaccess = nonBlocking
++            ? this.level.getChunk(p_220478_.x, p_220478_.z, ChunkStatus.STRUCTURE_REFERENCES, false)
++            : this.level.getChunk(p_220478_.x, p_220478_.z, ChunkStatus.STRUCTURE_REFERENCES);
++        if (chunkaccess == null) {
++            return List.of();
++        }
++        Map<Structure, LongSet> map = chunkaccess.getAllReferences();
+         Builder<StructureStart> builder = ImmutableList.builder();
+ 
+         for (Entry<Structure, LongSet> entry : map.entrySet()) {
+@@ -62,18 +_,32 @@
+     }
+ 
+     public List<StructureStart> startsForStructure(SectionPos p_220505_, Structure p_220506_) {
+-        LongSet longset = this.level.getChunk(p_220505_.x(), p_220505_.z(), ChunkStatus.STRUCTURE_REFERENCES).getReferencesForStructure(p_220506_);
++        boolean nonBlocking = this.level instanceof net.minecraft.server.level.ServerLevel
++            && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.nonBlockingStructureLookupsEnabled();
++        net.minecraft.world.level.chunk.ChunkAccess chunkaccess = nonBlocking
++            ? this.level.getChunk(p_220505_.x(), p_220505_.z(), ChunkStatus.STRUCTURE_REFERENCES, false)
++            : this.level.getChunk(p_220505_.x(), p_220505_.z(), ChunkStatus.STRUCTURE_REFERENCES);
++        if (chunkaccess == null) {
++            return List.of();
++        }
++        LongSet longset = chunkaccess.getReferencesForStructure(p_220506_);
+         Builder<StructureStart> builder = ImmutableList.builder();
+         this.fillStartsForStructure(p_220506_, longset, builder::add);
+         return builder.build();
+     }
+ 
+     public void fillStartsForStructure(Structure p_220481_, LongSet p_220482_, Consumer<StructureStart> p_220483_) {
++        boolean nonBlocking = this.level instanceof net.minecraft.server.level.ServerLevel
++            && net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.nonBlockingStructureLookupsEnabled();
+         for (long i : p_220482_) {
+             SectionPos sectionpos = SectionPos.of(new ChunkPos(i), this.level.getMinSection());
+-            StructureStart structurestart = this.getStartForStructure(
+-                sectionpos, p_220481_, this.level.getChunk(sectionpos.x(), sectionpos.z(), ChunkStatus.STRUCTURE_STARTS)
+-            );
++            net.minecraft.world.level.chunk.ChunkAccess chunkaccess = nonBlocking
++                ? this.level.getChunk(sectionpos.x(), sectionpos.z(), ChunkStatus.STRUCTURE_STARTS, false)
++                : this.level.getChunk(sectionpos.x(), sectionpos.z(), ChunkStatus.STRUCTURE_STARTS);
++            if (chunkaccess == null) {
++                continue;
++            }
++            StructureStart structurestart = this.getStartForStructure(sectionpos, p_220481_, chunkaccess);
+             if (structurestart != null && structurestart.isValid()) {
+                 p_220483_.accept(structurestart);
+             }

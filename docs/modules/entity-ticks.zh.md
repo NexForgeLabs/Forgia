@@ -22,7 +22,7 @@
 | 类 | 职责 |
 |---|---|
 | `RegionEntityTickPlan` / `RegionEntityTickEntry` | 把实体排进每区域计划 |
-| `RegionEntityTickBatch` / `RegionEntityTickSlice` | 派发批次、join、发布 |
+| `RegionEntityTickBatch` / `RegionEntityTickCoordinator` | 派发批次、join、发布 |
 | `RegionEntityStorageMode` / `FixedEntitySectionPartitions` | region-owned 存储布局 |
 | `EntityIdentityLedger` / `EntityIdentity` | 跨移动的身份稳定性 |
 | `RegionEntityTransferJournal` / `RegionEntityTransferToken` | 跨区域实体交接 |

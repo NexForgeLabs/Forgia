@@ -29,6 +29,7 @@
 | 受审计原 ticker | `AUDITED_BLOCK_ENTITY_TICKS` | 清单 + READ/WRITE 足迹 | canonical 阶段中原 ticker 在 worker 上 | 高 | [指南](../api/block-entity-ticks.zh.md) |
 | 原 ticker 执行适配器 | `BLOCK_ENTITY_EXECUTION_ADAPTERS` | 清单 + `Mode` + 足迹 + 依赖版本 | `REGION_OWNER` 或 `RESOURCE_SCOPED` 原 ticker 执行 | 高 | [指南](../api/block-entity-execution.zh.md) |
 | 仅操作集成 | `BLOCK_ENTITY_OPERATIONS` | 不注册；使用 `blockEntities()` | 跨区完成交互，不并行 tick | 低 | [指南](../api/block-entity-operations.zh.md) |
+| 沙盒与区块亲和兼容 | `RegionAdapterApi`（`admitRegionSandboxedNamespace`、`registerChunkAffinityResolver`、`registerServerThreadChunkPredicate`、`shareSavedData`） | 命名空间沙盒准入、虚拟/子世界区块锚点亲和路由、主线程区块钉选、共享 `SavedData` | 并行沙盒 + 单区域子世界隔离 | 低–中 | [API 总览](../api/README.zh.md) |
 
 ## 3. 选择矩阵
 

@@ -2636,6 +2636,12 @@ public final class RegionThreadingHooks {
         if (FurnaceWorkScope.runTask(level, pos, task)
                 || net.neoforged.neoforge.server.threading.region.CoreModWorkScope.runTask(level, pos, task))
             return;
+        if (!isNativeRegionWorkerThread()
+                && net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isServerThreadPinnedChunk(
+                        level, pos.getX() >> 4, pos.getZ() >> 4)) {
+            task.run();
+            return;
+        }
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         if (threading instanceof RegionThreadingEngine engine) {
             engine.runInBlockRegion(level, pos, task);

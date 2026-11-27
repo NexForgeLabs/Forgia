@@ -14,7 +14,7 @@
 
 | 我想…… | 阅读 | 主要类型 |
 |---|---|---|
-| 了解 Forgia 当前状态与验证范围 | [README](index.md)、[STATUS](status.zh.md) | — |
+| 了解 Forgia 当前状态与验证范围 | [概览](README.zh.md)、[STATUS](status.zh.md) | — |
 | 先用 3D 动画过一遍执行流程 | [3D 架构动画流](visualizer/index.html)（交互式架构演示；展示概念流程，不代表兼容认证） | — |
 | 了解实验性玩家调度 | [玩家 Tick](modules/player-ticks.zh.md) | `ENTITY`、`CONNECTION`、`CONNECTION_BODY` |
 | 开启服务器 / 调优 `config/forgia.toml` | [配置与硬件调优](configuration.zh.md)、[观测与配置](modules/observability.zh.md) | `forgia.toml`、`/forgia` |
@@ -33,11 +33,10 @@
 
 ```
 docs/
-├── index.{md,zh.md}                      站点首页
 ├── README.{en,zh}.md                     索引、约定、状态图例
 ├── architecture.{en,zh}.md               原版 NeoForge vs Forgia 架构对比
 ├── benchmarks.{en,zh}.md                 实测性能与耐久基准
-├── configuration.{en,zh}.md              全部 36 项 forgia.toml 配置与硬件调优指南
+├── configuration.{en,zh}.md              forgia.toml 完整配置参考与硬件调优指南
 ├── status.{en,zh}.md                     工程状态与验收回执
 ├── visualizer/                           3D 架构动画页（单文件 HTML，非 MkDocs 页面）
 ├── api/                                  面向模组的公开合同

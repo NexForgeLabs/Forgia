@@ -27,6 +27,7 @@
 | 查询/断言所有权 | 同上 | `RegionThreading`、`RegionThreadingContext` | 模组自行走串行分支 |
 | 整体实体交互 / 加载后 owner 操作 | 同上 → `entityInteractions()` | `EntityInteractionScheduler` | 无引擎入口（`ParallelApi` 则始终注册） |
 | 声明模组兼容等级 | mod metadata `regionThreading` | `RegionThreadingSupport` | 仅声明 |
+| 沙盒 / 亲和路由 / 区块钉选钩子（兼容扩展） | `RegionAdapterApi`（`registerChunkAffinityResolver`、`registerServerThreadChunkPredicate`、`admitRegionSandboxedNamespace`、`shareSavedData`） | `RegionAdapterApi` | 供随附兼容适配器使用 |
 
 **为什么要这样拆分。** `ParallelApi` 是始终存在的服务器级服务；调度器属于已安装的引擎。混在一起会让
 “引擎关了”和“API 不存在”无法区分，模组就会协商错对象。

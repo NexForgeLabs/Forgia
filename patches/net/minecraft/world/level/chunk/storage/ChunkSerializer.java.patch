@@ -105,11 +105,12 @@
              return protochunk1;
          }
      }
-@@ -324,7 +_,14 @@
+@@ -324,8 +_,22 @@
                  CompoundTag compoundtag1 = new CompoundTag();
                  if (flag1) {
                      LevelChunkSection levelchunksection = alevelchunksection[j];
 -                    compoundtag1.put("block_states", BLOCK_STATE_CODEC.encodeStart(NbtOps.INSTANCE, levelchunksection.getStates()).getOrThrow());
+-                    compoundtag1.put("biomes", codec.encodeStart(NbtOps.INSTANCE, levelchunksection.getBiomes()).getOrThrow());
 +                    CompoundTag fastEncoded = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.fastChunkPaletteSerializationEnabled()
 +                        ? net.neoforged.neoforge.server.threading.region.FastChunkSerialization.writeBlockStatesFast(levelchunksection.getStates())
 +                        : null;
@@ -118,9 +119,17 @@
 +                    } else {
 +                        compoundtag1.put("block_states", BLOCK_STATE_CODEC.encodeStart(NbtOps.INSTANCE, levelchunksection.getStates()).getOrThrow());
 +                    }
-                     compoundtag1.put("biomes", codec.encodeStart(NbtOps.INSTANCE, levelchunksection.getBiomes()).getOrThrow());
++                    CompoundTag fastBiomes = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.fastChunkPaletteSerializationEnabled()
++                        ? net.neoforged.neoforge.server.threading.region.FastChunkSerialization.writeBiomesFast(registry, levelchunksection.getBiomes())
++                        : null;
++                    if (fastBiomes != null) {
++                        compoundtag1.put("biomes", fastBiomes);
++                    } else {
++                        compoundtag1.put("biomes", codec.encodeStart(NbtOps.INSTANCE, levelchunksection.getBiomes()).getOrThrow());
++                    }
                  }
  
+                 if (datalayer != null && !datalayer.isEmpty()) {
 @@ -374,6 +_,11 @@
  
              compoundtag.put("CarvingMasks", compoundtag4);

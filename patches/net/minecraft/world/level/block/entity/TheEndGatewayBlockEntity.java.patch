@@ -1,0 +1,232 @@
+--- a/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
++++ b/net/minecraft/world/level/block/entity/TheEndGatewayBlockEntity.java
+@@ -13,6 +_,7 @@
+ import net.minecraft.nbt.NbtUtils;
+ import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+ import net.minecraft.server.level.ServerLevel;
++import net.minecraft.server.level.TicketType;
+ import net.minecraft.util.Mth;
+ import net.minecraft.util.RandomSource;
+ import net.minecraft.world.level.BlockGetter;
+@@ -34,11 +_,22 @@
+     private static final int ATTENTION_INTERVAL = 2400;
+     private static final int EVENT_COOLDOWN = 1;
+     private static final int GATEWAY_HEIGHT_ABOVE_SURFACE = 10;
++    private static final double PREWARM_PLAYER_RANGE = 32.0;
+     private long age;
+     private int teleportCooldown;
+     @Nullable
+     private BlockPos exitPortal;
+     private boolean exactTeleport;
++    private volatile boolean asyncExitResolving;
++    private volatile boolean asyncStepQueued;
++    private int asyncPhase;
++    private int asyncStepsRemaining;
++    private int asyncTicketTicks;
++    @Nullable
++    private Vec3 asyncProbePos;
++    @Nullable
++    private ChunkPos asyncProbeChunk;
++    private int asyncProbeTicketRadius = -1;
+ 
+     public TheEndGatewayBlockEntity(BlockPos p_155813_, BlockState p_155814_) {
+         super(BlockEntityType.END_GATEWAY, p_155813_, p_155814_);
+@@ -82,6 +_,21 @@
+             triggerCooldown(p_350841_, p_350745_, p_350476_, p_350562_);
+         }
+ 
++        if (p_350562_.exitPortal == null
++            && p_350841_ instanceof ServerLevel serverLevel
++            && serverLevel.dimension() == Level.END) {
++            if (!p_350562_.asyncExitResolving
++                && p_350562_.age % 5L == 0L
++                && serverLevel.hasNearbyAlivePlayer(
++                    (double)p_350745_.getX() + 0.5, (double)p_350745_.getY() + 0.5, (double)p_350745_.getZ() + 0.5, PREWARM_PLAYER_RANGE
++                )) {
++                p_350562_.asyncExitResolving = true;
++            }
++            if (p_350562_.asyncExitResolving) {
++                p_350562_.scheduleAsyncExitStep(serverLevel, p_350745_);
++            }
++        }
++
+         if (flag != p_350562_.isSpawning() || flag1 != p_350562_.isCoolingDown()) {
+             setChanged(p_350841_, p_350745_, p_350476_);
+         }
+@@ -133,11 +_,8 @@
+     @Nullable
+     public Vec3 getPortalPosition(ServerLevel p_350561_, BlockPos p_350271_) {
+         if (this.exitPortal == null && p_350561_.dimension() == Level.END) {
+-            BlockPos blockpos = findOrCreateValidTeleportPos(p_350561_, p_350271_);
+-            blockpos = blockpos.above(10);
+-            LOGGER.debug("Creating portal at {}", blockpos);
+-            spawnGatewayPortal(p_350561_, blockpos, EndGatewayConfiguration.knownExit(p_350271_, false));
+-            this.setExitPosition(blockpos, this.exactTeleport);
++            this.asyncExitResolving = true;
++            this.stepAsyncExitResolution(p_350561_, p_350271_);
+         }
+ 
+         if (this.exitPortal != null) {
+@@ -145,6 +_,162 @@
+             return blockpos1.getBottomCenter();
+         } else {
+             return null;
++        }
++    }
++
++    public boolean isAwaitingExitResolution(Level level) {
++        return this.exitPortal == null && level.dimension() == Level.END;
++    }
++
++    public void requestAsyncExitResolution(ServerLevel level, BlockPos gatewayPos) {
++        if (this.exitPortal == null && level.dimension() == Level.END) {
++            this.asyncExitResolving = true;
++            this.scheduleAsyncExitStep(level, gatewayPos);
++        }
++    }
++
++    private void scheduleAsyncExitStep(ServerLevel level, BlockPos gatewayPos) {
++        if (level.getServer().isSameThread() && !net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++            this.stepAsyncExitResolution(level, gatewayPos);
++            return;
++        }
++        if (this.asyncStepQueued) {
++            return;
++        }
++        this.asyncStepQueued = true;
++        level.getServer().execute(() -> {
++            this.asyncStepQueued = false;
++            if (!this.isRemoved() && this.exitPortal == null) {
++                this.stepAsyncExitResolution(level, gatewayPos);
++            }
++        });
++    }
++
++    private void stepAsyncExitResolution(ServerLevel level, BlockPos gatewayPos) {
++        if (this.isRemoved() || this.exitPortal != null || level.dimension() != Level.END) {
++            this.clearAsyncProbeTicket(level, gatewayPos);
++            this.asyncPhase = 0;
++            this.asyncExitResolving = false;
++            return;
++        }
++
++        Vec3 dir = new Vec3((double)gatewayPos.getX(), 0.0, (double)gatewayPos.getZ()).normalize();
++        if (this.asyncPhase == 0) {
++            this.asyncProbePos = dir.scale(1024.0);
++            this.asyncStepsRemaining = 16;
++            this.asyncPhase = 1;
++        }
++
++        while (true) {
++            if (this.asyncPhase == 1) {
++                ChunkPos probeChunk = new ChunkPos(Mth.floor(this.asyncProbePos.x / 16.0), Mth.floor(this.asyncProbePos.z / 16.0));
++                LevelChunk chunk = level.getChunkSource().getChunkNow(probeChunk.x, probeChunk.z);
++                if (chunk == null) {
++                    this.ensureAsyncProbeTicket(level, gatewayPos, probeChunk, 0);
++                    return;
++                }
++                if (chunk.getHighestFilledSectionIndex() != -1 && this.asyncStepsRemaining-- > 0) {
++                    LOGGER.debug("Skipping backwards past nonempty chunk at {}", this.asyncProbePos);
++                    this.asyncProbePos = this.asyncProbePos.add(dir.scale(-16.0));
++                    continue;
++                }
++                this.asyncStepsRemaining = 16;
++                this.asyncPhase = 2;
++            }
++
++            if (this.asyncPhase == 2) {
++                ChunkPos probeChunk = new ChunkPos(Mth.floor(this.asyncProbePos.x / 16.0), Mth.floor(this.asyncProbePos.z / 16.0));
++                LevelChunk chunk = level.getChunkSource().getChunkNow(probeChunk.x, probeChunk.z);
++                if (chunk == null) {
++                    this.ensureAsyncProbeTicket(level, gatewayPos, probeChunk, 0);
++                    return;
++                }
++                if (chunk.getHighestFilledSectionIndex() == -1 && this.asyncStepsRemaining-- > 0) {
++                    LOGGER.debug("Skipping forward past empty chunk at {}", this.asyncProbePos);
++                    this.asyncProbePos = this.asyncProbePos.add(dir.scale(16.0));
++                    continue;
++                }
++                LOGGER.debug("Found chunk at {}", this.asyncProbePos);
++                this.asyncPhase = 3;
++            }
++
++            if (this.asyncPhase == 3) {
++                ChunkPos targetChunk = new ChunkPos(Mth.floor(this.asyncProbePos.x / 16.0), Mth.floor(this.asyncProbePos.z / 16.0));
++                for (int dx = -1; dx <= 1; dx++) {
++                    for (int dz = -1; dz <= 1; dz++) {
++                        if (level.getChunkSource().getChunkNow(targetChunk.x + dx, targetChunk.z + dz) == null) {
++                            this.ensureAsyncProbeTicket(level, gatewayPos, targetChunk, 1);
++                            return;
++                        }
++                    }
++                }
++
++                LevelChunk levelchunk = level.getChunkSource().getChunkNow(targetChunk.x, targetChunk.z);
++                BlockPos blockpos = findValidSpawnInChunk(levelchunk);
++                if (blockpos == null) {
++                    BlockPos blockpos1 = BlockPos.containing(this.asyncProbePos.x + 0.5, 75.0, this.asyncProbePos.z + 0.5);
++                    LOGGER.debug("Failed to find a suitable block to teleport to, spawning an island on {}", blockpos1);
++                    level.registryAccess()
++                        .registry(Registries.CONFIGURED_FEATURE)
++                        .flatMap(p_258975_ -> p_258975_.getHolder(EndFeatures.END_ISLAND))
++                        .ifPresent(
++                            p_256040_ -> p_256040_.value()
++                                .place(level, level.getChunkSource().getGenerator(), RandomSource.create(blockpos1.asLong()), blockpos1)
++                        );
++                    blockpos = blockpos1;
++                } else {
++                    LOGGER.debug("Found suitable block to teleport to: {}", blockpos);
++                }
++
++                BlockPos exit = findTallestBlock(level, blockpos, 16, true).above(GATEWAY_HEIGHT_ABOVE_SURFACE);
++                LOGGER.debug("Creating portal at {}", exit);
++                spawnGatewayPortal(level, exit, EndGatewayConfiguration.knownExit(gatewayPos, false));
++                this.setExitPosition(exit, this.exactTeleport);
++                this.clearAsyncProbeTicket(level, gatewayPos);
++                this.asyncPhase = 0;
++                this.asyncExitResolving = false;
++                return;
++            }
++
++            return;
++        }
++    }
++
++    private void ensureAsyncProbeTicket(ServerLevel level, BlockPos gatewayPos, ChunkPos chunkPos, int radius) {
++        if (chunkPos.equals(this.asyncProbeChunk) && this.asyncProbeTicketRadius == radius) {
++            if (++this.asyncTicketTicks < 200) {
++                return;
++            }
++            this.asyncTicketTicks = 0;
++            level.getChunkSource().addRegionTicket(TicketType.PORTAL, chunkPos, radius, gatewayPos);
++            return;
++        }
++        this.clearAsyncProbeTicket(level, gatewayPos);
++        level.getChunkSource().addRegionTicket(TicketType.PORTAL, chunkPos, radius, gatewayPos);
++        this.asyncProbeChunk = chunkPos;
++        this.asyncProbeTicketRadius = radius;
++        this.asyncTicketTicks = 0;
++    }
++
++    private void clearAsyncProbeTicket(ServerLevel level, BlockPos gatewayPos) {
++        if (this.asyncProbeChunk != null && this.asyncProbeTicketRadius >= 0) {
++            level.getChunkSource().removeRegionTicket(TicketType.PORTAL, this.asyncProbeChunk, this.asyncProbeTicketRadius, gatewayPos);
++            this.asyncProbeChunk = null;
++            this.asyncProbeTicketRadius = -1;
++            this.asyncTicketTicks = 0;
++        }
++    }
++
++    @Override
++    public void setRemoved() {
++        super.setRemoved();
++        if (this.asyncProbeChunk != null && this.level instanceof ServerLevel serverLevel) {
++            BlockPos gatewayPos = this.worldPosition;
++            if (serverLevel.getServer().isSameThread() && !net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()) {
++                this.clearAsyncProbeTicket(serverLevel, gatewayPos);
++            } else {
++                serverLevel.getServer().execute(() -> this.clearAsyncProbeTicket(serverLevel, gatewayPos));
++            }
+         }
+     }
+ 

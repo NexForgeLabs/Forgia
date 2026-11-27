@@ -12,7 +12,7 @@ Status: **C6 acceptance covers its documented fixed-layout profile.** Separately
 
 | Owns | Does not own |
 |---|---|
-| Mapping chunks to regions, leases per region, batch scheduling and barriers | Chunk generation/IO parallelisation |
+| Mapping chunks to regions, leases per region, batch scheduling and barriers | Chunk-level IO decompression/palette codecs (handled separately by `FastChunkSerialization` / `ChunkSerializer`) |
 | Handing each vanilla tick slice to region workers | Default player tick execution (players stay on the server thread unless opt-in experimental `enableRegionThreadingPlayerTicks` is enabled) |
 | Ownership assertions for storage and global state | Structure/piston/contraption regionalisation |
 | Worker pool lifecycle and shutdown join | Module-specific admission (each slice has its own) |
@@ -33,6 +33,8 @@ Status: **C6 acceptance covers its documented fixed-layout profile.** Separately
 | `LevelTickPhase` / `LevelTickPhaseState` | Explicit GLOBAL/REGION alternation and violation detection |
 | `RegionThreadingDiagnostics` / `RegionMetricsReport` | Counters, timings, region snapshots |
 | `RegionThreadingConfig` / `RegionThreadingOptions` | Validated startup configuration |
+| `ParallelWorldGenScheduler` | C2ME-style spatial area-locked concurrent chunk generation (`ChunkStep` write radius striped `Semaphore` permits) |
+| `FastChunkSerialization` | Direct NBT `PalettedContainer` read/write & background chunk section pre-decoding (`enableFastChunkPaletteSerialization` / `enableAsyncChunkLoadDeserialize`) |
 
 ## 3. Tick flow
 

@@ -1,5 +1,39 @@
 --- a/net/minecraft/server/level/ChunkMap.java
 +++ b/net/minecraft/server/level/ChunkMap.java
+@@ -127,6 +_,8 @@
+     final LongSet toDrop = new LongOpenHashSet();
+     private boolean modified;
+     private final ChunkTaskPriorityQueueSorter queueSorter;
++    @Nullable
++    private final net.neoforged.neoforge.server.threading.region.ParallelWorldGenScheduler parallelWorldGenScheduler;
+     private final ProcessorHandle<ChunkTaskPriorityQueueSorter.Message<Runnable>> worldgenMailbox;
+     private final ProcessorHandle<ChunkTaskPriorityQueueSorter.Message<Runnable>> mainThreadMailbox;
+     private final ChunkProgressListener progressListener;
+@@ -176,15 +_,21 @@
+ 
+         this.chunkGeneratorState = p_214843_.createState(registryaccess.lookupOrThrow(Registries.STRUCTURE_SET), this.randomState, i);
+         this.mainThreadExecutor = p_214841_;
+-        ProcessorMailbox<Runnable> processormailbox1 = ProcessorMailbox.create(p_214840_, "worldgen");
++        this.parallelWorldGenScheduler = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.parallelWorldGenEnabled()
++            ? new net.neoforged.neoforge.server.threading.region.ParallelWorldGenScheduler()
++            : null;
++        ProcessorHandle<Runnable> worldgenHandle = this.parallelWorldGenScheduler != null
++            ? net.neoforged.neoforge.server.threading.region.ParallelWorldGenScheduler.createConcurrentHandle(
++                p_214840_, "worldgen", net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.parallelWorldGenThreads())
++            : ProcessorMailbox.create(p_214840_, "worldgen");
+         ProcessorHandle<Runnable> processorhandle = ProcessorHandle.of("main", p_214841_::tell);
+         this.progressListener = p_214844_;
+         this.chunkStatusListener = p_214845_;
+         ProcessorMailbox<Runnable> processormailbox = ProcessorMailbox.create(p_214840_, "light");
+         this.queueSorter = new ChunkTaskPriorityQueueSorter(
+-            ImmutableList.of(processormailbox1, processorhandle, processormailbox), p_214840_, Integer.MAX_VALUE
++            ImmutableList.of(worldgenHandle, processorhandle, processormailbox), p_214840_, Integer.MAX_VALUE
+         );
+-        this.worldgenMailbox = this.queueSorter.getProcessor(processormailbox1, false);
++        this.worldgenMailbox = this.queueSorter.getProcessor(worldgenHandle, false);
+         this.mainThreadMailbox = this.queueSorter.getProcessor(processorhandle, false);
+         this.lightEngine = new ThreadedLevelLightEngine(
+             p_214842_, this, this.level.dimensionType().hasSkyLight(), processormailbox, this.queueSorter.getProcessor(processormailbox, false)
 @@ -200,6 +_,9 @@
              p_214836_.getServer(),
              p_214836_
@@ -117,6 +151,17 @@
                  this.markPosition(p_140418_, chunkaccess.getPersistedStatus().getChunkType());
                  return chunkaccess;
              } else {
+@@ -621,7 +_,9 @@
+                 if (chunkaccess == null) {
+                     throw new IllegalStateException("Parent chunk missing");
+                 } else {
+-                    CompletableFuture<ChunkAccess> completablefuture = p_347638_.apply(this.worldGenContext, p_347552_, chunkaccess);
++                    CompletableFuture<ChunkAccess> completablefuture = this.parallelWorldGenScheduler != null
++                        ? this.parallelWorldGenScheduler.runWithAreaLock(chunkpos, p_347638_, () -> p_347638_.apply(this.worldGenContext, p_347552_, chunkaccess))
++                        : p_347638_.apply(this.worldGenContext, p_347552_, chunkaccess);
+                     this.progressListener.onStatusChange(chunkpos, p_347638_.targetStatus());
+                     return completablefuture;
+                 }
 @@ -756,6 +_,7 @@
  
                  this.level.getProfiler().incrementCounter("chunkSave");

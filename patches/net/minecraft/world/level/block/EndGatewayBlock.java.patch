@@ -1,0 +1,13 @@
+--- a/net/minecraft/world/level/block/EndGatewayBlock.java
++++ b/net/minecraft/world/level/block/EndGatewayBlock.java
+@@ -89,6 +_,10 @@
+             && !p_350785_.isClientSide
+             && p_350785_.getBlockEntity(p_350610_) instanceof TheEndGatewayBlockEntity theendgatewayblockentity
+             && !theendgatewayblockentity.isCoolingDown()) {
++            if (p_350785_ instanceof ServerLevel serverLevel && theendgatewayblockentity.isAwaitingExitResolution(p_350785_)) {
++                theendgatewayblockentity.requestAsyncExitResolution(serverLevel, p_350610_);
++                return;
++            }
+             p_350849_.setAsInsidePortal(this, p_350610_);
+             TheEndGatewayBlockEntity.triggerCooldown(p_350785_, p_350610_, p_350647_, theendgatewayblockentity);
+         }

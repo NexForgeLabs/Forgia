@@ -129,6 +129,15 @@ public final class RegionLayout {
     }
 
     public RegionCoordinate regionAt(ServerLevel level, int chunkX, int chunkZ) {
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.hasChunkAffinityMappings()) {
+            final long anchor = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.resolveAffinityChunkKey(level, chunkX, chunkZ);
+            if (anchor != net.neoforged.neoforge.server.threading.api.RegionAdapterApi.ChunkRegionAffinityResolver.NO_AFFINITY) {
+                return new RegionCoordinate(
+                        level,
+                        this.regionX(net.minecraft.world.level.ChunkPos.getX(anchor)),
+                        this.regionZ(net.minecraft.world.level.ChunkPos.getZ(anchor)));
+            }
+        }
         return new RegionCoordinate(level, this.regionX(chunkX), this.regionZ(chunkZ));
     }
 
@@ -156,8 +165,17 @@ public final class RegionLayout {
      * visit it.
      */
     public boolean isInRegion(ServerLevel level, int chunkX, int chunkZ, RegionCoordinate coordinate) {
-        return coordinate.level() == level
-                && this.regionX(chunkX) == coordinate.regionX()
+        if (coordinate.level() != level) {
+            return false;
+        }
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.hasChunkAffinityMappings()) {
+            final long anchor = net.neoforged.neoforge.server.threading.api.RegionAdapterApi.resolveAffinityChunkKey(level, chunkX, chunkZ);
+            if (anchor != net.neoforged.neoforge.server.threading.api.RegionAdapterApi.ChunkRegionAffinityResolver.NO_AFFINITY) {
+                return this.regionX(net.minecraft.world.level.ChunkPos.getX(anchor)) == coordinate.regionX()
+                        && this.regionZ(net.minecraft.world.level.ChunkPos.getZ(anchor)) == coordinate.regionZ();
+            }
+        }
+        return this.regionX(chunkX) == coordinate.regionX()
                 && this.regionZ(chunkZ) == coordinate.regionZ();
     }
 }

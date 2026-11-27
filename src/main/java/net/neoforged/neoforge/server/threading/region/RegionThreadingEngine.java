@@ -3052,13 +3052,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                 || server == null || !server.isSameThread() || !this.isInteractionCompletionQuiescent()) {
             return false;
         }
-        final AtomicBoolean foreignOwner = new AtomicBoolean();
-        this.regionizer.forEach(region -> {
-            if ((region.isRunning() && !region.isOwnedByCurrentThread()) || region.isWorkerSubmitted()) {
-                foreignOwner.set(true);
-            }
-        });
-        return !foreignOwner.get();
+        if (this.regionWorkAdmission.hasNoActiveClaimsOptimistic()) {
+            return true;
+        }
+        return !this.regionizer.anyRegionMatches(
+                region -> (region.isRunning() && !region.isOwnedByCurrentThread()) || region.isWorkerSubmitted());
     }
 
     /** Conservative server-wide check for the public preparation API; this does not grant ownership. */
@@ -3068,13 +3066,11 @@ public final class RegionThreadingEngine implements RegionThreading {
                 || (this.globalRegion.isRunning() && !this.globalRegion.isOwnedByCurrentThread())) {
             return false;
         }
-        final AtomicBoolean busy = new AtomicBoolean();
-        this.regionizer.forEach(region -> {
-            if (region.isWorkerSubmitted() || (region.isRunning() && !region.isOwnedByCurrentThread())) {
-                busy.set(true);
-            }
-        });
-        return !busy.get();
+        if (this.regionWorkAdmission.hasNoActiveClaimsOptimistic()) {
+            return true;
+        }
+        return !this.regionizer.anyRegionMatches(
+                region -> region.isWorkerSubmitted() || (region.isRunning() && !region.isOwnedByCurrentThread()));
     }
 
     boolean playerDispatchQuiescent() {

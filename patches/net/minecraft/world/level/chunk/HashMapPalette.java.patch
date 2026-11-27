@@ -1,0 +1,19 @@
+--- a/net/minecraft/world/level/chunk/HashMapPalette.java
++++ b/net/minecraft/world/level/chunk/HashMapPalette.java
+@@ -100,8 +_,14 @@
+     }
+ 
+     public List<T> getEntries() {
+-        ArrayList<T> arraylist = new ArrayList<>();
+-        this.values.iterator().forEachRemaining(arraylist::add);
++        int size = this.values.size();
++        ArrayList<T> arraylist = new ArrayList<>(size);
++        for (int i = 0; i < size; i++) {
++            T val = this.values.byId(i);
++            if (val != null) {
++                arraylist.add(val);
++            }
++        }
+         return arraylist;
+     }
+ 

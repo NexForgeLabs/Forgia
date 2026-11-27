@@ -54,6 +54,10 @@ final class RegionWorkAdmission {
         return this.activeClaims.get() == 0;
     }
 
+    boolean hasNoActiveClaimsOptimistic() {
+        return this.activeClaims.get() == 0;
+    }
+
     synchronized boolean tryEnter(BooleanSupplier quiescent) {
         if (this.phaseOwner != null || !quiescent.getAsBoolean()) return false;
         this.phaseOwner = Thread.currentThread();

@@ -42,6 +42,82 @@
          this.stopListening();
          this.progress.clear();
          this.visible.clear();
+@@ -110,7 +_,13 @@
+         }
+     }
+ 
++    private static final java.util.concurrent.ConcurrentHashMap<Path, java.util.concurrent.CompletableFuture<Void>> PENDING_SAVES = new java.util.concurrent.ConcurrentHashMap<>();
++
+     private void load(ServerAdvancementManager p_136007_) {
++        java.util.concurrent.CompletableFuture<Void> pending = PENDING_SAVES.get(this.playerSavePath);
++        if (pending != null && !pending.isDone()) {
++            pending.join();
++        }
+         if (Files.isRegularFile(this.playerSavePath)) {
+             try (JsonReader jsonreader = new JsonReader(Files.newBufferedReader(this.playerSavePath, StandardCharsets.UTF_8))) {
+                 jsonreader.setLenient(false);
+@@ -129,6 +_,44 @@
+     }
+ 
+     public void save() {
++        boolean async = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.asyncAdvancementSaveEnabled()
++                && (this.player == null || this.player.getServer() == null || this.player.getServer().isRunning());
++        if (async) {
++            PlayerAdvancements.Data snapshot = this.asDataSnapshot();
++            Path savePath = this.playerSavePath;
++            Codec<PlayerAdvancements.Data> dataCodec = this.codec;
++            Runnable writeTask = () -> {
++                try {
++                    JsonElement jsonelement = dataCodec.encodeStart(JsonOps.INSTANCE, snapshot).getOrThrow();
++                    FileUtil.createDirectoriesSafe(savePath.getParent());
++                    Path tempFile = Files.createTempFile(savePath.getParent(), savePath.getFileName().toString() + "-", ".tmp");
++                    try (Writer writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
++                        GSON.toJson(jsonelement, GSON.newJsonWriter(writer));
++                    }
++                    Files.move(tempFile, savePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
++                } catch (java.nio.file.AtomicMoveNotSupportedException atomicEx) {
++                    try {
++                        JsonElement jsonelement = dataCodec.encodeStart(JsonOps.INSTANCE, snapshot).getOrThrow();
++                        FileUtil.createDirectoriesSafe(savePath.getParent());
++                        try (Writer writer = Files.newBufferedWriter(savePath, StandardCharsets.UTF_8)) {
++                            GSON.toJson(jsonelement, GSON.newJsonWriter(writer));
++                        }
++                    } catch (Exception fallbackEx) {
++                        LOGGER.error("Couldn't save player advancements to {}", savePath, fallbackEx);
++                    }
++                } catch (Exception exception) {
++                    LOGGER.error("Couldn't save player advancements to {}", savePath, exception);
++                }
++            };
++            PENDING_SAVES.compute(savePath, (k, prev) -> (prev == null || prev.isDone())
++                    ? java.util.concurrent.CompletableFuture.runAsync(writeTask, net.minecraft.Util.ioPool())
++                    : prev.whenCompleteAsync((v, ex) -> writeTask.run(), net.minecraft.Util.ioPool()));
++            return;
++        }
++        java.util.concurrent.CompletableFuture<Void> prev = PENDING_SAVES.remove(this.playerSavePath);
++        if (prev != null && !prev.isDone()) {
++            prev.join();
++        }
+         JsonElement jsonelement = this.codec.encodeStart(JsonOps.INSTANCE, this.asData()).getOrThrow();
+ 
+         try {
+@@ -142,6 +_,16 @@
+         }
+     }
+ 
++    private PlayerAdvancements.Data asDataSnapshot() {
++        Map<ResourceLocation, AdvancementProgress> map = new LinkedHashMap<>();
++        this.progress.forEach((p_300724_, p_300725_) -> {
++            if (p_300725_.hasProgress()) {
++                map.put(p_300724_.id(), p_300725_.snapshotForSave());
++            }
++        });
++        return new PlayerAdvancements.Data(map);
++    }
++
+     private void applyFrom(ServerAdvancementManager p_301166_, PlayerAdvancements.Data p_301198_) {
+         p_301198_.forEach((p_300732_, p_300733_) -> {
+             AdvancementHolder advancementholder = p_301166_.get(p_300732_);
 @@ -165,7 +_,14 @@
          return new PlayerAdvancements.Data(map);
      }

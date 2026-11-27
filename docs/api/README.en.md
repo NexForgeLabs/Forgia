@@ -28,6 +28,7 @@ per-contract pages linked from the matrix below.
 | Assert/query ownership | same | `RegionThreading`, `RegionThreadingContext` | Mod picks its own serial branch |
 | Whole entity interaction / owner-after-load | same → `entityInteractions()` | `EntityInteractionScheduler` | No engine entry (unlike `ParallelApi`, which always registers) |
 | Declare mod compatibility | mod metadata `regionThreading` | `RegionThreadingSupport` | Declaration only |
+| Sandbox / affinity / chunk-pinning hooks (`@ApiStatus.Internal` / compat) | `RegionAdapterApi` (`registerChunkAffinityResolver`, `registerServerThreadChunkPredicate`, `admitRegionSandboxedNamespace`, `shareSavedData`) | `RegionAdapterApi` | Used by shipped compat adapters |
 
 **Why this split exists.** `ParallelApi` is a server-scoped service that always exists; the schedulers belong
 to an installed engine. Mixing them would make "the engine is off" indistinguishable from "the API is

@@ -33,6 +33,16 @@
          IdMap<T> p_188068_, PalettedContainer.Strategy p_188069_, PalettedContainerRO.PackedData<T> p_238258_
      ) {
          List<T> list = p_238258_.paletteEntries();
+@@ -233,6 +_,9 @@
+ 
+         PalettedContainerRO.PackedData palettedcontainerro$packeddata;
+         try {
++            if (this.data.storage instanceof ZeroBitStorage && this.data.palette.getSize() == 1) {
++                return new PalettedContainerRO.PackedData<>(List.of(this.data.palette.valueFor(0)), Optional.empty());
++            }
+             HashMapPalette<T> hashmappalette = new HashMapPalette<>(p_188065_, this.data.storage.getBits(), this.dummyPaletteResize);
+             int i = p_188066_.size();
+             int[] aint = new int[i];
 @@ -278,6 +_,28 @@
      @Override
      public boolean maybeHas(Predicate<T> p_63110_) {
