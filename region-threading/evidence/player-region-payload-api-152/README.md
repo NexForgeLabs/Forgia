@@ -1,1 +1,0 @@
-最终 `.152` 声明服务端 PLAY payload worker API 的精简验收证据。原始 wire/JDI/XML/命令/完整世界/失败保留于 tmp/player-region-payload-api01。开发者只声明精确单个 handler 及其传递回调，不审批整个 Mod；默认 MAIN/NETWORK 与未知扩展玩家 Tick 串行保持。历史 P4 原因未明 stall 仍 failed/excluded。P5 未开始，无性能结论；本增量未 commit/push/deploy。

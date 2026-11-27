@@ -412,7 +412,8 @@ def main():
     parser.add_argument('--no-regions', action='store_true', help='Control run: the same fixture with the engine off')
     parser.add_argument('--boot-timeout', type=float, default=360)
     parser.add_argument('--runs', type=Path, default=REPO.parent / 'modpack-matrix-runs')
-    parser.add_argument('--java', type=Path, default=Path('/home/yc/.local/opt/jdk-21.0.13+9/bin/java'))
+    default_java = Path(os.environ['JAVA_HOME']) / 'bin/java' if 'JAVA_HOME' in os.environ else Path('java')
+    parser.add_argument('--java', type=Path, default=default_java)
     args = parser.parse_args()
     if args.loader_version and not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.+-]*', args.loader_version):
         parser.error('Loader version must be a single installation directory name')

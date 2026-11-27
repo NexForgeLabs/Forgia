@@ -17,7 +17,7 @@ LIST=${2:?jar list}
 NAME=${3:?run name}
 SECONDS_TO_RUN=${4:-120}
 STATUS_CMD=${5:-neoforge regionthreading status}
-RUNS=${RUNS:-/home/yc/Minecraft/modpack-matrix-runs}
+RUNS=${RUNS:-/tmp/forgia-modpack-matrix-runs}
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 
 RUNDIR="$RUNS/$NAME"

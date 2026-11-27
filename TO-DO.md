@@ -1,20 +1,5 @@
 # Forgia 后续优化与研究清单（TO-DO）
 
-## 0. 待部署的已构建产物（Ready to Deploy）
-当前本地已编译就绪（提交 `36b5c3a45`），下次停服维护窗口可直接上传替换：
-- **核心端**：
-  - `projects/neoforge/build/libs/neoforge-21.1.250.283-beta-universal.jar`
-  - `/tmp/forgia-install-latest/libraries/net/neoforged/neoforge/21.1.250.283-beta/neoforge-21.1.250.283-beta-server.jar`
-- **并行兼容模组**：
-  - `tools/forgia-create-parallel-compat/build/libs/forgia-create-parallel-compat-1.0.0.jar`
-- **已包含改动**：
-  1. 精细拆解 `fxntstorage`：`RegionAdapterApi.denyRegionSandboxedBlockEntityType` 仅拦截 `storage_controller_entity` / `storage_interface_entity` / `storage_interface_filtered_entity`，放行 `storage_box_entity` 等到 Worker；
-  2. 新增 `skipUnloadedNeighborhoodSpawning`（默认 `true`），跳过模拟距离最外圈邻域未全加载区块的自然刷怪，避免触发主线程 `fallbackState()` 全图实体扫描；
-  3. 正式移除 `FIXED_3X3` 模式及 `regionThreadingFixedRegionChunks`、`enableRegionThreadingPackedRegionLeases`，并将 `PlayerTick` 阶段规划与 `FurnaceWorkWaves` 原生适配到 `DYNAMIC_CLUSTER`。
-- **部署时注意**：停服后清理服务器 `/config/regionthreading-learned.json` 中残留的旧类型记录（如已修复的条目），再启动服务器。
-
----
-
 ## 1. 进一步减少模组对主线程的依赖（核心研究方向）
 
 ### 1.1 [已完成] 原生放行 NeoForge `FakePlayer` 区域沙箱权限

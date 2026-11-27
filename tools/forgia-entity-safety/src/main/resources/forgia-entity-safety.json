@@ -1,8 +1,0 @@
-{
-  "entities": [
-    {
-      "type": "cataclysm:the_leviathan",
-      "reason": "forgia_entity_safety:leviathan_player_grab"
-    }
-  ]
-}

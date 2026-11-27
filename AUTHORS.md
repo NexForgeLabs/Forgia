@@ -3,7 +3,7 @@
 ## Forgia-Specific Work
 
 - Simon Horak (`SajmonOriginal`) - author of the original Forgia project this repository descends from.
-- The continuation maintained in this repository (`yuchen1204/Forgia`) - the regionized runtime described in
+- The continuation maintained in this repository (`NexForgeLabs/Forgia`) - the regionized runtime described in
   `region-threading/STATUS.md`, which is developed here since the original project stopped updating.
 
 ## Lineage

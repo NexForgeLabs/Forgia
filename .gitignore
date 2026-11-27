@@ -34,18 +34,10 @@ tests/src/generated/resources/.cache/
 
 # FML changelog
 changelog.txt
-*.py
-!tools/audit-mobspawncontroller.py
-!tools/block-entity-workgraph-smoke.py
-!tools/block-entity-resource-ab/*.py
-tools/block-entity-resource-ab/__pycache__/
-!tools/performance/*.py
-tools/performance/__pycache__/
-!tools/production-readiness/*.py
-tools/production-readiness/__pycache__/
-!tools/forgia-be-triage/*.py
-tools/forgia-be-triage/__pycache__/
-!adapters/create/tools/server_smoke.py
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
 *.7z
 /logs/
 
@@ -61,6 +53,13 @@ build
 tmp/
 .pi/
 .codegraph/
+
+# large raw profiler dumps & verification receipts
+region-threading/*-PROFILE.json
+region-threading/evidence/
+
+# node dependencies
+**/node_modules/
 
 # local run artifacts
 nohup.out

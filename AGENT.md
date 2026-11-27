@@ -5,7 +5,7 @@
 - **严禁在 Forgia 核心（`src/main/...`、`patches/...`、`projects/neoforge/...`）中硬编码任何第三方模组名称、命名空间、方块实体 ID、实体 ID 或模组专属类名/逻辑**。
 - 当某个模组与区域多线程核心不兼容时，正确的处理流程是：
   1. **补齐通用 Adapter API**：如果现有 `RegionAdapterApi` / `ParallelApi` 缺少所需的通用隔离、跨区通信、事件路由、沙盒谓词或回退能力，先在核心中设计并暴露**模组无关（Mod-Agnostic）的通用 API**；
-  2. **编写独立的 Adapter Compat Mod**：在 `tools/forgia-*-compat` 或 `adapters/*` 中编写独立的兼容模组（通过 Mixin、并发容器替换、以及调用 `RegionAdapterApi`），让**模组去适配核心**，而不是让核心去迎合模组。
+  2. **编写独立的 Adapter Compat Mod**：在独立的兼容模组仓库（`NexForgeLabs/forgia-compat-mods`）或 `adapters/*` 中编写独立的兼容模组（通过 Mixin、并发容器替换、以及调用 `RegionAdapterApi`），让**模组去适配核心**，而不是让核心去迎合模组。
 
 ---
 

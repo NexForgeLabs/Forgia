@@ -5,7 +5,7 @@ Forgia is an independent NeoForge fork that ports Folia's regionized server mode
 ## Lineage and continuation
 
 The original Forgia project (`https://github.com/SajmonOriginal/Forgia`) stopped updating. This repository
-(`https://github.com/yuchen1204/Forgia`) is its continuation: it keeps the attribution below, and the region
+(`https://github.com/NexForgeLabs/Forgia`) is its continuation: it keeps the attribution below, and the region
 threading implementation, tests, benchmarks and status documents are maintained here rather than upstream.
 
 ## Attribution

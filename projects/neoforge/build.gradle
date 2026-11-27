@@ -34,7 +34,6 @@ sourceSets {
 }
 
 // Compile-only facade for mod authors. Forgia supplies these classes at runtime; never jar-in-jar it.
-// Publication coordinates remain experimental and are not registered as a Maven publication yet.
 tasks.register('parallelApiJar', Jar) {
     group = 'build'
     description = 'Builds the experimental compile-only mod parallel API facade'
@@ -249,6 +248,21 @@ configurations {
         // Publish it
         javaComponent.addVariantsFromConfiguration(it) {}
     }
+    parallelApiElements {
+        canBeDeclared = false
+        canBeResolved = false
+        attributes {
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_API))
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling, Bundling.EXTERNAL))
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, java_version as Integer)
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+        }
+        outgoing {
+            capability("net.neoforged:neoforge-parallel-api:${project.version}")
+        }
+        javaComponent.addVariantsFromConfiguration(it) {}
+    }
     universalJar {
         canBeDeclared = false
         canBeResolved = false
@@ -356,6 +370,9 @@ processResources {
     installerJar(installerJar) {
             setClassifier("installer")
         }
+    parallelApiElements(parallelApiJar) {
+            setClassifier("parallel-api")
+        }
         changelog(createChangelog.outputFile) {
             builtBy(createChangelog)
             setClassifier("changelog")
@@ -383,17 +400,17 @@ publishing {
         pom {
             name = project.name
             description = 'Modifactions to Minecraft to enable mod developers.'
-            url = 'https://github.com/NeoForged/NeoForge'
+            url = 'https://github.com/NexForgeLabs/Forgia'
 
             scm {
-                url = 'https://github.com/NeoForged/NeoForge'
-                connection = 'scm:git:git://github.com/NeoForged/NeoForge.git'
-                developerConnection = 'scm:git:git@github.com:NeoForged/NeoForge.git'
+                url = 'https://github.com/NexForgeLabs/Forgia'
+                connection = 'scm:git:git://github.com/NexForgeLabs/Forgia.git'
+                developerConnection = 'scm:git:git@github.com:NexForgeLabs/Forgia.git'
             }
 
             issueManagement {
                 system = 'github'
-                url = 'https://github.com/NeoForged/NeoForge/issues'
+                url = 'https://github.com/NexForgeLabs/Forgia/issues'
             }
 
             licenses {

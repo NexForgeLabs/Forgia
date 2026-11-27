@@ -21,7 +21,7 @@ from rcon import Rcon, RconError
 VERSION = '21.1.250.58-beta'
 SHA256 = '7d736190ccd2c97c949368a3a57af35a31fe71a5f48e7814517494b78d7da34f'
 UNIVERSAL_SHA256 = '0c137cdaa9a88b160c8c146633eb1e39700d42ecc39ac4dd17cd45bd3d441e45'
-JAVA = Path('/home/yc/.local/opt/jdk-21.0.13+9/bin/java')
+JAVA = Path(os.environ['JAVA_HOME']) / 'bin/java' if 'JAVA_HOME' in os.environ else Path('java')
 VM = ['-Xms2G', '-Xmx2G', '-XX:+UseG1GC', '-Dfile.encoding=UTF-8']
 STOP_REQUESTED = False
 
