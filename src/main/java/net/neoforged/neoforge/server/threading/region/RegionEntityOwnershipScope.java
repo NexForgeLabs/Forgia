@@ -258,6 +258,18 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      */
     /**
      * {@return true when the current native region worker holds an active entity ownership lease for
+     * {@code level}}
+     */
+    public static boolean hasActiveLease(ServerLevel level) {
+        final RegionEntityOwnershipScope scope = currentScope();
+        return scope != null
+                && scope.isActive()
+                && RegionWorkerScope.isNativeWorkerThread()
+                && scope.coordinate.level() == level;
+    }
+
+    /**
+     * {@return true when the current native region worker holds an active entity ownership lease for
      * {@code level} that owns {@code entity}}
      */
     public static boolean ownsEntity(ServerLevel level, Entity entity) {
@@ -328,7 +340,8 @@ public final class RegionEntityOwnershipScope implements AutoCloseable {
      * stays rejected.
      */
     private static boolean grantsOperation(RegionEntityOwnershipScope scope, Entity entity, String operation) {
-        if (GRANTABLE_REMOVAL_OPERATIONS.contains(operation)) {
+        if (GRANTABLE_REMOVAL_OPERATIONS.contains(operation)
+                || ("Slime.remove".equals(operation) && RegionThreadingConfig.slimeWorkerTicksEnabled())) {
             // A false lifecycle marker does not make an installed storage callback safe inline.
             return !hasLevelEffects(entity)
                     || (RegionWorkerScope.isNativeWorkerThread() && scope.group.acceptsDeferredRemovals());

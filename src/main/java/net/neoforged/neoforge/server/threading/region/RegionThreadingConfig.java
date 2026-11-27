@@ -303,4 +303,84 @@ public final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.unifiedRegionEntityContainmentMarginBlocks.get()
                 : ForgiaConfig.SERVER.unifiedRegionEntityContainmentMarginBlocks.getDefault();
     }
+
+    public static int sandboxMaxInstanceBackoffTicks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.sandboxMaxInstanceBackoffTicks.get()
+                : ForgiaConfig.SERVER.sandboxMaxInstanceBackoffTicks.getDefault();
+    }
+
+    public static int sandboxHopperPlayerSafeRadiusBlocks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.sandboxHopperPlayerSafeRadiusBlocks.get()
+                : ForgiaConfig.SERVER.sandboxHopperPlayerSafeRadiusBlocks.getDefault();
+    }
+
+    public static int autosaveMaxQuiesceWaitMillis() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.autosaveMaxQuiesceWaitMillis.get()
+                : ForgiaConfig.SERVER.autosaveMaxQuiesceWaitMillis.getDefault();
+    }
+
+    public static long blockEventsPerRegionBudgetNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.blockEventsPerRegionBudgetNanos.get()
+                : ForgiaConfig.SERVER.blockEventsPerRegionBudgetNanos.getDefault();
+    }
+
+    public static int maxSyncNavigationRecomputesPerTick() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.maxSyncNavigationRecomputesPerTick.get()
+                : ForgiaConfig.SERVER.maxSyncNavigationRecomputesPerTick.getDefault();
+    }
+
+    public static boolean asyncInlandBlockScheduledTicksEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.asyncInlandBlockScheduledTicks");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncInlandBlockScheduledTicks.get()
+                : ForgiaConfig.SERVER.enableAsyncInlandBlockScheduledTicks.getDefault();
+    }
+
+    public static int inlandBlockScheduledTickMarginBlocks() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.inlandBlockScheduledTickMarginBlocks.get()
+                : ForgiaConfig.SERVER.inlandBlockScheduledTickMarginBlocks.getDefault();
+    }
+
+    public static long blockScheduledTickSerialBudgetNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.blockScheduledTickSerialBudgetNanos.get()
+                : ForgiaConfig.SERVER.blockScheduledTickSerialBudgetNanos.getDefault();
+    }
+
+    public static boolean slimeWorkerTicksEnabled() {
+        final String prop = System.getProperty("neoforge.regionthreading.slimeWorkerTicks");
+        if (prop != null) {
+            return Boolean.parseBoolean(prop);
+        }
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableSlimeWorkerTicks.get()
+                : ForgiaConfig.SERVER.enableSlimeWorkerTicks.getDefault();
+    }
+
+    public static boolean highDensityEntityTrackerThrottleEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableHighDensityEntityTrackerThrottle.get()
+                : ForgiaConfig.SERVER.enableHighDensityEntityTrackerThrottle.getDefault();
+    }
+
+    public static int entityTrackerDenseChunkThreshold() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.entityTrackerDenseChunkThreshold.get()
+                : ForgiaConfig.SERVER.entityTrackerDenseChunkThreshold.getDefault();
+    }
+
+    public static int entityTrackerSevereChunkThreshold() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.entityTrackerSevereChunkThreshold.get()
+                : ForgiaConfig.SERVER.entityTrackerSevereChunkThreshold.getDefault();
+    }
 }

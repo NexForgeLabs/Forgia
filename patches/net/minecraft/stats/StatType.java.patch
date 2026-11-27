@@ -1,7 +1,11 @@
 --- a/net/minecraft/stats/StatType.java
 +++ b/net/minecraft/stats/StatType.java
-@@ -32,2 +_,4 @@
+@@ -30,6 +_,8 @@
+     }
+ 
      public Stat<T> get(T p_12900_, StatFormatter p_12901_) {
 +        Stat<T> local = net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.stat(this, p_12900_);
 +        if (local != null) return local;
          return this.map.computeIfAbsent(p_12900_, p_12896_ -> new Stat<>(this, (T)p_12896_, p_12901_));
+     }
+ 

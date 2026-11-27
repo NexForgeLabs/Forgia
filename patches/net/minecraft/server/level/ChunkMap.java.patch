@@ -1,6 +1,6 @@
 --- a/net/minecraft/server/level/ChunkMap.java
 +++ b/net/minecraft/server/level/ChunkMap.java
-@@ -200,6 +200,9 @@
+@@ -200,6 +_,9 @@
              p_214836_.getServer(),
              p_214836_
          );
@@ -10,7 +10,7 @@
          this.setServerViewDistance(p_214847_);
          this.worldGenContext = new WorldGenContext(p_214836_, p_214843_, p_214839_, this.lightEngine, this.mainThreadMailbox);
      }
-@@ -395,6 +398,7 @@
+@@ -395,6 +_,7 @@
                  this.modified = true;
              }
  
@@ -18,7 +18,20 @@
              return p_140179_;
          }
      }
-@@ -510,12 +514,16 @@
+@@ -434,7 +_,11 @@
+             this.processUnloads(() -> true);
+             this.flushWorker();
+         } else {
+-            this.visibleChunkMap.values().forEach(this::saveChunkIfNeeded);
++            this.visibleChunkMap.values().forEach(holder -> {
++                if (!net.neoforged.neoforge.server.threading.RegionThreadingHooks.isChunkInBusyAsyncRegion(this.level, holder.getPos())) {
++                    this.saveChunkIfNeeded(holder);
++                }
++            });
+         }
+     }
+ 
+@@ -510,6 +_,7 @@
                  if (this.pendingUnloads.remove(p_140182_, p_140183_) && chunkaccess != null) {
                      if (chunkaccess instanceof LevelChunk levelchunk) {
                          levelchunk.setLoaded(false);
@@ -26,16 +39,17 @@
                      }
  
                      this.save(chunkaccess);
-                     if (chunkaccess instanceof LevelChunk levelchunk1) {
+@@ -517,6 +_,9 @@
                          this.level.unload(levelchunk1);
                      }
-+
+ 
 +                    net.neoforged.neoforge.common.CommonHooks.onChunkUnload(this.poiManager, chunkaccess); // Neo: Must be called for all chunk unloading. Not just LevelChunks.
 +                    this.chunkTypeCache.remove(chunkaccess.getPos().toLong()); // Neo: Prevent chunk type cache from permanently retaining data for unloaded chunks
- 
++
                      this.lightEngine.updateChunkStatus(chunkaccess.getPos());
                      this.lightEngine.tryScheduleUpdate();
-@@ -756,6 +764,7 @@
+                     this.progressListener.onStatusChange(chunkaccess.getPos(), null);
+@@ -756,6 +_,7 @@
  
                  this.level.getProfiler().incrementCounter("chunkSave");
                  CompoundTag compoundtag = ChunkSerializer.write(this.level, p_140259_);
@@ -43,7 +57,7 @@
                  this.write(chunkpos, compoundtag).exceptionally(p_351776_ -> {
                      this.level.getServer().reportChunkSaveFailure(p_351776_, this.storageInfo(), chunkpos);
                      return null;
-@@ -817,9 +826,11 @@
+@@ -817,9 +_,11 @@
  
      private static void markChunkPendingToSend(ServerPlayer p_295834_, LevelChunk p_296281_) {
          p_295834_.connection.chunkSender.markChunkPendingToSend(p_296281_);
@@ -55,7 +69,7 @@
          p_294215_.connection.chunkSender.dropChunk(p_294215_, p_294758_);
      }
  
-@@ -987,6 +998,7 @@
+@@ -987,6 +_,7 @@
      }
  
      public void move(ServerPlayer p_140185_) {
@@ -63,7 +77,7 @@
          for (ChunkMap.TrackedEntity chunkmap$trackedentity : this.entityMap.values()) {
              if (chunkmap$trackedentity.entity == p_140185_) {
                  chunkmap$trackedentity.updatePlayers(this.level.players());
-@@ -1018,6 +1030,7 @@
+@@ -1018,6 +_,7 @@
                  this.playerMap.unIgnorePlayer(p_140185_);
              }
  
@@ -71,7 +85,7 @@
              this.updateChunkTracking(p_140185_);
          }
      }
-@@ -1069,7 +1082,7 @@
+@@ -1069,7 +_,7 @@
      }
  
      protected void addEntity(Entity p_140200_) {
@@ -80,12 +94,55 @@
              EntityType<?> entitytype = p_140200_.getType();
              int i = entitytype.clientTrackingRange() * 16;
              if (i != 0) {
-@@ -1197,6 +1210,47 @@
-                 chunkholder.addSendDependency(this.lightEngine.waitForPendingTasks(p_300775_.x, p_300775_.z));
-             }
-         });
-+    }
+@@ -1117,6 +_,22 @@
+         List<ServerPlayer> list = Lists.newArrayList();
+         List<ServerPlayer> list1 = this.level.players();
+ 
++        final boolean throttleEnabled = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.highDensityEntityTrackerThrottleEnabled();
++        final int denseThreshold = throttleEnabled
++            ? net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.entityTrackerDenseChunkThreshold()
++            : Integer.MAX_VALUE;
++        final int severeThreshold = throttleEnabled
++            ? net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.entityTrackerSevereChunkThreshold()
++            : Integer.MAX_VALUE;
++        it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap chunkEntityCounts = null;
++        if (throttleEnabled && this.entityMap.size() > denseThreshold) {
++            chunkEntityCounts = new it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap();
++            for (ChunkMap.TrackedEntity tracked : this.entityMap.values()) {
++                chunkEntityCounts.addTo(tracked.entity.chunkPosition().toLong(), 1);
++            }
++        }
++        final long gameTime = this.level.getGameTime();
 +
+         for (ChunkMap.TrackedEntity chunkmap$trackedentity : this.entityMap.values()) {
+             SectionPos sectionpos = chunkmap$trackedentity.lastSectionPos;
+             SectionPos sectionpos1 = SectionPos.of(chunkmap$trackedentity.entity);
+@@ -1132,7 +_,20 @@
+             }
+ 
+             if (flag || this.distanceManager.inEntityTickingRange(sectionpos1.chunk().toLong())) {
+-                chunkmap$trackedentity.serverEntity.sendChanges();
++                boolean send = true;
++                if (chunkEntityCounts != null && !flag) {
++                    Entity entity = chunkmap$trackedentity.entity;
++                    if (!(entity instanceof ServerPlayer) && !entity.isVehicle()) {
++                        int count = chunkEntityCounts.get(sectionpos1.chunk().toLong());
++                        int stride = count >= severeThreshold ? 4 : (count >= denseThreshold ? 2 : 1);
++                        if (stride > 1 && ((gameTime + entity.getId()) % stride) != 0L) {
++                            send = false;
++                        }
++                    }
++                }
++                if (send) {
++                    chunkmap$trackedentity.serverEntity.sendChanges();
++                }
+             }
+         }
+ 
+@@ -1199,6 +_,47 @@
+         });
+     }
+ 
 +    // Neo: Getter for players watching an entity.
 +    public List<ServerPlayer> getPlayersWatching(Entity entity) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertChunkMapTrackingRead("ChunkMap.getPlayersWatching");
@@ -125,13 +182,16 @@
 +        }
 +        var tracked = this.entityMap.get(entity.getId());
 +        return tracked != null && tracked.entity == entity && tracked.seenBy.isEmpty();
-     }
- 
++    }
++
      class DistanceManager extends net.minecraft.server.level.DistanceManager {
-@@ -1314,4 +1368,19 @@
+         protected DistanceManager(Executor p_140459_, Executor p_140460_) {
+             super(p_140459_, p_140460_);
+@@ -1313,5 +_,20 @@
+                 this.updatePlayer(serverplayer);
              }
          }
-     }
++    }
 +
 +    /**
 +     * Neo: PR #937
@@ -146,5 +206,5 @@
 +     */
 +    public void scheduleOnMainThreadMailbox(ChunkTaskPriorityQueueSorter.Message<Runnable> msg) {
 +        mainThreadMailbox.tell(msg);
-+    }
+     }
  }

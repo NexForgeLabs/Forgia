@@ -192,15 +192,18 @@ class RegionSandboxAdapterTest {
             gameTime.set(120L);
             assertFalse(RegionAdapterApi.isTransientSandboxedFallback(level, pos), "Cooldown expired, auto-returned to worker");
 
-            // Repeating up to threshold (16 total) escalates to permanent demotion for this coordinate
+            // Repeating up to threshold (16 total) escalates to bounded exponential backoff for this coordinate
             for (int i = 2; i < 16; i++) {
                 assertTrue(RegionAdapterApi.recordTransientBoundaryFallback(level, pos, type, 20L));
             }
             assertFalse(RegionAdapterApi.recordTransientBoundaryFallback(level, pos, type, 20L),
-                    "16th boundary violation at pos must escalate to permanent coordinate pin");
-            gameTime.set(999_999L);
+                    "16th boundary violation at pos must escalate to extended coordinate backoff");
+            gameTime.set(300L);
             assertTrue(RegionAdapterApi.isTransientSandboxedFallback(level, pos),
-                    "Border coordinate pos must stay permanently pinned to server thread");
+                    "Escalated coordinate must stay in server-thread fallback beyond base 20-tick cooldown");
+            gameTime.set(999_999L);
+            assertFalse(RegionAdapterApi.isTransientSandboxedFallback(level, pos),
+                    "Escalated coordinate must eventually re-probe worker after max backoff instead of leaking permanently");
 
             final BlockPos inlandPos = new BlockPos(96, 64, 96);
             assertFalse(RegionAdapterApi.isTransientSandboxedFallback(level, inlandPos),

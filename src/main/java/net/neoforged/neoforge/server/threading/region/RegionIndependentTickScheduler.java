@@ -792,6 +792,90 @@ public final class RegionIndependentTickScheduler {
         }
     }
 
+    /** Handle returned by {@link #tryPinLevelQuiescent(ServerLevel, long)} for incremental saves. */
+    public static final class BoundedLevelPin implements AutoCloseable {
+        private final List<RegionClock> pinnedClocks;
+        private final java.util.Set<RegionCoordinate> busyRegions;
+
+        private BoundedLevelPin(List<RegionClock> pinnedClocks, java.util.Set<RegionCoordinate> busyRegions) {
+            this.pinnedClocks = pinnedClocks;
+            this.busyRegions = busyRegions;
+        }
+
+        public java.util.Set<RegionCoordinate> busyRegions() {
+            return this.busyRegions;
+        }
+
+        public boolean isBusy(RegionCoordinate coordinate) {
+            return this.busyRegions.contains(coordinate);
+        }
+
+        @Override
+        public void close() {
+            for (final RegionClock clock : this.pinnedClocks) {
+                clock.quiescencePins.decrementAndGet();
+            }
+        }
+    }
+
+    /**
+     * Pins all regions of {@code level} and waits up to {@code timeoutNanos} for in-flight async ticks
+     * to finish. Any region still in-flight after the timeout is unpinned and recorded in
+     * {@link BoundedLevelPin#busyRegions()} so incremental autosave can skip its chunks without stalling TPS.
+     */
+    public BoundedLevelPin tryPinLevelQuiescent(ServerLevel level, long timeoutNanos) {
+        Objects.requireNonNull(level, "level");
+        final List<RegionClock> levelClocks = new ArrayList<>();
+        for (final RegionClock clock : this.clocks.values()) {
+            if (clock.coordinate.level() == level) {
+                clock.quiescencePins.incrementAndGet();
+                levelClocks.add(clock);
+            }
+        }
+        final long deadline = System.nanoTime() + Math.max(0L, timeoutNanos);
+        final List<RegionClock> pinnedClocks = new ArrayList<>(levelClocks.size());
+        final java.util.Set<RegionCoordinate> busyRegions = new java.util.HashSet<>();
+        boolean interrupted = false;
+        try {
+            for (final RegionClock clock : levelClocks) {
+                while (clock.inFlight.get()) {
+                    this.drainCompletedCommits(level, 500_000L);
+                    if (!clock.inFlight.get() || System.nanoTime() >= deadline) {
+                        break;
+                    }
+                    final long remainingMs = Math.max(1L, Math.min(5L, (deadline - System.nanoTime()) / 1_000_000L));
+                    synchronized (clock.completionMonitor) {
+                        if (!clock.inFlight.get()) {
+                            break;
+                        }
+                        try {
+                            clock.completionMonitor.wait(remainingMs);
+                        } catch (InterruptedException e) {
+                            interrupted = true;
+                        }
+                    }
+                }
+                if (clock.inFlight.get()) {
+                    clock.quiescencePins.decrementAndGet();
+                    busyRegions.add(clock.coordinate);
+                } else {
+                    pinnedClocks.add(clock);
+                }
+            }
+            this.drainCompletedCommits(level, RegionThreadingConfig.independentRegionCommitDrainBudgetNanos());
+            return new BoundedLevelPin(pinnedClocks, java.util.Collections.unmodifiableSet(busyRegions));
+        } catch (Throwable failure) {
+            for (final RegionClock clock : pinnedClocks) {
+                clock.quiescencePins.decrementAndGet();
+            }
+            throw failure;
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     /** Shuts down the scheduler, waits for all in-flight asynchronous region ticks, and drains remaining commits. */
     public void shutdown() {
         this.closed = true;

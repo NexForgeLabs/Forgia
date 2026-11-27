@@ -253,12 +253,15 @@
          this.setPosRaw(p_20108_, p_20109_, p_20110_);
          this.setYRot(p_20111_);
          this.setXRot(p_20112_);
-@@ -1478,3 +_,5 @@
+@@ -1476,6 +_,8 @@
+     }
+ 
      public void push(Entity p_20293_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "Entity.push");
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(p_20293_, "Entity.push target");
          if (!this.isPassengerOfSameVehicle(p_20293_)) {
              if (!p_20293_.noPhysics && !this.noPhysics) {
+                 double d0 = p_20293_.getX() - this.getX();
 @@ -1704,6 +_,10 @@
                  p_20241_.put("Tags", listtag);
              }
@@ -585,11 +588,14 @@
          return this.fluidHeight.getDouble(p_204037_);
      }
  
-@@ -3246,3 +_,4 @@
+@@ -3244,6 +_,7 @@
+     }
+ 
      public void setDeltaMovement(Vec3 p_20257_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "Entity.setDeltaMovement");
          this.deltaMovement = p_20257_;
      }
+ 
 @@ -3308,6 +_,12 @@
      }
  

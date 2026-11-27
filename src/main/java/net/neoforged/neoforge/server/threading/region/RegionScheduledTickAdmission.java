@@ -108,7 +108,7 @@ final class RegionScheduledTickAdmission {
                 borderOut.add(tick);
                 continue;
             }
-            if (isInlandFluidFootprint(level, layout, tick.pos(), loadedChunkCache)) {
+            if (isInlandFootprint(level, layout, tick.pos(), FLUID_INLAND_RADIUS, loadedChunkCache)) {
                 inlandOut.add(tick);
             } else {
                 borderOut.add(tick);
@@ -116,12 +116,30 @@ final class RegionScheduledTickAdmission {
         }
     }
 
-    private static boolean isInlandFluidFootprint(ServerLevel level, RegionLayout layout, BlockPos pos,
-            Long2ObjectOpenHashMap<Boolean> loadedChunkCache) {
-        final int minChunkX = (pos.getX() - FLUID_INLAND_RADIUS) >> 4;
-        final int maxChunkX = (pos.getX() + FLUID_INLAND_RADIUS) >> 4;
-        final int minChunkZ = (pos.getZ() - FLUID_INLAND_RADIUS) >> 4;
-        final int maxChunkZ = (pos.getZ() + FLUID_INLAND_RADIUS) >> 4;
+    /**
+     * Partitions block scheduled ticks into strictly inland ticks (at least {@code marginBlocks} inside a
+     * single region with all footprint chunks loaded) and border/unloaded ticks for serial server-thread execution.
+     */
+    static <T> void partitionBlockTicks(ServerLevel level, RegionLayout layout, List<ScheduledTick<T>> ticks,
+            int marginBlocks, List<ScheduledTick<T>> inlandOut, List<ScheduledTick<T>> serialOut) {
+        final int radius = Math.max(0, marginBlocks);
+        final Long2ObjectOpenHashMap<Boolean> loadedChunkCache = new Long2ObjectOpenHashMap<>();
+        for (int i = 0, size = ticks.size(); i < size; ++i) {
+            final ScheduledTick<T> tick = ticks.get(i);
+            if (isInlandFootprint(level, layout, tick.pos(), radius, loadedChunkCache)) {
+                inlandOut.add(tick);
+            } else {
+                serialOut.add(tick);
+            }
+        }
+    }
+
+    static boolean isInlandFootprint(ServerLevel level, RegionLayout layout, BlockPos pos,
+            int radiusBlocks, Long2ObjectOpenHashMap<Boolean> loadedChunkCache) {
+        final int minChunkX = (pos.getX() - radiusBlocks) >> 4;
+        final int maxChunkX = (pos.getX() + radiusBlocks) >> 4;
+        final int minChunkZ = (pos.getZ() - radiusBlocks) >> 4;
+        final int maxChunkZ = (pos.getZ() + radiusBlocks) >> 4;
         final RegionCoordinate owner = layout.regionAt(level, pos);
         if (minChunkX != maxChunkX || minChunkZ != maxChunkZ) {
             if (!layout.isInRegion(level, minChunkX, minChunkZ, owner)

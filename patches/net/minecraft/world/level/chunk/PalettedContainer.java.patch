@@ -1,6 +1,6 @@
 --- a/net/minecraft/world/level/chunk/PalettedContainer.java
 +++ b/net/minecraft/world/level/chunk/PalettedContainer.java
-@@ -27,6 +_,7 @@
+@@ -27,10 +_,15 @@
  import net.minecraft.util.ZeroBitStorage;
  
  public class PalettedContainer<T> implements PaletteResize<T>, PalettedContainerRO<T> {
@@ -8,19 +8,28 @@
      private static final int MIN_PALETTE_BITS = 0;
      private final PaletteResize<T> dummyPaletteResize = (p_238275_, p_238276_) -> 0;
      private final IdMap<T> registry;
-@@ -33,2 +_,6 @@
      private volatile PalettedContainer.Data<T> data;
 +    private Palette<T> forgiaCheckedPalette;
 +    private Predicate<T> forgiaCheckedPredicate;
 +    private int forgiaCheckedPaletteSize;
 +    private boolean forgiaPaletteExcluded;
      private final PalettedContainer.Strategy strategy;
-@@ -171,3 +_,4 @@
+     private final ThreadingDetector threadingDetector = new ThreadingDetector("PalettedContainer");
+ 
+@@ -169,6 +_,7 @@
+         this.acquire();
+ 
          try {
 +            this.forgiaCheckedPalette = null;
              int i = p_63119_.readByte();
              PalettedContainer.Data<T> data = this.createOrReuseData(this.data, i);
-@@ -283,1 +_,23 @@
+             data.palette.read(p_63119_);
+@@ -278,6 +_,28 @@
+     @Override
+     public boolean maybeHas(Predicate<T> p_63110_) {
+         return this.data.palette.maybeHas(p_63110_);
++    }
++
 +    /** Publisher-only palette check for a stable predicate over immutable values. */
 +    public boolean forgiaPaletteExcludes(Predicate<T> predicate) {
 +        Palette<T> palette = this.data.palette();
@@ -41,6 +50,6 @@
 +        this.forgiaCheckedPredicate = predicate;
 +        this.forgiaPaletteExcluded = excluded;
 +        return excluded;
-+    }
-+
+     }
+ 
      public PalettedContainer<T> copy() {

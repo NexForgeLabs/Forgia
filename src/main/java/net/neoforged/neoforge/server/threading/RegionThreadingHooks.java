@@ -156,7 +156,7 @@ public final class RegionThreadingHooks {
     public static void drainLevelRegionTasks(ServerLevel level) {
         RegionThreadingManager.ifInstalled(threading -> {
             if (threading instanceof RegionThreadingEngine engine) {
-                engine.drainLevelRegionTasks(level);
+                engine.drainLevelRegionTasksNonBlocking(level);
             }
         });
     }
@@ -1714,7 +1714,13 @@ public final class RegionThreadingHooks {
                     "EntityCapability:" + capabilityName, ex.getMessage());
         }
         RegionBlockEntityWorkGraph.opaqueEffect();
-        if (!RegionEntityOwnershipScope.ownsEntity(serverLevel, entity)) {
+        final boolean isPendingUnadded = !entity.isAddedToLevel()
+                && !entity.isRemoved()
+                && !RegionEntityOwnershipScope.hasLevelEffects(entity)
+                && (RegionBlockEntityTickScope.isActiveForLevel(serverLevel) || regionTickMutationQueue() != null);
+        if (!RegionEntityOwnershipScope.ownsEntity(serverLevel, entity)
+                && !isPendingUnadded
+                && !RegionBlockEntityTickScope.ownsEntityInCurrentRegion(serverLevel, entity)) {
             throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.capabilityAccess(
                     "EntityCapability:" + capabilityName,
                     "Native region worker queried entity capability '" + capabilityName + "' on unowned entity " + entity.getType());
@@ -1778,7 +1784,19 @@ public final class RegionThreadingHooks {
                         operation, ex.getMessage());
             }
             RegionBlockEntityWorkGraph.opaqueEffect();
-            if (!RegionEntityOwnershipScope.ownsEntity(serverLevel, entity)) {
+            final boolean isPendingUnadded = !entity.isAddedToLevel()
+                    && !entity.isRemoved()
+                    && !RegionEntityOwnershipScope.hasLevelEffects(entity)
+                    && (RegionBlockEntityTickScope.isActiveForLevel(serverLevel) || regionTickMutationQueue() != null);
+            final boolean isReadOnlySameRegionEntity = isReadOnlyAttachmentOperation(operation)
+                    && entity.isAddedToLevel()
+                    && entity.blockPosition() != null
+                    && RegionEntityOwnershipScope.hasActiveLease(serverLevel)
+                    && isRegionTickOwnedByCurrentThread(serverLevel, entity.blockPosition());
+            if (!RegionEntityOwnershipScope.ownsEntity(serverLevel, entity)
+                    && !isPendingUnadded
+                    && !isReadOnlySameRegionEntity
+                    && !RegionBlockEntityTickScope.ownsEntityInCurrentRegion(serverLevel, entity)) {
                 throw net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.attachmentAccess(
                         operation,
                         "Native region worker accessed attachment on unowned entity " + entity.getType() + " (" + operation + ")");
@@ -1833,6 +1851,13 @@ public final class RegionThreadingHooks {
                         "Native region worker accessed chunk attachment at " + chunk.getPos() + " outside its leased region (" + operation + ")");
             }
         }
+    }
+
+    private static boolean isReadOnlyAttachmentOperation(String operation) {
+        return "AttachmentHolder.getData".equals(operation)
+                || "AttachmentHolder.hasData".equals(operation)
+                || "AttachmentHolder.hasAttachments".equals(operation)
+                || "AttachmentHolder.getExistingDataOrNull".equals(operation);
     }
 
     /**
@@ -2543,10 +2568,46 @@ public final class RegionThreadingHooks {
      * save path already runs between two level ticks.
      */
     public static void beginLevelSave(ServerLevel level) {
+        beginLevelSave(level, true);
+    }
+
+    public static void beginLevelSave(ServerLevel level, boolean flush) {
         final RegionThreading threading = RegionThreadingManager.currentOrNull();
         if (threading instanceof RegionThreadingEngine engine) {
-            engine.beginLevelSave(level);
+            engine.beginLevelSave(level, flush);
         }
+    }
+
+    public static void endLevelSaveQuiescence(ServerLevel level) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            engine.endLevelSaveQuiescence(level);
+        }
+    }
+
+    public static boolean isChunkInBusyAsyncRegion(ServerLevel level, net.minecraft.world.level.ChunkPos pos) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        return threading instanceof RegionThreadingEngine engine && engine.isChunkInBusyAsyncRegion(level, pos);
+    }
+
+    public static long regionKeyForBlock(ServerLevel level, BlockPos pos) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (threading instanceof RegionThreadingEngine engine) {
+            final RegionCoordinate coord = engine.regionLayout().regionAt(level, pos);
+            return net.minecraft.world.level.ChunkPos.asLong(coord.regionX(), coord.regionZ());
+        }
+        return net.minecraft.world.level.ChunkPos.asLong(pos.getX() >> 8, pos.getZ() >> 8);
+    }
+
+    public static boolean shouldDeferNavigationRecompute(ServerLevel level, Mob mob) {
+        final RegionThreading threading = RegionThreadingManager.currentOrNull();
+        if (!(threading instanceof RegionThreadingEngine engine) || !engine.isIndependentRegionTickEnabled()) {
+            return false;
+        }
+        return !net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.asyncRegionEntityTicksEnabled()
+                ? (net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.unifiedRegionTickLoopEnabled()
+                        || net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.selectiveAsyncEntityTicksEnabled())
+                : true;
     }
 
     /**

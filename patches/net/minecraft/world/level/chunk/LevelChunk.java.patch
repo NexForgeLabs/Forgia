@@ -407,7 +407,7 @@
          } else {
              CompoundTag compoundtag = this.pendingBlockEntities.get(p_62932_);
              if (compoundtag != null) {
-@@ -428,18 +_,31 @@
+@@ -428,18 +_,32 @@
  
      @Override
      public void removeBlockEntity(BlockPos p_62919_) {
@@ -427,6 +427,7 @@
 +                if (blockentity != null) {
 +                    if (this.level instanceof ServerLevel serverlevel) {
 +                        this.removeGameEventListener(blockentity, serverlevel);
++                        net.neoforged.neoforge.server.threading.api.RegionAdapterApi.clearTransientSandboxedFallbackAt(serverlevel, p_62919_);
 +                    }
  
 -                blockentity.setRemoved();
@@ -474,7 +475,7 @@
              }
          });
      }
-@@ -604,13 +_,31 @@
+@@ -604,13 +_,35 @@
      }
  
      public void clearAllBlockEntities() {
@@ -494,6 +495,10 @@
 +            this.setBlockEntityTickAdmissionCache(null);
 +            this.level.unregisterBlockEntityTickerChunk(this);
 +            this.level.markBlockEntityTickerRemoved();
++            if (this.level instanceof ServerLevel serverlevel) {
++                net.neoforged.neoforge.server.threading.api.RegionAdapterApi.clearTransientSandboxedFallbacksInChunk(
++                        serverlevel, this.chunkPos.toLong());
++            }
 +            this.blockEntities.values().forEach(BlockEntity::onChunkUnloaded);
 +            this.blockEntities.values().forEach(BlockEntity::setRemoved);
 +            this.blockEntities.clear();

@@ -1,26 +1,50 @@
 --- a/net/minecraft/world/entity/ai/attributes/AttributeInstance.java
 +++ b/net/minecraft/world/entity/ai/attributes/AttributeInstance.java
-@@ -48,2 +_,3 @@
+@@ -46,6 +_,7 @@
+     }
+ 
      public void setBaseValue(double p_22101_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          if (p_22101_ != this.baseValue) {
-@@ -73,2 +_,3 @@
+             this.baseValue = p_22101_;
+             this.setDirty();
+@@ -71,6 +_,7 @@
+     }
+ 
      private void addModifier(AttributeModifier p_22134_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          AttributeModifier attributemodifier = this.modifierById.putIfAbsent(p_22134_.id(), p_22134_);
-@@ -83,2 +_,3 @@
+         if (attributemodifier != null) {
+             throw new IllegalArgumentException("Modifier is already applied on this attribute!");
+@@ -81,6 +_,7 @@
+     }
+ 
      public void addOrUpdateTransientModifier(AttributeModifier p_316482_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          AttributeModifier attributemodifier = this.modifierById.put(p_316482_.id(), p_316482_);
-@@ -115,2 +_,3 @@
+         if (p_316482_ != attributemodifier) {
+             this.getModifiers(p_316482_.operation()).put(p_316482_.id(), p_316482_);
+@@ -113,6 +_,7 @@
+     }
+ 
      public boolean removeModifier(ResourceLocation p_350300_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          AttributeModifier attributemodifier = this.modifierById.remove(p_350300_);
-@@ -133,2 +_,3 @@
+         if (attributemodifier == null) {
+             return false;
+@@ -131,6 +_,7 @@
+     }
+ 
      public double getValue() {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          if (this.dirty) {
-@@ -166,2 +_,3 @@
+             this.cachedValue = this.calculateValue();
+             this.dirty = false;
+@@ -164,6 +_,7 @@
+     }
+ 
      public void replaceFrom(AttributeInstance p_22103_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          this.baseValue = p_22103_.baseValue;
+         this.modifierById.clear();
+         this.modifierById.putAll(p_22103_.modifierById);

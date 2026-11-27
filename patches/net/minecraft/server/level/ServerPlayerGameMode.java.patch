@@ -1,6 +1,9 @@
 --- a/net/minecraft/server/level/ServerPlayerGameMode.java
 +++ b/net/minecraft/server/level/ServerPlayerGameMode.java
-@@ -72,7 +_,15 @@
+@@ -69,10 +_,18 @@
+         }
+     }
+ 
 +    /** Neo: do not infer a local footprint while a prior packet's destruction target is active. */
 +    public boolean forgiaHasActiveBlockDestruction() {
 +        return this.isDestroyingBlock || this.hasDelayedDestroy;

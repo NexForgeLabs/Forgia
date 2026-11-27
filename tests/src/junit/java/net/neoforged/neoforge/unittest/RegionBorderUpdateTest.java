@@ -395,6 +395,45 @@ class RegionBorderUpdateTest {
         assertEquals(1L, this.engine.diagnostics().chunkTicksOnWorkers(), "only the original chunk tick ran on a worker");
     }
 
+    @Test
+    void propagationPassAllowsAttachmentAndCapabilityAccessOnUnaddedConstructedEntity() {
+        final ServerLevel level = this.mockLevel();
+        this.installEngine(level);
+        final AtomicInteger verified = new AtomicInteger();
+        final BlockState targetState = mock(BlockState.class);
+        doAnswer(invocation -> {
+            final var item = mock(net.minecraft.world.entity.item.ItemEntity.class);
+            doReturn(level).when(item).level();
+            doReturn(false).when(item).isAddedToLevel();
+            doReturn(false).when(item).isRemoved();
+            doReturn(net.minecraft.world.level.entity.EntityInLevelCallback.NULL).when(item).getLevelCallback();
+            net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(item, "AttachmentHolder.getData");
+            net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertEntityCapabilityAccess(item, "neoforge:item_handler");
+
+            final var foreignAdded = mock(net.minecraft.world.entity.item.ItemEntity.class);
+            doReturn(level).when(foreignAdded).level();
+            doReturn(true).when(foreignAdded).isAddedToLevel();
+            doReturn(false).when(foreignAdded).isRemoved();
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.class,
+                    () -> net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertAttachmentHolderAccess(foreignAdded, "AttachmentHolder.getData"));
+            verified.incrementAndGet();
+            return null;
+        }).when(targetState).handleNeighborChanged(any(), any(), any(), any(), anyBoolean());
+        doReturn(targetState).when(level).getBlockState(TARGET_POS);
+        final Block block = mock(Block.class);
+        doAnswer(invocation -> {
+            level.neighborChanged(TARGET_POS, block, SOURCE_POS);
+            return null;
+        }).when(level).tickChunk(any(LevelChunk.class), anyInt());
+
+        final RegionChunkTickPlan plan = this.beginPlan(level);
+        plan.accept(this.sourceChunk());
+        plan.executeAndAwait(PARKING_BARRIER);
+
+        assertEquals(1, verified.get(), "border propagation pass must allow attachment/capability access on unadded newly constructed entities");
+    }
+
     private void installEngine(ServerLevel level) {
         final RegionThreadingEngine created = new RegionThreadingEngine(2, false, false, false, false, false, true,
                 RegionLayout.of(RegionPolicy.DYNAMIC_CLUSTER));

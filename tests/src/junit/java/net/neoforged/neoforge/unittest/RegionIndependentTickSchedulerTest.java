@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(120)
 class RegionIndependentTickSchedulerTest {
     private static final BlockPos REGION_A_POS = new BlockPos(20, 64, 20);
-    private static final BlockPos REGION_B_POS = new BlockPos(68, 64, 20);
+    private static final BlockPos REGION_B_POS = new BlockPos(148, 64, 20);
 
     @Test
     void slowRegionDoesNotBlockFastRegionOrServerThread() throws Exception {

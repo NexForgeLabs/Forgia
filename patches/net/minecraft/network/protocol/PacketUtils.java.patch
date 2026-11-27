@@ -1,6 +1,6 @@
 --- a/net/minecraft/network/protocol/PacketUtils.java
 +++ b/net/minecraft/network/protocol/PacketUtils.java
-@@ -19,11 +19,15 @@
+@@ -19,11 +_,15 @@
      }
  
      public static <T extends PacketListener> void ensureRunningOnSameThread(Packet<T> p_131364_, T p_131365_, BlockableEventLoop<?> p_131366_) throws RunningOnDifferentThreadException {
@@ -18,7 +18,7 @@
                      } catch (Exception exception) {
                          if (exception instanceof ReportedException reportedexception && reportedexception.getCause() instanceof OutOfMemoryError) {
                              throw makeReportedException(exception, p_131364_, p_131365_);
-@@ -35,6 +39,12 @@
+@@ -35,6 +_,12 @@
                      LOGGER.debug("Ignoring packet due to disconnection: {}", p_131364_);
                  }
              });

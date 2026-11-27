@@ -117,10 +117,10 @@
      }
  
      public boolean addEffect(MobEffectInstance p_147208_, @Nullable Entity p_147209_) {
+-        if (!this.canBeAffected(p_147208_)) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerAddEffect(this, p_147208_, p_147209_)) {
 +            return false;
 +        }
--        if (!this.canBeAffected(p_147208_)) {
 +        if (!net.neoforged.neoforge.common.CommonHooks.canMobEffectBeApplied(this, p_147208_, p_147209_)) {
              return false;
          } else {
@@ -149,10 +149,10 @@
      }
  
      public void forceAddEffect(MobEffectInstance p_147216_, @Nullable Entity p_147217_) {
+-        if (this.canBeAffected(p_147216_)) {
 +        if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.routeWorkerPlayerForceAddEffect(this, p_147216_, p_147217_)) {
 +            return;
 +        }
--        if (this.canBeAffected(p_147216_)) {
 +        if (net.neoforged.neoforge.common.CommonHooks.canMobEffectBeApplied(this, p_147216_, p_147217_)) {
              MobEffectInstance mobeffectinstance = this.activeEffects.put(p_147216_.getEffect(), p_147216_);
              if (mobeffectinstance == null) {
@@ -177,17 +177,22 @@
          float f = this.getHealth();
          if (f > 0.0F) {
              this.setHealth(f + p_21116_);
-@@ -1074,3 +_,4 @@
+@@ -1072,6 +_,7 @@
+     }
+ 
      public void setHealth(float p_21154_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "LivingEntity.setHealth");
          this.entityData.set(DATA_HEALTH_ID, Mth.clamp(p_21154_, 0.0F, this.getMaxHealth()));
      }
-@@ -1082,4 +_,5 @@
+ 
+@@ -1081,6 +_,7 @@
+ 
      @Override
      public boolean hurt(DamageSource p_21016_, float p_21017_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "LivingEntity.hurt");
          if (this.isInvulnerableTo(p_21016_)) {
              return false;
+         } else if (this.level().isClientSide) {
 @@ -1090,23 +_,30 @@
          } else if (p_21016_.is(DamageTypeTags.IS_FIRE) && this.hasEffect(MobEffects.FIRE_RESISTANCE)) {
              return false;

@@ -1,6 +1,6 @@
 --- a/net/minecraft/network/Connection.java
 +++ b/net/minecraft/network/Connection.java
-@@ -107,6 +107,8 @@
+@@ -107,6 +_,8 @@
      private volatile DisconnectionDetails delayedDisconnect;
      @Nullable
      BandwidthDebugMonitor bandwidthDebugMonitor;
@@ -9,7 +9,7 @@
  
      public Connection(PacketFlow p_129482_) {
          this.receiving = p_129482_;
-@@ -120,15 +122,22 @@
+@@ -120,15 +_,22 @@
          if (this.delayedDisconnect != null) {
              this.disconnect(this.delayedDisconnect);
          }
@@ -32,7 +32,7 @@
          if (p_129534_ instanceof SkipPacketException) {
              LOGGER.debug("Skipping packet due to errors", p_129534_.getCause());
          } else {
-@@ -141,6 +150,13 @@
+@@ -141,6 +_,13 @@
                  } else {
                      Component component = Component.translatable("disconnect.genericReason", "Internal Exception: " + p_129534_);
                      PacketListener packetlistener = this.packetListener;
@@ -46,13 +46,12 @@
                      DisconnectionDetails disconnectiondetails;
                      if (packetlistener != null) {
                          disconnectiondetails = packetlistener.createDisconnectionInfo(component, p_129534_);
-@@ -167,9 +183,19 @@
+@@ -167,9 +_,19 @@
                  }
              }
          }
--    }
 +            }
-+    }
+     }
 +
 +    private final java.util.concurrent.atomic.AtomicLong forgiaReceiveSequence = new java.util.concurrent.atomic.AtomicLong();
  
@@ -67,7 +66,7 @@
          if (this.channel.isOpen()) {
              PacketListener packetlistener = this.packetListener;
              if (packetlistener == null) {
-@@ -190,9 +216,13 @@
+@@ -190,9 +_,13 @@
                  }
              }
          }
@@ -81,7 +80,7 @@
          p_129518_.handle((T)p_129519_);
      }
  
-@@ -226,6 +256,7 @@
+@@ -226,6 +_,7 @@
          if (p_320903_.flow() != this.getReceiving()) {
              throw new IllegalStateException("Invalid inbound protocol: " + p_320903_.id());
          } else {
@@ -89,7 +88,7 @@
              this.packetListener = p_320940_;
              this.disconnectListener = null;
              UnconfiguredPipelineHandler.InboundConfigurationTask unconfiguredpipelinehandler$inboundconfigurationtask = UnconfiguredPipelineHandler.setupInboundProtocol(
-@@ -254,7 +285,12 @@
+@@ -254,7 +_,12 @@
              if (bundlerinfo != null) {
                  PacketBundleUnpacker packetbundleunpacker = new PacketBundleUnpacker(bundlerinfo);
                  unconfiguredpipelinehandler$outboundconfigurationtask = unconfiguredpipelinehandler$outboundconfigurationtask.andThen(
@@ -103,20 +102,25 @@
                  );
              }
  
-@@ -319,4 +_,5 @@
+@@ -317,6 +_,7 @@
+     }
+ 
      public void send(Packet<?> p_295839_, @Nullable PacketSendListener p_294866_, boolean p_294265_) {
 +        if (net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.sendConnectionBodyPacket(this, p_295839_, p_294866_, p_294265_)) return;
          if (this.isConnected()) {
              this.flushQueue();
              this.sendPacket(p_295839_, p_294866_, p_294265_);
-@@ -398,3 +_,6 @@
+@@ -395,6 +_,9 @@
+             tickablepacketlistener.tick();
+         }
+ 
 +        final long forgiaTailStart = this.packetListener instanceof net.minecraft.server.network.ServerGamePacketListenerImpl
 +                ? net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming() : 0;
 +        try {
          if (!this.isConnected() && !this.disconnectionHandled) {
              this.handleDisconnection();
          }
-@@ -410,4 +_,7 @@
+@@ -410,6 +_,9 @@
          if (this.bandwidthDebugMonitor != null) {
              this.bandwidthDebugMonitor.tick();
          }
@@ -124,6 +128,8 @@
 +            net.neoforged.neoforge.server.threading.RegionThreadingHooks.endPlayerConnectionTailTiming(forgiaTailStart, false);
 +        }
      }
+ 
+     protected void tickSecond() {
 @@ -427,7 +_,7 @@
          if (this.address == null) {
              return "local";
@@ -133,7 +139,7 @@
          }
      }
  
-@@ -436,6 +479,8 @@
+@@ -436,6 +_,8 @@
      }
  
      public void disconnect(DisconnectionDetails p_350867_) {
@@ -142,7 +148,7 @@
          if (this.channel == null) {
              this.delayedDisconnect = p_350867_;
          }
-@@ -444,6 +489,7 @@
+@@ -444,6 +_,7 @@
              this.channel.close().awaitUninterruptibly();
              this.disconnectionDetails = p_350867_;
          }
@@ -150,7 +156,7 @@
      }
  
      public boolean isMemoryConnection() {
-@@ -470,6 +516,7 @@
+@@ -470,6 +_,7 @@
      }
  
      public static ChannelFuture connect(InetSocketAddress p_290034_, boolean p_290035_, final Connection p_290031_) {
@@ -158,7 +164,7 @@
          Class<? extends SocketChannel> oclass;
          EventLoopGroup eventloopgroup;
          if (Epoll.isAvailable() && p_290035_) {
-@@ -611,10 +658,12 @@
+@@ -611,10 +_,12 @@
      }
  
      public void handleDisconnection() {
@@ -171,10 +177,11 @@
                  this.disconnectionHandled = true;
                  PacketListener packetlistener = this.getPacketListener();
                  PacketListener packetlistener1 = packetlistener != null ? packetlistener : this.disconnectListener;
-@@ -639,4 +688,16 @@
+@@ -638,5 +_,17 @@
+ 
      public void setBandwidthLogger(LocalSampleLogger p_323799_) {
          this.bandwidthDebugMonitor = new BandwidthDebugMonitor(p_323799_);
-     }
++    }
 +
 +    public Channel channel() {
 +        return this.channel;
@@ -186,5 +193,5 @@
 +
 +    public ProtocolInfo<?> getInboundProtocol() {
 +        return Objects.requireNonNull(this.inboundProtocol, "Inbound protocol not set?");
-+    }
+     }
  }

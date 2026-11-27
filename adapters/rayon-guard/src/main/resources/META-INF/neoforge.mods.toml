@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-2.1-only"
+
+[[mods]]
+modId="forgia_rayon_guard"
+version="0.1.0"
+displayName="Forgia Rayon Guard"
+description='''Optional Forgia extension that bounds native Rust Rayon thread pools (RAYON_NUM_THREADS) before native physics/mod libraries initialize, preventing oversubscribed native threads inside cgroup/container environments.'''
+
+[[dependencies.forgia_rayon_guard]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.0,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.forgia_rayon_guard]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="BOTH"

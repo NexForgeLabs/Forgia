@@ -1,0 +1,36 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.licenser'
+    id 'neoforge.formatting-conventions'
+}
+
+evaluationDependsOn(':neoforge')
+apply plugin: net.neoforged.neodev.NeoDevExtraPlugin
+
+version = '0.1.0'
+base.archivesName = 'forgia-rayon-guard'
+java.withSourcesJar()
+
+dependencies {
+    compileOnly project(':neoforge')
+    testImplementation project(':neoforge')
+    testImplementation(platform("org.junit:junit-bom:${project.jupiter_api_version}"))
+    testImplementation 'org.junit.jupiter:junit-jupiter-api'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+sourceSets.each {
+    configurations.named(it.runtimeClasspathConfigurationName) {
+        attributes {
+            attribute(Attribute.of('net.neoforged.neoforge.includes-minecraft', Boolean), true)
+        }
+    }
+}
+
+tasks.named('compileJava', JavaCompile) {
+    options.compilerArgs.add('-proc:none')
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+}

@@ -78,12 +78,15 @@
          if (this.canPlayerFitWithinBlocksAndEntitiesWhen(Pose.SWIMMING)) {
              Pose pose;
              if (this.isFallFlying()) {
-@@ -598,3 +_,5 @@
+@@ -596,6 +_,8 @@
+     }
+ 
      private void touch(Entity p_36278_) {
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(this, "Player.touch");
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.assertPlayerTargetMutation(p_36278_, "Player.touch target");
          p_36278_.playerTouch(this);
      }
+ 
 @@ -630,6 +_,7 @@
  
      @Override

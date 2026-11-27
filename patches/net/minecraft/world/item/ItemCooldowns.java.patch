@@ -1,6 +1,10 @@
 --- a/net/minecraft/world/item/ItemCooldowns.java
 +++ b/net/minecraft/world/item/ItemCooldowns.java
-@@ -28,2 +_,3 @@
+@@ -26,6 +_,7 @@
+     }
+ 
      public void tick() {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          this.tickCount++;
+         if (!this.cooldowns.isEmpty()) {
+             Iterator<Entry<Item, ItemCooldowns.CooldownInstance>> iterator = this.cooldowns.entrySet().iterator();

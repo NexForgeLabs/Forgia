@@ -1,6 +1,8 @@
 --- a/net/minecraft/world/scores/Scoreboard.java
 +++ b/net/minecraft/world/scores/Scoreboard.java
-@@ -35,2 +_,8 @@
+@@ -33,6 +_,12 @@
+     private static final Logger LOGGER = LogUtils.getLogger();
+     private final Object2ObjectMap<String, Objective> objectivesByName = new Object2ObjectOpenHashMap<>(16, 0.5F);
      private final Reference2ObjectMap<ObjectiveCriteria, List<Objective>> objectivesByCriteria = new Reference2ObjectOpenHashMap<>();
 +    private volatile long forgiaObjectiveRevision;
 +
@@ -9,12 +11,21 @@
 +        return this.forgiaObjectiveRevision;
 +    }
      private final Map<String, PlayerScores> playerScores = new Object2ObjectOpenHashMap<>(16, 0.5F);
-@@ -57,2 +_,4 @@
+     private final Map<DisplaySlot, Objective> displayObjectives = new EnumMap<>(DisplaySlot.class);
+     private final Object2ObjectMap<String, PlayerTeam> teamsByName = new Object2ObjectOpenHashMap<>();
+@@ -54,6 +_,8 @@
+         if (this.objectivesByName.containsKey(p_83437_)) {
+             throw new IllegalArgumentException("An objective with the name '" + p_83437_ + "' already exists!");
+         } else {
 +            net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("scoreboard objective creation");
 +            this.forgiaObjectiveRevision++;
              Objective objective = new Objective(this, p_83437_, p_83438_, p_83439_, p_83440_, p_313815_, p_313909_);
              this.objectivesByCriteria.computeIfAbsent(p_83438_, p_314722_ -> Lists.newArrayList()).add(objective);
-@@ -65,2 +_,10 @@
+             this.objectivesByName.put(p_83437_, objective);
+@@ -62,12 +_,35 @@
+         }
+     }
+ 
 +    /** Read only at the original quiescent capture; workers use the captured empty answer. */
 +    public boolean forgiaHasObjectives(ObjectiveCriteria criterion) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("scoreboard capture");
@@ -25,7 +36,10 @@
      public final void forAllObjectives(ObjectiveCriteria p_83428_, ScoreHolder p_313805_, Consumer<ScoreAccess> p_83430_) {
 +        if (net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.emptyObjectives(this, p_83428_, p_313805_)) return;
          this.objectivesByCriteria
-@@ -71,1 +_,16 @@
+             .getOrDefault(p_83428_, Collections.emptyList())
+             .forEach(p_313676_ -> p_83430_.accept(this.getOrCreatePlayerScore(p_313805_, p_313676_, true)));
+     }
+ 
 +    /** Original objective lists are inspected on the quiescent publisher, never a replacement traversal. */
 +    public java.util.List<Objective> forgiaPlayerObjectives(ObjectiveCriteria criterion) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("scoreboard capture");
@@ -42,11 +56,22 @@
 +    }
 +
      private PlayerScores getOrCreatePlayerInfo(String p_313892_) {
-@@ -79,1 +_,2 @@
+         return this.playerScores.computeIfAbsent(p_313892_, p_313683_ -> new PlayerScores());
+     }
+@@ -77,6 +_,7 @@
+     }
+ 
      public ScoreAccess getOrCreatePlayerScore(final ScoreHolder p_313717_, final Objective p_83473_, boolean p_313939_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkObjective(this, p_313717_, p_83473_);
-@@ -222,2 +_,4 @@
+         final boolean flag = p_313939_ || !p_83473_.getCriteria().isReadOnly();
+         PlayerScores playerscores = this.getOrCreatePlayerInfo(p_313717_.getScoreboardName());
+         final MutableBoolean mutableboolean = new MutableBoolean();
+@@ -220,6 +_,8 @@
+     }
+ 
      public void removeObjective(Objective p_83503_) {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.rejectLifecycle("scoreboard objective removal");
 +        this.forgiaObjectiveRevision++;
          this.objectivesByName.remove(p_83503_.getName());
+ 
+         for (DisplaySlot displayslot : DisplaySlot.values()) {

@@ -1,6 +1,9 @@
 --- a/net/minecraft/world/inventory/AbstractContainerMenu.java
 +++ b/net/minecraft/world/inventory/AbstractContainerMenu.java
-@@ -167,2 +_,118 @@
+@@ -164,9 +_,128 @@
+         return nonnulllist;
+     }
+ 
 +    /** Mutable menu objects participate in original-identity alias checks and pre-body validation. */
 +    public java.util.List<Object> forgiaPlayerLocalMenuObjects() {
 +        java.util.List<Object> objects = new java.util.ArrayList<>();
@@ -119,7 +122,6 @@
      public void broadcastChanges() {
 +        net.neoforged.neoforge.server.threading.region.RegionPlayerStateScope.checkLocal(this);
          for (int i = 0; i < this.slots.size(); i++) {
-@@ -169,4 +_,7 @@
              ItemStack itemstack = this.slots.get(i).getItem();
 +            if (itemstack == this.lastSlots.get(i) && (this.suppressRemoteUpdates || itemstack == this.remoteSlots.get(i))) {
 +                continue;

@@ -13,6 +13,10 @@ import net.minecraft.server.level.ServerLevel;
  */
 public record RegionCoordinate(ServerLevel level, int regionX, int regionZ) {
 
+    public long asLong() {
+        return net.minecraft.world.level.ChunkPos.asLong(this.regionX, this.regionZ);
+    }
+
     public static final int DEFAULT_REGION_CHUNK_SHIFT = RegionLayout.DYNAMIC_REGION_CHUNK_SHIFT;
     /**
      * {@return the legacy {@link RegionPolicy#DYNAMIC} region containing {@code pos}

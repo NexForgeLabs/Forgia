@@ -9,7 +9,8 @@
                  return l;
              }
          }
-@@ -214,11 +_,26 @@
+@@ -213,12 +_,27 @@
+         }
      }
  
 +    public java.util.List<Object> forgiaPlayerLocalObjects() {
@@ -46,7 +47,10 @@
                  crashreportcategory.setDetail("Item ID", Item.getId(p_36042_.getItem()));
                  crashreportcategory.setDetail("Item data", p_36042_.getDamageValue());
                  crashreportcategory.setDetail("Item name", () -> p_36042_.getHoverName().getString());
-@@ -452,4 +_,5 @@
+@@ -449,7 +_,8 @@
+     public ItemStack getItem(int p_35991_) {
+         List<ItemStack> list = null;
+ 
 -        for (NonNullList<ItemStack> nonnulllist : this.compartments) {
 +        for (int index = 0; index < this.compartments.size(); index++) {
 +            NonNullList<ItemStack> nonnulllist = this.compartments.get(index);

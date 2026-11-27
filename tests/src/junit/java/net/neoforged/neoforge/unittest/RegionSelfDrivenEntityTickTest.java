@@ -938,6 +938,41 @@ class RegionSelfDrivenEntityTickTest {
     }
 
     @Test
+    void readOnlyAttachmentAccessOnSameRegionEntityAllowedWhileWriteOrForeignRegionDemotes() {
+        this.installEngine();
+        final ServerLevel level = this.mockLevel();
+        final net.minecraft.world.entity.monster.Spider observer = this.entity(
+                net.minecraft.world.entity.monster.Spider.class, level, new AtomicReference<>(new BlockPos(17, 64, 17)));
+        final net.minecraft.world.entity.monster.Zombie sameRegionUnowned = this.entity(
+                net.minecraft.world.entity.monster.Zombie.class, level, new AtomicReference<>(new BlockPos(20, 64, 20)));
+        final net.minecraft.world.entity.monster.Skeleton foreignRegionEntity = this.entity(
+                net.minecraft.world.entity.monster.Skeleton.class, level, new AtomicReference<>(new BlockPos(200, 64, 200)));
+        when(sameRegionUnowned.isAddedToLevel()).thenReturn(true);
+        when(sameRegionUnowned.getLevelCallback()).thenReturn(mock(net.minecraft.world.level.entity.EntityInLevelCallback.class));
+        when(foreignRegionEntity.isAddedToLevel()).thenReturn(true);
+        when(foreignRegionEntity.getLevelCallback()).thenReturn(mock(net.minecraft.world.level.entity.EntityInLevelCallback.class));
+
+        final List<Thread> observerThreads = new CopyOnWriteArrayList<>();
+        doAnswer(call -> {
+            observerThreads.add(Thread.currentThread());
+            RegionThreadingHooks.assertAttachmentHolderAccess(sameRegionUnowned, "AttachmentHolder.getData");
+            RegionThreadingHooks.assertAttachmentHolderAccess(sameRegionUnowned, "AttachmentHolder.hasData");
+            assertThrows(net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.class,
+                    () -> RegionThreadingHooks.assertAttachmentHolderAccess(sameRegionUnowned, "AttachmentHolder.setData"));
+            assertThrows(net.neoforged.neoforge.server.threading.region.RegionWorkerBoundaryException.class,
+                    () -> RegionThreadingHooks.assertAttachmentHolderAccess(foreignRegionEntity, "AttachmentHolder.getData"));
+            return null;
+        }).when(observer).tick();
+
+        this.tickList.add(observer);
+        this.plan(level).executeAndAwait();
+
+        assertEquals(1, observerThreads.size());
+        assertTrue(observerThreads.get(0).getName().startsWith("NeoForge Region Worker"));
+        assertEquals(0L, this.engine.boundaryFallbackEntityTickCount());
+    }
+
+    @Test
     void packetDistributorFromWorkerEntityTickDefersToServerThreadWhileChunkMapTrackingReadDemotes() {
         this.installEngine();
         final ServerLevel level = this.mockLevel();

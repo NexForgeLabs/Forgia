@@ -1,9 +1,17 @@
 --- a/net/minecraft/world/item/TooltipFlag.java
 +++ b/net/minecraft/world/item/TooltipFlag.java
-@@ -8,6 +_,27 @@
+@@ -1,12 +_,33 @@
+ package net.minecraft.world.item;
+ 
+-public interface TooltipFlag {
++public interface TooltipFlag extends net.neoforged.neoforge.common.extensions.TooltipFlagExtension {
+     TooltipFlag.Default NORMAL = new TooltipFlag.Default(false, false);
+     TooltipFlag.Default ADVANCED = new TooltipFlag.Default(true, false);
+ 
+     boolean isAdvanced();
  
      boolean isCreative();
- 
++
 +    /**
 +     * Neo: Returns the state of the Control key (as reported by Screen) on the client, or {@code false} on the server.
 +     */
@@ -24,7 +32,6 @@
 +    default boolean hasAltDown() {
 +        return false;
 +    }
-+
+ 
      public static record Default(boolean advanced, boolean creative) implements TooltipFlag {
          @Override
-         public boolean isAdvanced() {

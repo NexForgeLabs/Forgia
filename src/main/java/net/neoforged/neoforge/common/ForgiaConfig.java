@@ -203,6 +203,19 @@ public final class ForgiaConfig {
         public final BooleanValue enableSingleRegionContraptionWorkers;
         public final IntValue unifiedRegionEntityContainmentMarginBlocks;
 
+        public final IntValue sandboxMaxInstanceBackoffTicks;
+        public final IntValue sandboxHopperPlayerSafeRadiusBlocks;
+        public final IntValue autosaveMaxQuiesceWaitMillis;
+        public final LongValue blockEventsPerRegionBudgetNanos;
+        public final IntValue maxSyncNavigationRecomputesPerTick;
+        public final BooleanValue enableAsyncInlandBlockScheduledTicks;
+        public final IntValue inlandBlockScheduledTickMarginBlocks;
+        public final LongValue blockScheduledTickSerialBudgetNanos;
+        public final BooleanValue enableSlimeWorkerTicks;
+        public final BooleanValue enableHighDensityEntityTrackerThrottle;
+        public final IntValue entityTrackerDenseChunkThreshold;
+        public final IntValue entityTrackerSevereChunkThreshold;
+
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment(
                     "=== [1] Diagnostics & Runtime Sampling / 诊断与性能采样 ===",
@@ -698,6 +711,80 @@ public final class ForgiaConfig {
                             "[中文] Phase 4B 移动动态结构实体留在 Region Worker 运行所需的距区域边界最小安全边距（单位：格，默认 8；靠近或跨越边界时自动 0-tick 同步切回主线程）。")
                     .translation("neoforge.configgui.unifiedRegionEntityContainmentMarginBlocks")
                     .defineInRange("unifiedRegionEntityContainmentMarginBlocks", 8, 1, 32);
+
+            sandboxMaxInstanceBackoffTicks = builder
+                    .comment(
+                            "=== [7] Single-Chunk Lag Isolation & Time-Slicing / 单区块卡顿隔离与主线程切片 ===",
+                            "Maximum exponential backoff cooldown (in ticks) for a single block-entity coordinate that repeatedly hits spatial/capability boundary exceptions, instead of pinning it permanently on the server thread. Default 1200 (60s).",
+                            "[中文] 单坐标沙盒方块实体反复触发空间/能力边界异常后的最大指数退避冷却时长（单位：tick，默认 1200 即 60 秒；到期后允许重新尝试回 Worker）。")
+                    .defineInRange("sandboxMaxInstanceBackoffTicks", 1200, 20, 72000);
+
+            sandboxHopperPlayerSafeRadiusBlocks = builder
+                    .comment(
+                            "Player-free safety radius (in blocks) required for an interior open-top hopper to run item-pickup on its owning Region Worker under the Phase 4 unified loop. Default 8.",
+                            "[中文] Phase 4 统一循环下，内陆裸露漏斗在 Region Worker 原位吸取掉落物所需的周围无玩家安全半径（单位：格，默认 8；0 表示不限制）。")
+                    .defineInRange("sandboxHopperPlayerSafeRadiusBlocks", 8, 0, 64);
+
+            autosaveMaxQuiesceWaitMillis = builder
+                    .comment(
+                            "Maximum milliseconds an incremental (non-flush) autosave waits for slow async regions to finish before skipping busy regions' chunks (keeping them unsaved for the next cycle) instead of stalling server TPS. 0 disables the timeout. Default 15.",
+                            "[中文] 增量自动保存（非 flush）等待慢速异步 Region 静默的最大毫秒数（默认 15ms；超时仍在运行的慢区将保留未保存标记留待下轮，不再拖垮全服 TPS；0 表示无限等待）。")
+                    .defineInRange("autosaveMaxQuiesceWaitMillis", 15, 0, 10000);
+
+            blockEventsPerRegionBudgetNanos = builder
+                    .comment(
+                            "Maximum nanoseconds per server tick spent executing block events (e.g. piston pushes) for a single region before deferring remaining events of that region to the next tick without dropping them. 0 disables the cap. Default 2000000 (2ms).",
+                            "[中文] 主线程每 Tick 处理单个 Region 方块事件（如活塞推动）的最大耗时预算（纳秒，默认 2ms；超出部分顺延至下一帧而不丢失事件；0 表示不限制）。")
+                    .defineInRange("blockEventsPerRegionBudgetNanos", 2_000_000L, 0L, 50_000_000L);
+
+            maxSyncNavigationRecomputesPerTick = builder
+                    .comment(
+                            "Maximum synchronous PathNavigation.recomputePath() calls executed on the server thread per sendBlockUpdated; excess mobs are marked for deferred recomputation on their owning Region Worker. Default 16.",
+                            "[中文] 单次方块更新在主线程同步重算寻路的最大生物数量（默认 16；超出部分标记延迟到生物所属 Region Worker 下一帧异步重算）。")
+                    .defineInRange("maxSyncNavigationRecomputesPerTick", 16, 0, 10000);
+
+            enableAsyncInlandBlockScheduledTicks = builder
+                    .comment(
+                            "EXPERIMENTAL: Coalesces inland single-region scheduled block ticks (whose footprint stays >= inlandBlockScheduledTickMarginBlocks inside one region with 3x3 loaded chunks) into that region's async worker tick. Default false.",
+                            "[中文] 实验性：将严格位于单 Region 内陆（距边界 >= inlandBlockScheduledTickMarginBlocks 且 3x3 邻域已加载）的方块计划刻合流至所属 Region 异步 Worker 执行（默认 false）。")
+                    .define("enableAsyncInlandBlockScheduledTicks", false);
+
+            inlandBlockScheduledTickMarginBlocks = builder
+                    .comment(
+                            "Safety margin (in blocks) from region borders required for a scheduled block tick to qualify as inland under enableAsyncInlandBlockScheduledTicks. Default 6.",
+                            "[中文] 启用内陆方块计划刻异步化时，计划刻位置距区域边界的最小安全边距（单位：格，默认 6）。")
+                    .defineInRange("inlandBlockScheduledTickMarginBlocks", 6, 2, 15);
+
+            blockScheduledTickSerialBudgetNanos = builder
+                    .comment(
+                            "Maximum nanoseconds per server tick spent executing serial block scheduled ticks for a single region before rescheduling remaining ticks of that region to the next tick. 0 disables the cap. Default 2000000 (2ms).",
+                            "[中文] 主线程串行方块计划刻单个 Region 每帧最大耗时预算（纳秒，默认 2ms；超出部分无损推迟至下一 Tick；0 表示不限制）。")
+                    .defineInRange("blockScheduledTickSerialBudgetNanos", 2_000_000L, 0L, 50_000_000L);
+
+            enableSlimeWorkerTicks = builder
+                    .comment(
+                            "Allows Slime and MagmaCube entities to tick on Region Workers while deferring death-split child spawns through the safe admission queue. Default true.",
+                            "[中文] 允许史莱姆与岩浆怪在 Region Worker 上并行执行，死亡分裂子体通过延迟队列安全入世（默认 true）。")
+                    .worldRestart()
+                    .define("enableSlimeWorkerTicks", true);
+
+            enableHighDensityEntityTrackerThrottle = builder
+                    .comment(
+                            "Adaptively reduces ChunkMap entity-tracker client packet sync frequency in dense chunks (players, cross-border moves, and player vehicles always sync every tick; server logic ticks are never skipped). Default true.",
+                            "[中文] 开启高密度区块客户端实体追踪发包自适应降频（玩家、跨区移动与载人载具始终满频同步，且绝不跳过任何服务端实体逻辑帧；默认 true）。")
+                    .define("enableHighDensityEntityTrackerThrottle", true);
+
+            entityTrackerDenseChunkThreshold = builder
+                    .comment(
+                            "Non-player entity count in a single chunk above which entity-tracker sync runs every 2nd tick. Default 64.",
+                            "[中文] 单区块追踪实体数超过此阈值时，普通实体客户端同步包降为每 2 tick 发送一次（默认 64）。")
+                    .defineInRange("entityTrackerDenseChunkThreshold", 64, 8, 10000);
+
+            entityTrackerSevereChunkThreshold = builder
+                    .comment(
+                            "Non-player entity count in a single chunk above which entity-tracker sync runs every 4th tick. Default 256.",
+                            "[中文] 单区块追踪实体数超过此阈值时，普通实体客户端同步包降为每 4 tick 发送一次（默认 256）。")
+                    .defineInRange("entityTrackerSevereChunkThreshold", 256, 16, 10000);
         }
     }
 }

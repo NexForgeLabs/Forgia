@@ -51,8 +51,8 @@ public final class RegionAdapterApi {
     private static final Map<String, java.util.function.BiPredicate<ServerLevel, BlockPos>> SANDBOX_FLUID_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_NAMESPACE_PREDICATES = new ConcurrentHashMap<>();
     private static final Map<String, java.util.function.Predicate<net.minecraft.world.level.block.entity.BlockEntity>> SANDBOX_TYPE_PREDICATES = new ConcurrentHashMap<>();
-    private static final Map<ServerLevel, Map<Long, Long>> TRANSIENT_BE_COOLDOWNS = new ConcurrentHashMap<>();
-    private static final Map<String, java.util.concurrent.atomic.AtomicInteger> TRANSIENT_BE_BOUNDARY_COUNTS = new ConcurrentHashMap<>();
+    private static final Map<ServerLevel, ConcurrentHashMap<Long, ConcurrentHashMap<Long, Long>>> TRANSIENT_BE_COOLDOWNS = new ConcurrentHashMap<>();
+    private static final Map<ServerLevel, ConcurrentHashMap<Long, java.util.concurrent.atomic.AtomicInteger>> TRANSIENT_BE_BOUNDARY_COUNTS = new ConcurrentHashMap<>();
     private static final Map<ServerLevel, double[]> SERVER_THREAD_ENTITY_LOCKSTEP_BOXES = new ConcurrentHashMap<>();
     private static final int PERMANENT_DEMOTION_THRESHOLD = 16;
     private static final Map<ServerLevel, Map<Long, BlockPos>> VIRTUAL_CHUNK_AFFINITY = new ConcurrentHashMap<>();
@@ -338,17 +338,26 @@ public final class RegionAdapterApi {
         if (level == null || pos == null || type == null) {
             return false;
         }
-        final String instanceKey = type + "@" + pos.asLong();
+        final long posKey = pos.asLong();
+        final long chunkKey = ChunkPos.asLong(pos);
         final int count = TRANSIENT_BE_BOUNDARY_COUNTS
-                .computeIfAbsent(instanceKey, k -> new java.util.concurrent.atomic.AtomicInteger())
+                .computeIfAbsent(level, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(posKey, k -> new java.util.concurrent.atomic.AtomicInteger())
                 .incrementAndGet();
-        final Map<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS
-                .computeIfAbsent(level, k -> new ConcurrentHashMap<>());
-        if (count >= net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxPermanentDemotionThreshold()) {
-            byPos.put(pos.asLong(), Long.MAX_VALUE);
+        final ConcurrentHashMap<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS
+                .computeIfAbsent(level, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(chunkKey, k -> new ConcurrentHashMap<>());
+        final int threshold = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxPermanentDemotionThreshold();
+        final long baseCooldown = Math.max(1L, cooldownTicks);
+        if (count >= threshold) {
+            final long maxBackoff = Math.max(baseCooldown,
+                    net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxMaxInstanceBackoffTicks());
+            final int shift = Math.min(12, count - threshold + 4);
+            final long backoff = Math.min(maxBackoff, baseCooldown << shift);
+            byPos.put(posKey, level.getGameTime() + backoff);
             return false;
         }
-        byPos.put(pos.asLong(), level.getGameTime() + Math.max(1L, cooldownTicks));
+        byPos.put(posKey, level.getGameTime() + baseCooldown);
         return true;
     }
 
@@ -356,7 +365,12 @@ public final class RegionAdapterApi {
         if (level == null || pos == null) {
             return false;
         }
-        final Map<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS.get(level);
+        final ConcurrentHashMap<Long, ConcurrentHashMap<Long, Long>> byChunk = TRANSIENT_BE_COOLDOWNS.get(level);
+        if (byChunk == null || byChunk.isEmpty()) {
+            return false;
+        }
+        final long chunkKey = ChunkPos.asLong(pos);
+        final ConcurrentHashMap<Long, Long> byPos = byChunk.get(chunkKey);
         if (byPos == null || byPos.isEmpty()) {
             return false;
         }
@@ -367,6 +381,9 @@ public final class RegionAdapterApi {
         }
         if (level.getGameTime() >= until) {
             byPos.remove(key, until);
+            if (byPos.isEmpty()) {
+                byChunk.remove(chunkKey, byPos);
+            }
             return false;
         }
         return true;
@@ -381,10 +398,53 @@ public final class RegionAdapterApi {
         if (level == null || pos == null || cooldownTicks <= 0L) {
             return;
         }
-        final Map<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS
-                .computeIfAbsent(level, k -> new ConcurrentHashMap<>());
+        final long chunkKey = ChunkPos.asLong(pos);
+        final ConcurrentHashMap<Long, Long> byPos = TRANSIENT_BE_COOLDOWNS
+                .computeIfAbsent(level, k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(chunkKey, k -> new ConcurrentHashMap<>());
         final long until = level.getGameTime() + cooldownTicks;
         byPos.merge(pos.asLong(), until, Math::max);
+    }
+
+    public static void clearTransientSandboxedFallbackAt(@org.jetbrains.annotations.Nullable ServerLevel level, @org.jetbrains.annotations.Nullable BlockPos pos) {
+        if (level == null || pos == null) {
+            return;
+        }
+        final long posKey = pos.asLong();
+        final long chunkKey = ChunkPos.asLong(pos);
+        final var byChunk = TRANSIENT_BE_COOLDOWNS.get(level);
+        if (byChunk != null) {
+            final var byPos = byChunk.get(chunkKey);
+            if (byPos != null) {
+                byPos.remove(posKey);
+                if (byPos.isEmpty()) {
+                    byChunk.remove(chunkKey, byPos);
+                }
+            }
+        }
+        final var counts = TRANSIENT_BE_BOUNDARY_COUNTS.get(level);
+        if (counts != null) {
+            counts.remove(posKey);
+        }
+    }
+
+    public static void clearTransientSandboxedFallbacksInChunk(@org.jetbrains.annotations.Nullable ServerLevel level, long chunkKey) {
+        if (level == null) {
+            return;
+        }
+        final var byChunk = TRANSIENT_BE_COOLDOWNS.get(level);
+        if (byChunk == null) {
+            return;
+        }
+        final var removed = byChunk.remove(chunkKey);
+        if (removed != null && !removed.isEmpty()) {
+            final var counts = TRANSIENT_BE_BOUNDARY_COUNTS.get(level);
+            if (counts != null) {
+                for (final Long posKey : removed.keySet()) {
+                    counts.remove(posKey);
+                }
+            }
+        }
     }
 
     /**
@@ -432,7 +492,7 @@ public final class RegionAdapterApi {
     /**
      * Fast chunk-level pre-check on the server thread before dispatching a chunk's sandboxed BEs
      * asynchronously. Returns {@code true} only when this chunk overlaps an active server-thread
-     * entity lockstep box or when the level has active transient per-position fallbacks, so those
+     * entity lockstep box or when this specific chunk has active transient per-position fallbacks, so those
      * specific BEs can be routed into {@code serialAdmissions} on the <em>current</em> tick with
      * zero 1-tick {@code postGlobal} phase skew.
      */
@@ -441,9 +501,13 @@ public final class RegionAdapterApi {
         if (level == null) {
             return false;
         }
-        final Map<Long, Long> cooldowns = TRANSIENT_BE_COOLDOWNS.get(level);
-        if (cooldowns != null && !cooldowns.isEmpty()) {
-            return true;
+        final var byChunk = TRANSIENT_BE_COOLDOWNS.get(level);
+        if (byChunk != null && !byChunk.isEmpty()) {
+            final long chunkKey = ChunkPos.asLong(chunkX, chunkZ);
+            final var chunkCooldowns = byChunk.get(chunkKey);
+            if (chunkCooldowns != null && !chunkCooldowns.isEmpty()) {
+                return true;
+            }
         }
         final double[] boxes = SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.get(level);
         if (boxes == null || boxes.length == 0) {
@@ -465,6 +529,7 @@ public final class RegionAdapterApi {
     public static void clearTransientSandboxedFallbacksForLevel(ServerLevel level) {
         if (level != null) {
             TRANSIENT_BE_COOLDOWNS.remove(level);
+            TRANSIENT_BE_BOUNDARY_COUNTS.remove(level);
             SERVER_THREAD_ENTITY_LOCKSTEP_BOXES.remove(level);
         }
     }
@@ -503,20 +568,41 @@ public final class RegionAdapterApi {
             return false;
         }
         final BlockPos pos = be.getBlockPos();
-        // Open-top hoppers can pull ground ItemEntities via entity storage queries; keep those on the server thread
-        // so one open hopper never triggers entity ownership demotion for all hoppers.
-        final BlockPos above = pos.above();
-        if (level.getBlockState(above).isAir() && level.getBlockEntity(above) == null) {
-            return false;
-        }
         final var threading = RegionThreadingManager.currentOrNull();
+        final boolean interior;
         if (threading instanceof net.neoforged.neoforge.server.threading.region.RegionThreadingEngine engine) {
             final var layout = engine.regionLayout();
             final var owner = layout.regionAt(level, pos);
-            return layout.isInRegion(level, (pos.getX() - 1) >> 4, (pos.getZ() - 1) >> 4, owner)
+            interior = layout.isInRegion(level, (pos.getX() - 1) >> 4, (pos.getZ() - 1) >> 4, owner)
                     && layout.isInRegion(level, (pos.getX() + 1) >> 4, (pos.getZ() - 1) >> 4, owner)
                     && layout.isInRegion(level, (pos.getX() - 1) >> 4, (pos.getZ() + 1) >> 4, owner)
                     && layout.isInRegion(level, (pos.getX() + 1) >> 4, (pos.getZ() + 1) >> 4, owner);
+        } else {
+            interior = true;
+        }
+        if (!interior) {
+            return false;
+        }
+        // Open-top hoppers pull ground ItemEntities via region-scoped entity queries.
+        // Under Phase 4 unified loop (with active RegionEntityOwnershipScope) and no nearby players,
+        // the owning worker holds exclusive entity-bucket & item-removal deferral authority.
+        final BlockPos above = pos.above();
+        if (level.getBlockState(above).isAir() && level.getBlockEntity(above) == null) {
+            final boolean allowedScope = net.neoforged.neoforge.server.threading.RegionThreadingHooks.isNativeRegionWorkerThread()
+                    ? net.neoforged.neoforge.server.threading.region.RegionEntityOwnershipScope.hasActiveLease(level)
+                    : net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.unifiedRegionTickLoopEnabled();
+            if (!allowedScope) {
+                return false;
+            }
+            final int safeRadius = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.sandboxHopperPlayerSafeRadiusBlocks();
+            if (safeRadius > 0) {
+                final double maxDistSq = (double) safeRadius * safeRadius;
+                for (final net.minecraft.server.level.ServerPlayer player : level.players()) {
+                    if (player.distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5) <= maxDistSq) {
+                        return false;
+                    }
+                }
+            }
         }
         return true;
     }

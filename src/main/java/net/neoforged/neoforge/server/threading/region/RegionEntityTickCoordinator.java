@@ -875,6 +875,9 @@ final class RegionEntityTickCoordinator {
         if (entity == null || entity.isRemoved() || entity.level() != level) {
             return false;
         }
+        if (net.neoforged.neoforge.server.threading.api.RegionAdapterApi.isRegionContainedEntity(entity)) {
+            return true;
+        }
         if (entity instanceof net.minecraft.world.entity.player.Player
                 || entity instanceof net.minecraft.world.entity.LivingEntity
                 || entity instanceof net.minecraft.world.entity.item.ItemEntity
@@ -886,9 +889,6 @@ final class RegionEntityTickCoordinator {
                 || entity instanceof net.minecraft.world.entity.Marker
                 || entity instanceof net.minecraft.world.entity.AreaEffectCloud) {
             return false;
-        }
-        if (entity instanceof net.minecraft.world.entity.vehicle.AbstractMinecart) {
-            return true;
         }
         return entity.getDeltaMovement().lengthSqr() > 1.0E-6
                 || entity.getX() != entity.xo

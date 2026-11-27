@@ -1,6 +1,9 @@
 --- a/net/minecraft/world/level/block/entity/ChestBlockEntity.java
 +++ b/net/minecraft/world/level/block/entity/ChestBlockEntity.java
-@@ -138,2 +_,16 @@
+@@ -135,6 +_,20 @@
+         }
+     }
+ 
 +    public boolean forgiaHasPlainPlayerInventory() {
 +        return this.lootTable == null && this.items.size() == 27
 +            && this.items.stream().allMatch(net.neoforged.neoforge.server.threading.region.RegionPlayerInventoryPlan::supportedStack);
@@ -17,10 +20,13 @@
 +
      @Override
      protected NonNullList<ItemStack> getItems() {
-@@ -173,6 +_,17 @@
+         return this.items;
+@@ -171,6 +_,17 @@
+     @Override
+     protected AbstractContainerMenu createMenu(int p_59082_, Inventory p_59083_) {
          return ChestMenu.threeRows(p_59082_, p_59083_, this);
-     }
- 
++    }
++
 +    @Override
 +    public void setBlockState(BlockState p_155251_) {
 +        var oldState = getBlockState();
@@ -30,8 +36,6 @@
 +                || (oldState.getValue(ChestBlock.TYPE) != p_155251_.getValue(ChestBlock.TYPE))) {
 +            this.invalidateCapabilities();
 +        }
-+    }
-+
+     }
+ 
      public void recheckOpen() {
-         if (!this.remove) {
-             this.openersCounter.recheckOpeners(this.getLevel(), this.getBlockPos(), this.getBlockState());

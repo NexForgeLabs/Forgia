@@ -1,6 +1,9 @@
 --- a/net/minecraft/world/level/chunk/ChunkAccess.java
 +++ b/net/minecraft/world/level/chunk/ChunkAccess.java
-@@ -154,2 +_,7 @@
+@@ -151,6 +_,11 @@
+         return i == -1 ? this.getMinBuildHeight() : SectionPos.sectionToBlockCoord(this.getSectionYFromSectionIndex(i));
+     }
+ 
 +    /** Original live and pending block-entity data, without materializing the combined key set. */
 +    public final boolean forgiaHasBlockEntityData() {
 +        return !this.blockEntities.isEmpty() || !this.pendingBlockEntities.isEmpty();
@@ -8,6 +11,7 @@
 +
      public Set<BlockPos> getBlockEntitiesPos() {
          Set<BlockPos> set = Sets.newHashSet(this.pendingBlockEntities.keySet());
+         set.addAll(this.blockEntities.keySet());
 @@ -170,6 +_,9 @@
      }
  

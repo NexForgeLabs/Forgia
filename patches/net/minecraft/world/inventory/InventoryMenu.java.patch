@@ -1,6 +1,9 @@
 --- a/net/minecraft/world/inventory/InventoryMenu.java
 +++ b/net/minecraft/world/inventory/InventoryMenu.java
-@@ -52,2 +_,53 @@
+@@ -49,6 +_,57 @@
+     public final boolean active;
+     private final Player owner;
+ 
 +    private final Slot[] forgiaOriginalSlots;
 +
 +    public boolean forgiaHasOriginalSlots() {
@@ -54,9 +57,12 @@
 +    }
      public InventoryMenu(Inventory p_39706_, boolean p_39707_, final Player p_39708_) {
          super(null, 0);
-@@ -89,4 +_,5 @@
+         this.active = p_39707_;
+@@ -89,6 +_,7 @@
                  return Pair.of(InventoryMenu.BLOCK_ATLAS, InventoryMenu.EMPTY_ARMOR_SLOT_SHIELD);
              }
          });
 +        this.forgiaOriginalSlots = this.slots.toArray(Slot[]::new);
      }
+ 
+     public static boolean isHotbarSlot(int p_150593_) {

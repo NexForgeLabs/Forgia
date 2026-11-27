@@ -338,14 +338,18 @@
          }
      }
  
-@@ -758,7 +_,11 @@
+@@ -758,7 +_,15 @@
          p_8648_.tickCount++;
          this.getProfiler().push(() -> BuiltInRegistries.ENTITY_TYPE.getKey(p_8648_.getType()).toString());
          profilerfiller.incrementCounter("tickNonPassenger");
 -        p_8648_.tick();
 +        // Neo: Permit cancellation of Entity#tick via EntityTickEvent.Pre
 +        if (!net.neoforged.neoforge.event.EventHooks.fireEntityTickPre(p_8648_).isCanceled()) {
-+            net.neoforged.neoforge.server.threading.RegionThreadingHooks.runEntityTickTask(p_8648_, p_8648_::tick);
++            if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldRunEntityTickDirectly(p_8648_)) {
++                p_8648_.tick();
++            } else {
++                net.neoforged.neoforge.server.threading.RegionThreadingHooks.runEntityTickTask(p_8648_, p_8648_::tick);
++            }
 +            net.neoforged.neoforge.event.EventHooks.fireEntityTickPost(p_8648_);
 +        }
          this.getProfiler().pop();
@@ -360,43 +364,62 @@
              profilerfiller.pop();
  
              for (Entity entity : p_8664_.getPassengers()) {
-@@ -792,6 +_,10 @@
+@@ -792,20 +_,41 @@
      public void save(@Nullable ProgressListener p_8644_, boolean p_8645_, boolean p_8646_) {
          ServerChunkCache serverchunkcache = this.getChunkSource();
          if (!p_8646_) {
+-            if (p_8644_ != null) {
+-                p_8644_.progressStartNoAbort(Component.translatable("menu.savingLevel"));
+-            }
+-
+-            this.saveLevelData();
+-            if (p_8644_ != null) {
+-                p_8644_.progressStage(Component.translatable("menu.savingChunks"));
+-            }
+-
+-            serverchunkcache.save(p_8645_);
+-            if (p_8645_) {
+-                this.entityManager.saveAll();
+-            } else {
+-                this.entityManager.autoSave();
 +            // Neo: the save point. The region threading engine checks here that the save observes a completed
 +            // level tick - no region batch in flight and no deferred effect waiting for a barrier - and counts
 +            // what it saw, so a save can never write a half-applied tick to disk.
-+            net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginLevelSave(this);
-             if (p_8644_ != null) {
-                 p_8644_.progressStartNoAbort(Component.translatable("menu.savingLevel"));
-             }
-@@ -801,12 +_,25 @@
-                 p_8644_.progressStage(Component.translatable("menu.savingChunks"));
-             }
- 
-+            final long forgiaSaveStart = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming();
++            net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginLevelSave(this, p_8645_);
 +            try {
-             serverchunkcache.save(p_8645_);
++                if (p_8644_ != null) {
++                    p_8644_.progressStartNoAbort(Component.translatable("menu.savingLevel"));
++                }
++
++                this.saveLevelData();
++                if (p_8644_ != null) {
++                    p_8644_.progressStage(Component.translatable("menu.savingChunks"));
++                }
++
++                final long forgiaSaveStart = net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginPlayerConnectionTailTiming();
++                try {
++                serverchunkcache.save(p_8645_);
++                } finally {
++                    net.neoforged.neoforge.server.threading.RegionThreadingHooks.endPlayerChunkSaveTiming(forgiaSaveStart, p_8645_);
++                }
++                if (p_8645_) {
++                    this.entityManager.saveAll();
++                } else {
++                    this.entityManager.autoSave();
++                }
++                net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.level.LevelEvent.Save(this));
++                if (p_8645_) {
++                    net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
++                    // Neo: the chunk and entity data of a flushing save is on disk now. The regionized POI storage
++                    // writes through its own IO worker, which the vanilla wait does not cover, so the engine writes
++                    // the remaining POI columns and waits for them here.
++                    net.neoforged.neoforge.server.threading.RegionThreadingHooks.endLevelSave(this);
++                }
 +            } finally {
-+                net.neoforged.neoforge.server.threading.RegionThreadingHooks.endPlayerChunkSaveTiming(forgiaSaveStart, p_8645_);
-+            }
-             if (p_8645_) {
-                 this.entityManager.saveAll();
-             } else {
-                 this.entityManager.autoSave();
++                net.neoforged.neoforge.server.threading.RegionThreadingHooks.endLevelSaveQuiescence(this);
              }
-+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.level.LevelEvent.Save(this));
-+            if (p_8645_) {
-+                net.neoforged.neoforge.common.IOUtilities.waitUntilIOWorkerComplete();
-+                // Neo: the chunk and entity data of a flushing save is on disk now. The regionized POI storage
-+                // writes through its own IO worker, which the vanilla wait does not cover, so the engine writes
-+                // the remaining POI columns and waits for them here.
-+                net.neoforged.neoforge.server.threading.RegionThreadingHooks.endLevelSave(this);
-+            }
          }
      }
- 
 @@ -852,7 +_,9 @@
      public List<ServerPlayer> getPlayers(Predicate<? super ServerPlayer> p_261698_, int p_262035_) {
          List<ServerPlayer> list = Lists.newArrayList();
@@ -614,7 +637,52 @@
          if (this.isUpdatingNavigations) {
              String s = "recursive call to sendBlockUpdated";
              Util.logAndPauseIfInIde("recursive call to sendBlockUpdated", new IllegalStateException("recursive call to sendBlockUpdated"));
-@@ -1057,11 +_,16 @@
+@@ -1035,33 +_,54 @@
+         VoxelShape voxelshape = p_8757_.getCollisionShape(this, p_8755_);
+         if (Shapes.joinIsNotEmpty(voxelshape1, voxelshape, BooleanOp.NOT_SAME)) {
+             List<PathNavigation> list = new ObjectArrayList<>();
++            int maxSync = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.maxSyncNavigationRecomputesPerTick();
+ 
+             for (Mob mob : this.navigatingMobs) {
++                if (Math.abs(mob.getBlockX() - p_8755_.getX()) > 96 || Math.abs(mob.getBlockZ() - p_8755_.getZ()) > 96) {
++                    continue;
++                }
+                 PathNavigation pathnavigation = mob.getNavigation();
+                 if (pathnavigation.shouldRecomputePath(p_8755_)) {
+-                    list.add(pathnavigation);
++                    if (net.neoforged.neoforge.server.threading.RegionThreadingHooks.shouldDeferNavigationRecompute(this, mob)) {
++                        pathnavigation.deferRecomputePath();
++                    } else {
++                        list.add(pathnavigation);
++                    }
+                 }
+             }
+ 
+-            try {
+-                this.isUpdatingNavigations = true;
++            if (!list.isEmpty()) {
++                try {
++                    this.isUpdatingNavigations = true;
+ 
+-                for (PathNavigation pathnavigation1 : list) {
+-                    pathnavigation1.recomputePath();
++                    int syncCount = 0;
++                    for (PathNavigation pathnavigation1 : list) {
++                        if (syncCount < maxSync) {
++                            pathnavigation1.recomputePath();
++                            syncCount++;
++                        } else {
++                            pathnavigation1.deferRecomputePath();
++                        }
++                    }
++                } finally {
++                    this.isUpdatingNavigations = false;
+                 }
+-            } finally {
+-                this.isUpdatingNavigations = false;
+             }
+         }
+     }
  
      @Override
      public void updateNeighborsAt(BlockPos p_215045_, Block p_215046_) {
@@ -665,7 +733,7 @@
          this.getChunkSource().broadcastAndSend(p_270420_, new ClientboundDamageEventPacket(p_270420_, p_270311_));
      }
  
-@@ -1111,59 +_,112 @@
+@@ -1111,59 +_,126 @@
              explosion.clearToBlow();
          }
  
@@ -768,6 +836,9 @@
 +        // queues a second block event for a piston that pushes across a border. The scope is closed in a finally
 +        // so every lease is released when an event throws.
 +        net.neoforged.neoforge.server.threading.RegionThreadingHooks.beginBlockEventPhase(this);
++        final long perRegionBudgetNanos = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.blockEventsPerRegionBudgetNanos();
++        final it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap regionNanos =
++            perRegionBudgetNanos > 0L ? new it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap() : null;
 +        try {
 +            while (true) {
 +                BlockEventData blockeventdata;
@@ -778,6 +849,14 @@
 +                    blockeventdata = this.blockEvents.removeFirst();
 +                }
 +                if (this.shouldTickBlocksAt(blockeventdata.pos())) {
++                    final long regionKey = regionNanos != null
++                        ? net.neoforged.neoforge.server.threading.RegionThreadingHooks.regionKeyForBlock(this, blockeventdata.pos())
++                        : 0L;
++                    if (regionNanos != null && regionNanos.get(regionKey) >= perRegionBudgetNanos) {
++                        this.blockEventsToReschedule.add(blockeventdata);
++                        continue;
++                    }
++                    final long sliceStart = regionNanos != null ? System.nanoTime() : 0L;
 +                    net.neoforged.neoforge.server.threading.RegionThreadingHooks.runBlockTickTask(this, blockeventdata.pos(), () -> {
 +                        // Neo: the move of a piston event runs here, so the attribution of one event is the
 +                        // attribution of one multi-block move.
@@ -800,6 +879,9 @@
 +                            net.neoforged.neoforge.server.threading.region.RegionBlockEventAttribution.endEvent(eventStart);
 +                        }
 +                    });
++                    if (regionNanos != null) {
++                        regionNanos.addTo(regionKey, Math.max(0L, System.nanoTime() - sliceStart));
++                    }
 +                } else {
 +                    this.blockEventsToReschedule.add(blockeventdata);
 +                }

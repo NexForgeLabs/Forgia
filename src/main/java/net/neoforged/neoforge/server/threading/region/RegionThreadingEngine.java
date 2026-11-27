@@ -1269,7 +1269,9 @@ public final class RegionThreadingEngine implements RegionThreading {
         // A vehicle ticks its passengers recursively. Pin the whole riding stack before worker admission
         // so a mounted player's connection, input and dismount updates stay on the server thread too.
         this.entityTickPolicy.declarePlayerRidingStack();
-        this.entityTickPolicy.serverThreadOnly(Slime.class, "slime_split_on_removal");
+        if (!RegionThreadingConfig.slimeWorkerTicksEnabled()) {
+            this.entityTickPolicy.serverThreadOnly(Slime.class, "slime_split_on_removal");
+        }
         this.entityTickPolicy.serverThreadOnly(FishingHook.class, "fishing_hook_remove");
         this.entityTickPolicy.serverThreadOnly(net.minecraft.world.entity.monster.Shulker.class, "shulker_peek_push");
         this.entityTickPolicy.serverThreadOnly(net.minecraft.world.entity.projectile.Projectile.class,
@@ -5787,6 +5789,17 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
 
         @Override
+        public boolean isIndependentRegionTickEnabled() {
+            return RegionThreadingEngine.this.isIndependentRegionTickEnabled();
+        }
+
+        @Override
+        public boolean isRegionInFlight(RegionCoordinate coordinate) {
+            return RegionThreadingEngine.this.independentTickScheduler != null
+                    && RegionThreadingEngine.this.independentTickScheduler.isRegionInFlight(coordinate);
+        }
+
+        @Override
         public boolean submitAsyncFluidGroup(RegionState region, RegionScheduledTickBatch<?> regionBatch, Runnable wrappedWork, Runnable serverThreadCommit) {
             final ServerLevel level = region.coordinate().level();
             if (level != null) {
@@ -6922,10 +6935,27 @@ public final class RegionThreadingEngine implements RegionThreading {
      * </ul>
      * Runs on the thread that saves, which is the server thread of a production server.
      */
+    private final Map<ServerLevel, RegionIndependentTickScheduler.BoundedLevelPin> activeSavePins = new ConcurrentHashMap<>();
+
     @ApiStatus.Internal
     public void beginLevelSave(ServerLevel level) {
+        this.beginLevelSave(level, true);
+    }
+
+    @ApiStatus.Internal
+    public void beginLevelSave(ServerLevel level, boolean flush) {
         this.flushStagedFusedChunks(level);
-        this.independentTickScheduler.awaitLevelQuiescent(level, false);
+        final int maxWaitMs = flush ? 0 : RegionThreadingConfig.autosaveMaxQuiesceWaitMillis();
+        if (!flush && maxWaitMs > 0 && this.isIndependentRegionTickEnabled()) {
+            final var previous = this.activeSavePins.remove(level);
+            if (previous != null) {
+                previous.close();
+            }
+            this.activeSavePins.put(level,
+                    this.independentTickScheduler.tryPinLevelQuiescent(level, maxWaitMs * 1_000_000L));
+        } else {
+            this.independentTickScheduler.awaitLevelQuiescent(level, false);
+        }
         this.levelSaves.incrementAndGet();
         long tickDeferred = 0L;
         boolean batchInFlight = false;
@@ -6984,6 +7014,24 @@ public final class RegionThreadingEngine implements RegionThreading {
         final int pending = poiStorage.dirtyColumnCount();
         poiStorage.flushAll();
         this.levelSaveFlushedPoiColumns.addAndGet(pending);
+    }
+
+    @ApiStatus.Internal
+    public void endLevelSaveQuiescence(ServerLevel level) {
+        final var pin = this.activeSavePins.remove(level);
+        if (pin != null) {
+            pin.close();
+        }
+    }
+
+    @ApiStatus.Internal
+    public boolean isChunkInBusyAsyncRegion(ServerLevel level, ChunkPos chunkPos) {
+        final var pin = this.activeSavePins.get(level);
+        if (pin == null) {
+            return false;
+        }
+        final RegionCoordinate coord = this.layout.regionAt(level, chunkPos.x, chunkPos.z);
+        return pin.isBusy(coord);
     }
 
     /**
@@ -7180,6 +7228,26 @@ public final class RegionThreadingEngine implements RegionThreading {
         }
     }
 
+    @ApiStatus.Internal
+    public void drainLevelRegionTasksNonBlocking(ServerLevel level) {
+        Objects.requireNonNull(level, "level");
+        this.runAdmitted(() -> {
+            final long now = System.nanoTime();
+            final long tickIndex = level.getGameTime();
+            final boolean workerThread = this.workerPool.isWorkerThread(Thread.currentThread());
+            final boolean tryLifecycleGateOnly = workerThread || this.isExecutingTickBatchOnCurrentThread()
+                    || this.isExecutingRegionTickOnCurrentThread();
+            if (this.isIndependentRegionTickEnabled()
+                    && (this.workerExecutionEnabled || this.independentRegionTickOverride)
+                    && !workerThread
+                    && this.independentTickScheduler != null) {
+                this.drainLevelRegionTasksAsync(level, now, tickIndex, tryLifecycleGateOnly);
+                return;
+            }
+            this.drainLevelRegionTasks(level, levelBarrier(level));
+        });
+    }
+
     private void drainLevelRegionTasks(ServerLevel level, @Nullable RegionTickBarrier barrier) {
         final long now = System.nanoTime();
         // Every live region of this level opens the metric slot of this server tick before any of its work is
@@ -7228,6 +7296,54 @@ public final class RegionThreadingEngine implements RegionThreading {
             this.awaitRegionQuiescent(region, barrier);
         }
         completion.throwIfFailed();
+    }
+
+    private void drainLevelRegionTasksAsync(ServerLevel level, long nowNanos, long tickIndex, boolean tryLifecycleGateOnly) {
+        this.regionizer.forEach(region -> {
+            if (region.coordinate().level() != level) {
+                return;
+            }
+            region.tickMetrics().beginTick(tickIndex, nowNanos);
+            if (region.isOwnedByCurrentThread() || region.isDead() || region.isRunning() || region.isWorkerSubmitted()) {
+                return;
+            }
+            if (this.independentTickScheduler.isRegionInFlight(region.coordinate())) {
+                return;
+            }
+            if (region.taskQueue().pendingCount() == 0) {
+                if (this.acquireLifecycleReadLock(tryLifecycleGateOnly)) {
+                    try {
+                        if (!this.shutdown && !region.isDead()) {
+                            synchronized (region) {
+                                if (!region.tickTimer().isDue(nowNanos)) {
+                                    return;
+                                }
+                            }
+                            this.tryCompleteEmptyRegionDrain(region, nowNanos);
+                        }
+                    } finally {
+                        this.lifecycleGate.readLock().unlock();
+                    }
+                }
+                this.regionizer.removeIfEmpty(region);
+                return;
+            }
+            synchronized (region) {
+                if (!region.tickTimer().isDue(nowNanos)) {
+                    return;
+                }
+            }
+            this.independentTickScheduler.submitAsyncSlice(
+                    region,
+                    "region queue drain",
+                    () -> this.tickRunner.runIfDue(region, nowNanos, () -> {
+                        final RegionCoordinate coordinate = region.coordinate();
+                        this.runWithContext(
+                                new BasicRegionThreadingContext(RegionThreadingContext.Kind.REGION, coordinate.level(), coordinate, region, null),
+                                () -> this.failedQueuedTaskCount.addAndGet(region.taskQueue().drain()));
+                    }),
+                    null);
+        });
     }
 
     private RegionTickBarrier levelBarrier(ServerLevel level) {
