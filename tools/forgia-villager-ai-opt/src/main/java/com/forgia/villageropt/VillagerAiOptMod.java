@@ -11,6 +11,6 @@ public final class VillagerAiOptMod {
     private static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     public VillagerAiOptMod(IEventBus iEventBus) {
-        LOGGER.info("Forgia Villager AI Opt 1.2.0 loaded: Villager Brain throttle + Brainlayers chunk-BE fast lookup + TealLib/ByteStreamTag/Hamster optimizations.");
+        LOGGER.info("Forgia Villager AI Opt 1.3.0 loaded: Villager Brain throttle + Brainlayers chunk-BE fast lookup + TealLib/ByteStreamTag/Hamster + ChunkMap unload spin-guard.");
     }
 }

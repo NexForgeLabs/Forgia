@@ -2448,6 +2448,9 @@ public final class RegionThreadingEngine implements RegionThreading {
 
         @Override
         public boolean acquireRegionLease(RegionState region, RegionTickBarrier barrier) {
+            if (RegionThreadingEngine.this.isIndependentRegionTickEnabled()) {
+                return RegionThreadingEngine.this.acquireRegionLeaseBounded(region, barrier, 10_000_000L);
+            }
             return RegionThreadingEngine.this.acquireRegionLease(region, barrier);
         }
 
@@ -2781,14 +2784,15 @@ public final class RegionThreadingEngine implements RegionThreading {
                                     || RegionThreadingConfig.asyncRegionSpawningEnabled());
                     boolean acquiredAfterYield = false;
                     if (canYieldForAsyncWorker) {
-                        final long deadline = System.nanoTime() + 50_000_000L;
+                        final long waitBudgetNanos = (entity instanceof net.minecraft.world.entity.player.Player) ? 50_000_000L : 10_000_000L;
+                        final long deadline = System.nanoTime() + waitBudgetNanos;
                         while (!region.isDead() && System.nanoTime() < deadline) {
-                            this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+                            this.serviceMainThreadQueuesForAsyncWait(level);
                             if (region.tryMarkRunning()) {
                                 acquiredAfterYield = true;
                                 break;
                             }
-                            Thread.onSpinWait();
+                            java.util.concurrent.locks.LockSupport.parkNanos(100_000L);
                         }
                     }
                     if (!acquiredAfterYield) {
@@ -5404,15 +5408,53 @@ public final class RegionThreadingEngine implements RegionThreading {
             return true;
         }
         final AtomicBoolean acquired = new AtomicBoolean();
+        final ServerLevel level = region.coordinate().level();
+        final long waitStart = System.nanoTime();
+        final long[] nextWarnAt = { waitStart + 5_000_000_000L };
         barrier.await(() -> {
-            if (this.independentTickScheduler != null && region.coordinate().level() != null) {
-                this.independentTickScheduler.drainCompletedCommits(region.coordinate().level(), 500_000L);
-            }
+            this.serviceMainThreadQueuesForAsyncWait(level);
             if (region.isDead()) {
                 return true;
             }
             acquired.set(region.tryMarkRunning());
-            return acquired.get();
+            if (acquired.get()) {
+                return true;
+            }
+            final long now = System.nanoTime();
+            if (now >= nextWarnAt[0]) {
+                nextWarnAt[0] = now + 5_000_000_000L;
+                LOGGER.warn("Waiting {} ms to acquire region lease for {} (running={}, submitted={}, dead={})",
+                        (now - waitStart) / 1_000_000L,
+                        region.coordinate(),
+                        region.isRunning(),
+                        region.isWorkerSubmitted(),
+                        region.isDead());
+            }
+            return false;
+        });
+        return acquired.get();
+    }
+
+    boolean acquireRegionLeaseBounded(RegionState region, RegionTickBarrier barrier, long timeoutNanos) {
+        if (region.isDead()) {
+            return false;
+        }
+        if (region.tryMarkRunning()) {
+            return true;
+        }
+        final AtomicBoolean acquired = new AtomicBoolean();
+        final ServerLevel level = region.coordinate().level();
+        final long deadline = System.nanoTime() + Math.max(0L, timeoutNanos);
+        barrier.await(() -> {
+            this.serviceMainThreadQueuesForAsyncWait(level);
+            if (region.isDead()) {
+                return true;
+            }
+            if (region.tryMarkRunning()) {
+                acquired.set(true);
+                return true;
+            }
+            return System.nanoTime() >= deadline;
         });
         return acquired.get();
     }
@@ -7346,15 +7388,32 @@ public final class RegionThreadingEngine implements RegionThreading {
         });
     }
 
+    private void serviceMainThreadQueuesForAsyncWait(@Nullable ServerLevel level) {
+        if (this.independentTickScheduler != null) {
+            if (level != null) {
+                this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
+            }
+            this.independentTickScheduler.drainAllCompletedCommits(250_000L);
+        }
+        if (level != null) {
+            final MinecraftServer server = level.getServer();
+            if (server != null && server.isSameThread()) {
+                final ServerChunkCache chunkSource = level.getChunkSource();
+                if (chunkSource != null) {
+                    chunkSource.pollTask();
+                }
+                server.pollTask();
+            }
+        }
+    }
+
     private RegionTickBarrier levelBarrier(ServerLevel level) {
         final ServerChunkCache chunkSource = level.getChunkSource();
         if (chunkSource == null) {
             return null;
         }
         return condition -> chunkSource.managedBlockOnMainThread(() -> {
-            if (this.independentTickScheduler != null) {
-                this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
-            }
+            this.serviceMainThreadQueuesForAsyncWait(level);
             return condition.getAsBoolean();
         });
     }
@@ -7366,9 +7425,7 @@ public final class RegionThreadingEngine implements RegionThreading {
         final ServerLevel level = region.coordinate().level();
         if (barrier == null) {
             while (region.isWorkerSubmitted() || region.isRunning()) {
-                if (this.independentTickScheduler != null && level != null) {
-                    this.independentTickScheduler.drainCompletedCommits(level, 500_000L);
-                }
+                this.serviceMainThreadQueuesForAsyncWait(level);
                 if (!region.isWorkerSubmitted() && !region.isRunning()) {
                     return;
                 }

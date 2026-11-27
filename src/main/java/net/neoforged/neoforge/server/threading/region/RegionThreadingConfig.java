@@ -383,4 +383,46 @@ public final class RegionThreadingConfig {
                 ? ForgiaConfig.SERVER.entityTrackerSevereChunkThreshold.get()
                 : ForgiaConfig.SERVER.entityTrackerSevereChunkThreshold.getDefault();
     }
+
+    public static boolean fastChunkPaletteSerializationEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableFastChunkPaletteSerialization.get()
+                : ForgiaConfig.SERVER.enableFastChunkPaletteSerialization.getDefault();
+    }
+
+    public static boolean asyncChunkLoadDeserializeEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncChunkLoadDeserialize.get()
+                : ForgiaConfig.SERVER.enableAsyncChunkLoadDeserialize.getDefault();
+    }
+
+    public static long chunkUnloadTickBudgetNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.chunkUnloadTickBudgetNanos.get()
+                : ForgiaConfig.SERVER.chunkUnloadTickBudgetNanos.getDefault();
+    }
+
+    public static boolean chunkUnloadSpinGuardEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableChunkUnloadSpinGuard.get()
+                : ForgiaConfig.SERVER.enableChunkUnloadSpinGuard.getDefault();
+    }
+
+    public static int chunkUnloadBacklogMaxPerTick() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.chunkUnloadBacklogMaxPerTick.get()
+                : ForgiaConfig.SERVER.chunkUnloadBacklogMaxPerTick.getDefault();
+    }
+
+    public static long incrementalAutosaveBudgetNanos() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.incrementalAutosaveBudgetNanos.get()
+                : ForgiaConfig.SERVER.incrementalAutosaveBudgetNanos.getDefault();
+    }
+
+    public static boolean asyncPlayerDataSaveEnabled() {
+        return ForgiaConfig.isServerConfigLoaded()
+                ? ForgiaConfig.SERVER.enableAsyncPlayerDataSave.get()
+                : ForgiaConfig.SERVER.enableAsyncPlayerDataSave.getDefault();
+    }
 }

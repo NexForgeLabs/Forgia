@@ -1,5 +1,76 @@
 --- a/net/minecraft/world/level/chunk/storage/ChunkSerializer.java
 +++ b/net/minecraft/world/level/chunk/storage/ChunkSerializer.java
+@@ -101,34 +_,47 @@
+         Codec<PalettedContainerRO<Holder<Biome>>> codec = makeBiomeCodec(registry);
+         boolean flag2 = false;
+ 
++        LevelChunkSection[] predecodedSections = net.neoforged.neoforge.server.threading.region.FastChunkSerialization.consumePredecoded(p_188233_, p_188234_);
++        boolean fastPalette = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.fastChunkPaletteSerializationEnabled();
+         for (int j = 0; j < listtag.size(); j++) {
+             CompoundTag compoundtag = listtag.getCompound(j);
+             int k = compoundtag.getByte("Y");
+             int l = p_188231_.getSectionIndexFromSectionY(k);
+             if (l >= 0 && l < alevelchunksection.length) {
+-                PalettedContainer<BlockState> palettedcontainer;
+-                if (compoundtag.contains("block_states", 10)) {
+-                    palettedcontainer = BLOCK_STATE_CODEC.parse(NbtOps.INSTANCE, compoundtag.getCompound("block_states"))
+-                        .promotePartial(p_188283_ -> logErrors(p_188233_, k, p_188283_))
+-                        .getOrThrow(ChunkSerializer.ChunkReadException::new);
+-                } else {
+-                    palettedcontainer = new PalettedContainer<>(
+-                        Block.BLOCK_STATE_REGISTRY, Blocks.AIR.defaultBlockState(), PalettedContainer.Strategy.SECTION_STATES
+-                    );
+-                }
+-
+-                PalettedContainerRO<Holder<Biome>> palettedcontainerro;
+-                if (compoundtag.contains("biomes", 10)) {
+-                    palettedcontainerro = codec.parse(NbtOps.INSTANCE, compoundtag.getCompound("biomes"))
+-                        .promotePartial(p_188274_ -> logErrors(p_188233_, k, p_188274_))
+-                        .getOrThrow(ChunkSerializer.ChunkReadException::new);
+-                } else {
+-                    palettedcontainerro = new PalettedContainer<>(
+-                        registry.asHolderIdMap(), registry.getHolderOrThrow(Biomes.PLAINS), PalettedContainer.Strategy.SECTION_BIOMES
+-                    );
+-                }
+-
+-                LevelChunkSection levelchunksection = new LevelChunkSection(palettedcontainer, palettedcontainerro);
++                LevelChunkSection levelchunksection = predecodedSections != null ? predecodedSections[l] : null;
++                if (levelchunksection == null) {
++                    PalettedContainer<BlockState> palettedcontainer;
++                    if (compoundtag.contains("block_states", 10)) {
++                        CompoundTag blockStatesTag = compoundtag.getCompound("block_states");
++                        PalettedContainer<BlockState> fastDecoded = fastPalette
++                            ? net.neoforged.neoforge.server.threading.region.FastChunkSerialization.readBlockStatesFast(blockStatesTag)
++                            : null;
++                        if (fastDecoded != null) {
++                            palettedcontainer = fastDecoded;
++                        } else {
++                            palettedcontainer = BLOCK_STATE_CODEC.parse(NbtOps.INSTANCE, blockStatesTag)
++                                .promotePartial(p_188283_ -> logErrors(p_188233_, k, p_188283_))
++                                .getOrThrow(ChunkSerializer.ChunkReadException::new);
++                        }
++                    } else {
++                        palettedcontainer = new PalettedContainer<>(
++                            Block.BLOCK_STATE_REGISTRY, Blocks.AIR.defaultBlockState(), PalettedContainer.Strategy.SECTION_STATES
++                        );
++                    }
++
++                    PalettedContainerRO<Holder<Biome>> palettedcontainerro;
++                    if (compoundtag.contains("biomes", 10)) {
++                        palettedcontainerro = codec.parse(NbtOps.INSTANCE, compoundtag.getCompound("biomes"))
++                            .promotePartial(p_188274_ -> logErrors(p_188233_, k, p_188274_))
++                            .getOrThrow(ChunkSerializer.ChunkReadException::new);
++                    } else {
++                        palettedcontainerro = new PalettedContainer<>(
++                            registry.asHolderIdMap(), registry.getHolderOrThrow(Biomes.PLAINS), PalettedContainer.Strategy.SECTION_BIOMES
++                        );
++                    }
++
++                    levelchunksection = new LevelChunkSection(palettedcontainer, palettedcontainerro);
++                }
+                 alevelchunksection[l] = levelchunksection;
+                 SectionPos sectionpos = SectionPos.of(p_188233_, k);
+                 p_188232_.checkConsistencyWithBlocks(sectionpos, levelchunksection);
 @@ -183,6 +_,8 @@
                  postLoadChunk(p_188231_, p_188234_),
                  blendingdata
@@ -34,6 +105,22 @@
              return protochunk1;
          }
      }
+@@ -324,7 +_,14 @@
+                 CompoundTag compoundtag1 = new CompoundTag();
+                 if (flag1) {
+                     LevelChunkSection levelchunksection = alevelchunksection[j];
+-                    compoundtag1.put("block_states", BLOCK_STATE_CODEC.encodeStart(NbtOps.INSTANCE, levelchunksection.getStates()).getOrThrow());
++                    CompoundTag fastEncoded = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.fastChunkPaletteSerializationEnabled()
++                        ? net.neoforged.neoforge.server.threading.region.FastChunkSerialization.writeBlockStatesFast(levelchunksection.getStates())
++                        : null;
++                    if (fastEncoded != null) {
++                        compoundtag1.put("block_states", fastEncoded);
++                    } else {
++                        compoundtag1.put("block_states", BLOCK_STATE_CODEC.encodeStart(NbtOps.INSTANCE, levelchunksection.getStates()).getOrThrow());
++                    }
+                     compoundtag1.put("biomes", codec.encodeStart(NbtOps.INSTANCE, levelchunksection.getBiomes()).getOrThrow());
+                 }
+ 
 @@ -374,6 +_,11 @@
  
              compoundtag.put("CarvingMasks", compoundtag4);

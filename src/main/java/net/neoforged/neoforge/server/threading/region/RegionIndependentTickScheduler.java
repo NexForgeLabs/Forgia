@@ -746,6 +746,26 @@ public final class RegionIndependentTickScheduler {
     }
 
     /**
+     * Non-blockingly drains completed asynchronous region commits across all levels on the server thread.
+     * Prevents A-B deadlocks when an async worker in one dimension awaits a main-thread handoff on another.
+     */
+    public int drainAllCompletedCommits(long budgetNanos) {
+        if (this.commitQueues.isEmpty()) {
+            return 0;
+        }
+        final long deadline = budgetNanos > 0L ? System.nanoTime() + budgetNanos : Long.MAX_VALUE;
+        int total = 0;
+        for (final ServerLevel level : this.commitQueues.keySet()) {
+            final long remaining = budgetNanos > 0L ? Math.max(1L, deadline - System.nanoTime()) : 0L;
+            total += this.drainCompletedCommits(level, remaining);
+            if (budgetNanos > 0L && System.nanoTime() >= deadline) {
+                break;
+            }
+        }
+        return total;
+    }
+
+    /**
      * Pins a single region and waits until its currently in-flight asynchronous tick (if any) finishes.
      * Other regions continue running unaffected.
      *
@@ -979,6 +999,15 @@ public final class RegionIndependentTickScheduler {
         while (clock.inFlight.get()) {
             if (level != null) {
                 this.drainCompletedCommits(level, 1_000_000L);
+                this.drainAllCompletedCommits(250_000L);
+                final var server = level.getServer();
+                if (server != null && server.isSameThread()) {
+                    final var chunkSource = level.getChunkSource();
+                    if (chunkSource != null) {
+                        chunkSource.pollTask();
+                    }
+                    server.pollTask();
+                }
             }
             synchronized (clock.completionMonitor) {
                 if (!clock.inFlight.get()) {

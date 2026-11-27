@@ -1,6 +1,21 @@
 # Performance Benchmarks: Stock / Serial vs. Forgia
 
-This page separates the **latest Phase 3 production validation (`21.1.250.300-beta`)** from earlier C7 and historical controlled tests. Older microbenchmarks describe only their named build, fixture and configuration; they are not current-build speedup claims.
+This page separates the **latest Phase 4A 1-hour production soak (`21.1.250.323-beta`)**, **Phase 3 production validation (`21.1.250.300-beta`)**, and earlier C7 and historical controlled tests. Older microbenchmarks describe only their named build, fixture and configuration; they are not current-build speedup claims.
+
+---
+
+## Latest Phase 4A 1-Hour Production Soak (`21.1.250.323-beta` / SkyExplorer Live Server)
+
+Measured every 5 minutes over **1 hour (`67.5 min` uptime)** on `21.1.250.323-beta` (`enableUnifiedRegionTickLoop = true`, `enableIndependentRegionTickClock = true`, `enableRegionSandboxAllBlockEntities = true`, 14 Region Workers, `DYNAMIC_CLUSTER/4ch`, `Intel Xeon Gold 6138 @ 2.00GHz`, 16 vCPU / 32 GiB) with **2–4 players exploring apart (up to `7,269` loaded overworld chunks)**:
+
+| Metric | Forgia Phase 4A Live (1-Hour Window) | Estimated Full-Serial Equivalent |
+| :--- | :--- | :--- |
+| **TPS** | **`19.71 – 20.0 TPS`** (steady `20.0` in 10s / 1m windows) | **~`2.5 – 4.8 TPS`** (severely overloaded) |
+| **MSPT (Median / P95)** | **Median `29.0 – 40.0 ms`** / **10s P95 `38.0 – 55.3 ms`** | **~`210 – 390 ms/tick`** |
+| **CPU Core Utilization** | **Panel `652.9% – 1129.9%`** (~**`6.5 – 11.3 / 16 cores`** active) | Capped at 1 core (`100%` single-thread) |
+| **Memory (ZGC + Container RSS)** | **Old `3.2 – 7.3 GB` / 28.6 GB**, RSS **`29.8 – 31.4 GiB`** | Similar footprint for same loaded chunks/entities |
+
+- **Serial TPS Estimate Basis**: Under 4-player exploration (`~7,000` loaded chunks), the main thread spends `~30–40 ms/tick` while 14 Region Workers concurrently absorb **`~6.5 – 11.3 cores`** of entity, block entity, fluid, and random-tick work (equivalent to **`~180 – 350 ms/tick`** on a single thread). Running that same workload serially on one thread would yield `210 – 390 ms/tick`, or only **`~2.5 – 4.8 TPS`**.
 
 ---
 

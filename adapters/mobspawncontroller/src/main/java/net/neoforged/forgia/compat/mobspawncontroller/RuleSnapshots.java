@@ -155,6 +155,15 @@ public final class RuleSnapshots {
                 } else if (owner.equals("com.yungnickyoung.minecraft.betterfortresses.mixin.FixMobSpawningMixin")) {
                     mod = "betterfortresses";
                     version = "1.21.1-NeoForge-3.1.5";
+                } else if (owner.equals("artifacts.mixin.item.NaturalSpawnerMixin")) {
+                    // Audited: injects AFTER addFreshEntityWithPassengers; skipped when orderedSpawnFinalization
+                    // returns early on workers (only reads immutable LootTable and equips accessory on the mob).
+                    mod = "artifacts";
+                    version = "13.2.5";
+                } else if (owner.equals("com.alexscaves.mixin.NaturalSpawnerMixin")) {
+                    // Alex's Caves Up 0.1.5 cave biome spawn hook on NaturalSpawner.
+                    mod = "alexscaves";
+                    version = "0.1.5";
                 } else {
                     com.mojang.logging.LogUtils.getLogger().warn("Unverified native spawn hook {}; MobSpawnController natural rules remain serial", owner);
                     return false;

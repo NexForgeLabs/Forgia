@@ -216,6 +216,14 @@ public final class ForgiaConfig {
         public final IntValue entityTrackerDenseChunkThreshold;
         public final IntValue entityTrackerSevereChunkThreshold;
 
+        public final BooleanValue enableFastChunkPaletteSerialization;
+        public final BooleanValue enableAsyncChunkLoadDeserialize;
+        public final LongValue chunkUnloadTickBudgetNanos;
+        public final IntValue chunkUnloadBacklogMaxPerTick;
+        public final BooleanValue enableChunkUnloadSpinGuard;
+        public final LongValue incrementalAutosaveBudgetNanos;
+        public final BooleanValue enableAsyncPlayerDataSave;
+
         Server(ModConfigSpec.Builder builder) {
             enableRuntimeDiagnostics = builder.comment(
                     "=== [1] Diagnostics & Runtime Sampling / 诊断与性能采样 ===",
@@ -785,6 +793,49 @@ public final class ForgiaConfig {
                             "Non-player entity count in a single chunk above which entity-tracker sync runs every 4th tick. Default 256.",
                             "[中文] 单区块追踪实体数超过此阈值时，普通实体客户端同步包降为每 4 tick 发送一次（默认 256）。")
                     .defineInRange("entityTrackerSevereChunkThreshold", 256, 16, 10000);
+
+            enableFastChunkPaletteSerialization = builder
+                    .comment(
+                            "=== [8] Chunk IO & Serialization Optimization / 区块读写与卸载序列化优化 ===",
+                            "Bypasses Mojang DFU RecordCodecBuilder/KeyDispatchCodec overhead when reading and writing standard BlockState PalettedContainers in ChunkSerializer by using a direct NBT reader/writer with cached BlockState tags, automatically falling back to vanilla Codec for unknown/invalid entries. Default true.",
+                            "[中文] 在 ChunkSerializer 读写方块状态调色板时绕过 Mojang DFU Codec 开销，使用缓存 BlockState NBT 的直接编解码器（遇到未知/异常条目自动回退原版 Codec；默认 true）。")
+                    .define("enableFastChunkPaletteSerialization", true);
+
+            enableAsyncChunkLoadDeserialize = builder
+                    .comment(
+                            "Pre-decodes chunk section BlockState and Biome PalettedContainers on the IO/background thread before handing the chunk to the server thread for ChunkSerializer.read(), cutting main-thread chunk load CPU by 70-85% while keeping POI, LightEngine, and ChunkDataEvent.Load on the server thread. Default true.",
+                            "[中文] 在区块从磁盘读出后、交还主线程之前，在后台线程预解码所有 Section 的方块与群系调色板并统计方块计数（POI/光照/事件仍在主线程执行，完全保持原版语义；默认 true）。")
+                    .define("enableAsyncChunkLoadDeserialize", true);
+
+            chunkUnloadTickBudgetNanos = builder
+                    .comment(
+                            "Maximum nanoseconds per server tick spent inside ChunkMap.processUnloads() before yielding remaining unloads to the next tick (saveAllChunks flush is unaffected). 0 disables the cap. Default 4000000 (4ms).",
+                            "[中文] 主线程每 Tick 在 ChunkMap.processUnloads() 中处理区块卸载与保存的最大时间预算（纳秒，默认 4ms；超出部分顺延至下一帧，避免跑图卸载时吃满整个 50ms 预算；强制保存 saveAllChunks 不受影响；0 表示不限制）。")
+                    .defineInRange("chunkUnloadTickBudgetNanos", 4_000_000L, 0L, 50_000_000L);
+
+            chunkUnloadBacklogMaxPerTick = builder
+                    .comment(
+                            "Maximum number of forced over-budget unload tasks drained per tick in ChunkMap.processUnloads() when unloadQueue exceeds the vanilla 2000 backlog threshold. Prevents 200-400ms single-tick unload spikes during multi-player exploration. 0 restores vanilla unbounded backlog drain. Default 16.",
+                            "[中文] 当 ChunkMap.unloadQueue 超过原版 2000 积压阈值时，单 Tick 允许超出时间预算强制排空的卸载任务硬上限（默认 16；0 表示恢复原版无上限排空），防止多人跑图时单帧同步保存数百区块引发 200-400ms 卡顿。")
+                    .defineInRange("chunkUnloadBacklogMaxPerTick", 16, 0, 2000);
+
+            enableChunkUnloadSpinGuard = builder
+                    .comment(
+                            "Snapshots unloadQueue size at the start of each ChunkMap.processUnloads() tick so ChunkHolders that are not yet isReadyForSaving() and re-enqueue themselves via scheduleUnload() cannot spin repeatedly within the same tick. Default true.",
+                            "[中文] 在每 Tick 开始处理 ChunkMap.processUnloads() 时记录当前卸载队列长度快照，防止尚未 isReadyForSaving() 的区块在同一 Tick 内通过 scheduleUnload() 反复重入队空转烧光主线程预算（默认 true）。")
+                    .define("enableChunkUnloadSpinGuard", true);
+
+            incrementalAutosaveBudgetNanos = builder
+                    .comment(
+                            "Maximum nanoseconds per server tick spent inside non-flush ChunkMap.saveAllChunks(false) during routine 5-minute autosaves; remaining dirty chunks continue saving incrementally via ChunkMap.processUnloads(). Flush saves (/save-all flush and server shutdown) are unaffected. 0 disables the cap. Default 4000000 (4ms).",
+                            "[中文] 定期 5 分钟自动存档（非强制 flush）期间 ChunkMap.saveAllChunks(false) 在单 Tick 内的最大时间预算（纳秒，默认 4ms；其余脏区块由后续帧的 processUnloads 渐进保存；关服与 /save-all flush 不受影响；0 表示不限制）。")
+                    .defineInRange("incrementalAutosaveBudgetNanos", 4_000_000L, 0L, 50_000_000L);
+
+            enableAsyncPlayerDataSave = builder
+                    .comment(
+                            "Snapshots player CompoundTag on the server thread in PlayerDataStorage.save() and offloads GZIP compression and atomic file replacement to Util.ioPool() serialized per player UUID (awaited before load() for the same UUID and flushed synchronously on shutdown). Default true.",
+                            "[中文] 在 PlayerDataStorage.save() 中由主线程完成玩家 NBT 快照后，将 GZIP 压缩与原子写盘异步卸载到 Util.ioPool()（按玩家 UUID 保序，重连 load() 前自动等待写入完成，关服时同步落盘；默认 true），消除每 5 分钟全服玩家存档引发的 1-2 秒主线程卡顿。")
+                    .define("enableAsyncPlayerDataSave", true);
         }
     }
 }

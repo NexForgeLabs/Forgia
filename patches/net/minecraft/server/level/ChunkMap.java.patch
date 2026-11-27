@@ -18,19 +18,53 @@
              return p_140179_;
          }
      }
-@@ -434,7 +_,11 @@
+@@ -434,7 +_,16 @@
              this.processUnloads(() -> true);
              this.flushWorker();
          } else {
 -            this.visibleChunkMap.values().forEach(this::saveChunkIfNeeded);
-+            this.visibleChunkMap.values().forEach(holder -> {
++            long saveBudget = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.incrementalAutosaveBudgetNanos();
++            long saveStart = saveBudget > 0L ? System.nanoTime() : 0L;
++            for (ChunkHolder holder : this.visibleChunkMap.values()) {
 +                if (!net.neoforged.neoforge.server.threading.RegionThreadingHooks.isChunkInBusyAsyncRegion(this.level, holder.getPos())) {
 +                    this.saveChunkIfNeeded(holder);
++                    if (saveBudget > 0L && (System.nanoTime() - saveStart) >= saveBudget) {
++                        break;
++                    }
 +                }
-+            });
++            }
          }
      }
  
+@@ -444,7 +_,7 @@
+         this.poiManager.tick(p_140281_);
+         profilerfiller.popPush("chunk_unload");
+         if (!this.level.noSave()) {
+-            this.processUnloads(p_140281_);
++            this.processUnloads(net.neoforged.neoforge.server.threading.region.FastChunkSerialization.wrapUnloadBudget(p_140281_));
+         }
+ 
+         profilerfiller.pop();
+@@ -483,10 +_,17 @@
+             longiterator.remove();
+         }
+ 
+-        int k = Math.max(0, this.unloadQueue.size() - 2000);
++        int initialQueueSize = this.unloadQueue.size();
++        int k = Math.max(0, initialQueueSize - 2000);
++        int backlogCap = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.chunkUnloadBacklogMaxPerTick();
++        if (backlogCap > 0 && k > backlogCap) {
++            k = backlogCap;
++        }
++        boolean spinGuard = net.neoforged.neoforge.server.threading.region.RegionThreadingConfig.chunkUnloadSpinGuardEnabled();
++        int remainingThisTick = spinGuard ? initialQueueSize : Integer.MAX_VALUE;
+ 
+         Runnable runnable;
+-        while ((p_140354_.getAsBoolean() || k > 0) && (runnable = this.unloadQueue.poll()) != null) {
++        while ((p_140354_.getAsBoolean() || k > 0) && remainingThisTick-- > 0 && (runnable = this.unloadQueue.poll()) != null) {
+             k--;
+             runnable.run();
+         }
 @@ -510,6 +_,7 @@
                  if (this.pendingUnloads.remove(p_140182_, p_140183_) && chunkaccess != null) {
                      if (chunkaccess instanceof LevelChunk levelchunk) {
@@ -49,6 +83,40 @@
                      this.lightEngine.updateChunkStatus(chunkaccess.getPos());
                      this.lightEngine.tryScheduleUpdate();
                      this.progressListener.onStatusChange(chunkaccess.getPos(), null);
+@@ -541,17 +_,25 @@
+     }
+ 
+     private CompletableFuture<ChunkAccess> scheduleChunkLoad(ChunkPos p_140418_) {
+-        return this.readChunk(p_140418_).thenApply(p_214925_ -> p_214925_.filter(p_214928_ -> {
+-                boolean flag = isChunkDataValid(p_214928_);
+-                if (!flag) {
+-                    LOGGER.error("Chunk file at {} is missing level data, skipping", p_140418_);
+-                }
++        return this.readChunk(p_140418_).thenApply(p_214925_ -> net.neoforged.neoforge.server.threading.region.FastChunkSerialization.attachPredecoded(
++                this.level, p_140418_, p_214925_.filter(p_214928_ -> {
++                    boolean flag = isChunkDataValid(p_214928_);
++                    if (!flag) {
++                        LOGGER.error("Chunk file at {} is missing level data, skipping", p_140418_);
++                    }
+ 
+-                return flag;
+-            })).thenApplyAsync(p_351774_ -> {
++                    return flag;
++                }))).thenApplyAsync(p_351774_ -> {
+             this.level.getProfiler().incrementCounter("chunkLoad");
+             if (p_351774_.isPresent()) {
+-                ChunkAccess chunkaccess = ChunkSerializer.read(this.level, this.poiManager, this.storageInfo(), p_140418_, p_351774_.get());
++                var entry = p_351774_.get();
++                net.neoforged.neoforge.server.threading.region.FastChunkSerialization.pushPredecoded(entry.getValue().orElse(null));
++                ChunkAccess chunkaccess;
++                try {
++                    chunkaccess = ChunkSerializer.read(this.level, this.poiManager, this.storageInfo(), p_140418_, entry.getKey());
++                } finally {
++                    net.neoforged.neoforge.server.threading.region.FastChunkSerialization.clearPredecoded();
++                }
+                 this.markPosition(p_140418_, chunkaccess.getPersistedStatus().getChunkType());
+                 return chunkaccess;
+             } else {
 @@ -756,6 +_,7 @@
  
                  this.level.getProfiler().incrementCounter("chunkSave");

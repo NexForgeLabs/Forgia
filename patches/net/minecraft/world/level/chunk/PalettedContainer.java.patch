@@ -24,6 +24,15 @@
              int i = p_63119_.readByte();
              PalettedContainer.Data<T> data = this.createOrReuseData(this.data, i);
              data.palette.read(p_63119_);
+@@ -190,7 +_,7 @@
+         }
+     }
+ 
+-    private static <T> DataResult<PalettedContainer<T>> unpack(
++    public static <T> DataResult<PalettedContainer<T>> unpack(
+         IdMap<T> p_188068_, PalettedContainer.Strategy p_188069_, PalettedContainerRO.PackedData<T> p_238258_
+     ) {
+         List<T> list = p_238258_.paletteEntries();
 @@ -278,6 +_,28 @@
      @Override
      public boolean maybeHas(Predicate<T> p_63110_) {
